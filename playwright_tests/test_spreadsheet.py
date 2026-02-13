@@ -876,28 +876,25 @@ def test_new_file_clears_data(page: Page, base_url):
     assert 'Some data' not in cell_text
 
 
-def test_file_status_display(page: Page, base_url):
-    """Test that file status is displayed correctly"""
+def test_file_buttons_present(page: Page, base_url):
+    """Test that file operation buttons are present
+    
+    Note: File status display removed for browser mode because:
+    - Downloads are fire-and-forget (can't track if user saved)
+    - No persistent file paths in browser
+    - Will be re-added for desktop app with native dialogs
+    """
     page.goto(base_url)
     time.sleep(0.5)
     
-    # Check initial status (should show "No file" or similar)
-    status = page.locator('#file-status')
-    initial_text = status.text_content()
-    assert initial_text is not None
+    # Verify file operation buttons exist
+    new_btn = page.locator('#new-btn')
+    save_btn = page.locator('#save-btn')
+    load_btn = page.locator('#load-btn')
     
-    # Make a change
-    cell_a1 = page.locator('#cell-0-0')
-    cell_a1.click()
-    time.sleep(0.2)
-    page.keyboard.type('Test')
-    page.keyboard.press('Enter')
-    time.sleep(0.5)
-    
-    # Status should update (may show unsaved changes indicator)
-    # This is a basic check that the status element is functional
-    status_text = status.text_content()
-    assert status_text is not None
+    assert new_btn.is_visible()
+    assert save_btn.is_visible()
+    assert load_btn.is_visible()
 
 
 if __name__ == '__main__':

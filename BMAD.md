@@ -386,16 +386,19 @@ Following BMAD's practice of documenting key decisions:
 - **Load**: Uses `<input type="file">` - opens browser file picker
 - **Limitation**: Cannot choose save location, limited to browser security sandbox
 - **API Endpoints**: `/api/file/download` (GET) and `/api/file/upload` (POST)
+- **No File Status Display**: Removed because browser can't track if user completed save dialog
 **Future Implementation (Desktop App)**:
 - **Save**: Native "Save As" dialog with full file system access
 - **Load**: Native "Open" dialog
+- **File Status**: Re-add status bar showing file path and unsaved changes indicator
 - **Changes Needed**:
   1. Replace download/upload endpoints with native dialog integration
   2. Use Electron's `dialog.showSaveDialog()` and `dialog.showOpenDialog()`
   3. Or Tauri's file dialog APIs
   4. Remove hidden `<input type="file">` element
   5. Update frontend to call native APIs instead of download/upload
-  6. Keep old `/api/file/save` and `/api/file/load` endpoints for backward compatibility
+  6. Re-add file status display with real file paths
+  7. Keep old `/api/file/save` and `/api/file/load` endpoints for backward compatibility
 **Date**: 2026-02-13
 **Status**: ✅ Browser implementation complete, desktop packaging pending
 
@@ -523,6 +526,25 @@ Following BMAD's practice of documenting issues and resolutions:
 - `test_new_file_clears_data` - Playwright test for New File button
 - `test_file_status_display` - Playwright test for status display
 **Status**: ✅ Implemented and tested (18 Go unit tests, 31 Playwright tests)
+
+### Bug Fix 4: Misleading File Status Display
+**Date**: 2026-02-13
+**Reported**: User: "why do we have a file name at the top of the screen and it's incorrect?"
+**Issue**: File status was showing temp file paths (`/tmp/gosheet_download.gosheet`) and changing status before user completed browser's save dialog
+**Root Cause**: Browser download API is fire-and-forget - can't track if user actually saved file
+**Decision**: Remove file status display entirely in browser mode
+**Rationale**:
+- Browser can't reliably track save state (downloads are async, no completion callback)
+- No persistent file paths in browser mode (just temp files on server)
+- Status would be misleading to users
+- Will re-add when packaging as desktop app with native dialogs
+**Changes**:
+- Removed `#file-status` element from HTML
+- Removed `updateFileStatus()` function and all calls to it
+- Updated `handleDownloadFile()` to preserve Modified flag (don't clear on download)
+- Added comment explaining why status removed
+**Test Updated**: Changed `test_file_status_display` to `test_file_buttons_present` - just verifies buttons exist
+**Status**: ✅ Fixed - status removed for browser mode, will re-add for desktop app
 
 ## Next Steps
 

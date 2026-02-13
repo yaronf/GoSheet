@@ -126,7 +126,6 @@ document.querySelector('#app').innerHTML = `
         <button id="save-btn" class="toolbar-btn">Save</button>
         <button id="load-btn" class="toolbar-btn">Load</button>
         <input type="file" id="file-input" accept=".gosheet" style="display: none;" />
-        <span id="file-status" class="file-status"></span>
     </div>
     <div class="formula-bar-container">
         <span class="cell-ref" id="cell-ref">A1</span>
@@ -737,7 +736,6 @@ document.getElementById('new-btn').addEventListener('click', async () => {
             buildSpreadsheet();
             await loadCells();
             selectCell(0, 0);
-            updateFileStatus();
             alert('New spreadsheet created');
         } catch (error) {
             alert('Error creating new file: ' + error.message);
@@ -760,8 +758,9 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        updateFileStatus();
-        console.log('File downloaded successfully');
+        // Note: Don't update file status here - in browser mode, we can't know
+        // if the user actually saved the file from the browser's download dialog
+        console.log('File download initiated');
     } catch (error) {
         alert('Error saving file: ' + error.message);
     }
@@ -790,7 +789,6 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
         buildSpreadsheet();
         await loadCells();
         selectCell(0, 0);
-        updateFileStatus();
         
         console.log('File loaded successfully:', file.name);
     } catch (error) {
@@ -801,22 +799,10 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
     e.target.value = '';
 });
 
-// Update file status display
-async function updateFileStatus() {
-    try {
-        const status = await GetFileStatus();
-        const statusEl = document.getElementById('file-status');
-        if (status.path) {
-            statusEl.textContent = `File: ${status.path}${status.hasUnsavedChanges ? ' *' : ''}`;
-        } else {
-            statusEl.textContent = status.hasUnsavedChanges ? 'Unsaved changes' : 'No file';
-        }
-    } catch (error) {
-        console.error('Error updating file status:', error);
-    }
-}
-
-// Update file status on load
-updateFileStatus();
+// Note: File status display removed for browser mode
+// In browser mode, we can't reliably track file save state because:
+// - Downloads are fire-and-forget (can't know if user saved)
+// - No persistent file paths
+// File status will be re-added when packaging as desktop app with native dialogs
 
 console.log('GoSheet initialized');

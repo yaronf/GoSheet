@@ -229,6 +229,9 @@ func handleFileStatus(w http.ResponseWriter, r *http.Request) {
 func handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	log.Println("Downloading file")
 	
+	// Save the current Modified state
+	wasModified := ctrl.Sheet.Modified
+	
 	// Save to temporary file
 	tmpFile := "/tmp/gosheet_download.gosheet"
 	if err := ctrl.SaveFile(tmpFile); err != nil {
@@ -236,6 +239,14 @@ func handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	
+	// Restore the Modified state - in browser mode, download doesn't mean "saved"
+	// because we can't know if the user actually completed the browser's save dialog
+	ctrl.Sheet.Modified = wasModified
+	
+	// Clear the FilePath since this is just a temp file for download
+	// In browser mode, there's no persistent file path
+	ctrl.Sheet.FilePath = ""
 	
 	// Serve the file
 	w.Header().Set("Content-Type", "application/octet-stream")
