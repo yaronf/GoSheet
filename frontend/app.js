@@ -107,6 +107,96 @@ const EXPAND_COLS = 10;      // Add 10 columns when expanding
 let selectedCell = null;
 let isEditing = false;
 
+// Custom modal dialog (replaces native confirm/alert for Cursor browser compatibility)
+function showConfirmDialog(message) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('modal-overlay');
+        const messageEl = document.getElementById('modal-message');
+        const okBtn = document.getElementById('modal-ok');
+        const cancelBtn = document.getElementById('modal-cancel');
+        
+        // Set message
+        messageEl.textContent = message;
+        
+        // Show modal
+        overlay.classList.add('active');
+        
+        // Handle OK
+        const handleOk = () => {
+            overlay.classList.remove('active');
+            okBtn.removeEventListener('click', handleOk);
+            cancelBtn.removeEventListener('click', handleCancel);
+            resolve(true);
+        };
+        
+        // Handle Cancel
+        const handleCancel = () => {
+            overlay.classList.remove('active');
+            okBtn.removeEventListener('click', handleOk);
+            cancelBtn.removeEventListener('click', handleCancel);
+            resolve(false);
+        };
+        
+        okBtn.addEventListener('click', handleOk);
+        cancelBtn.addEventListener('click', handleCancel);
+        
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                handleCancel();
+            }
+        });
+        
+        // Focus OK button
+        okBtn.focus();
+    });
+}
+
+/**
+ * Show a simple alert dialog (info/error message with only OK button)
+ * @param {string} message - Message to display
+ * @returns {Promise<void>} - Resolves when user clicks OK
+ */
+function showAlert(message) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('modal-overlay');
+        const messageEl = document.getElementById('modal-message');
+        const okBtn = document.getElementById('modal-ok');
+        const cancelBtn = document.getElementById('modal-cancel');
+        
+        // Set message
+        messageEl.textContent = message;
+        
+        // Hide cancel button for alerts
+        cancelBtn.style.display = 'none';
+        
+        // Show modal
+        overlay.classList.add('active');
+        
+        // Handle OK
+        const handleOk = () => {
+            overlay.classList.remove('active');
+            cancelBtn.style.display = ''; // Restore for future confirm dialogs
+            okBtn.removeEventListener('click', handleOk);
+            resolve();
+        };
+        
+        okBtn.addEventListener('click', handleOk);
+        
+        // Close on overlay click
+        const handleOverlayClick = (e) => {
+            if (e.target === overlay) {
+                handleOk();
+                overlay.removeEventListener('click', handleOverlayClick);
+            }
+        };
+        overlay.addEventListener('click', handleOverlayClick);
+        
+        // Focus OK button
+        okBtn.focus();
+    });
+}
+
 // Force cleanup of any editing state
 function forceCleanupEditing() {
     console.log('Force cleanup editing state');
@@ -136,6 +226,15 @@ document.querySelector('#app').innerHTML = `
         <table class="spreadsheet" id="spreadsheet">
             <!-- Will be populated by JavaScript -->
         </table>
+    </div>
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-dialog">
+            <div class="modal-message" id="modal-message"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" id="modal-cancel">Cancel</button>
+                <button class="modal-btn modal-btn-primary" id="modal-ok">OK</button>
+            </div>
+        </div>
     </div>
 `;
 
@@ -283,7 +382,11 @@ function selectCell(row, col) {
             isEditing = false;
             
             // Save the value (don't wait for it)
-            SetCellValue(editRow, editCol, value).then(() => {
+            SetCellValue(editRow, editCol, value).then((result) => {
+                // Update file status from the response
+                if (result.hasUnsavedChanges !== undefined) {
+                    displayFileStatus(result.hasUnsavedChanges);
+                }
                 return refreshAllCells();
             }).catch(err => {
                 console.error('Error saving on cell switch:', err);
@@ -485,12 +588,14 @@ function finishEditing(row, col, value, cell) {
     isSaving = true;
     console.log(`isEditing set to false, isSaving set to true`);
     
-    SetCellValue(row, col, value).then(() => {
+    SetCellValue(row, col, value).then((result) => {
         console.log(`SetCellValue completed for row=${row}, col=${col}`);
+        // Update file status from the response
+        if (result.hasUnsavedChanges !== undefined) {
+            displayFileStatus(result.hasUnsavedChanges);
+        }
         // Refresh ALL cells to pick up dependent formula changes
         return refreshAllCells();
-    }).then(() => {
-        updateFileStatus();
     }).then(() => {
         console.log(`All cells refreshed after edit at row=${row}, col=${col}`);
         isSaving = false;
@@ -634,12 +739,17 @@ document.addEventListener('keydown', (e) => {
             startEditing(row, col);
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
             e.preventDefault();
-            SetCellValue(row, col, '').then(() => {
+            SetCellValue(row, col, '').then((result) => {
                 const cell = document.getElementById(`cell-${row}-${col}`);
                 if (cell) {
                     cell.textContent = '';
                     cell.classList.remove('formula-cell');
                 }
+                // Update file status from the response
+                if (result.hasUnsavedChanges !== undefined) {
+                    displayFileStatus(result.hasUnsavedChanges);
+                }
+                return refreshAllCells();
             });
         } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
             // Start typing to replace cell content - inject the first character
@@ -712,9 +822,12 @@ if (formulaBar) {
             const value = formulaBar.value;
             
             // Save the value
-            await SetCellValue(row, col, value);
+            const result = await SetCellValue(row, col, value);
+            // Update file status from the response
+            if (result.hasUnsavedChanges !== undefined) {
+                displayFileStatus(result.hasUnsavedChanges);
+            }
             await refreshAllCells();
-            await updateFileStatus();
             
             // Move to next row (like Excel)
             selectCell(row + 1, col);
@@ -733,25 +846,28 @@ if (formulaBar) {
 document.getElementById('new-btn').addEventListener('click', async () => {
     // Check if there are unsaved changes
     const status = await GetFileStatus();
-    let confirmMessage = 'Create a new spreadsheet?';
+    console.log('New button clicked, status:', status);
+    
+    // Only confirm if there are unsaved changes
     if (status.hasUnsavedChanges) {
-        confirmMessage = 'You have unsaved changes! Create a new spreadsheet anyway? All unsaved changes will be lost.';
+        const confirmed = await showConfirmDialog('You have unsaved changes! Create a new spreadsheet anyway? All unsaved changes will be lost.');
+        if (!confirmed) {
+            return; // User cancelled
+        }
     }
     
-    if (confirm(confirmMessage)) {
-        try {
-            await NewFile();
-            // Clear the grid
-            ROWS = 100;
-            COLS = 26;
-            buildSpreadsheet();
-            await loadCells();
-            selectCell(0, 0);
-            updateFileStatus();
-            alert('New spreadsheet created');
-        } catch (error) {
-            alert('Error creating new file: ' + error.message);
-        }
+    // Proceed with creating new spreadsheet
+    try {
+        await NewFile();
+        // Clear the grid
+        ROWS = 100;
+        COLS = 26;
+        buildSpreadsheet();
+        await loadCells();
+        selectCell(0, 0);
+        updateFileStatus();
+    } catch (error) {
+        await showAlert('Error creating new file: ' + error.message);
     }
 });
 
@@ -774,11 +890,22 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         updateFileStatus();
         console.log('File download initiated');
     } catch (error) {
-        alert('Error saving file: ' + error.message);
+        await showAlert('Error saving file: ' + error.message);
     }
 });
 
-document.getElementById('load-btn').addEventListener('click', () => {
+document.getElementById('load-btn').addEventListener('click', async () => {
+    // Check if there are unsaved changes
+    const status = await GetFileStatus();
+    
+    // Only confirm if there are unsaved changes
+    if (status.hasUnsavedChanges) {
+        const confirmed = await showConfirmDialog('You have unsaved changes! Load a file anyway? All unsaved changes will be lost.');
+        if (!confirmed) {
+            return; // User cancelled
+        }
+    }
+    
     // Trigger the hidden file input
     document.getElementById('file-input').click();
 });
@@ -805,7 +932,7 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
         
         console.log('File loaded successfully:', file.name);
     } catch (error) {
-        alert('Error loading file: ' + error.message);
+        await showAlert('Error loading file: ' + error.message);
     }
     
     // Reset file input so same file can be loaded again
@@ -813,19 +940,28 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
 });
 
 // Update file status display
+/**
+ * Update file status display from a boolean flag
+ * @param {boolean} hasUnsavedChanges - Whether there are unsaved changes
+ */
+function displayFileStatus(hasUnsavedChanges) {
+    const statusEl = document.getElementById('file-status');
+    if (hasUnsavedChanges) {
+        statusEl.textContent = '● Unsaved changes';
+        statusEl.style.color = '#ff6b6b';
+    } else {
+        statusEl.textContent = '✓ Saved';
+        statusEl.style.color = '#51cf66';
+    }
+}
+
+/**
+ * Fetch and update file status from server
+ */
 async function updateFileStatus() {
     try {
         const status = await GetFileStatus();
-        const statusEl = document.getElementById('file-status');
-        // Show unsaved changes indicator
-        // We track when data is serialized (save) or loaded, not file dialog completion
-        if (status.hasUnsavedChanges) {
-            statusEl.textContent = '● Unsaved changes';
-            statusEl.style.color = '#ff6b6b';
-        } else {
-            statusEl.textContent = '✓ Saved';
-            statusEl.style.color = '#51cf66';
-        }
+        displayFileStatus(status.hasUnsavedChanges);
     } catch (error) {
         console.error('Error updating file status:', error);
     }

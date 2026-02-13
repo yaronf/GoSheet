@@ -387,18 +387,24 @@ Following BMAD's practice of documenting key decisions:
 - **Limitation**: Cannot choose save location, limited to browser security sandbox
 - **API Endpoints**: `/api/file/download` (GET) and `/api/file/upload` (POST)
 - **File Status**: Shows "● Unsaved changes" or "✓ Saved" (tracks serialization state, not file paths)
+- **Known Limitation**: Status changes to "Saved" when download is initiated, even if user cancels the browser's save dialog
+  - **Why**: Backend writes to temp file and serves it; browser's save/cancel decision is invisible to backend
+  - **Impact**: Minor UX issue - status may show "Saved" when user cancelled
+  - **Resolution**: Accept for browser mode; will be fixed in desktop app with native dialogs
 **Future Implementation (Desktop App)**:
 - **Save**: Native "Save As" dialog with full file system access
 - **Load**: Native "Open" dialog
 - **File Status**: Re-add status bar showing file path and unsaved changes indicator
+- **Backend writes directly to destination**: No temp files, backend knows exactly when save succeeds/fails
 - **Changes Needed**:
   1. Replace download/upload endpoints with native dialog integration
   2. Use Electron's `dialog.showSaveDialog()` and `dialog.showOpenDialog()`
   3. Or Tauri's file dialog APIs
-  4. Remove hidden `<input type="file">` element
-  5. Update frontend to call native APIs instead of download/upload
-  6. Re-add file status display with real file paths
-  7. Keep old `/api/file/save` and `/api/file/load` endpoints for backward compatibility
+  4. Backend writes directly to user-chosen file path (no temp files)
+  5. Remove hidden `<input type="file">` element
+  6. Update frontend to call native APIs instead of download/upload
+  7. Re-add file status display with real file paths
+  8. Keep old `/api/file/save` and `/api/file/load` endpoints for backward compatibility
 **Date**: 2026-02-13
 **Status**: ✅ Browser implementation complete, desktop packaging pending
 
@@ -556,8 +562,11 @@ Following BMAD's practice of documenting issues and resolutions:
 **Implementation**:
 - New button handler calls `GetFileStatus()` before showing confirm dialog
 - Different confirm message based on `hasUnsavedChanges` flag
+- Uses native `confirm()` dialog (works in regular browsers and Playwright)
+**Known Limitation**: Cursor's embedded browser has non-blocking dialogs - `confirm()` returns true immediately without showing dialog
+**Future Enhancement**: Replace native dialogs with custom modal UI for better UX and Cursor browser compatibility
 **Test Added**: `test_new_file_warns_on_unsaved_changes` - verifies warning shown and data preserved on cancel
-**Status**: ✅ Implemented and tested
+**Status**: ✅ Implemented and tested (works in regular browsers, limitation in Cursor browser only)
 
 ## Next Steps
 
@@ -572,7 +581,12 @@ Following BMAD's iterative approach:
 7. ⏳ Implement formula dependency tracking
 8. ⏳ Add circular reference detection
 9. ⏳ Create user documentation
-10. ⏳ Package for distribution
+10. ⏳ Convert to native desktop app (Electron/Tauri)
+    - Implement native file dialogs (Save As, Open)
+    - Backend writes directly to user-chosen file paths
+    - Remove browser File API workarounds
+    - Update file status to show real file paths and correct status
+11. ⏳ Package for macOS distribution
 
 ## BMAD Success Metrics
 

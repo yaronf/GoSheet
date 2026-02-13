@@ -862,14 +862,18 @@ def test_new_file_clears_data(page: Page, base_url):
     # Verify data is there
     assert 'Some data' in cell_a1.text_content()
     
-    # Click New button and accept dialog (will warn about unsaved changes)
+    # Click New button - should show custom modal warning about unsaved changes
     new_btn = page.locator('#new-btn')
+    new_btn.click()
+    time.sleep(0.5)
     
-    with page.expect_event('dialog') as dialog_info:
-        new_btn.click()
+    # Verify custom modal dialog is visible
+    modal = page.locator('.modal-overlay')
+    assert modal.is_visible()
     
-    dialog = dialog_info.value
-    dialog.accept()
+    # Click OK button to accept
+    ok_btn = page.locator('.modal-btn-primary')
+    ok_btn.click()
     time.sleep(1.0)
     
     # Verify cell is now empty (or has sample data)
@@ -884,6 +888,7 @@ def test_new_file_warns_on_unsaved_changes(page: Page, base_url):
     """Test that New File warns when there are unsaved changes
     
     Feature: Prevent accidental data loss by warning user
+    Uses custom modal dialog (not native confirm) for Cursor browser compatibility
     """
     page.goto(base_url)
     time.sleep(0.5)
@@ -900,24 +905,65 @@ def test_new_file_warns_on_unsaved_changes(page: Page, base_url):
     status = page.locator('#file-status')
     assert 'unsaved' in status.text_content().lower()
     
-    # Click New button and expect dialog
+    # Click New button - should show custom modal dialog
     new_btn = page.locator('#new-btn')
-    
-    with page.expect_event('dialog') as dialog_info:
-        new_btn.click()
-    
-    dialog = dialog_info.value
-    dialog_message = dialog.message
-    
-    # Verify dialog mentioned unsaved changes
-    assert 'unsaved' in dialog_message.lower(), f"Expected 'unsaved' in dialog, got: {dialog_message}"
-    
-    # Dismiss dialog
-    dialog.dismiss()
+    new_btn.click()
     time.sleep(0.5)
+    
+    # Verify modal dialog appeared
+    modal = page.locator('#modal-overlay')
+    assert modal.is_visible(), "Modal dialog should be visible"
+    
+    # Verify message mentions unsaved changes
+    modal_message = page.locator('#modal-message')
+    message_text = modal_message.text_content()
+    assert 'unsaved' in message_text.lower(), f"Expected 'unsaved' in message, got: {message_text}"
+    
+    # Click Cancel button
+    cancel_btn = page.locator('#modal-cancel')
+    cancel_btn.click()
+    time.sleep(0.5)
+    
+    # Verify modal is hidden
+    assert not modal.is_visible(), "Modal should be hidden after cancel"
     
     # Verify data is still there (operation was cancelled)
     assert 'Important data' in cell_a1.text_content()
+
+
+def test_new_file_modal_ok_clears_data(page: Page, base_url):
+    """Test that clicking OK in the unsaved changes modal clears data"""
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Make a change
+    cell_a1 = page.locator('#cell-0-0')
+    cell_a1.click()
+    time.sleep(0.2)
+    page.keyboard.type('Will be cleared')
+    page.keyboard.press('Enter')
+    time.sleep(0.8)
+    
+    # Click New button
+    new_btn = page.locator('#new-btn')
+    new_btn.click()
+    time.sleep(0.5)
+    
+    # Modal should appear
+    modal = page.locator('#modal-overlay')
+    assert modal.is_visible()
+    
+    # Click OK button
+    ok_btn = page.locator('#modal-ok')
+    ok_btn.click()
+    time.sleep(1.0)
+    
+    # Modal should be hidden
+    assert not modal.is_visible()
+    
+    # Data should be cleared (replaced with sample data or empty)
+    cell_text = cell_a1.text_content()
+    assert 'Will be cleared' not in cell_text
 
 
 def test_file_status_initial_state(page: Page, base_url):

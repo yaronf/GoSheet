@@ -117,10 +117,32 @@ func handleSetCellValue(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	log.Printf("SetCellValue: row=%d, col=%d, value=%q", req.Row, req.Col, req.Value)
-	result := ctrl.SetCellValue(req.Row, req.Col, req.Value)
+	err := ctrl.SetCellValue(req.Row, req.Col, req.Value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	// Get the cell data after setting it
+	cell := ctrl.Sheet.GetCell(req.Row, req.Col)
+	var value, displayValue string
+	var isFormula bool
+	if cell != nil {
+		value = cell.Value
+		displayValue = cell.Computed
+		isFormula = cell.IsFormula
+	}
+	
+	// Include the updated file status in the response
+	response := map[string]interface{}{
+		"value":             value,
+		"displayValue":      displayValue,
+		"isFormula":         isFormula,
+		"hasUnsavedChanges": ctrl.HasUnsavedChanges(),
+	}
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	json.NewEncoder(w).Encode(response)
 }
 
 func handleGetCellRef(w http.ResponseWriter, r *http.Request) {
@@ -231,7 +253,7 @@ func handleFileStatus(w http.ResponseWriter, r *http.Request) {
 func handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	log.Println("Downloading file")
 	
-	// Save to temporary file (this serializes the current state)
+	// Save to temporary file - this writes the data to disk
 	tmpFile := "/tmp/gosheet_download.gosheet"
 	if err := ctrl.SaveFile(tmpFile); err != nil {
 		log.Printf("Download error: %v", err)
@@ -239,12 +261,8 @@ func handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// SaveFile() clears Modified flag - this is correct because we've serialized the state
-	// The user may or may not complete the browser's save dialog, but we've done our part
-	
-	// Clear the FilePath since this is just a temp file for download
-	// In browser mode, there's no persistent file path
-	ctrl.Sheet.FilePath = ""
+	// SaveFile() clears Modified flag because we successfully wrote to a file
+	// The model's job is done - data is persisted to disk
 	
 	// Serve the file
 	w.Header().Set("Content-Type", "application/octet-stream")
