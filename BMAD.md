@@ -219,15 +219,31 @@ Following BMAD's practice of documenting key decisions:
 **Rationale**:
 - **Testability**: Playwright works perfectly with standard web apps
 - **Simplicity**: No build system complexity, standard web development
-- **Flexibility**: Can deploy as web app OR package as Electron/Tauri later
+- **Flexibility**: Can package as Electron/Tauri/Wails later for macOS distribution
 - **Development speed**: Fast iteration, hot reload, standard debugging
 - **Same Go code**: Keep all model/controller/formula logic in Go
 - **Production ready**: Can add WebSocket for real-time updates if needed
 **Architecture**:
 - Go HTTP server with REST/JSON API
-- Static HTML/CSS/JS frontend (or React/Vue if needed)
+- Static HTML/CSS/JS frontend (no build tools needed)
 - Playwright for comprehensive UI testing
-- Can package as desktop app later with Electron/Tauri if desired
+- Desktop packaging options: Electron, Tauri, or Wails (revisit after stabilization)
+**Date**: 2026-02-13
+**Status**: ✅ Implemented, all tests passing
+
+### Decision 8: macOS App as End Goal
+**Question**: Is the web frontend the final product or a development setup?
+**Decision**: Web frontend is a development/testing setup; final product is a native macOS app
+**Rationale**:
+- **User expectation**: Desktop spreadsheet app, not a web app
+- **Native features**: File associations, menu bar, dock integration, offline use
+- **Distribution**: macOS .app bundle via App Store or direct download
+- **Current approach enables this**: Clean backend/frontend separation makes packaging straightforward
+**Packaging Options**:
+1. **Electron**: Mature, well-tested, large bundle size (~100MB)
+2. **Tauri**: Rust-based, smaller bundle (~10MB), uses system WebView
+3. **Wails**: Go-native, revisit after core features stabilize
+**Timeline**: After file operations (save/load) are implemented
 **Date**: 2026-02-13
 
 ## Next Steps
@@ -274,30 +290,50 @@ This project demonstrates BMAD's effectiveness:
 
 ## Current Phase Status
 
-**Phase**: Implementation → Architecture Simplification
-**Status**: Core functionality complete, restructuring to Go backend + Web frontend ⏳
-**Next**: Clean separation of backend API and frontend, set up Playwright tests
+**Phase**: Implementation → Testing & Validation ✅
+**Status**: Architecture simplification complete, all UI tests passing
+**Next**: Documentation updates, file operations (save/load)
 
 ### Completed Work
 The project has successfully completed the core MVP as defined in the product brief:
 - ✅ Basic grid with unlimited dimensions
-- ✅ Cell editing (dialog-based)
+- ✅ **In-cell editing** (true spreadsheet-style editing)
 - ✅ Simple formulas (SUM, AVG, MIN, MAX, COUNT)
 - ✅ Arithmetic operations
-- ✅ Comprehensive testing (Playwright for web version)
+- ✅ **Comprehensive UI testing** (13 Playwright tests, all passing)
 - ✅ Row/column headers
-- ✅ Native macOS app packaging
 - ✅ Application icon
+- ✅ **Clean architecture** (Go HTTP backend + standalone web frontend)
 
-### Current Decision: UI Framework Change
+### Architecture Evolution
 
-**Issue**: Fyne's table widget limitations make true in-cell editing difficult
-**Solution**: Migrate to Wails (Go backend + HTML/CSS frontend)
-**Benefits**:
-- Professional spreadsheet UI using JavaScript libraries
-- True in-cell editing
-- Better UX overall
-- Can reuse existing web demo code
-- Maintains all Go backend code (model, formulas, controller)
+The project went through several UI framework iterations:
+1. **Fyne** → Limited in-cell editing capabilities
+2. **Wails** → Build complexity, testing difficulties
+3. **Go HTTP + Web Frontend** → Clean separation, easy testing ✅
 
-**Status**: Ready to begin Wails migration
+**Current Architecture Benefits**:
+- ✅ Testable with standard web tools (Playwright)
+- ✅ Simple development workflow (no build system complexity)
+- ✅ Clean API separation (REST endpoints)
+- ✅ Maintains all Go backend code (model, formulas, controller)
+- ✅ Professional in-cell editing UX
+
+**Future Path to macOS App**:
+The current web architecture is designed to enable easy packaging as a native macOS app:
+- **Option 1**: Electron/Tauri wrapper (web frontend + Go backend)
+- **Option 2**: Wails (revisit after core features stabilize)
+- **Goal**: Native macOS .app bundle with menu bar, file associations, etc.
+- **Non-goal**: Pure web app - this is a desktop application project
+
+### Test Coverage (13/13 passing)
+- Page loading and grid structure
+- Sample data loading
+- Cell selection and navigation (arrow keys)
+- Single and multi-digit number entry
+- Multiple value entry across cells
+- Cell editing and cancellation (ESC key)
+- Simple formulas (=5+3)
+- Cell reference formulas (=A1+A2)
+- Formula persistence and display
+- Tab key navigation between cells

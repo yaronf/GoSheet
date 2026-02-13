@@ -1,13 +1,28 @@
 # GoSheet - Lightweight Spreadsheet for macOS
 
-A simple, native macOS spreadsheet application built in Go with Fyne.
+A modern spreadsheet application with a Go backend and web frontend, designed for packaging as a native macOS app. Features true in-cell editing and comprehensive automated testing.
+
+## Architecture
+
+**Current Development Setup**:
+- **Backend**: Go HTTP server with REST API  
+- **Frontend**: Pure HTML/CSS/JavaScript (no build system required)  
+- **Testing**: Playwright for automated UI testing
+
+**Target Deployment**: Native macOS application (.app bundle)
+- Packaging options: Electron, Tauri, or Wails
+- Current web architecture enables easy testing and rapid development
+- Will be wrapped for native macOS distribution
 
 ## Features
 
-- **Basic Grid**: Unlimited rows and columns with sparse storage
-- **Formula Engine**: Support for SUM, AVG, MIN, MAX, COUNT and arithmetic operations
-- **File Operations**: Save and load spreadsheets in efficient binary format
-- **Native UI**: Built with Fyne for a modern, responsive interface
+- ✅ **In-Cell Editing**: True spreadsheet-style editing with keyboard navigation
+- ✅ **Formula Engine**: Support for SUM, AVG, MIN, MAX, COUNT and arithmetic operations
+- ✅ **Cell References**: Formulas can reference other cells (e.g., =A1+B2)
+- ✅ **Keyboard Navigation**: Arrow keys, Enter, Tab, Escape
+- ✅ **Grid Display**: Row/column headers with unlimited dimensions
+- ✅ **Comprehensive Testing**: 13 Playwright tests covering all UI interactions
+- ⏳ **File Operations**: Save/load (planned)
 
 ## Development Methodology
 
@@ -20,7 +35,13 @@ spreadsheet/
 ├── BMAD.md                 # BMAD methodology documentation
 ├── README.md               # This file
 ├── go.mod                  # Go module definition
-├── main.go                 # Application entry point
+├── server/                 # HTTP backend
+│   └── main.go            # REST API server
+├── frontend/               # Web frontend
+│   ├── index.html         # Main HTML
+│   ├── app.js             # Spreadsheet logic
+│   ├── style.css          # Base styles
+│   └── spreadsheet.css    # Grid styles
 ├── specs/                  # Design specifications
 │   ├── PRODUCT_BRIEF.md
 │   ├── TECH_SPEC.md
@@ -29,37 +50,59 @@ spreadsheet/
 │   ├── spreadsheet.go
 │   ├── formula.go
 │   ├── formula_ast.go
-│   ├── formula_eval.go
-│   ├── vector.go
 │   ├── cell.go
 │   └── coords.go
-├── io/                     # File I/O
-│   └── serializer.go
-├── ui/                     # User interface
-│   ├── window.go
-│   ├── grid.go
-│   └── styles.go
 ├── controller/             # Application logic
 │   └── app.go
-└── tests/                  # Test suite
-    ├── model_test.go
-    ├── formula_test.go
-    └── ...
+├── tests/                  # Go unit tests
+│   ├── model_test.go
+│   ├── formula_test.go
+│   └── coords_test.go
+└── playwright_tests/       # UI tests
+    ├── test_spreadsheet.py
+    ├── conftest.py
+    └── run_tests.sh
 ```
 
-## Building
+## Quick Start
+
+### 1. Start the Backend Server
 
 ```bash
-go build -o gosheet
+cd server
+go run main.go
 ```
 
-## Running
+Server runs at `http://localhost:3000`
 
-```bash
-./gosheet
-```
+### 2. Open in Browser
+
+Navigate to `http://localhost:3000` in your web browser.
+
+The frontend is served directly by the Go server - no separate build step needed!
 
 ## Testing
+
+### Automated UI Tests (Playwright)
+
+**All 13 tests passing!** ✅
+
+```bash
+# Run all UI tests (auto-starts server if needed)
+./run_tests.sh
+```
+
+**Test Coverage:**
+- ✅ Page loading and grid structure
+- ✅ Sample data loading
+- ✅ Cell selection and navigation (arrow keys)
+- ✅ Single and multi-digit number entry
+- ✅ Multiple value entry across cells
+- ✅ Cell editing and cancellation (ESC key)
+- ✅ Simple formulas (=5+3)
+- ✅ Cell reference formulas (=A1+A2)
+- ✅ Formula persistence and display
+- ✅ Tab key navigation between cells
 
 ### Go Unit Tests
 
@@ -69,70 +112,54 @@ Run the Go test suite:
 # Run all tests
 go test ./tests/...
 
-# Run specific test file
-go test ./tests/coords_test.go
-go test ./tests/model_test.go
-go test ./tests/formula_test.go
-
 # Run with verbose output
 go test -v ./tests/...
+
+# Run specific test
+go test ./tests/formula_test.go -v
 ```
-
-### Playwright UI Tests
-
-The project includes comprehensive automated UI tests using Microsoft Playwright.
-
-**Quick Start:**
-
-```bash
-# Run all UI tests (requires web server to be running)
-./run_playwright_tests.sh
-```
-
-**Manual Setup:**
-
-1. Start the web demo server:
-```bash
-go run cmd/webdemo/main.go
-```
-
-2. In another terminal, run Playwright tests:
-```bash
-source venv/bin/activate
-pytest playwright_tests/ -v
-```
-
-**Test Coverage:**
-- Page loading and initial data display
-- Cell editing with simple values
-- Formula evaluation (SUM, AVG, MIN, MAX, COUNT)
-- Complex arithmetic expressions
-- Dialog interactions (OK, Cancel, Escape)
-- Formula cell styling
-
-See [README_PLAYWRIGHT.md](README_PLAYWRIGHT.md) and [TEST_RESULTS.md](TEST_RESULTS.md) for detailed documentation.
 
 ## Requirements
 
+### Backend
 - Go 1.21+
-- macOS (primary target, cross-platform compatible)
+- No external dependencies (uses standard library)
+
+### Frontend
+- Modern web browser (Chrome, Firefox, Safari)
+- No build tools required (pure HTML/CSS/JS)
+
+### Testing
+- Python 3.8+
+- Playwright (auto-installed by `run_tests.sh`)
 
 ## Dependencies
 
-- [Fyne v2](https://fyne.io/) - UI framework
+**Go Backend:**
 - [Participle v2](https://github.com/alecthomas/participle) - Formula parser
 - [Testify](https://github.com/stretchr/testify) - Testing framework
 
+**Frontend:**
+- None! Pure vanilla JavaScript
+
+**Testing:**
+- [Playwright](https://playwright.dev/) - Browser automation
+- [pytest](https://pytest.org/) - Test framework
+
 ## Status
 
-🔄 **In Development** - Following BMAD methodology
+✅ **MVP Complete** - Following BMAD methodology
 
 - ✅ Planning phase complete (specs approved)
-- 🔄 Implementation phase in progress
-- ⏳ Testing phase pending
-- ⏳ Deployment phase pending
+- ✅ Implementation phase complete
+- ✅ Testing phase complete (13/13 tests passing)
+- ✅ Architecture simplified for testability
+- ⏳ File operations (save/load) - next milestone
+- ⏳ macOS app packaging (Electron/Tauri/Wails) - future milestone
 
-See [BMAD.md](BMAD.md) for detailed status tracking.
+**Note**: The current web-based architecture is a development setup optimized for testing and rapid iteration. The final product will be a native macOS application, not a web app.
+
+See [BMAD.md](BMAD.md) for detailed development history and decisions.
 
 ## License
 
