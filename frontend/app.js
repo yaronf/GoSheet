@@ -129,10 +129,34 @@ function colToLetter(col) {
 
 // Select a cell
 function selectCell(row, col) {
-    // If we're currently editing, force cleanup first
+    // If we're currently editing, SAVE the current edit first
     if (isEditing) {
-        console.log('Selecting new cell while editing - forcing cleanup');
-        forceCleanupEditing();
+        console.log('Selecting new cell while editing - saving current edit first');
+        
+        // Find the input element and save its value
+        const input = document.querySelector('.cell-editor');
+        if (input) {
+            const editingCell = input.parentElement;
+            const editRow = parseInt(editingCell.dataset.row);
+            const editCol = parseInt(editingCell.dataset.col);
+            const value = input.value;
+            
+            console.log(`Saving edit: row=${editRow}, col=${editCol}, value="${value}"`);
+            
+            // Remove input and reset state
+            input.remove();
+            isEditing = false;
+            
+            // Save the value (don't wait for it)
+            SetCellValue(editRow, editCol, value).then(() => {
+                return refreshAllCells();
+            }).catch(err => {
+                console.error('Error saving on cell switch:', err);
+            });
+        } else {
+            // No input found, just reset state
+            forceCleanupEditing();
+        }
     }
     
     // Remove previous selection
@@ -386,8 +410,14 @@ function letterToCol(letter) {
 // Handle keyboard shortcuts
 document.addEventListener('keydown', (e) => {
     // Don't handle if we're editing or if focus is on an input
-    if (isEditing) return;
-    if (e.target.tagName === 'INPUT') return;
+    if (isEditing) {
+        console.log('Global handler: isEditing=true, ignoring');
+        return;
+    }
+    if (e.target.tagName === 'INPUT') {
+        console.log('Global handler: target is INPUT, ignoring');
+        return;
+    }
     
     if (selectedCell) {
         const { row, col } = selectedCell;
