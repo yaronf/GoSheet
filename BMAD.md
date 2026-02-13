@@ -75,6 +75,58 @@ These rules supplement BMAD methodology for this project:
    - **No God Objects**: Each module has focused responsibility
    - **Testability First**: Architecture designed for easy unit and integration testing
 
+### Quality Gates Before Release
+
+Before any release or major milestone, the following quality gates MUST be passed:
+
+1. **All Tests Passing**
+   - ✅ All Go unit tests must pass: `cd tests && go test`
+   - ✅ All Playwright UI tests must pass: `./test.sh`
+   - ✅ No skipped tests without documented justification
+   - ✅ Manual smoke testing of critical user flows
+
+2. **Code Quality Checks**
+   - ✅ No compiler warnings or errors
+   - ✅ Run `go vet` and address all issues
+   - ✅ No obvious code duplication (DRY violations)
+   - ✅ Functions remain reasonably sized and focused
+   - ✅ No commented-out code blocks (remove or document why)
+
+3. **Documentation Current**
+   - ✅ BMAD.md reflects current architecture and decisions
+   - ✅ README.md has accurate setup/running instructions
+   - ✅ All new features documented in BMAD.md "Bug Fixes and Improvements"
+   - ✅ Test coverage section updated with current numbers
+
+4. **Clean Repository State**
+   - ✅ No unused/dead code in the repository
+   - ✅ No temporary debug files committed
+   - ✅ All dependencies in go.mod are actually used
+   - ✅ Git history is clean (meaningful commit messages)
+
+5. **Functional Requirements**
+   - ✅ All features in current milestone working as specified
+   - ✅ No known critical bugs or data corruption issues
+   - ✅ Performance is acceptable for typical use cases
+   - ✅ UI is responsive and provides appropriate feedback
+
+**Release Checklist Command Sequence**:
+```bash
+# 1. Run all tests
+cd tests && go test && cd ..
+./test.sh
+
+# 2. Check for issues
+go vet ./...
+go build ./...
+
+# 3. Verify documentation is current
+git status  # Should show no uncommitted changes to docs
+
+# 4. Tag release (when ready for versioning)
+# git tag -a v0.x.0 -m "Release description"
+```
+
 ## BMAD Phases Applied to GoSheet
 
 ### Phase 1: Planning ✅ COMPLETED
