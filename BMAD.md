@@ -43,6 +43,38 @@ These rules supplement BMAD methodology for this project:
    - Update README.md with architectural changes
    - Document "why" not just "what"
 
+### Code Quality Principles
+
+1. **Test Coverage**
+   - **Target**: Maintain high test coverage for critical paths
+   - **Current Status**: 
+     - Go unit tests: 10 tests covering formula evaluation, string functions, error handling
+     - Playwright UI tests: 29 tests covering user interactions, bug regressions, features
+   - **Strategy**: Focus on behavior testing over line coverage metrics
+   - **Rule**: Every bug fix requires at least one regression test
+
+2. **Code Complexity**
+   - **Keep Functions Simple**: Functions should do one thing well
+   - **Avoid Deep Nesting**: Max 3 levels of nesting in control structures
+   - **Limit Function Length**: Target <50 lines per function (guideline, not hard rule)
+   - **Cyclomatic Complexity**: Keep cognitive load low - if a function is hard to understand, refactor
+   - **Current Status**: Formula evaluator is the most complex component (~577 lines), but well-structured with clear separation of concerns
+
+3. **DRY (Don't Repeat Yourself)**
+   - **Eliminate Duplication**: Extract common patterns into reusable functions
+   - **Single Source of Truth**: Cell state managed in backend, frontend is view layer
+   - **Shared Logic**: Formula evaluation, coordinate conversion, cell reference parsing all centralized
+   - **Examples in Codebase**:
+     - `model/coords.go`: Centralized coordinate conversion (A1 notation ↔ row/col)
+     - `model/formula.go`: All formula functions use common `toNumber()`, `valueToStr()` helpers
+     - `frontend/app.js`: Reusable `selectCell()`, `refreshAllCells()` for state management
+
+4. **Code Organization**
+   - **Clear Module Boundaries**: `model/` (business logic), `controller/` (API), `server/` (HTTP), `frontend/` (UI)
+   - **Minimal Dependencies**: Only essential packages (participle for parsing, Playwright for testing)
+   - **No God Objects**: Each module has focused responsibility
+   - **Testability First**: Architecture designed for easy unit and integration testing
+
 ## BMAD Phases Applied to GoSheet
 
 ### Phase 1: Planning ✅ COMPLETED
