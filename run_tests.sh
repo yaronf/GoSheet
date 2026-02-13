@@ -3,17 +3,21 @@
 
 set -e
 
+# Default port
+PORT=${GOSHEET_PORT:-8080}
+
 echo "=== GoSheet Playwright UI Tests ==="
 echo
 
 # Check if server is running
-if ! curl -s http://localhost:3000 > /dev/null 2>&1; then
-    echo "❌ ERROR: Server is not running on port 3000"
-    echo "Please start the server first with: go run server/main.go"
+if ! curl -s http://localhost:$PORT > /dev/null 2>&1; then
+    echo "❌ ERROR: Server is not running on port $PORT"
+    echo "Please start the server first with: go run server/main.go -port $PORT"
+    echo "Or set GOSHEET_PORT environment variable to use a different port"
     exit 1
 fi
 
-echo "✅ Server is running"
+echo "✅ Server is running on port $PORT"
 echo
 
 # Check if venv exists, create if not

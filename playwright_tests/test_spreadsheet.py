@@ -5,12 +5,14 @@ Tests the frontend running against the Go HTTP backend.
 import pytest
 from playwright.sync_api import Page, expect
 import time
+import os
 
 
 @pytest.fixture(scope="session")
 def base_url():
     """Backend server URL"""
-    return "http://localhost:3000"
+    port = os.environ.get('GOSHEET_PORT', '8080')
+    return f"http://localhost:{port}"
 
 
 def test_page_loads(page: Page, base_url):
