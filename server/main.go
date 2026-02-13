@@ -38,6 +38,10 @@ func main() {
 	http.HandleFunc("/api/cell/set", corsMiddleware(handleSetCellValue))
 	http.HandleFunc("/api/cell/ref", corsMiddleware(handleGetCellRef))
 	http.HandleFunc("/api/cells/all", corsMiddleware(handleGetAllCells))
+	http.HandleFunc("/api/file/save", corsMiddleware(handleSaveFile))
+	http.HandleFunc("/api/file/load", corsMiddleware(handleLoadFile))
+	http.HandleFunc("/api/file/new", corsMiddleware(handleNewFile))
+	http.HandleFunc("/api/file/status", corsMiddleware(handleFileStatus))
 	
 	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
 	fmt.Printf("Open http://localhost:%s in your browser\n", *port)
@@ -140,4 +144,80 @@ func handleGetAllCells(w http.ResponseWriter, r *http.Request) {
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cells)
+}
+
+func handleSaveFile(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path string `json:"path"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	
+	if req.Path == "" {
+		http.Error(w, "path is required", http.StatusBadRequest)
+		return
+	}
+	
+	log.Printf("Saving file: %s", req.Path)
+	if err := ctrl.SaveFile(req.Path); err != nil {
+		log.Printf("Save error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"path":    req.Path,
+	})
+}
+
+func handleLoadFile(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path string `json:"path"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	
+	if req.Path == "" {
+		http.Error(w, "path is required", http.StatusBadRequest)
+		return
+	}
+	
+	log.Printf("Loading file: %s", req.Path)
+	if err := ctrl.LoadFile(req.Path); err != nil {
+		log.Printf("Load error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"path":    req.Path,
+	})
+}
+
+func handleNewFile(w http.ResponseWriter, r *http.Request) {
+	log.Println("Creating new file")
+	ctrl.NewFile()
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
+}
+
+func handleFileStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"path":            ctrl.GetFilePath(),
+		"hasUnsavedChanges": ctrl.HasUnsavedChanges(),
+	})
 }

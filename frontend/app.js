@@ -33,6 +33,45 @@ const GetAllCells = async () => {
     return await response.json();
 };
 
+const SaveFile = async (path) => {
+    const response = await fetch(`${API_BASE}/api/file/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path })
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+    }
+    return await response.json();
+};
+
+const LoadFile = async (path) => {
+    const response = await fetch(`${API_BASE}/api/file/load`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path })
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+    }
+    return await response.json();
+};
+
+const NewFile = async () => {
+    const response = await fetch(`${API_BASE}/api/file/new`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    });
+    return await response.json();
+};
+
+const GetFileStatus = async () => {
+    const response = await fetch(`${API_BASE}/api/file/status`);
+    return await response.json();
+};
+
 // Spreadsheet configuration
 // Backend supports up to 2^31 rows/columns (Go int on 64-bit systems)
 // Frontend uses infinite scrolling - expands as you navigate
@@ -60,6 +99,12 @@ function forceCleanupEditing() {
 
 // Initialize the spreadsheet
 document.querySelector('#app').innerHTML = `
+    <div class="toolbar">
+        <button id="new-btn" class="toolbar-btn">New</button>
+        <button id="save-btn" class="toolbar-btn">Save</button>
+        <button id="load-btn" class="toolbar-btn">Load</button>
+        <span id="file-status" class="file-status"></span>
+    </div>
     <div class="formula-bar-container">
         <span class="cell-ref" id="cell-ref">A1</span>
         <input type="text" class="formula-bar" id="formula-bar" placeholder="Enter value or formula..." />
@@ -657,5 +702,74 @@ if (formulaBar) {
         }
     });
 }
+
+// File operations handlers
+document.getElementById('new-btn').addEventListener('click', async () => {
+    if (confirm('Create a new spreadsheet? Any unsaved changes will be lost.')) {
+        try {
+            await NewFile();
+            // Clear the grid
+            ROWS = 100;
+            COLS = 26;
+            buildSpreadsheet();
+            await loadCells();
+            selectCell(0, 0);
+            updateFileStatus();
+            alert('New spreadsheet created');
+        } catch (error) {
+            alert('Error creating new file: ' + error.message);
+        }
+    }
+});
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+    const path = prompt('Enter file path to save:', '/tmp/spreadsheet.gosheet');
+    if (path) {
+        try {
+            await SaveFile(path);
+            updateFileStatus();
+            alert('File saved successfully to: ' + path);
+        } catch (error) {
+            alert('Error saving file: ' + error.message);
+        }
+    }
+});
+
+document.getElementById('load-btn').addEventListener('click', async () => {
+    const path = prompt('Enter file path to load:', '/tmp/spreadsheet.gosheet');
+    if (path) {
+        try {
+            await LoadFile(path);
+            // Reload all cells from server
+            ROWS = 100;
+            COLS = 26;
+            buildSpreadsheet();
+            await loadCells();
+            selectCell(0, 0);
+            updateFileStatus();
+            alert('File loaded successfully from: ' + path);
+        } catch (error) {
+            alert('Error loading file: ' + error.message);
+        }
+    }
+});
+
+// Update file status display
+async function updateFileStatus() {
+    try {
+        const status = await GetFileStatus();
+        const statusEl = document.getElementById('file-status');
+        if (status.path) {
+            statusEl.textContent = `File: ${status.path}${status.hasUnsavedChanges ? ' *' : ''}`;
+        } else {
+            statusEl.textContent = status.hasUnsavedChanges ? 'Unsaved changes' : 'No file';
+        }
+    } catch (error) {
+        console.error('Error updating file status:', error);
+    }
+}
+
+// Update file status on load
+updateFileStatus();
 
 console.log('GoSheet initialized');

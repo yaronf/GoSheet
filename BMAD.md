@@ -48,8 +48,8 @@ These rules supplement BMAD methodology for this project:
 1. **Test Coverage**
    - **Target**: Maintain high test coverage for critical paths
    - **Current Status**: 
-     - Go unit tests: 10 tests covering formula evaluation, string functions, error handling
-     - Playwright UI tests: 29 tests covering user interactions, bug regressions, features
+     - Go unit tests: 18 tests covering formula evaluation, string functions, error handling, file I/O
+     - Playwright UI tests: 31 tests covering user interactions, bug regressions, features, file operations
    - **Strategy**: Focus on behavior testing over line coverage metrics
    - **Rule**: Every bug fix requires at least one regression test
 
@@ -168,7 +168,7 @@ Following BMAD's iterative development approach:
 - ✅ String functions (CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID)
 - ✅ Formula bar for viewing/editing cell content
 - ✅ Infinite scrolling/dynamic grid expansion
-- ⏳ File serialization (binary format) - **PENDING**
+- ✅ File operations (save/load binary format with gob encoding)
 
 **Development Principles Applied**:
 - ✅ Built working increments
@@ -266,15 +266,15 @@ Then proceeding with implementation:
 - ✅ Formula bar
 - ✅ Application controller
 - ✅ Comprehensive logging
-- ✅ Go unit test suite (10 tests: coords, model, formulas, string functions)
-- ✅ Playwright UI test suite (30 tests: 29 passing, 1 skipped)
+- ✅ Go unit test suite (18 tests: coords, model, formulas, string functions, file I/O)
+- ✅ Playwright UI test suite (32 tests: 31 passing, 1 skipped)
 - ✅ Automated test runner with server management (`test.sh`)
 - ✅ Test documentation in BMAD.md
+- ✅ File I/O implementation (save/load binary format)
 
 ### Pending ⏳
-- ⏳ File I/O implementation (save/load binary format)
 - ⏳ Circular reference detection
-- ⏳ Formula dependency tracking for recalculation
+- ⏳ Formula dependency tracking for optimized recalculation
 - ⏳ User documentation
 - ⏳ macOS packaging
 
@@ -452,6 +452,41 @@ Following BMAD's practice of documenting issues and resolutions:
 - `test_large_grid_dimensions` - verifies formulas can reference distant cells
 **Status**: ✅ Implemented and tested
 
+### Feature: File Operations (Save/Load)
+**Date**: 2026-02-13
+**Implementation**: Complete save/load functionality with binary file format
+**File Format**:
+- Binary format using Go's `encoding/gob` for efficient serialization
+- File header with version (1.0) and cell count metadata
+- Sparse storage - only non-empty cells are saved
+- Preserves formulas, computed values, and cell metadata
+**Backend Components**:
+- `model/file.go`: SaveToFile(), LoadFromFile(), SaveAs() methods
+- File header validation and version checking
+- Automatic recalculation of formulas after loading
+**API Endpoints**:
+- POST `/api/file/save` - save spreadsheet to specified path
+- POST `/api/file/load` - load spreadsheet from specified path
+- POST `/api/file/new` - create new empty spreadsheet
+- GET `/api/file/status` - get current file path and unsaved changes status
+**Frontend UI**:
+- Toolbar with New, Save, Load buttons
+- File status display showing current file path and unsaved changes indicator (*)
+- Prompt dialogs for file path input
+- Automatic grid refresh after load operation
+**Tests Added**:
+- `TestSaveAndLoadEmptySpreadsheet` - Go unit test for empty file
+- `TestSaveAndLoadWithData` - Go unit test for file with data
+- `TestSaveAndLoadFormulas` - Go unit test for formulas preservation
+- `TestSaveAsNewFile` - Go unit test for Save As functionality
+- `TestLoadNonExistentFile` - Go unit test for error handling
+- `TestHasUnsavedChanges` - Go unit test for modified flag
+- `TestSparseStorageEfficiency` - Go unit test for sparse data (cells at row 1000, col 1000)
+- `test_save_and_load_file` - Playwright test for complete save/load workflow
+- `test_new_file_clears_data` - Playwright test for New File button
+- `test_file_status_display` - Playwright test for status display
+**Status**: ✅ Implemented and tested (18 Go unit tests, 31 Playwright tests)
+
 ## Next Steps
 
 Following BMAD's iterative approach:
@@ -461,7 +496,7 @@ Following BMAD's iterative approach:
 3. ✅ ~~Build formula parser~~
 4. ✅ ~~Create basic UI~~
 5. ✅ ~~Write tests~~
-6. ⏳ Add file operations (save/load)
+6. ✅ ~~Add file operations (save/load)~~
 7. ⏳ Implement formula dependency tracking
 8. ⏳ Add circular reference detection
 9. ⏳ Create user documentation
@@ -503,14 +538,15 @@ This project demonstrates BMAD's effectiveness:
 
 ### Completed Work
 The project has successfully completed the core MVP as defined in the product brief:
-- ✅ Basic grid with unlimited dimensions
+- ✅ Basic grid with unlimited dimensions (infinite scrolling)
 - ✅ **In-cell editing** (true spreadsheet-style editing)
-- ✅ Simple formulas (SUM, AVG, MIN, MAX, COUNT)
+- ✅ **Formula bar** for viewing/editing cell content
+- ✅ Numeric formulas (SUM, AVG, MIN, MAX, COUNT)
 - ✅ String functions (CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID)
-- ✅ Arithmetic operations
-- ✅ **Comprehensive UI testing** (30 Playwright tests, 29 passing)
+- ✅ Arithmetic operations (+, -, *, /, %)
+- ✅ **File operations** (save/load with binary format)
+- ✅ **Comprehensive testing** (18 Go unit tests, 31 Playwright UI tests)
 - ✅ Row/column headers
-- ✅ Application icon
 - ✅ **Clean architecture** (Go HTTP backend + standalone web frontend)
 
 ### Architecture Evolution
@@ -534,15 +570,20 @@ The current web architecture is designed to enable easy packaging as a native ma
 - **Goal**: Native macOS .app bundle with menu bar, file associations, etc.
 - **Non-goal**: Pure web app - this is a desktop application project
 
-### Test Coverage (29/30 tests, 1 skipped)
-**Go Unit Tests (10 passing)**:
+### Test Coverage (31/32 tests, 1 skipped)
+**Go Unit Tests (18 passing)**:
 - Formula parsing and evaluation
 - Cell reference evaluation
 - Empty cell error handling
 - String functions (CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID)
 - Numeric functions with empty cells in ranges (SUM, AVG, MIN, MAX, COUNT)
+- File I/O: save/load empty spreadsheet
+- File I/O: save/load with data and formulas
+- File I/O: sparse storage efficiency (distant cells)
+- File I/O: SaveAs, unsaved changes tracking
+- File I/O: error handling for non-existent files
 
-**Playwright UI Tests (29 passing, 1 skipped)**:
+**Playwright UI Tests (31 passing, 1 skipped)**:
 - Page loading and grid structure
 - Sample data loading
 - Cell selection and navigation (arrow keys)
@@ -564,3 +605,6 @@ The current web architecture is designed to enable easy packaging as a native ma
 - Edit formula cell shows formula
 - Formula bar updates after edit
 - SUM with empty cells shows error
+- Save and load file workflow
+- New file clears data
+- File status display

@@ -94,14 +94,29 @@ func (c *AppController) NewFile() {
 
 // SaveFile saves the spreadsheet to a file
 func (c *AppController) SaveFile(path string) error {
-	// TODO: Implement file saving
-	c.Sheet.FilePath = path
-	c.Sheet.Modified = false
-	return nil
+	log.Printf("Saving spreadsheet to: %s", path)
+	return c.Sheet.SaveToFile(path)
 }
 
 // LoadFile loads a spreadsheet from a file
 func (c *AppController) LoadFile(path string) error {
-	// TODO: Implement file loading
+	log.Printf("Loading spreadsheet from: %s", path)
+	sheet, err := model.LoadFromFile(path)
+	if err != nil {
+		return err
+	}
+	c.Sheet = sheet
+	// Recalculate all formulas after loading
+	c.recalculateAllFormulas()
 	return nil
+}
+
+// HasUnsavedChanges returns true if the spreadsheet has unsaved changes
+func (c *AppController) HasUnsavedChanges() bool {
+	return c.Sheet.HasUnsavedChanges()
+}
+
+// GetFilePath returns the current file path
+func (c *AppController) GetFilePath() string {
+	return c.Sheet.FilePath
 }

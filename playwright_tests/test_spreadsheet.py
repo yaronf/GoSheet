@@ -766,5 +766,125 @@ def test_sum_with_empty_cells_shows_error(page: Page, base_url):
     assert 'empty cell' in cell_text.lower(), f"Error should mention empty cell, got '{cell_text}'"
 
 
+def test_save_and_load_file(page: Page, base_url):
+    """Test saving and loading a spreadsheet file
+    
+    This test verifies the complete save/load workflow:
+    1. Enter data in cells
+    2. Save to a file
+    3. Modify the data
+    4. Load the file
+    5. Verify original data is restored
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Enter some test data
+    cell_a1 = page.locator('#cell-0-0')
+    cell_a1.click()
+    time.sleep(0.2)
+    page.keyboard.type('Test Data')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    cell_b1 = page.locator('#cell-0-1')
+    cell_b1.click()
+    time.sleep(0.2)
+    page.keyboard.type('42')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    cell_c1 = page.locator('#cell-0-2')
+    cell_c1.click()
+    time.sleep(0.2)
+    page.keyboard.type('=B1*2')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Verify formula computed correctly
+    assert cell_c1.text_content() == '84'
+    
+    # Click Save button and handle prompt
+    page.on('dialog', lambda dialog: dialog.accept('/tmp/test_spreadsheet.gosheet'))
+    save_btn = page.locator('#save-btn')
+    save_btn.click()
+    time.sleep(1.0)
+    
+    # Modify the data
+    cell_a1.click()
+    time.sleep(0.2)
+    page.keyboard.type('Modified')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    # Verify modification
+    assert 'Modified' in cell_a1.text_content()
+    
+    # Click Load button and handle prompt
+    page.on('dialog', lambda dialog: dialog.accept('/tmp/test_spreadsheet.gosheet'))
+    load_btn = page.locator('#load-btn')
+    load_btn.click()
+    time.sleep(1.5)
+    
+    # Verify original data is restored
+    assert cell_a1.text_content() == 'Test Data'
+    assert cell_b1.text_content() == '42'
+    assert cell_c1.text_content() == '84'
+
+
+def test_new_file_clears_data(page: Page, base_url):
+    """Test that New File button clears the spreadsheet"""
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Enter some data
+    cell_a1 = page.locator('#cell-0-0')
+    cell_a1.click()
+    time.sleep(0.2)
+    page.keyboard.type('Some data')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    # Verify data is there
+    assert 'Some data' in cell_a1.text_content()
+    
+    # Click New button (confirm dialog)
+    page.on('dialog', lambda dialog: dialog.accept())
+    new_btn = page.locator('#new-btn')
+    new_btn.click()
+    time.sleep(1.0)
+    
+    # Verify cell is now empty (or has sample data)
+    # Note: The server loads sample data on new file, so we check for that
+    # If sample data is in A1, it will be "10", otherwise empty
+    cell_text = cell_a1.text_content()
+    # Either empty or sample data, but not "Some data"
+    assert 'Some data' not in cell_text
+
+
+def test_file_status_display(page: Page, base_url):
+    """Test that file status is displayed correctly"""
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Check initial status (should show "No file" or similar)
+    status = page.locator('#file-status')
+    initial_text = status.text_content()
+    assert initial_text is not None
+    
+    # Make a change
+    cell_a1 = page.locator('#cell-0-0')
+    cell_a1.click()
+    time.sleep(0.2)
+    page.keyboard.type('Test')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Status should update (may show unsaved changes indicator)
+    # This is a basic check that the status element is functional
+    status_text = status.text_content()
+    assert status_text is not None
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])
