@@ -1,8 +1,40 @@
 /* Spreadsheet styling */
 
+.formula-bar-container {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background: white;
+    border-bottom: 1px solid #ddd;
+    gap: 8px;
+}
+
+.cell-ref {
+    font-weight: bold;
+    min-width: 60px;
+    padding: 6px 12px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.formula-bar {
+    flex: 1;
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 14px;
+}
+
+.formula-bar:focus {
+    outline: 2px solid #2196F3;
+    border-color: #2196F3;
+}
+
 .spreadsheet-container {
     width: 100%;
-    height: 100vh;
+    height: calc(100vh - 50px);
     overflow: auto;
     background: #f5f5f5;
 }

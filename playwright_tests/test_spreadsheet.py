@@ -148,12 +148,13 @@ def test_edit_existing_cell(page: Page, base_url):
     
     # Edit the cell (double-click to edit)
     cell.dblclick()
-    time.sleep(0.1)
-    # Clear and type new value
-    page.keyboard.press('Control+a')
-    page.keyboard.type('200')
-    page.keyboard.press('Enter')
-    time.sleep(0.2)
+    time.sleep(0.3)
+    
+    # Get the input element and replace value
+    input_elem = cell.locator('.cell-editor')
+    input_elem.fill('200')
+    input_elem.press('Enter')
+    time.sleep(0.5)
     
     # Should have new value
     expect(cell).to_have_text('200')
@@ -592,6 +593,136 @@ def test_string_functions(page: Page, base_url):
     page.keyboard.press('Enter')
     time.sleep(0.5)
     expect(cell_d7).to_have_text('ell')
+
+
+def test_formula_bar_shows_formula(page: Page, base_url):
+    """Test that formula bar displays formulas when selecting formula cells
+    
+    User requirement: "when I edit a Formula cell, I should see the formula, not the resulting value"
+    Solution: Added formula bar that shows raw formula on cell selection
+    
+    This test verifies the formula bar works correctly
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Click on cell B1 which has formula =A1*2
+    cell_b1 = page.locator('#cell-0-1')
+    cell_b1.click()
+    time.sleep(0.3)
+    
+    # Formula bar should show the formula, not the result
+    formula_bar = page.locator('#formula-bar')
+    expect(formula_bar).to_have_value('=A1*2')
+    
+    # Cell reference should show B1
+    cell_ref = page.locator('#cell-ref')
+    expect(cell_ref).to_have_text('B1')
+    
+    # Click on cell A1 which has value 10
+    cell_a1 = page.locator('#cell-0-0')
+    cell_a1.click()
+    time.sleep(0.3)
+    
+    # Formula bar should show the value
+    expect(formula_bar).to_have_value('10')
+    expect(cell_ref).to_have_text('A1')
+
+
+def test_formula_bar_editing(page: Page, base_url):
+    """Test that editing in formula bar updates the cell
+    
+    User requirement: "The bar is editable, but when I press enter it doesn't update the cell"
+    Solution: Added Enter key handler to save from formula bar
+    
+    This test verifies formula bar editing works
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Click on empty cell D5
+    cell_d5 = page.locator('#cell-4-3')
+    cell_d5.click()
+    time.sleep(0.3)
+    
+    # Type in formula bar
+    formula_bar = page.locator('#formula-bar')
+    formula_bar.click()
+    formula_bar.fill('=A1+10')
+    time.sleep(0.2)
+    
+    # Press Enter
+    formula_bar.press('Enter')
+    time.sleep(0.5)
+    
+    # Cell should show result (10 + 10 = 20)
+    expect(cell_d5).to_have_text('20')
+    
+    # Should have moved to next row (D6)
+    cell_ref = page.locator('#cell-ref')
+    expect(cell_ref).to_have_text('D6')
+
+
+def test_edit_formula_cell_shows_formula(page: Page, base_url):
+    """Test that double-clicking formula cell shows formula in editor
+    
+    Bug: Double-clicking formula cell was showing computed value instead of formula
+    Root cause: selectCell() was canceling edit before async GetCellRawValue completed
+    Fix: Don't call selectCell() from within startEditing()
+    
+    This test verifies in-cell editing shows the formula
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Double-click on cell B1 which has formula =A1*2
+    cell_b1 = page.locator('#cell-0-1')
+    cell_b1.dblclick()
+    time.sleep(0.5)
+    
+    # Input should show formula, not result
+    input_elem = cell_b1.locator('.cell-editor')
+    expect(input_elem).to_be_visible()
+    input_value = input_elem.input_value()
+    assert input_value == '=A1*2', f"Expected formula '=A1*2', got '{input_value}'"
+    
+    # Cancel the edit
+    page.keyboard.press('Escape')
+    time.sleep(0.3)
+
+
+def test_formula_bar_updates_after_edit(page: Page, base_url):
+    """Test that formula bar updates after editing cell
+    
+    User requirement: "when I edit the cell that's in the formula bar, you should update the bar"
+    Solution: Update formula bar after finishEditing() completes
+    
+    This test verifies formula bar stays in sync with cell edits
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Select cell A1
+    cell_a1 = page.locator('#cell-0-0')
+    cell_a1.click()
+    time.sleep(0.3)
+    
+    # Formula bar should show "10"
+    formula_bar = page.locator('#formula-bar')
+    expect(formula_bar).to_have_value('10')
+    
+    # Double-click to edit in-cell
+    cell_a1.dblclick()
+    time.sleep(0.3)
+    
+    # Change value to 99
+    input_elem = cell_a1.locator('.cell-editor')
+    input_elem.fill('99')
+    input_elem.press('Enter')
+    time.sleep(0.5)
+    
+    # Formula bar should now show "99"
+    expect(formula_bar).to_have_value('99')
 
 
 if __name__ == '__main__':

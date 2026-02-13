@@ -60,6 +60,10 @@ function forceCleanupEditing() {
 
 // Initialize the spreadsheet
 document.querySelector('#app').innerHTML = `
+    <div class="formula-bar-container">
+        <span class="cell-ref" id="cell-ref">A1</span>
+        <input type="text" class="formula-bar" id="formula-bar" placeholder="Enter value or formula..." />
+    </div>
     <div class="spreadsheet-container" id="container">
         <table class="spreadsheet" id="spreadsheet">
             <!-- Will be populated by JavaScript -->
@@ -257,7 +261,26 @@ function selectCell(row, col) {
     if (cell) {
         cell.classList.add('selected');
         selectedCell = { row, col };
+        
+        // Update formula bar
+        updateFormulaBar(row, col);
     }
+}
+
+// Update the formula bar with the selected cell's content
+async function updateFormulaBar(row, col) {
+    const cellRef = document.getElementById('cell-ref');
+    const formulaBar = document.getElementById('formula-bar');
+    
+    if (!cellRef || !formulaBar) return;
+    
+    // Update cell reference display
+    const ref = await GetCellRef(row, col);
+    cellRef.textContent = ref;
+    
+    // Get raw value (formula or value)
+    const rawValue = await GetCellRawValue(row, col);
+    formulaBar.value = rawValue || '';
 }
 
 // Start editing a cell
@@ -277,7 +300,13 @@ function startEditing(row, col) {
     }
     
     isEditing = true;
-    selectCell(row, col);
+    
+    // Make sure this cell is selected (but don't call selectCell which would trigger cleanup)
+    document.querySelectorAll('.cell.selected').forEach(el => {
+        el.classList.remove('selected');
+    });
+    cell.classList.add('selected');
+    selectedCell = { row, col };
     
     // Get raw value (formula, not computed)
     GetCellRawValue(row, col).then(rawValue => {
@@ -286,6 +315,8 @@ function startEditing(row, col) {
             console.warn('Editing was cancelled while fetching value');
             return;
         }
+        
+        console.log(`Editing cell (${row},${col}): rawValue="${rawValue}", isFormula=${cell.classList.contains('formula-cell')}`);
         
         // Replace cell content with input
         const input = document.createElement('input');
@@ -393,6 +424,11 @@ function finishEditing(row, col, value, cell) {
     }).then(() => {
         console.log(`All cells refreshed after edit at row=${row}, col=${col}`);
         isSaving = false;
+        
+        // Update formula bar to show the new value
+        if (selectedCell && selectedCell.row === row && selectedCell.col === col) {
+            updateFormulaBar(row, col);
+        }
     }).catch(err => {
         console.error('Error setting cell value:', err);
         cell.textContent = '#ERROR';
@@ -592,5 +628,34 @@ function startEditingWithChar(row, col, initialChar) {
 // Initialize
 buildSpreadsheet();
 loadCells();
+
+// Select A1 by default
+selectCell(0, 0);
+
+// Set up formula bar event handlers
+const formulaBar = document.getElementById('formula-bar');
+if (formulaBar) {
+    formulaBar.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter' && selectedCell) {
+            e.preventDefault();
+            const { row, col } = selectedCell;
+            const value = formulaBar.value;
+            
+            // Save the value
+            await SetCellValue(row, col, value);
+            await refreshAllCells();
+            
+            // Move to next row (like Excel)
+            selectCell(row + 1, col);
+        } else if (e.key === 'Escape') {
+            // Cancel edit and restore original value
+            if (selectedCell) {
+                const { row, col } = selectedCell;
+                updateFormulaBar(row, col);
+            }
+            formulaBar.blur();
+        }
+    });
+}
 
 console.log('GoSheet initialized');
