@@ -414,13 +414,11 @@ function startEditingWithChar(row, col, initialChar) {
     cell.textContent = '';
     cell.appendChild(input);
     
-    // Focus MUST happen after appending to DOM
-    setTimeout(() => {
-        input.focus();
-        // Move cursor to end
-        input.setSelectionRange(1, 1);
-        console.log(`Input focused, value="${input.value}"`);
-    }, 0);
+    // Focus immediately (synchronously) after appending to DOM
+    input.focus();
+    // Move cursor to end
+    input.setSelectionRange(1, 1);
+    console.log(`Input focused, value="${input.value}"`);
     
     // Set up event handlers
     setupEditorHandlers(input, row, col, cell, originalContent);

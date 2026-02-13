@@ -61,8 +61,9 @@ def test_cell_selection(page: Page, base_url):
     cell = page.locator('#cell-5-5')
     cell.click()
     
-    # Cell should have 'selected' class
-    expect(cell).to_have_class('selected')
+    # Cell should have 'selected' class (among others like 'cell')
+    class_attr = cell.get_attribute('class')
+    assert 'selected' in class_attr
 
 
 def test_enter_single_digit(page: Page, base_url):
@@ -195,7 +196,7 @@ def test_simple_formula(page: Page, base_url):
     expect(cell).to_have_text('8')
     
     # Should have formula-cell class
-    expect(cell).to_have_class('formula-cell')
+    assert 'formula-cell' in cell.get_attribute('class')
 
 
 def test_edit_after_formula(page: Page, base_url):
@@ -259,19 +260,19 @@ def test_arrow_key_navigation(page: Page, base_url):
     # Select a cell
     cell = page.locator('#cell-5-5')
     cell.click()
-    expect(cell).to_have_class('selected')
+    assert 'selected' in cell.get_attribute('class')
     
     # Navigate down
     page.keyboard.press('ArrowDown')
     time.sleep(0.1)
     cell_below = page.locator('#cell-6-5')
-    expect(cell_below).to_have_class('selected')
+    assert 'selected' in cell_below.get_attribute('class')
     
     # Navigate right
     page.keyboard.press('ArrowRight')
     time.sleep(0.1)
     cell_right = page.locator('#cell-6-6')
-    expect(cell_right).to_have_class('selected')
+    assert 'selected' in cell_right.get_attribute('class')
 
 
 if __name__ == '__main__':
