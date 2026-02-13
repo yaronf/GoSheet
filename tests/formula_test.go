@@ -306,6 +306,46 @@ func TestEvaluateErrors(t *testing.T) {
 	}
 }
 
+func TestStringFunctions(t *testing.T) {
+	sheet := model.NewSpreadsheet()
+	sheet.SetCell(0, 0, "Hello") // A1 = "Hello"
+	sheet.SetCell(1, 0, "World") // A2 = "World"
+	sheet.SetCell(2, 0, "123")   // A3 = "123"
+	sheet.GetCell(0, 0).SetComputed("Hello")
+	sheet.GetCell(1, 0).SetComputed("World")
+	sheet.GetCell(2, 0).SetComputed("123")
+
+	tests := []struct {
+		name     string
+		formula  string
+		expected string
+	}{
+		{"=CONCAT(\"Hello\",\" \",\"World\")", "=CONCAT(\"Hello\",\" \",\"World\")", "Hello World"},
+		{"=CONCAT(A1,\" \",A2)", "=CONCAT(A1,\" \",A2)", "Hello World"},
+		{"=UPPER(\"hello\")", "=UPPER(\"hello\")", "HELLO"},
+		{"=UPPER(A1)", "=UPPER(A1)", "HELLO"},
+		{"=LOWER(\"WORLD\")", "=LOWER(\"WORLD\")", "world"},
+		{"=LOWER(A2)", "=LOWER(A2)", "world"},
+		{"=LEN(\"Hello\")", "=LEN(\"Hello\")", "5"},
+		{"=LEN(A1)", "=LEN(A1)", "5"},
+		{"=LEFT(\"Hello\",3)", "=LEFT(\"Hello\",3)", "Hel"},
+		{"=LEFT(A1,2)", "=LEFT(A1,2)", "He"},
+		{"=RIGHT(\"World\",3)", "=RIGHT(\"World\",3)", "rld"},
+		{"=RIGHT(A2,2)", "=RIGHT(A2,2)", "ld"},
+		{"=MID(\"Hello\",2,3)", "=MID(\"Hello\",2,3)", "ell"},
+		{"=MID(A1,1,3)", "=MID(A1,1,3)", "Hel"},
+		{"=CONCAT(A1,A3)", "=CONCAT(A1,A3)", "Hello123"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := model.EvaluateFormula(tt.formula, sheet)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestCellRefToCoords(t *testing.T) {
 	tests := []struct {
 		ref    string

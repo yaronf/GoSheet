@@ -43,9 +43,27 @@ var formulaParser = participle.MustBuild[Formula](
 
 // normalizeFormula converts cell references to uppercase while preserving function names
 func normalizeFormula(formula string) string {
-	// Simple approach: uppercase everything
-	// This works because our functions (SUM, AVG, etc.) are also uppercase
-	return strings.ToUpper(formula)
+	// Uppercase everything EXCEPT string literals (inside quotes)
+	// This preserves case in strings while making cell refs and functions case-insensitive
+	var result strings.Builder
+	inString := false
+	
+	for i := 0; i < len(formula); i++ {
+		ch := formula[i]
+		
+		if ch == '"' {
+			inString = !inString
+			result.WriteByte(ch)
+		} else if inString {
+			// Inside string literal - preserve case
+			result.WriteByte(ch)
+		} else {
+			// Outside string literal - uppercase
+			result.WriteByte(byte(strings.ToUpper(string(ch))[0]))
+		}
+	}
+	
+	return result.String()
 }
 
 // ParseFormula parses a formula string into an AST
@@ -450,11 +468,21 @@ func evaluateFuncCall(call *FuncCall, sheet *Spreadsheet) (Value, error) {
 
 // Built-in functions
 var builtinFunctions = map[string]func([]Value) (Value, error){
+	// Numeric functions
 	"SUM":   sumFunction,
 	"AVG":   avgFunction,
 	"MIN":   minFunction,
 	"MAX":   maxFunction,
 	"COUNT": countFunction,
+	
+	// String functions
+	"CONCAT": concatFunction,
+	"UPPER":  upperFunction,
+	"LOWER":  lowerFunction,
+	"LEN":    lenFunction,
+	"LEFT":   leftFunction,
+	"RIGHT":  rightFunction,
+	"MID":    midFunction,
 }
 
 // sumFunction implements SUM
@@ -604,4 +632,150 @@ func countFunction(args []Value) (Value, error) {
 	}
 
 	return NumberValue{float64(count)}, nil
+}
+
+// Helper function to convert Value to string
+func valueToStr(v Value) string {
+	switch val := v.(type) {
+	case StringValue:
+		return val.Value
+	case NumberValue:
+		return valueToString(val)
+	default:
+		return ""
+	}
+}
+
+// concatFunction implements CONCAT - concatenate strings
+func concatFunction(args []Value) (Value, error) {
+	var result string
+	
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case StringValue:
+			result += v.Value
+		case NumberValue:
+			result += valueToString(v)
+		case VectorValue:
+			for _, val := range v.Values {
+				result += valueToStr(val)
+			}
+		case ErrorValue:
+			return v, v.Error
+		}
+	}
+	
+	return StringValue{result}, nil
+}
+
+// upperFunction implements UPPER - convert to uppercase
+func upperFunction(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return ErrorValue{fmt.Errorf("UPPER requires exactly 1 argument")}, nil
+	}
+	
+	str := valueToStr(args[0])
+	return StringValue{strings.ToUpper(str)}, nil
+}
+
+// lowerFunction implements LOWER - convert to lowercase
+func lowerFunction(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return ErrorValue{fmt.Errorf("LOWER requires exactly 1 argument")}, nil
+	}
+	
+	str := valueToStr(args[0])
+	return StringValue{strings.ToLower(str)}, nil
+}
+
+// lenFunction implements LEN - string length
+func lenFunction(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return ErrorValue{fmt.Errorf("LEN requires exactly 1 argument")}, nil
+	}
+	
+	str := valueToStr(args[0])
+	return NumberValue{float64(len(str))}, nil
+}
+
+// leftFunction implements LEFT - first n characters
+func leftFunction(args []Value) (Value, error) {
+	if len(args) != 2 {
+		return ErrorValue{fmt.Errorf("LEFT requires exactly 2 arguments")}, nil
+	}
+	
+	str := valueToStr(args[0])
+	n, err := toNumber(args[1])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	
+	length := int(n)
+	if length < 0 {
+		length = 0
+	}
+	if length > len(str) {
+		length = len(str)
+	}
+	
+	return StringValue{str[:length]}, nil
+}
+
+// rightFunction implements RIGHT - last n characters
+func rightFunction(args []Value) (Value, error) {
+	if len(args) != 2 {
+		return ErrorValue{fmt.Errorf("RIGHT requires exactly 2 arguments")}, nil
+	}
+	
+	str := valueToStr(args[0])
+	n, err := toNumber(args[1])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	
+	length := int(n)
+	if length < 0 {
+		length = 0
+	}
+	if length > len(str) {
+		length = len(str)
+	}
+	
+	start := len(str) - length
+	return StringValue{str[start:]}, nil
+}
+
+// midFunction implements MID - substring
+func midFunction(args []Value) (Value, error) {
+	if len(args) != 3 {
+		return ErrorValue{fmt.Errorf("MID requires exactly 3 arguments")}, nil
+	}
+	
+	str := valueToStr(args[0])
+	start, err := toNumber(args[1])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	length, err := toNumber(args[2])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	
+	// Convert to 0-based index (MID uses 1-based)
+	startIdx := int(start) - 1
+	lengthInt := int(length)
+	
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if startIdx >= len(str) {
+		return StringValue{""}, nil
+	}
+	
+	endIdx := startIdx + lengthInt
+	if endIdx > len(str) {
+		endIdx = len(str)
+	}
+	
+	return StringValue{str[startIdx:endIdx]}, nil
 }

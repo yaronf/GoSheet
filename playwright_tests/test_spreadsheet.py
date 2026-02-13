@@ -519,5 +519,80 @@ def test_infinite_scroll_expands_grid(page: Page, base_url):
     expect(expanded_col_ab).to_be_attached()
 
 
+def test_string_functions(page: Page, base_url):
+    """Test string manipulation functions
+    
+    User requirement: "Do we have any string functions, such as string concat?"
+    Implemented: CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID
+    
+    This test verifies string functions work correctly in formulas
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Test CONCAT
+    cell_d1 = page.locator('#cell-0-3')
+    cell_d1.click()
+    time.sleep(0.2)
+    page.keyboard.type('=CONCAT("Hello"," ","World")')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    expect(cell_d1).to_have_text('Hello World')
+    
+    # Test UPPER
+    cell_d2 = page.locator('#cell-1-3')
+    cell_d2.click()
+    time.sleep(0.2)
+    page.keyboard.type('=UPPER("hello")')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    expect(cell_d2).to_have_text('HELLO')
+    
+    # Test LOWER
+    cell_d3 = page.locator('#cell-2-3')
+    cell_d3.click()
+    time.sleep(0.2)
+    page.keyboard.type('=LOWER("WORLD")')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    expect(cell_d3).to_have_text('world')
+    
+    # Test LEN
+    cell_d4 = page.locator('#cell-3-3')
+    cell_d4.click()
+    time.sleep(0.2)
+    page.keyboard.type('=LEN("Test")')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    expect(cell_d4).to_have_text('4')
+    
+    # Test LEFT
+    cell_d5 = page.locator('#cell-4-3')
+    cell_d5.click()
+    time.sleep(0.2)
+    page.keyboard.type('=LEFT("Hello",3)')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    expect(cell_d5).to_have_text('Hel')
+    
+    # Test RIGHT
+    cell_d6 = page.locator('#cell-5-3')
+    cell_d6.click()
+    time.sleep(0.2)
+    page.keyboard.type('=RIGHT("World",3)')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    expect(cell_d6).to_have_text('rld')
+    
+    # Test MID
+    cell_d7 = page.locator('#cell-6-3')
+    cell_d7.click()
+    time.sleep(0.2)
+    page.keyboard.type('=MID("Hello",2,3)')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    expect(cell_d7).to_have_text('ell')
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])
