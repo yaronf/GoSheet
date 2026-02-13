@@ -99,7 +99,13 @@ function buildSpreadsheet() {
             td.dataset.col = col;
             
             // Click to select/edit
-            td.addEventListener('click', () => selectCell(row, col));
+            td.addEventListener('click', (e) => {
+                // Don't select if clicking on the input editor
+                if (e.target.classList.contains('cell-editor')) {
+                    return;
+                }
+                selectCell(row, col);
+            });
             td.addEventListener('dblclick', () => startEditing(row, col));
             
             tr.appendChild(td);
