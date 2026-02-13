@@ -66,10 +66,10 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 // Serve static files from frontend directory
 func serveStatic(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		http.ServeFile(w, r, "frontend/index.html")
+		http.ServeFile(w, r, "../frontend/index.html")
 		return
 	}
-	http.ServeFile(w, r, "frontend"+r.URL.Path)
+	http.ServeFile(w, r, "../frontend"+r.URL.Path)
 }
 
 // API Handlers
