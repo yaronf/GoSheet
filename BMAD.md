@@ -65,7 +65,7 @@ These rules supplement BMAD methodology for this project:
    - **Target**: Maintain high test coverage for critical paths
    - **Current Status**: 
      - Go unit tests: 18 tests covering formula evaluation, string functions, error handling, file I/O
-     - Playwright UI tests: 31 tests covering user interactions, bug regressions, features, file operations
+     - Playwright UI tests: 30 tests covering user interactions, bug regressions, features, file operations
    - **Strategy**: Focus on behavior testing over line coverage metrics
    - **Rule**: Every bug fix requires at least one regression test
 
@@ -386,7 +386,7 @@ Following BMAD's practice of documenting key decisions:
 - **Load**: Uses `<input type="file">` - opens browser file picker
 - **Limitation**: Cannot choose save location, limited to browser security sandbox
 - **API Endpoints**: `/api/file/download` (GET) and `/api/file/upload` (POST)
-- **No File Status Display**: Removed because browser can't track if user completed save dialog
+- **File Status**: Shows "● Unsaved changes" or "✓ Saved" (tracks serialization state, not file paths)
 **Future Implementation (Desktop App)**:
 - **Save**: Native "Save As" dialog with full file system access
 - **Load**: Native "Open" dialog
@@ -527,24 +527,37 @@ Following BMAD's practice of documenting issues and resolutions:
 - `test_file_status_display` - Playwright test for status display
 **Status**: ✅ Implemented and tested (18 Go unit tests, 31 Playwright tests)
 
-### Bug Fix 4: Misleading File Status Display
+### Bug Fix 4: File Status Display Confusion
 **Date**: 2026-02-13
 **Reported**: User: "why do we have a file name at the top of the screen and it's incorrect?"
-**Issue**: File status was showing temp file paths (`/tmp/gosheet_download.gosheet`) and changing status before user completed browser's save dialog
-**Root Cause**: Browser download API is fire-and-forget - can't track if user actually saved file
-**Decision**: Remove file status display entirely in browser mode
-**Rationale**:
-- Browser can't reliably track save state (downloads are async, no completion callback)
-- No persistent file paths in browser mode (just temp files on server)
-- Status would be misleading to users
-- Will re-add when packaging as desktop app with native dialogs
+**Issue**: File status was showing temp file paths (`/tmp/gosheet_download.gosheet`)
+**Initial Misunderstanding**: Thought we couldn't track save state because browser downloads are fire-and-forget
+**Correct Insight** (user feedback): "You know when you read from a file or write to a file. That's the important thing, not the file sel dialog."
+**Solution**: Track serialization/deserialization, not file dialog completion
+- **Save (download)**: We serialize the state → Clear "unsaved changes"
+- **Load (upload)**: We deserialize the state → Clear "unsaved changes"  
+- **Edit**: We modify the state → Set "unsaved changes"
 **Changes**:
-- Removed `#file-status` element from HTML
-- Removed `updateFileStatus()` function and all calls to it
-- Updated `handleDownloadFile()` to preserve Modified flag (don't clear on download)
-- Added comment explaining why status removed
-**Test Updated**: Changed `test_file_status_display` to `test_file_buttons_present` - just verifies buttons exist
-**Status**: ✅ Fixed - status removed for browser mode, will re-add for desktop app
+- Restored `#file-status` element showing "● Unsaved changes" or "✓ Saved"
+- `handleDownloadFile()`: Clears Modified flag (we've serialized the data)
+- Frontend calls `updateFileStatus()` after save/load/edit operations
+- Don't show file paths (temp files not meaningful in browser mode)
+**Test**: `test_file_status_tracks_changes` - verifies status updates correctly
+**Status**: ✅ Fixed - status now correctly tracks data serialization state
+
+### Feature: Unsaved Changes Warning on New File
+**Date**: 2026-02-13
+**Requested**: User: "and add a warning dialog before 'new' if the status is 'modified'."
+**Implementation**: Check for unsaved changes before creating new file
+**Behavior**:
+- If no unsaved changes: Shows "Create a new spreadsheet?"
+- If unsaved changes: Shows "You have unsaved changes! Create a new spreadsheet anyway? All unsaved changes will be lost."
+- User can cancel to keep current data
+**Implementation**:
+- New button handler calls `GetFileStatus()` before showing confirm dialog
+- Different confirm message based on `hasUnsavedChanges` flag
+**Test Added**: `test_new_file_warns_on_unsaved_changes` - verifies warning shown and data preserved on cancel
+**Status**: ✅ Implemented and tested
 
 ## Next Steps
 

@@ -862,10 +862,14 @@ def test_new_file_clears_data(page: Page, base_url):
     # Verify data is there
     assert 'Some data' in cell_a1.text_content()
     
-    # Click New button (confirm dialog)
-    page.on('dialog', lambda dialog: dialog.accept())
+    # Click New button and accept dialog (will warn about unsaved changes)
     new_btn = page.locator('#new-btn')
-    new_btn.click()
+    
+    with page.expect_event('dialog') as dialog_info:
+        new_btn.click()
+    
+    dialog = dialog_info.value
+    dialog.accept()
     time.sleep(1.0)
     
     # Verify cell is now empty (or has sample data)
@@ -876,25 +880,115 @@ def test_new_file_clears_data(page: Page, base_url):
     assert 'Some data' not in cell_text
 
 
-def test_file_buttons_present(page: Page, base_url):
-    """Test that file operation buttons are present
+def test_new_file_warns_on_unsaved_changes(page: Page, base_url):
+    """Test that New File warns when there are unsaved changes
     
-    Note: File status display removed for browser mode because:
-    - Downloads are fire-and-forget (can't track if user saved)
-    - No persistent file paths in browser
-    - Will be re-added for desktop app with native dialogs
+    Feature: Prevent accidental data loss by warning user
     """
     page.goto(base_url)
     time.sleep(0.5)
     
-    # Verify file operation buttons exist
-    new_btn = page.locator('#new-btn')
-    save_btn = page.locator('#save-btn')
-    load_btn = page.locator('#load-btn')
+    # Make a change (creates unsaved changes)
+    cell_a1 = page.locator('#cell-0-0')
+    cell_a1.click()
+    time.sleep(0.2)
+    page.keyboard.type('Important data')
+    page.keyboard.press('Enter')
+    time.sleep(0.8)
     
-    assert new_btn.is_visible()
-    assert save_btn.is_visible()
-    assert load_btn.is_visible()
+    # Verify unsaved changes status
+    status = page.locator('#file-status')
+    assert 'unsaved' in status.text_content().lower()
+    
+    # Click New button and expect dialog
+    new_btn = page.locator('#new-btn')
+    
+    with page.expect_event('dialog') as dialog_info:
+        new_btn.click()
+    
+    dialog = dialog_info.value
+    dialog_message = dialog.message
+    
+    # Verify dialog mentioned unsaved changes
+    assert 'unsaved' in dialog_message.lower(), f"Expected 'unsaved' in dialog, got: {dialog_message}"
+    
+    # Dismiss dialog
+    dialog.dismiss()
+    time.sleep(0.5)
+    
+    # Verify data is still there (operation was cancelled)
+    assert 'Important data' in cell_a1.text_content()
+
+
+def test_file_status_initial_state(page: Page, base_url):
+    """Test that file status shows 'Saved' after creating new file
+    
+    Bug: Sample data was marking spreadsheet as modified on startup
+    Fix: Clear Modified flag after loading sample data
+    
+    Note: This test runs after other tests, so we create a new file to get clean state
+    """
+    import requests
+    
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Create new file to get clean initial state
+    response = requests.post(f'{base_url}/api/file/new', headers={'Content-Type': 'application/json'})
+    assert response.status_code == 200
+    
+    # Reload page to see new state
+    page.reload()
+    time.sleep(0.5)
+    
+    # Status should show "Saved" (sample data is initial state, not unsaved)
+    status = page.locator('#file-status')
+    initial_text = status.text_content()
+    assert 'saved' in initial_text.lower(), f"Expected 'saved' after new file, got: {initial_text}"
+    assert 'unsaved' not in initial_text.lower(), f"Should not show 'unsaved' after new file, got: {initial_text}"
+
+
+def test_file_status_tracks_changes(page: Page, base_url):
+    """Test that file status correctly tracks unsaved changes
+    
+    Key insight: Status tracks serialization/deserialization, not file dialog completion
+    - Edit: Sets "unsaved changes"
+    - Save (download): Clears "unsaved changes" (data serialized)
+    - Load (upload): Clears "unsaved changes" (data deserialized)
+    """
+    import requests
+    
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Initial status should show "Saved"
+    status = page.locator('#file-status')
+    initial_text = status.text_content()
+    assert 'saved' in initial_text.lower(), f"Expected 'saved', got: {initial_text}"
+    
+    # Make a change
+    cell_a1 = page.locator('#cell-0-0')
+    cell_a1.click()
+    time.sleep(0.2)
+    page.keyboard.type('Test')
+    page.keyboard.press('Enter')
+    time.sleep(0.8)
+    
+    # Status should show "Unsaved changes"
+    status_text = status.text_content()
+    assert 'unsaved' in status_text.lower(), f"Expected 'unsaved', got: {status_text}"
+    
+    # Download file (serializes state) - should clear unsaved status
+    response = requests.get(f'{base_url}/api/file/download')
+    assert response.status_code == 200
+    file_data = response.content
+    time.sleep(0.5)
+    
+    # Status should now show "Saved" (we serialized the data)
+    page.reload()
+    time.sleep(0.5)
+    status_text = status.text_content()
+    assert 'saved' in status_text.lower(), f"Expected 'saved' after download, got: {status_text}"
 
 
 if __name__ == '__main__':

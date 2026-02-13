@@ -126,6 +126,7 @@ document.querySelector('#app').innerHTML = `
         <button id="save-btn" class="toolbar-btn">Save</button>
         <button id="load-btn" class="toolbar-btn">Load</button>
         <input type="file" id="file-input" accept=".gosheet" style="display: none;" />
+        <span id="file-status" class="file-status"></span>
     </div>
     <div class="formula-bar-container">
         <span class="cell-ref" id="cell-ref">A1</span>
@@ -489,6 +490,8 @@ function finishEditing(row, col, value, cell) {
         // Refresh ALL cells to pick up dependent formula changes
         return refreshAllCells();
     }).then(() => {
+        updateFileStatus();
+    }).then(() => {
         console.log(`All cells refreshed after edit at row=${row}, col=${col}`);
         isSaving = false;
         
@@ -711,6 +714,7 @@ if (formulaBar) {
             // Save the value
             await SetCellValue(row, col, value);
             await refreshAllCells();
+            await updateFileStatus();
             
             // Move to next row (like Excel)
             selectCell(row + 1, col);
@@ -727,7 +731,14 @@ if (formulaBar) {
 
 // File operations handlers
 document.getElementById('new-btn').addEventListener('click', async () => {
-    if (confirm('Create a new spreadsheet? Any unsaved changes will be lost.')) {
+    // Check if there are unsaved changes
+    const status = await GetFileStatus();
+    let confirmMessage = 'Create a new spreadsheet?';
+    if (status.hasUnsavedChanges) {
+        confirmMessage = 'You have unsaved changes! Create a new spreadsheet anyway? All unsaved changes will be lost.';
+    }
+    
+    if (confirm(confirmMessage)) {
         try {
             await NewFile();
             // Clear the grid
@@ -736,6 +747,7 @@ document.getElementById('new-btn').addEventListener('click', async () => {
             buildSpreadsheet();
             await loadCells();
             selectCell(0, 0);
+            updateFileStatus();
             alert('New spreadsheet created');
         } catch (error) {
             alert('Error creating new file: ' + error.message);
@@ -745,7 +757,7 @@ document.getElementById('new-btn').addEventListener('click', async () => {
 
 document.getElementById('save-btn').addEventListener('click', async () => {
     try {
-        // Get the file data from server
+        // Get the file data from server (this serializes current state)
         const blob = await DownloadFile();
         
         // Create download link
@@ -758,8 +770,8 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        // Note: Don't update file status here - in browser mode, we can't know
-        // if the user actually saved the file from the browser's download dialog
+        // Update status - we've serialized the data, so it's "saved"
+        updateFileStatus();
         console.log('File download initiated');
     } catch (error) {
         alert('Error saving file: ' + error.message);
@@ -780,7 +792,7 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
         // Read file as ArrayBuffer
         const arrayBuffer = await file.arrayBuffer();
         
-        // Upload to server
+        // Upload to server (loads serialized state)
         await UploadFile(arrayBuffer);
         
         // Reload all cells from server
@@ -789,6 +801,7 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
         buildSpreadsheet();
         await loadCells();
         selectCell(0, 0);
+        updateFileStatus();
         
         console.log('File loaded successfully:', file.name);
     } catch (error) {
@@ -799,10 +812,26 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
     e.target.value = '';
 });
 
-// Note: File status display removed for browser mode
-// In browser mode, we can't reliably track file save state because:
-// - Downloads are fire-and-forget (can't know if user saved)
-// - No persistent file paths
-// File status will be re-added when packaging as desktop app with native dialogs
+// Update file status display
+async function updateFileStatus() {
+    try {
+        const status = await GetFileStatus();
+        const statusEl = document.getElementById('file-status');
+        // Show unsaved changes indicator
+        // We track when data is serialized (save) or loaded, not file dialog completion
+        if (status.hasUnsavedChanges) {
+            statusEl.textContent = '● Unsaved changes';
+            statusEl.style.color = '#ff6b6b';
+        } else {
+            statusEl.textContent = '✓ Saved';
+            statusEl.style.color = '#51cf66';
+        }
+    } catch (error) {
+        console.error('Error updating file status:', error);
+    }
+}
+
+// Update file status on load
+updateFileStatus();
 
 console.log('GoSheet initialized');

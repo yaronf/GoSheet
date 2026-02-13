@@ -31,6 +31,8 @@ func main() {
 	ctrl.SetCellValue(2, 0, "30")
 	ctrl.SetCellValue(3, 0, "=SUM(A1:A3)")
 	ctrl.SetCellValue(0, 1, "=A1*2")
+	// Clear Modified flag - sample data is the initial state, not "unsaved changes"
+	ctrl.Sheet.Modified = false
 	log.Println("Sample data loaded")
 	
 	// Enable CORS for development
@@ -229,10 +231,7 @@ func handleFileStatus(w http.ResponseWriter, r *http.Request) {
 func handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	log.Println("Downloading file")
 	
-	// Save the current Modified state
-	wasModified := ctrl.Sheet.Modified
-	
-	// Save to temporary file
+	// Save to temporary file (this serializes the current state)
 	tmpFile := "/tmp/gosheet_download.gosheet"
 	if err := ctrl.SaveFile(tmpFile); err != nil {
 		log.Printf("Download error: %v", err)
@@ -240,9 +239,8 @@ func handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Restore the Modified state - in browser mode, download doesn't mean "saved"
-	// because we can't know if the user actually completed the browser's save dialog
-	ctrl.Sheet.Modified = wasModified
+	// SaveFile() clears Modified flag - this is correct because we've serialized the state
+	// The user may or may not complete the browser's save dialog, but we've done our part
 	
 	// Clear the FilePath since this is just a temp file for download
 	// In browser mode, there's no persistent file path
