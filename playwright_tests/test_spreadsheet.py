@@ -767,15 +767,20 @@ def test_sum_with_empty_cells_shows_error(page: Page, base_url):
 
 
 def test_save_and_load_file(page: Page, base_url):
-    """Test saving and loading a spreadsheet file
+    """Test saving and loading a spreadsheet file via API
     
-    This test verifies the complete save/load workflow:
+    This test verifies the complete save/load workflow using the API directly:
     1. Enter data in cells
-    2. Save to a file
+    2. Download file via API
     3. Modify the data
-    4. Load the file
+    4. Upload file via API
     5. Verify original data is restored
+    
+    Note: The UI now uses file picker dialogs which Playwright can't easily test,
+    so we test the underlying API endpoints directly.
     """
+    import requests
+    
     page.goto(base_url)
     time.sleep(0.5)
     
@@ -804,11 +809,11 @@ def test_save_and_load_file(page: Page, base_url):
     # Verify formula computed correctly
     assert cell_c1.text_content() == '84'
     
-    # Click Save button and handle prompt
-    page.on('dialog', lambda dialog: dialog.accept('/tmp/test_spreadsheet.gosheet'))
-    save_btn = page.locator('#save-btn')
-    save_btn.click()
-    time.sleep(1.0)
+    # Download file via API
+    response = requests.get(f'{base_url}/api/file/download')
+    assert response.status_code == 200
+    file_data = response.content
+    assert len(file_data) > 0
     
     # Modify the data
     cell_a1.click()
@@ -820,13 +825,22 @@ def test_save_and_load_file(page: Page, base_url):
     # Verify modification
     assert 'Modified' in cell_a1.text_content()
     
-    # Click Load button and handle prompt
-    page.on('dialog', lambda dialog: dialog.accept('/tmp/test_spreadsheet.gosheet'))
-    load_btn = page.locator('#load-btn')
-    load_btn.click()
-    time.sleep(1.5)
+    # Upload the saved file via API
+    response = requests.post(f'{base_url}/api/file/upload', 
+                            data=file_data,
+                            headers={'Content-Type': 'application/octet-stream'})
+    assert response.status_code == 200
+    time.sleep(0.5)
+    
+    # Reload the page to see restored data
+    page.reload()
+    time.sleep(1.0)
     
     # Verify original data is restored
+    cell_a1 = page.locator('#cell-0-0')
+    cell_b1 = page.locator('#cell-0-1')
+    cell_c1 = page.locator('#cell-0-2')
+    
     assert cell_a1.text_content() == 'Test Data'
     assert cell_b1.text_content() == '42'
     assert cell_c1.text_content() == '84'

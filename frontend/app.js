@@ -59,6 +59,28 @@ const LoadFile = async (path) => {
     return await response.json();
 };
 
+const DownloadFile = async (filename) => {
+    const response = await fetch(`${API_BASE}/api/file/download`);
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+    }
+    return await response.blob();
+};
+
+const UploadFile = async (fileData) => {
+    const response = await fetch(`${API_BASE}/api/file/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: fileData
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+    }
+    return await response.json();
+};
+
 const NewFile = async () => {
     const response = await fetch(`${API_BASE}/api/file/new`, {
         method: 'POST',
@@ -103,6 +125,7 @@ document.querySelector('#app').innerHTML = `
         <button id="new-btn" class="toolbar-btn">New</button>
         <button id="save-btn" class="toolbar-btn">Save</button>
         <button id="load-btn" class="toolbar-btn">Load</button>
+        <input type="file" id="file-input" accept=".gosheet" style="display: none;" />
         <span id="file-status" class="file-status"></span>
     </div>
     <div class="formula-bar-container">
@@ -723,35 +746,59 @@ document.getElementById('new-btn').addEventListener('click', async () => {
 });
 
 document.getElementById('save-btn').addEventListener('click', async () => {
-    const path = prompt('Enter file path to save:', '/tmp/spreadsheet.gosheet');
-    if (path) {
-        try {
-            await SaveFile(path);
-            updateFileStatus();
-            alert('File saved successfully to: ' + path);
-        } catch (error) {
-            alert('Error saving file: ' + error.message);
-        }
+    try {
+        // Get the file data from server
+        const blob = await DownloadFile();
+        
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'spreadsheet.gosheet';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        updateFileStatus();
+        console.log('File downloaded successfully');
+    } catch (error) {
+        alert('Error saving file: ' + error.message);
     }
 });
 
-document.getElementById('load-btn').addEventListener('click', async () => {
-    const path = prompt('Enter file path to load:', '/tmp/spreadsheet.gosheet');
-    if (path) {
-        try {
-            await LoadFile(path);
-            // Reload all cells from server
-            ROWS = 100;
-            COLS = 26;
-            buildSpreadsheet();
-            await loadCells();
-            selectCell(0, 0);
-            updateFileStatus();
-            alert('File loaded successfully from: ' + path);
-        } catch (error) {
-            alert('Error loading file: ' + error.message);
-        }
+document.getElementById('load-btn').addEventListener('click', () => {
+    // Trigger the hidden file input
+    document.getElementById('file-input').click();
+});
+
+// Handle file selection
+document.getElementById('file-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+        // Read file as ArrayBuffer
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // Upload to server
+        await UploadFile(arrayBuffer);
+        
+        // Reload all cells from server
+        ROWS = 100;
+        COLS = 26;
+        buildSpreadsheet();
+        await loadCells();
+        selectCell(0, 0);
+        updateFileStatus();
+        
+        console.log('File loaded successfully:', file.name);
+    } catch (error) {
+        alert('Error loading file: ' + error.message);
     }
+    
+    // Reset file input so same file can be loaded again
+    e.target.value = '';
 });
 
 // Update file status display

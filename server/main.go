@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"gosheet/controller"
@@ -42,6 +44,8 @@ func main() {
 	http.HandleFunc("/api/file/load", corsMiddleware(handleLoadFile))
 	http.HandleFunc("/api/file/new", corsMiddleware(handleNewFile))
 	http.HandleFunc("/api/file/status", corsMiddleware(handleFileStatus))
+	http.HandleFunc("/api/file/download", corsMiddleware(handleDownloadFile))
+	http.HandleFunc("/api/file/upload", corsMiddleware(handleUploadFile))
 	
 	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
 	fmt.Printf("Open http://localhost:%s in your browser\n", *port)
@@ -219,5 +223,54 @@ func handleFileStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"path":            ctrl.GetFilePath(),
 		"hasUnsavedChanges": ctrl.HasUnsavedChanges(),
+	})
+}
+
+func handleDownloadFile(w http.ResponseWriter, r *http.Request) {
+	log.Println("Downloading file")
+	
+	// Save to temporary file
+	tmpFile := "/tmp/gosheet_download.gosheet"
+	if err := ctrl.SaveFile(tmpFile); err != nil {
+		log.Printf("Download error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	// Serve the file
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=spreadsheet.gosheet")
+	http.ServeFile(w, r, tmpFile)
+}
+
+func handleUploadFile(w http.ResponseWriter, r *http.Request) {
+	log.Println("Uploading file")
+	
+	// Read the uploaded file data
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Upload read error: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	
+	// Save to temporary file
+	tmpFile := "/tmp/gosheet_upload.gosheet"
+	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
+		log.Printf("Upload write error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	// Load the file
+	if err := ctrl.LoadFile(tmpFile); err != nil {
+		log.Printf("Upload load error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
 	})
 }

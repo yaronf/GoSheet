@@ -18,6 +18,22 @@ BMAD is an AI-driven agile development framework that provides:
 
 These rules supplement BMAD methodology for this project:
 
+### Session Management
+
+1. **Check BMAD Before Starting**: At the beginning of EVERY user interaction session
+   - Read BMAD.md to understand current project state
+   - Review recent changes, pending tasks, and architectural decisions
+   - Check test counts, completed features, and known issues
+   - Update your mental model before responding to user
+   - **Why**: Prevents working with outdated assumptions and ensures continuity across sessions
+
+2. **Update BMAD During Work**: Document as you go
+   - Add new features to "Bug Fixes and Improvements" section immediately after implementation
+   - Update test counts when tests are added
+   - Document architectural decisions when made
+   - Mark tasks as completed in "Next Steps" section
+   - **Why**: Keeps documentation current and prevents forgetting important details
+
 ### Code Quality & Testing
 1. **Test Before Commit**: Never commit code without testing it first
    - Run relevant tests (unit tests, Playwright tests, or manual testing)
@@ -361,6 +377,27 @@ Following BMAD's practice of documenting key decisions:
 3. **Wails**: Go-native, revisit after core features stabilize
 **Timeline**: After file operations (save/load) are implemented
 **Date**: 2026-02-13
+
+### Decision 9: File Dialog Evolution
+**Question**: How to handle file dialogs in browser vs desktop app?
+**Decision**: Two-phase approach - browser File API now, native dialogs later
+**Current Implementation (Browser)**:
+- **Save**: Uses HTML5 download API - downloads to Downloads folder
+- **Load**: Uses `<input type="file">` - opens browser file picker
+- **Limitation**: Cannot choose save location, limited to browser security sandbox
+- **API Endpoints**: `/api/file/download` (GET) and `/api/file/upload` (POST)
+**Future Implementation (Desktop App)**:
+- **Save**: Native "Save As" dialog with full file system access
+- **Load**: Native "Open" dialog
+- **Changes Needed**:
+  1. Replace download/upload endpoints with native dialog integration
+  2. Use Electron's `dialog.showSaveDialog()` and `dialog.showOpenDialog()`
+  3. Or Tauri's file dialog APIs
+  4. Remove hidden `<input type="file">` element
+  5. Update frontend to call native APIs instead of download/upload
+  6. Keep old `/api/file/save` and `/api/file/load` endpoints for backward compatibility
+**Date**: 2026-02-13
+**Status**: ✅ Browser implementation complete, desktop packaging pending
 
 ## Bug Fixes and Improvements
 
