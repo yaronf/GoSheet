@@ -361,5 +361,62 @@ def test_edit_formula_shows_formula_not_result(page: Page, base_url):
     page.keyboard.press('Escape')
 
 
+def test_click_away_saves_value(page: Page, base_url):
+    """Test that clicking another cell while editing saves the current value
+    
+    Bug: User reported that entering a value then clicking away caused value to disappear
+    Root cause: selectCell() was calling forceCleanupEditing() which discarded the input
+    Fix: selectCell() now saves the current edit before switching cells
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Click empty cell C5
+    cell_c5 = page.locator('#cell-4-2')
+    cell_c5.click()
+    time.sleep(0.2)
+    
+    # Type a value
+    page.keyboard.type('99')
+    time.sleep(0.2)
+    
+    # Click away to another cell (D6) - this should save the value
+    cell_d6 = page.locator('#cell-5-3')
+    cell_d6.click()
+    time.sleep(0.5)
+    
+    # Check that C5 has the value
+    expect(cell_c5).to_have_text('99')
+
+
+def test_empty_cell_reference_shows_error(page: Page, base_url):
+    """Test that referencing an empty cell in a formula shows #ERROR
+    
+    User requirement: Referencing an empty cell should be an error, not 0
+    Previous behavior: =A1+5 where A1 is empty returned 5 (treating empty as 0)
+    New behavior: =Z99+1 where Z99 is empty shows #ERROR: reference to empty cell
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Click empty cell B10
+    cell_b10 = page.locator('#cell-9-1')
+    cell_b10.click()
+    time.sleep(0.2)
+    
+    # Enter formula referencing empty cell Z99
+    page.keyboard.type('=Z99+1')
+    time.sleep(0.2)
+    
+    # Press Enter to save
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Check that B10 shows error
+    cell_text = cell_b10.text_content()
+    assert '#ERROR' in cell_text, f"Expected #ERROR in cell, got '{cell_text}'"
+    assert 'empty cell' in cell_text.lower(), f"Expected 'empty cell' in error message, got '{cell_text}'"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])

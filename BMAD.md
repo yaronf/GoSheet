@@ -25,12 +25,19 @@ These rules supplement BMAD methodology for this project:
    - Check that the change actually works as intended
    - Only commit after verification
 
-2. **Clean Dependencies**: Keep dependencies minimal and purposeful
+2. **Bug Fix Testing**: Every bug fix MUST include at least one regression test
+   - Add test(s) that reproduce the bug before fixing
+   - Verify test fails with the bug present
+   - Verify test passes after the fix
+   - Document the bug, root cause, and fix in test docstring
+   - Add bug fix details to BMAD.md decision log
+
+3. **Clean Dependencies**: Keep dependencies minimal and purposeful
    - Remove unused dependencies immediately
    - Don't let legacy code pollute the active codebase
    - Archive old code rather than leaving it to rot
 
-3. **Documentation in Code**: Important rules and decisions must be documented
+4. **Documentation in Code**: Important rules and decisions must be documented
    - Don't rely on conversation history alone
    - Update BMAD.md with methodology decisions
    - Update README.md with architectural changes
@@ -91,15 +98,16 @@ Following BMAD's quality assurance practices:
 - ✅ Unit tests for formula evaluation (`tests/formula_test.go`)
 - ✅ Programmatic UI tests (`ui_test/ui_test.go`)
 - ✅ **Playwright automated UI tests** (`playwright_tests/test_spreadsheet.py`)
-  - 11 comprehensive tests covering all core functionality
-  - All tests passing ✅
+  - 18 comprehensive tests covering all core functionality
+  - 17 passing, 1 skipped (Playwright keyboard event limitation) ✅
+  - Includes regression tests for bug fixes
 - ✅ Web-based demo application for manual testing
 - ✅ Comprehensive logging for debugging
 
 **Test Results**:
 - Go unit tests: All passing ✅
-- Playwright UI tests: 11/11 passing ✅
-- Test execution time: ~10 seconds total
+- Playwright UI tests: 17/18 passing (1 skipped) ✅
+- Test execution time: ~20 seconds total
 
 See [TEST_RESULTS.md](TEST_RESULTS.md) for detailed test coverage.
 
@@ -268,6 +276,30 @@ Following BMAD's practice of documenting key decisions:
 **Timeline**: After file operations (save/load) are implemented
 **Date**: 2026-02-13
 
+## Bug Fixes and Improvements
+
+Following BMAD's practice of documenting issues and resolutions:
+
+### Bug Fix 1: Value Disappearing on Click Away
+**Date**: 2026-02-13
+**Reported**: User reported "enter a value, then click on another cell and the entered value disappears"
+**Root Cause**: `selectCell()` was calling `forceCleanupEditing()` which removed the input element without saving
+**Fix**: Modified `selectCell()` to extract and save the current edit value before switching cells
+**Test Added**: `test_click_away_saves_value` - verifies typing "99" and clicking away saves the value
+**Status**: ✅ Fixed and tested
+
+### Bug Fix 2: Empty Cell References Should Error
+**Date**: 2026-02-13
+**Reported**: User requirement: "when I reference an empty cell, this should be an error, not 0"
+**Previous Behavior**: `=A1+5` where A1 is empty returned 5 (treating empty as 0)
+**New Behavior**: `=Z99+1` where Z99 is empty shows `#ERROR: reference to empty cell`
+**Implementation**:
+- Modified `evaluateCellRef()` to return `ErrorValue` for empty cells (where `Value == ""`)
+- Added ErrorValue propagation in arithmetic/comparison operations (short-circuit on ErrorValue)
+- Updated test expectations: `TestEvaluateEmptyCell` now expects "#ERROR" in result
+**Test Added**: `test_empty_cell_reference_shows_error` - verifies empty cell refs produce error
+**Status**: ✅ Fixed and tested
+
 ## Next Steps
 
 Following BMAD's iterative approach:
@@ -348,7 +380,7 @@ The current web architecture is designed to enable easy packaging as a native ma
 - **Goal**: Native macOS .app bundle with menu bar, file associations, etc.
 - **Non-goal**: Pure web app - this is a desktop application project
 
-### Test Coverage (13/13 passing)
+### Test Coverage (17/18 tests, 1 skipped)
 - Page loading and grid structure
 - Sample data loading
 - Cell selection and navigation (arrow keys)
@@ -359,3 +391,6 @@ The current web architecture is designed to enable easy packaging as a native ma
 - Cell reference formulas (=A1+A2)
 - Formula persistence and display
 - Tab key navigation between cells
+- Formula dependency recalculation
+- Click away saves value (bug fix test)
+- Empty cell reference shows error (bug fix test)
