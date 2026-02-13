@@ -261,19 +261,10 @@ function finishEditing(row, col, value, cell) {
     
     SetCellValue(row, col, value).then(() => {
         console.log(`SetCellValue completed for row=${row}, col=${col}`);
-        // Refresh the cell display
-        return GetCellValue(row, col);
-    }).then(computed => {
-        console.log(`GetCellValue returned: "${computed}" for row=${row}, col=${col}`);
-        cell.textContent = computed;
-        
-        // Add formula styling if it's a formula
-        if (value.startsWith('=')) {
-            cell.classList.add('formula-cell');
-        } else {
-            cell.classList.remove('formula-cell');
-        }
-        console.log(`Edit completed: row=${row}, col=${col}`);
+        // Refresh ALL cells to pick up dependent formula changes
+        return refreshAllCells();
+    }).then(() => {
+        console.log(`All cells refreshed after edit at row=${row}, col=${col}`);
     }).catch(err => {
         console.error('Error setting cell value:', err);
         cell.textContent = '#ERROR';
@@ -281,6 +272,45 @@ function finishEditing(row, col, value, cell) {
         // Make sure we're not stuck in editing state even on error
         isEditing = false;
     });
+}
+
+// Refresh all cells from the backend
+async function refreshAllCells() {
+    try {
+        const cells = await GetAllCells();
+        
+        // Clear all cells first
+        for (let row = 0; row < ROWS; row++) {
+            for (let col = 0; col < COLS; col++) {
+                const cell = document.getElementById(`cell-${row}-${col}`);
+                if (cell) {
+                    cell.textContent = '';
+                    cell.classList.remove('formula-cell', 'error-cell');
+                }
+            }
+        }
+        
+        // Update cells with new values
+        for (const [ref, value] of Object.entries(cells)) {
+            const match = ref.match(/([A-Z]+)(\d+)/);
+            if (match) {
+                const col = letterToCol(match[1]);
+                const row = parseInt(match[2]) - 1;
+                const cell = document.getElementById(`cell-${row}-${col}`);
+                if (cell) {
+                    cell.textContent = value;
+                    
+                    // Check if it's a formula cell
+                    const rawValue = await GetCellRawValue(row, col);
+                    if (rawValue && rawValue.startsWith('=')) {
+                        cell.classList.add('formula-cell');
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error refreshing cells:', err);
+    }
 }
 
 // Cancel editing

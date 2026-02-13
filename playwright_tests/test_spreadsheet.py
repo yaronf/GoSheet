@@ -301,5 +301,64 @@ def test_enter_number_in_empty_cell_shows_error(page: Page, base_url):
     expect(cell).to_have_text('42')
 
 
+def test_formula_dependency_recalculation(page: Page, base_url):
+    """Test that changing a cell recalculates dependent formulas"""
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Enter a value in A10
+    cell_a10 = page.locator('#cell-9-0')
+    cell_a10.click()
+    page.keyboard.type('10')
+    page.keyboard.press('Enter')
+    time.sleep(0.2)
+    
+    # Enter a formula in A11 that references A10
+    cell_a11 = page.locator('#cell-10-0')
+    cell_a11.click()
+    page.keyboard.type('=A10*2')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    # A11 should show 20
+    expect(cell_a11).to_have_text('20')
+    
+    # Now change A10 to 15
+    cell_a10.click()
+    page.keyboard.type('15')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    # A11 should now show 30 (15*2)
+    expect(cell_a11).to_have_text('30')
+
+
+def test_edit_formula_shows_formula_not_result(page: Page, base_url):
+    """Test that editing a formula cell shows the formula, not the computed result"""
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Enter a formula in a fresh cell
+    cell = page.locator('#cell-26-3')  # Use a different cell
+    cell.click()
+    time.sleep(0.1)
+    page.keyboard.type('=5+3')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    # Cell should display result
+    expect(cell).to_have_text('8')
+    
+    # Double-click to edit
+    cell.dblclick()
+    time.sleep(0.3)
+    
+    # Wait for input to appear and check its value
+    input_elem = cell.locator('.cell-editor')
+    input_elem.wait_for(state='visible', timeout=3000)
+    input_value = input_elem.input_value()
+    assert input_value == '=5+3', f"Expected formula '=5+3', got '{input_value}'"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])

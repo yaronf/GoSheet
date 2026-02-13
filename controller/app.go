@@ -37,9 +37,31 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 		}
 	}
 	
-	// TODO: Recalculate dependent cells
+	// Recalculate all dependent cells
+	c.recalculateAllFormulas()
 	
 	return nil
+}
+
+// recalculateAllFormulas recalculates all formula cells in the spreadsheet
+// This is a simple implementation that recalculates everything
+// TODO: Implement proper dependency tracking for better performance
+func (c *AppController) recalculateAllFormulas() {
+	log.Println("Recalculating all formulas...")
+	
+	// Iterate through all cells
+	for _, rowMap := range c.Sheet.Cells {
+		for _, cell := range rowMap {
+			if cell != nil && cell.IsFormula {
+				result, err := model.EvaluateFormula(cell.Value, c.Sheet)
+				if err != nil {
+					cell.SetComputed("#ERROR: " + err.Error())
+				} else {
+					cell.SetComputed(result)
+				}
+			}
+		}
+	}
 }
 
 // GetCellValue returns the computed value of a cell
