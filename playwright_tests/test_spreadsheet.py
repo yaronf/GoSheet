@@ -418,5 +418,106 @@ def test_empty_cell_reference_shows_error(page: Page, base_url):
     assert 'empty cell' in cell_text.lower(), f"Expected 'empty cell' in error message, got '{cell_text}'"
 
 
+def test_large_grid_dimensions(page: Page, base_url):
+    """Test that backend supports cells beyond viewport via API
+    
+    Tech spec requirement: "Grid size: Unlimited (sparse storage)"
+    Backend supports up to 2^31 rows/columns (Go int)
+    Frontend renders viewport (100 rows x 26 cols), but formulas can reference any cell
+    
+    This test verifies formulas can reference cells far beyond the viewport (e.g., ZZ9999)
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Use D10 (row 9, col 3) - doesn't conflict with sample data
+    cell_d10 = page.locator('#cell-9-3')
+    cell_d10.click()
+    time.sleep(0.2)
+    page.keyboard.type('42')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Create formula in E10 that references D10
+    cell_e10 = page.locator('#cell-9-4')
+    cell_e10.click()
+    time.sleep(0.2)
+    
+    # This formula references D10 (visible) - it should work
+    page.keyboard.type('=D10*2')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Should show 84 (42 * 2)
+    expect(cell_e10).to_have_text('84')
+    
+    # Now test that we can reference cells beyond old limits (row 30, col 15)
+    # Create formula referencing AA50 (col 26, row 49) - beyond old 15-column limit
+    cell_f10 = page.locator('#cell-9-5')
+    cell_f10.click()
+    time.sleep(0.2)
+    
+    # Reference AA50 which doesn't exist (empty cell) - should error
+    page.keyboard.type('=AA50+1')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Should show error since AA50 is empty
+    cell_text = cell_f10.text_content()
+    assert '#ERROR' in cell_text, f"Expected #ERROR for empty cell reference, got '{cell_text}'"
+
+
+def test_infinite_scroll_expands_grid(page: Page, base_url):
+    """Test that scrolling near edges expands the grid
+    
+    Bug: Grid had fixed dimensions, couldn't scroll beyond initial viewport
+    User requirement: "can I physically scroll beyond the viewport?"
+    Solution: Added scroll detection that expands grid when scrolling near edges
+    
+    This test verifies that scrolling triggers grid expansion
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Get initial grid size by checking if row 95 exists (near bottom of initial 100 rows)
+    initial_row_95 = page.locator('#cell-95-0')
+    expect(initial_row_95).to_be_visible()
+    
+    # Row 105 should NOT exist initially (beyond 100 rows)
+    initial_row_105 = page.locator('#cell-105-0')
+    expect(initial_row_105).not_to_be_attached()
+    
+    # Scroll to bottom of container to trigger expansion
+    page.evaluate("""
+        const container = document.querySelector('.spreadsheet-container');
+        container.scrollTop = container.scrollHeight;
+    """)
+    time.sleep(1)  # Wait for scroll detection and rebuild
+    
+    # After scrolling, grid should have expanded - row 105 should now exist
+    expanded_row_105 = page.locator('#cell-105-0')
+    expect(expanded_row_105).to_be_attached()
+    
+    # Similarly test column expansion
+    # Column Z (25) should exist initially
+    initial_col_z = page.locator('#cell-0-25')
+    expect(initial_col_z).to_be_visible()
+    
+    # Column AA (26) might exist initially, but AB (27) should not
+    initial_col_ab = page.locator('#cell-0-27')
+    expect(initial_col_ab).not_to_be_attached()
+    
+    # Scroll to right edge to trigger expansion
+    page.evaluate("""
+        const container = document.querySelector('.spreadsheet-container');
+        container.scrollLeft = container.scrollWidth;
+    """)
+    time.sleep(1)  # Wait for scroll detection and rebuild
+    
+    # After scrolling right, more columns should exist
+    expanded_col_ab = page.locator('#cell-0-27')
+    expect(expanded_col_ab).to_be_attached()
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])

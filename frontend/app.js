@@ -34,8 +34,14 @@ const GetAllCells = async () => {
 };
 
 // Spreadsheet configuration
-const ROWS = 30;
-const COLS = 15;
+// Backend supports up to 2^31 rows/columns (Go int on 64-bit systems)
+// Frontend uses infinite scrolling - expands as you navigate
+let ROWS = 100;  // Current rendered rows (expands automatically)
+let COLS = 26;   // Current rendered columns (expands automatically)
+
+const EXPAND_THRESHOLD = 10; // Expand when within 10 rows/cols of edge
+const EXPAND_ROWS = 50;      // Add 50 rows when expanding
+const EXPAND_COLS = 10;      // Add 10 columns when expanding
 
 let selectedCell = null;
 let isEditing = false;
@@ -54,12 +60,69 @@ function forceCleanupEditing() {
 
 // Initialize the spreadsheet
 document.querySelector('#app').innerHTML = `
-    <div class="spreadsheet-container">
+    <div class="spreadsheet-container" id="container">
         <table class="spreadsheet" id="spreadsheet">
             <!-- Will be populated by JavaScript -->
         </table>
     </div>
 `;
+
+// Add scroll listener for infinite scrolling
+const container = document.querySelector('.spreadsheet-container');
+let scrollTimeout;
+
+container.addEventListener('scroll', () => {
+    // Debounce scroll events
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+        checkScrollPosition();
+    }, 100);
+});
+
+// Check if we need to expand the grid based on scroll position
+function checkScrollPosition() {
+    const container = document.querySelector('.spreadsheet-container');
+    const table = document.getElementById('spreadsheet');
+    
+    const scrollLeft = container.scrollLeft;
+    const scrollTop = container.scrollTop;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    const tableWidth = table.scrollWidth;
+    const tableHeight = table.scrollHeight;
+    
+    let needsRebuild = false;
+    
+    // Check if scrolled near right edge (within 20% of total width)
+    if (scrollLeft + containerWidth > tableWidth * 0.8) {
+        const newCols = COLS + EXPAND_COLS;
+        console.log(`Scroll: Expanding columns from ${COLS} to ${newCols}`);
+        COLS = newCols;
+        needsRebuild = true;
+    }
+    
+    // Check if scrolled near bottom edge (within 20% of total height)
+    if (scrollTop + containerHeight > tableHeight * 0.8) {
+        const newRows = ROWS + EXPAND_ROWS;
+        console.log(`Scroll: Expanding rows from ${ROWS} to ${newRows}`);
+        ROWS = newRows;
+        needsRebuild = true;
+    }
+    
+    if (needsRebuild) {
+        const oldScrollLeft = scrollLeft;
+        const oldScrollTop = scrollTop;
+        
+        buildSpreadsheet();
+        refreshAllCells();
+        
+        // Restore scroll position
+        setTimeout(() => {
+            container.scrollLeft = oldScrollLeft;
+            container.scrollTop = oldScrollTop;
+        }, 0);
+    }
+}
 
 // Build the spreadsheet table
 function buildSpreadsheet() {
@@ -157,6 +220,31 @@ function selectCell(row, col) {
             // No input found, just reset state
             forceCleanupEditing();
         }
+    }
+    
+    // Check if we need to expand the grid
+    let needsRebuild = false;
+    
+    // Expand rows if near bottom edge
+    if (row >= ROWS - EXPAND_THRESHOLD) {
+        const newRows = Math.max(row + EXPAND_ROWS, ROWS + EXPAND_ROWS);
+        console.log(`Expanding rows from ${ROWS} to ${newRows}`);
+        ROWS = newRows;
+        needsRebuild = true;
+    }
+    
+    // Expand columns if near right edge
+    if (col >= COLS - EXPAND_THRESHOLD) {
+        const newCols = Math.max(col + EXPAND_COLS, COLS + EXPAND_COLS);
+        console.log(`Expanding columns from ${COLS} to ${newCols}`);
+        COLS = newCols;
+        needsRebuild = true;
+    }
+    
+    // Rebuild grid if expanded
+    if (needsRebuild) {
+        buildSpreadsheet();
+        refreshAllCells();
     }
     
     // Remove previous selection
@@ -422,19 +510,19 @@ document.addEventListener('keydown', (e) => {
     if (selectedCell) {
         const { row, col } = selectedCell;
         
-        // Arrow key navigation
+        // Arrow key navigation - grid expands automatically via selectCell()
         if (e.key === 'ArrowUp' && row > 0) {
             e.preventDefault();
             selectCell(row - 1, col);
-        } else if (e.key === 'ArrowDown' && row < ROWS - 1) {
+        } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            selectCell(row + 1, col);
+            selectCell(row + 1, col);  // No upper limit - grid expands
         } else if (e.key === 'ArrowLeft' && col > 0) {
             e.preventDefault();
             selectCell(row, col - 1);
-        } else if (e.key === 'ArrowRight' && col < COLS - 1) {
+        } else if (e.key === 'ArrowRight') {
             e.preventDefault();
-            selectCell(row, col + 1);
+            selectCell(row, col + 1);  // No upper limit - grid expands
         } else if (e.key === 'Enter' || e.key === 'F2') {
             e.preventDefault();
             startEditing(row, col);
