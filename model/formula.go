@@ -11,27 +11,27 @@ import (
 
 // Formula lexer definition
 var formulaLexer = lexer.MustSimple([]lexer.SimpleRule{
-	{"Float", `\d+\.\d+`},
-	{"CellRef", `[A-Z]+\d+`},      // Must come before Ident to match first
-	{"Ident", `[A-Za-z_][A-Za-z0-9_]*`},
-	{"Int", `\d+`},
-	{"String", `"(?:\\.|[^"])*"`},
-	{"GTE", `>=`},                  // Must come before individual chars
-	{"LTE", `<=`},
-	{"NEQ", `!=`},
-	{"EQ", `=`},
-	{"GT", `>`},
-	{"LT", `<`},
-	{"Colon", `:`},
-	{"Plus", `\+`},
-	{"Minus", `-`},
-	{"Star", `\*`},
-	{"Slash", `/`},
-	{"Percent", `%`},
-	{"LParen", `\(`},
-	{"RParen", `\)`},
-	{"Comma", `,`},
-	{"Whitespace", `[ \t\n\r]+`},
+	{Name: "Float", Pattern: `\d+\.\d+`},
+	{Name: "CellRef", Pattern: `[A-Z]+\d+`},      // Must come before Ident to match first
+	{Name: "Ident", Pattern: `[A-Za-z_][A-Za-z0-9_]*`},
+	{Name: "Int", Pattern: `\d+`},
+	{Name: "String", Pattern: `"(?:\\.|[^"])*"`},
+	{Name: "GTE", Pattern: `>=`},                  // Must come before individual chars
+	{Name: "LTE", Pattern: `<=`},
+	{Name: "NEQ", Pattern: `!=`},
+	{Name: "EQ", Pattern: `=`},
+	{Name: "GT", Pattern: `>`},
+	{Name: "LT", Pattern: `<`},
+	{Name: "Colon", Pattern: `:`},
+	{Name: "Plus", Pattern: `\+`},
+	{Name: "Minus", Pattern: `-`},
+	{Name: "Star", Pattern: `\*`},
+	{Name: "Slash", Pattern: `/`},
+	{Name: "Percent", Pattern: `%`},
+	{Name: "LParen", Pattern: `\(`},
+	{Name: "RParen", Pattern: `\)`},
+	{Name: "Comma", Pattern: `,`},
+	{Name: "Whitespace", Pattern: `[ \t\n\r]+`},
 })
 
 // Formula parser

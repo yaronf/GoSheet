@@ -183,20 +183,19 @@ Following BMAD's quality assurance practices:
 - ✅ Unit tests for coordinate conversion (`tests/coords_test.go`)
 - ✅ Unit tests for data model (`tests/model_test.go`)
 - ✅ Unit tests for formula evaluation (`tests/formula_test.go`)
-- ✅ Programmatic UI tests (`ui_test/ui_test.go`)
 - ✅ **Playwright automated UI tests** (`playwright_tests/test_spreadsheet.py`)
-  - 18 comprehensive tests covering all core functionality
-  - 17 passing, 1 skipped (Playwright keyboard event limitation) ✅
+  - 30 comprehensive tests covering all core functionality
+  - 29 passing, 1 skipped (Playwright keyboard event limitation) ✅
   - Includes regression tests for bug fixes
-- ✅ Web-based demo application for manual testing
+  - Covers features: formulas, string functions, formula bar, infinite scrolling
+- ✅ Automated test runner (`test.sh`) with server management
 - ✅ Comprehensive logging for debugging
 
 **Test Results**:
-- Go unit tests: All passing ✅
-- Playwright UI tests: 17/18 passing (1 skipped) ✅
-- Test execution time: ~20 seconds total
-
-See [TEST_RESULTS.md](TEST_RESULTS.md) for detailed test coverage.
+- Go unit tests: 10/10 passing ✅
+- Playwright UI tests: 29/30 passing (1 skipped) ✅
+- Test execution time: ~40 seconds total
+- All quality gates passing
 
 ### Phase 4: Deployment ⏳ PENDING
 - ⏳ Complete file I/O implementation
@@ -267,10 +266,10 @@ Then proceeding with implementation:
 - ✅ Formula bar
 - ✅ Application controller
 - ✅ Comprehensive logging
-- ✅ Go unit test suite (coords, model, formulas)
-- ✅ Playwright UI test suite (11 tests)
-- ✅ Web demo application
-- ✅ Test documentation
+- ✅ Go unit test suite (10 tests: coords, model, formulas, string functions)
+- ✅ Playwright UI test suite (30 tests: 29 passing, 1 skipped)
+- ✅ Automated test runner with server management (`test.sh`)
+- ✅ Test documentation in BMAD.md
 
 ### Pending ⏳
 - ⏳ File I/O implementation (save/load binary format)
@@ -484,10 +483,11 @@ This project demonstrates BMAD's effectiveness:
 - ✅ **Problem solving**: Adapted approach when issues arose (e.g., UI widget switch)
 
 ### Testing Phase
-- ✅ **Comprehensive coverage**: Unit tests + UI tests
-- ✅ **Automated testing**: Playwright suite with 11 tests
-- ✅ **Quality assurance**: All tests passing
-- ✅ **Documentation**: Test results and coverage documented
+- ✅ **Comprehensive coverage**: 10 Go unit tests + 30 Playwright UI tests
+- ✅ **Automated testing**: Full test suite with server management
+- ✅ **Quality assurance**: 39/40 tests passing (1 skipped by design)
+- ✅ **Regression testing**: Every bug fix has dedicated test(s)
+- ✅ **Documentation**: Test results and coverage documented in BMAD.md
 
 ### AI Collaboration
 - ✅ **Expert guidance**: Not just code generation, but architecture decisions
@@ -506,8 +506,9 @@ The project has successfully completed the core MVP as defined in the product br
 - ✅ Basic grid with unlimited dimensions
 - ✅ **In-cell editing** (true spreadsheet-style editing)
 - ✅ Simple formulas (SUM, AVG, MIN, MAX, COUNT)
+- ✅ String functions (CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID)
 - ✅ Arithmetic operations
-- ✅ **Comprehensive UI testing** (13 Playwright tests, all passing)
+- ✅ **Comprehensive UI testing** (30 Playwright tests, 29 passing)
 - ✅ Row/column headers
 - ✅ Application icon
 - ✅ **Clean architecture** (Go HTTP backend + standalone web frontend)
