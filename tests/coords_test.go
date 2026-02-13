@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/ysheffer/gosheet/model"
+	"gosheet/model"
 )
 
 func TestColLetterToIndex(t *testing.T) {

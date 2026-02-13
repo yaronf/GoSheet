@@ -14,6 +14,28 @@ BMAD is an AI-driven agile development framework that provides:
 - GitHub: https://github.com/bmad-code-org/BMAD-METHOD
 - Documentation: http://docs.bmad-method.org
 
+## Project-Specific Development Rules
+
+These rules supplement BMAD methodology for this project:
+
+### Code Quality & Testing
+1. **Test Before Commit**: Never commit code without testing it first
+   - Run relevant tests (unit tests, Playwright tests, or manual testing)
+   - Verify the build succeeds
+   - Check that the change actually works as intended
+   - Only commit after verification
+
+2. **Clean Dependencies**: Keep dependencies minimal and purposeful
+   - Remove unused dependencies immediately
+   - Don't let legacy code pollute the active codebase
+   - Archive old code rather than leaving it to rot
+
+3. **Documentation in Code**: Important rules and decisions must be documented
+   - Don't rely on conversation history alone
+   - Update BMAD.md with methodology decisions
+   - Update README.md with architectural changes
+   - Document "why" not just "what"
+
 ## BMAD Phases Applied to GoSheet
 
 ### Phase 1: Planning ✅ COMPLETED

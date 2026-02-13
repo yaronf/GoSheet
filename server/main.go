@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/ysheffer/gosheet/controller"
+	"gosheet/controller"
 )
 
 var ctrl *controller.AppController

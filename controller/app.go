@@ -3,14 +3,12 @@ package controller
 import (
 	"log"
 
-	"github.com/ysheffer/gosheet/model"
-	"github.com/ysheffer/gosheet/ui"
+	"gosheet/model"
 )
 
 // AppController manages the application state and coordinates between UI and model
 type AppController struct {
-	Sheet  *model.Spreadsheet
-	Window *ui.MainWindow
+	Sheet *model.Spreadsheet
 }
 
 // NewAppController creates a new application controller
@@ -37,12 +35,6 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 			log.Printf("Formula result: %s", result)
 			cell.SetComputed(result)
 		}
-	}
-	
-	// Refresh UI if window is available
-	if c.Window != nil {
-		log.Println("Refreshing grid after cell update")
-		c.Window.RefreshGrid()
 	}
 	
 	// TODO: Recalculate dependent cells
@@ -76,9 +68,6 @@ func (c *AppController) GetCellRef(row, col int) string {
 // NewFile creates a new empty spreadsheet
 func (c *AppController) NewFile() {
 	c.Sheet = model.NewSpreadsheet()
-	if c.Window != nil {
-		c.Window.RefreshGrid()
-	}
 }
 
 // SaveFile saves the spreadsheet to a file

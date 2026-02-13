@@ -10,7 +10,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/ysheffer/gosheet/model"
+	"gosheet/model"
 )
 
 // GridWidget displays the spreadsheet grid

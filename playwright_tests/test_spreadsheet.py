@@ -275,5 +275,29 @@ def test_arrow_key_navigation(page: Page, base_url):
     assert 'selected' in cell_right.get_attribute('class')
 
 
+def test_enter_number_in_empty_cell_shows_error(page: Page, base_url):
+    """Test entering a simple number in an empty cell - REPRODUCING USER BUG"""
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Click an empty cell
+    cell = page.locator('#cell-25-5')  # Row 26, Column F - should be empty
+    cell.click()
+    time.sleep(0.1)
+    
+    # Type a simple number
+    page.keyboard.type('42')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    # Check what's displayed
+    cell_text = cell.text_content()
+    print(f"Cell displays: '{cell_text}'")
+    
+    # Should display the number, not #ERROR
+    assert cell_text != '#ERROR', f"Got #ERROR when entering number 42, cell shows: {cell_text}"
+    expect(cell).to_have_text('42')
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])

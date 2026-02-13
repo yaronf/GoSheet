@@ -8,7 +8,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
-	"github.com/ysheffer/gosheet/model"
+	"gosheet/model"
 )
 
 // GridTable is a table-based grid widget with headers and in-cell editing
