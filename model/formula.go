@@ -426,15 +426,25 @@ func evaluateRange(rng *Range, sheet *Spreadsheet) (Value, error) {
 		for col := startCol; col <= endCol; col++ {
 			cell := sheet.GetCell(row, col)
 			if cell == nil {
-				values = append(values, NumberValue{0})
+				// Empty cell in range - return error
+				values = append(values, ErrorValue{fmt.Errorf("reference to empty cell")})
+			} else if cell.Value == "" {
+				// Cell exists but has no value - return error
+				values = append(values, ErrorValue{fmt.Errorf("reference to empty cell")})
 			} else {
+				// Use computed value
+				computed := cell.Computed
+				if computed == "" {
+					computed = cell.Value
+				}
+				
 				// Try to parse as number
 				var num float64
-				_, err := fmt.Sscanf(cell.Computed, "%f", &num)
+				_, err := fmt.Sscanf(computed, "%f", &num)
 				if err == nil {
 					values = append(values, NumberValue{num})
 				} else {
-					values = append(values, StringValue{cell.Computed})
+					values = append(values, StringValue{computed})
 				}
 			}
 		}
@@ -497,12 +507,15 @@ func sumFunction(args []Value) (Value, error) {
 			for _, val := range v.Values {
 				if num, ok := val.(NumberValue); ok {
 					sum += num.Value
+				} else if err, ok := val.(ErrorValue); ok {
+					// Propagate error from range
+					return err, nil
 				}
 			}
 		case StringValue:
 			// Ignore strings
 		case ErrorValue:
-			return v, v.Error
+			return v, nil
 		}
 	}
 
@@ -524,12 +537,15 @@ func avgFunction(args []Value) (Value, error) {
 				if num, ok := val.(NumberValue); ok {
 					sum += num.Value
 					count++
+				} else if err, ok := val.(ErrorValue); ok {
+					// Propagate error from range
+					return err, nil
 				}
 			}
 		case StringValue:
 			// Ignore strings
 		case ErrorValue:
-			return v, v.Error
+			return v, nil
 		}
 	}
 
@@ -559,12 +575,15 @@ func minFunction(args []Value) (Value, error) {
 						min = num.Value
 					}
 					found = true
+				} else if err, ok := val.(ErrorValue); ok {
+					// Propagate error from range
+					return err, nil
 				}
 			}
 		case StringValue:
 			// Ignore strings
 		case ErrorValue:
-			return v, v.Error
+			return v, nil
 		}
 	}
 
@@ -594,12 +613,15 @@ func maxFunction(args []Value) (Value, error) {
 						max = num.Value
 					}
 					found = true
+				} else if err, ok := val.(ErrorValue); ok {
+					// Propagate error from range
+					return err, nil
 				}
 			}
 		case StringValue:
 			// Ignore strings
 		case ErrorValue:
-			return v, v.Error
+			return v, nil
 		}
 	}
 
@@ -622,12 +644,15 @@ func countFunction(args []Value) (Value, error) {
 			for _, val := range v.Values {
 				if _, ok := val.(NumberValue); ok {
 					count++
+				} else if err, ok := val.(ErrorValue); ok {
+					// Propagate error from range
+					return err, nil
 				}
 			}
 		case StringValue:
 			// Ignore strings
 		case ErrorValue:
-			return v, v.Error
+			return v, nil
 		}
 	}
 

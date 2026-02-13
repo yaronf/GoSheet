@@ -77,10 +77,13 @@ Following BMAD's iterative development approach:
 - ✅ Coordinate conversion utilities (`model/coords.go`)
 - ✅ Formula parser (participle grammar in `model/formula_ast.go`)
 - ✅ Formula evaluator with lazy vectors (`model/formula.go`)
-- ✅ Basic UI - Fyne grid widget (`ui/grid_table.go` using `widget.Table`)
+- ✅ Go HTTP server with REST API (`server/main.go`)
+- ✅ Standalone web frontend (HTML/CSS/JavaScript)
 - ✅ Application controller (`controller/app.go`)
-- ✅ Main application (`main.go`)
-- ✅ Web demo for testing (`cmd/webdemo/main.go`)
+- ✅ Comprehensive Playwright UI test suite (29 tests)
+- ✅ String functions (CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID)
+- ✅ Formula bar for viewing/editing cell content
+- ✅ Infinite scrolling/dynamic grid expansion
 - ⏳ File serialization (binary format) - **PENDING**
 
 **Development Principles Applied**:
@@ -300,6 +303,72 @@ Following BMAD's practice of documenting issues and resolutions:
 **Test Added**: `test_empty_cell_reference_shows_error` - verifies empty cell refs produce error
 **Status**: ✅ Fixed and tested
 
+### Bug Fix 3: Functions Not Checking Empty Cells in Ranges
+**Date**: 2026-02-13
+**Reported**: User requirement: "SUM is not checking for empty cells? Check all functions."
+**Previous Behavior**: `=SUM(A1:A10)` with empty cells in range treated them as 0
+**New Behavior**: Ranges with empty cells produce `#ERROR: reference to empty cell`
+**Implementation**:
+- Modified `evaluateRange()` to return ErrorValue for nil or empty cells
+- Updated all numeric functions (SUM, AVG, MIN, MAX, COUNT) to propagate ErrorValue from vectors
+- Changed error returns from `(err, err)` to `(err, nil)` for proper error display
+**Tests Added**: 
+- `TestRangeWithEmptyCells` - Go unit test for all functions with empty cells in ranges
+- `test_sum_with_empty_cells_shows_error` - Playwright test
+**Status**: ✅ Fixed and tested
+
+### Feature: Formula Bar
+**Date**: 2026-02-13
+**Requested**: User: "it should work with single click, too, or I don't see that this is a formula"
+**Implementation**: Added Excel-style formula bar showing cell reference and raw content
+**Features**:
+- Shows cell reference (e.g., "B1") and raw formula/value
+- Editable: type and press Enter to save, Escape to cancel
+- Updates automatically when cells are edited
+- Enter moves to next row (Excel-like behavior)
+**Tests Added**:
+- `test_formula_bar_shows_formula` - verifies bar displays formulas
+- `test_formula_bar_editing` - verifies editing from bar works
+- `test_edit_formula_cell_shows_formula` - verifies double-click shows formula
+- `test_formula_bar_updates_after_edit` - verifies bar stays in sync
+**Status**: ✅ Implemented and tested
+
+### Feature: String Functions
+**Date**: 2026-02-13
+**Requested**: User: "Do we have any string functions, such as string concat?"
+**Implementation**: Added 7 string manipulation functions
+**Functions**:
+- CONCAT(str1, str2, ...) - concatenate strings
+- UPPER(str) - convert to uppercase
+- LOWER(str) - convert to lowercase
+- LEN(str) - string length
+- LEFT(str, n) - first n characters
+- RIGHT(str, n) - last n characters
+- MID(str, start, len) - substring (1-based, Excel-compatible)
+**Implementation Details**:
+- Fixed `normalizeFormula()` to preserve case inside string literals
+- Added `valueToStr()` helper for string conversion
+**Tests Added**:
+- `TestStringFunctions` - Go unit test with 15 test cases
+- `test_string_functions` - Playwright test for all 7 functions
+**Status**: ✅ Implemented and tested
+
+### Feature: Infinite Scrolling
+**Date**: 2026-02-13
+**Reported**: User: "The # of rows/columns is restricted, conflicting with the tech spec"
+**Requirement**: Tech spec says "Grid size: Unlimited (sparse storage)", backend supports 2^31 rows/cols
+**Implementation**: Dynamic grid expansion via scroll and navigation
+**Features**:
+- Grid starts at 100 rows × 26 columns
+- Expands when scrolling within 20% of edges
+- Expands when navigating within 10 rows/cols of edges
+- Adds 50 rows or 10 columns per expansion
+- Preserves scroll position during rebuild
+**Tests Added**:
+- `test_infinite_scroll_expands_grid` - verifies scroll triggers expansion
+- `test_large_grid_dimensions` - verifies formulas can reference distant cells
+**Status**: ✅ Implemented and tested
+
 ## Next Steps
 
 Following BMAD's iterative approach:
@@ -380,7 +449,15 @@ The current web architecture is designed to enable easy packaging as a native ma
 - **Goal**: Native macOS .app bundle with menu bar, file associations, etc.
 - **Non-goal**: Pure web app - this is a desktop application project
 
-### Test Coverage (17/18 tests, 1 skipped)
+### Test Coverage (29/30 tests, 1 skipped)
+**Go Unit Tests (10 passing)**:
+- Formula parsing and evaluation
+- Cell reference evaluation
+- Empty cell error handling
+- String functions (CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID)
+- Numeric functions with empty cells in ranges (SUM, AVG, MIN, MAX, COUNT)
+
+**Playwright UI Tests (29 passing, 1 skipped)**:
 - Page loading and grid structure
 - Sample data loading
 - Cell selection and navigation (arrow keys)
@@ -394,3 +471,11 @@ The current web architecture is designed to enable easy packaging as a native ma
 - Formula dependency recalculation
 - Click away saves value (bug fix test)
 - Empty cell reference shows error (bug fix test)
+- Large grid dimensions (distant cell references)
+- Infinite scroll expands grid
+- String functions (all 7 functions)
+- Formula bar shows formula
+- Formula bar editing
+- Edit formula cell shows formula
+- Formula bar updates after edit
+- SUM with empty cells shows error

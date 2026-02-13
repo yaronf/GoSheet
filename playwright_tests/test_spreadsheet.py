@@ -725,5 +725,46 @@ def test_formula_bar_updates_after_edit(page: Page, base_url):
     expect(formula_bar).to_have_value('99')
 
 
+def test_sum_with_empty_cells_shows_error(page: Page, base_url):
+    """Test that SUM and other functions error on ranges with empty cells
+    
+    User requirement: "SUM is not checking for empty cells? Check all functions."
+    Previous behavior: Empty cells in ranges were treated as 0
+    New behavior: Empty cells in ranges produce #ERROR
+    
+    This test verifies all numeric functions (SUM, AVG, MIN, MAX, COUNT) error on empty cells
+    """
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Create a range with an empty cell: E1=5, E2=empty, E3=10
+    cell_e1 = page.locator('#cell-0-4')
+    cell_e1.click()
+    time.sleep(0.2)
+    page.keyboard.type('5')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    # Skip E2 (leave it empty)
+    cell_e3 = page.locator('#cell-2-4')
+    cell_e3.click()
+    time.sleep(0.2)
+    page.keyboard.type('10')
+    page.keyboard.press('Enter')
+    time.sleep(0.3)
+    
+    # Test SUM with empty cell in range
+    cell_f1 = page.locator('#cell-0-5')
+    cell_f1.click()
+    time.sleep(0.2)
+    page.keyboard.type('=SUM(E1:E3)')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    cell_text = cell_f1.text_content()
+    assert '#ERROR' in cell_text, f"SUM with empty cell should error, got '{cell_text}'"
+    assert 'empty cell' in cell_text.lower(), f"Error should mention empty cell, got '{cell_text}'"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])

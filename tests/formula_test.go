@@ -346,6 +346,40 @@ func TestStringFunctions(t *testing.T) {
 	}
 }
 
+func TestRangeWithEmptyCells(t *testing.T) {
+	sheet := model.NewSpreadsheet()
+	
+	// Set up a range with some empty cells
+	sheet.SetCell(0, 0, "10") // A1 = 10
+	sheet.SetCell(1, 0, "20") // A2 = 20
+	// A3 is empty
+	sheet.SetCell(3, 0, "30") // A4 = 30
+	
+	sheet.GetCell(0, 0).SetComputed("10")
+	sheet.GetCell(1, 0).SetComputed("20")
+	sheet.GetCell(3, 0).SetComputed("30")
+	
+	tests := []struct {
+		name    string
+		formula string
+	}{
+		{"=SUM(A1:A4)", "=SUM(A1:A4)"},
+		{"=AVG(A1:A4)", "=AVG(A1:A4)"},
+		{"=MIN(A1:A4)", "=MIN(A1:A4)"},
+		{"=MAX(A1:A4)", "=MAX(A1:A4)"},
+		{"=COUNT(A1:A4)", "=COUNT(A1:A4)"},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := model.EvaluateFormula(tt.formula, sheet)
+			assert.NoError(t, err)
+			assert.Contains(t, result, "#ERROR", "Range with empty cells should produce error")
+			assert.Contains(t, result, "empty cell", "Error should mention empty cell")
+		})
+	}
+}
+
 func TestCellRefToCoords(t *testing.T) {
 	tests := []struct {
 		ref    string
