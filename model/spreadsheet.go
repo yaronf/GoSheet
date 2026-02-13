@@ -6,17 +6,19 @@ import (
 
 // Spreadsheet represents the entire spreadsheet data structure
 type Spreadsheet struct {
-	Cells    map[int]map[int]*Cell // Row → Column → Cell (0-indexed)
-	Modified bool                   // True if spreadsheet has unsaved changes
-	FilePath string                 // Path to the file (empty if new/unsaved)
+	Cells        map[int]map[int]*Cell // Row → Column → Cell (0-indexed)
+	Modified     bool                   // True if spreadsheet has unsaved changes
+	FilePath     string                 // Path to the file (empty if new/unsaved)
+	Dependencies *DependencyGraph       // Tracks cell dependencies for efficient recalculation
 }
 
 // NewSpreadsheet creates a new empty spreadsheet
 func NewSpreadsheet() *Spreadsheet {
 	return &Spreadsheet{
-		Cells:    make(map[int]map[int]*Cell),
-		Modified: false,
-		FilePath: "",
+		Cells:        make(map[int]map[int]*Cell),
+		Modified:     false,
+		FilePath:     "",
+		Dependencies: NewDependencyGraph(),
 	}
 }
 

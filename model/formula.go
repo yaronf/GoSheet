@@ -73,6 +73,19 @@ func ParseFormula(formula string) (*Formula, error) {
 	return formulaParser.ParseString("", formula)
 }
 
+// NormalizeFormula parses and re-serializes a formula to normalize it
+// (uppercase cell refs, remove extra spaces, consistent formatting)
+func NormalizeFormula(formula string) (string, error) {
+	// Parse the formula
+	ast, err := ParseFormula(formula)
+	if err != nil {
+		return formula, err // Return original if can't parse
+	}
+	
+	// Serialize back to normalized form
+	return "=" + serializeExpression(ast.Expr), nil
+}
+
 // EvaluateFormula evaluates a formula and returns the result as a string
 func EvaluateFormula(formula string, sheet *Spreadsheet) (string, error) {
 	// Normalize formula to uppercase for cell references
@@ -91,6 +104,83 @@ func EvaluateFormula(formula string, sheet *Spreadsheet) (string, error) {
 
 	// Convert result to string
 	return valueToString(result), nil
+}
+
+// serializeExpression converts an Expression AST back to a string
+func serializeExpression(expr *Expression) string {
+	return serializeComparison(expr.Comparison)
+}
+
+// serializeComparison converts a Comparison AST back to a string
+func serializeComparison(comp *Comparison) string {
+	result := serializeAddition(comp.Left)
+	if comp.Op != nil && comp.Right != nil {
+		result += *comp.Op + serializeComparison(comp.Right)
+	}
+	return result
+}
+
+// serializeAddition converts an Addition AST back to a string
+func serializeAddition(add *Addition) string {
+	result := serializeMultiplication(add.Left)
+	if add.Op != nil && add.Right != nil {
+		result += *add.Op + serializeAddition(add.Right)
+	}
+	return result
+}
+
+// serializeMultiplication converts a Multiplication AST back to a string
+func serializeMultiplication(mult *Multiplication) string {
+	result := serializeUnary(mult.Left)
+	if mult.Op != nil && mult.Right != nil {
+		result += *mult.Op + serializeMultiplication(mult.Right)
+	}
+	return result
+}
+
+// serializeUnary converts a Unary AST back to a string
+func serializeUnary(unary *Unary) string {
+	result := ""
+	if unary.Op != nil {
+		result += *unary.Op
+	}
+	return result + serializePrimary(unary.Primary)
+}
+
+// serializePrimary converts a Primary AST back to a string
+func serializePrimary(prim *Primary) string {
+	if prim.Number != nil {
+		return fmt.Sprintf("%g", *prim.Number)
+	}
+	if prim.String != nil {
+		return *prim.String // Already includes quotes
+	}
+	if prim.CellRef != nil {
+		return prim.CellRef.Ref
+	}
+	if prim.Range != nil {
+		return prim.Range.Start + ":" + prim.Range.End
+	}
+	if prim.FuncCall != nil {
+		return serializeFuncCall(prim.FuncCall)
+	}
+	if prim.SubExpr != nil {
+		return "(" + serializeExpression(prim.SubExpr) + ")"
+	}
+	return ""
+}
+
+// serializeFuncCall converts a FuncCall AST back to a string
+func serializeFuncCall(fc *FuncCall) string {
+	result := fc.Name + "("
+	for i, arg := range fc.Args {
+		if i > 0 {
+			result += ","
+		}
+		result += serializeExpression(arg)
+	}
+	result += ")"
+	return result
 }
 
 // Value represents a computed value

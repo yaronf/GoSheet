@@ -64,7 +64,7 @@ These rules supplement BMAD methodology for this project:
 1. **Test Coverage**
    - **Target**: Maintain high test coverage for critical paths
    - **Current Status**: 
-     - Go unit tests: 18 tests covering formula evaluation, string functions, error handling, file I/O
+     - Go unit tests: 42 tests covering formula evaluation, string functions, error handling, file I/O, dependency tracking, circular references, formula normalization
      - Playwright UI tests: 30 tests covering user interactions, bug regressions, features, file operations
    - **Strategy**: Focus on behavior testing over line coverage metrics
    - **Rule**: Every bug fix requires at least one regression test
@@ -568,6 +568,82 @@ Following BMAD's practice of documenting issues and resolutions:
 **Test Added**: `test_new_file_warns_on_unsaved_changes` - verifies warning shown and data preserved on cancel
 **Status**: ✅ Implemented and tested (works in regular browsers, limitation in Cursor browser only)
 
+### Feature: Formula Dependency Tracking and Circular Reference Detection
+**Date**: 2026-02-13
+**Problem**: Original implementation recalculated ALL formulas whenever any cell changed, which is inefficient for large spreadsheets. No detection of circular references (A1→B1→A1) which could cause infinite loops.
+**Solution**: Implemented dependency graph to track which cells depend on which, enabling:
+1. **Smart Recalculation**: Only recalculate cells affected by changes, not all formulas
+2. **Topological Sorting**: Calculate dependencies before dependents (correct order)
+3. **Circular Reference Detection**: Detect cycles before they cause problems
+4. **Performance**: O(affected cells) instead of O(all formulas)
+
+**Implementation**:
+- **`model/dependencies.go`**: New dependency graph data structure
+  - `DependencyGraph`: Tracks dependents and dependencies for each cell
+  - `ExtractCellReferences()`: Parses formulas to find cell references
+  - `ExpandRange()`: Expands A1:B3 into individual cells
+  - `DetectCircularReference()`: DFS-based cycle detection
+  - `GetCalculationOrder()`: Topological sort for correct recalc order
+- **`model/spreadsheet.go`**: Added `Dependencies *DependencyGraph` field
+- **`controller/app.go`**: Updated to use dependency graph
+  - `SetCellValue()`: Extracts dependencies, checks for cycles, updates graph
+  - `recalculateDependents()`: Smart recalculation using topological order
+  - `rebuildDependencyGraph()`: Rebuilds graph when loading files
+  - Falls back to `recalculateAllFormulas()` if graph unavailable
+
+**Circular Reference Handling**:
+- Detected before adding to graph (prevents infinite loops)
+- Shows error: `#ERROR: Circular reference: A1 → B1 → C1 → A1`
+- Cell displays error, no recalculation performed
+
+**Tests Added** (13 new tests in `tests/dependencies_test.go`):
+- `TestExtractCellReferences`: Reference extraction from formulas
+- `TestExpandRange`: Range expansion (A1:B3)
+- `TestDependencyGraphBasic`: Basic dependency tracking
+- `TestDependencyGraphMultiple`: Dependency chains
+- `TestRemoveDependencies`: Cleanup when cells change
+- `TestCircularReferenceDetection`: Simple cycle detection
+- `TestCircularReferenceDetectionLongerChain`: Multi-hop cycles
+- `TestNoCircularReferenceWhenNoCycle`: False positive check
+- `TestCalculationOrder`: Topological sort verification
+- `TestCalculationOrderMultipleBranches`: Diamond dependencies
+- `TestCalculationOrderWithCircularReference`: Error on cycles
+- `TestIntegrationWithSpreadsheet`: Integration test
+
+**Performance Improvement**:
+- Before: O(n) where n = total formulas in spreadsheet
+- After: O(m) where m = formulas affected by change
+- Example: Changing A1 in a 1000-formula sheet with 3 dependents: 1000 → 3 recalculations
+
+**Status**: ✅ Implemented and tested (39 Go unit tests passing)
+
+### Feature: Formula Normalization
+**Date**: 2026-02-13
+**Problem**: Formulas entered with lowercase cell references or extra spaces (e.g., `= a1 + b2 `) were stored as-is, making them inconsistent and harder to compare.
+**Solution**: Automatically normalize formulas when they're stored by:
+1. Converting cell references to uppercase (a1 → A1)
+2. Removing extra whitespace
+3. Preserving string literals (quotes) exactly as entered
+
+**Implementation**:
+- **`model/formula.go`**: Added `NormalizeFormula()` function that parses and re-serializes formulas
+- Added serialization functions for each AST node type (Expression, Comparison, Addition, etc.)
+- **`model/cell.go`**: Updated `NewCell()` and `SetValue()` to normalize formulas automatically
+- Normalization happens transparently - users can type `=a1+b2` and it's stored as `=A1+B2`
+
+**Examples**:
+- Input: `=a1+b2` → Stored: `=A1+B2`
+- Input: `= A1 + B2 ` → Stored: `=A1+B2`
+- Input: `=sum(a1:a10)` → Stored: `=SUM(A1:A10)`
+- Input: `=CONCAT("hello", " ", "world")` → Stored: `=CONCAT("hello"," ","world")` (strings preserved)
+
+**Tests Added** (3 new tests in `tests/normalize_test.go`):
+- `TestNormalizeFormula`: Tests normalization function with various inputs
+- `TestCellNormalizesFormulas`: Tests that Cell automatically normalizes
+- `TestSpreadsheetNormalizesFormulas`: Integration test with Spreadsheet
+
+**Status**: ✅ Implemented and tested (42 Go unit tests passing)
+
 ## Next Steps
 
 Following BMAD's iterative approach:
@@ -578,8 +654,8 @@ Following BMAD's iterative approach:
 4. ✅ ~~Create basic UI~~
 5. ✅ ~~Write tests~~
 6. ✅ ~~Add file operations (save/load)~~
-7. ⏳ Implement formula dependency tracking
-8. ⏳ Add circular reference detection
+7. ✅ ~~Implement formula dependency tracking~~
+8. ✅ ~~Add circular reference detection~~
 9. ⏳ Create user documentation
 10. ⏳ Convert to native desktop app (Electron/Tauri)
     - Implement native file dialogs (Save As, Open)
@@ -604,7 +680,7 @@ This project demonstrates BMAD's effectiveness:
 - ✅ **Problem solving**: Adapted approach when issues arose (e.g., UI widget switch)
 
 ### Testing Phase
-- ✅ **Comprehensive coverage**: 10 Go unit tests + 30 Playwright UI tests
+- ✅ **Comprehensive coverage**: 42 Go unit tests + 31 Playwright UI tests
 - ✅ **Automated testing**: Full test suite with server management
 - ✅ **Quality assurance**: 39/40 tests passing (1 skipped by design)
 - ✅ **Regression testing**: Every bug fix has dedicated test(s)
@@ -631,7 +707,7 @@ The project has successfully completed the core MVP as defined in the product br
 - ✅ String functions (CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID)
 - ✅ Arithmetic operations (+, -, *, /, %)
 - ✅ **File operations** (save/load with binary format)
-- ✅ **Comprehensive testing** (18 Go unit tests, 31 Playwright UI tests)
+- ✅ **Comprehensive testing** (42 Go unit tests, 31 Playwright UI tests)
 - ✅ Row/column headers
 - ✅ **Clean architecture** (Go HTTP backend + standalone web frontend)
 
@@ -640,7 +716,7 @@ The project has successfully completed the core MVP as defined in the product br
 The project went through several UI framework iterations:
 1. **Fyne** → Limited in-cell editing capabilities
 2. **Wails** → Build complexity, testing difficulties
-3. **Go HTTP + Web Frontend** → Clean separation, easy testing ✅
+3. **Go HTTP + Web Frontend** → Clean separation, easy testing, but complexity around file handling
 
 **Current Architecture Benefits**:
 - ✅ Testable with standard web tools (Playwright)
