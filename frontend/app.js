@@ -240,10 +240,18 @@ function setupEditorHandlers(input, row, col, cell, originalContent) {
     });
 }
 
+// Track if we're currently saving to prevent duplicate saves
+let isSaving = false;
+
 // Finish editing and save value
 function finishEditing(row, col, value, cell) {
     if (!isEditing) {
         console.warn('finishEditing called but not editing');
+        return;
+    }
+    
+    if (isSaving) {
+        console.warn('finishEditing called but already saving - ignoring');
         return;
     }
     
@@ -257,7 +265,8 @@ function finishEditing(row, col, value, cell) {
     
     // CRITICAL: Reset isEditing AFTER removing input but BEFORE async operations
     isEditing = false;
-    console.log(`isEditing set to false`);
+    isSaving = true;
+    console.log(`isEditing set to false, isSaving set to true`);
     
     SetCellValue(row, col, value).then(() => {
         console.log(`SetCellValue completed for row=${row}, col=${col}`);
@@ -265,12 +274,14 @@ function finishEditing(row, col, value, cell) {
         return refreshAllCells();
     }).then(() => {
         console.log(`All cells refreshed after edit at row=${row}, col=${col}`);
+        isSaving = false;
     }).catch(err => {
         console.error('Error setting cell value:', err);
         cell.textContent = '#ERROR';
         cell.classList.add('error-cell');
         // Make sure we're not stuck in editing state even on error
         isEditing = false;
+        isSaving = false;
     });
 }
 
