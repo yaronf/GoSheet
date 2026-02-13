@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,10 @@ import (
 var ctrl *controller.AppController
 
 func main() {
+	// Parse command line flags
+	port := flag.String("port", "3000", "Port to run the server on")
+	flag.Parse()
+	
 	// Create controller
 	ctrl = controller.NewAppController()
 	
@@ -34,11 +39,10 @@ func main() {
 	http.HandleFunc("/api/cell/ref", corsMiddleware(handleGetCellRef))
 	http.HandleFunc("/api/cells/all", corsMiddleware(handleGetAllCells))
 	
-	port := "3000"
-	log.Printf("GoSheet server running at http://localhost:%s\n", port)
-	fmt.Printf("Open http://localhost:%s in your browser\n", port)
+	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
+	fmt.Printf("Open http://localhost:%s in your browser\n", *port)
 	
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+*port, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
