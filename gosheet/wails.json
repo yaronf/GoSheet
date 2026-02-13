@@ -1,0 +1,24 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "gosheet",
+  "outputfilename": "gosheet",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "ysheffer",
+    "email": "Yaron_Sheffer@intuit.com"
+  },
+  "info": {
+    "companyName": "GoSheet",
+    "productName": "GoSheet",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2026",
+    "comments": "A simple spreadsheet application"
+  },
+  "darwin": {
+    "ldflags": "-framework UniformTypeIdentifiers",
+    "icon": "appicon.png"
+  }
+}

@@ -1,0 +1,28 @@
+# Build artifacts
+build/
+*.app
+
+# Archive
+archive/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Go
+*.test
+*.out
