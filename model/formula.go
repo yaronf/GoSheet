@@ -165,14 +165,22 @@ func evaluateComparison(comp *Comparison, sheet *Spreadsheet) (Value, error) {
 		return ErrorValue{err}, err
 	}
 
+	// If either operand is an error, propagate it
+	if _, isErr := left.(ErrorValue); isErr {
+		return left, nil
+	}
+	if _, isErr := right.(ErrorValue); isErr {
+		return right, nil
+	}
+
 	leftNum, err := toNumber(left)
 	if err != nil {
-		return ErrorValue{err}, err
+		return ErrorValue{err}, nil
 	}
 
 	rightNum, err := toNumber(right)
 	if err != nil {
-		return ErrorValue{err}, err
+		return ErrorValue{err}, nil
 	}
 
 	var result bool
@@ -215,14 +223,22 @@ func evaluateAddition(add *Addition, sheet *Spreadsheet) (Value, error) {
 		return ErrorValue{err}, err
 	}
 
+	// If either operand is an error, propagate it
+	if _, isErr := left.(ErrorValue); isErr {
+		return left, nil
+	}
+	if _, isErr := right.(ErrorValue); isErr {
+		return right, nil
+	}
+
 	leftNum, err := toNumber(left)
 	if err != nil {
-		return ErrorValue{err}, err
+		return ErrorValue{err}, nil
 	}
 
 	rightNum, err := toNumber(right)
 	if err != nil {
-		return ErrorValue{err}, err
+		return ErrorValue{err}, nil
 	}
 
 	switch *add.Op {
@@ -251,14 +267,22 @@ func evaluateMultiplication(mult *Multiplication, sheet *Spreadsheet) (Value, er
 		return ErrorValue{err}, err
 	}
 
+	// If either operand is an error, propagate it
+	if _, isErr := left.(ErrorValue); isErr {
+		return left, nil
+	}
+	if _, isErr := right.(ErrorValue); isErr {
+		return right, nil
+	}
+
 	leftNum, err := toNumber(left)
 	if err != nil {
-		return ErrorValue{err}, err
+		return ErrorValue{err}, nil
 	}
 
 	rightNum, err := toNumber(right)
 	if err != nil {
-		return ErrorValue{err}, err
+		return ErrorValue{err}, nil
 	}
 
 	switch *mult.Op {
@@ -346,23 +370,30 @@ func evaluateCellRef(ref *CellRef, sheet *Spreadsheet) (Value, error) {
 	cell := sheet.GetCell(row, col)
 
 	if cell == nil {
-		return NumberValue{0}, nil // Empty cell = 0
+		return ErrorValue{fmt.Errorf("reference to empty cell")}, nil
 	}
 
-	// Use the computed value
-	if cell.Computed == "" {
-		return NumberValue{0}, nil
+	// Check if cell has no value (truly empty)
+	if cell.Value == "" {
+		return ErrorValue{fmt.Errorf("reference to empty cell")}, nil
+	}
+
+	// Use the computed value (for formulas, this is the result; for values, it's the same as Value)
+	computed := cell.Computed
+	if computed == "" {
+		// If Computed is not set, use Value (shouldn't happen with proper cell initialization)
+		computed = cell.Value
 	}
 
 	// Try to parse as number
 	var num float64
-	_, err := fmt.Sscanf(cell.Computed, "%f", &num)
+	_, err := fmt.Sscanf(computed, "%f", &num)
 	if err == nil {
 		return NumberValue{num}, nil
 	}
 
 	// Return as string
-	return StringValue{cell.Computed}, nil
+	return StringValue{computed}, nil
 }
 
 // evaluateRange evaluates a range and returns a VectorValue

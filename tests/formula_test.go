@@ -117,10 +117,10 @@ func TestEvaluateCellReference(t *testing.T) {
 func TestEvaluateEmptyCell(t *testing.T) {
 	sheet := model.NewSpreadsheet()
 
-	// Empty cell should be treated as 0
+	// Empty cell should produce an error
 	result, err := model.EvaluateFormula("=A1+5", sheet)
 	assert.NoError(t, err)
-	assert.Equal(t, "5", result)
+	assert.Contains(t, result, "#ERROR")
 }
 
 func TestEvaluateSumFunction(t *testing.T) {
