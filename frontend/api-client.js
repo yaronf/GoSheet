@@ -1,10 +1,24 @@
 // GoSheet API Client - Mode-aware (web vs native)
 // Web mode: fetch to unified HTTP API
-// Native mode: Wails IPC (Epic 3 - stub for now)
+// Native mode: Wails generated bindings (ES6 modules)
+
+// Try to import Wails bindings (only available in native mode)
+let WailsAPI = null;
+let isNativeMode = false;
+
+try {
+    // Dynamic import for Wails bindings
+    const module = await import('./gosheet/wailsapi.js');
+    WailsAPI = module;
+    isNativeMode = true;
+    console.log('[api-client] Native mode - using Wails bindings');
+} catch (e) {
+    // Import failed - we're in web mode
+    isNativeMode = false;
+    console.log('[api-client] Web mode - using HTTP fetch');
+}
 
 const API_BASE = '';
-
-const isNativeMode = typeof window !== 'undefined' && typeof window.wails !== 'undefined';
 
 // Convert column index to letter (0 -> A, 25 -> Z, 26 -> AA)
 function colToLetter(col) {
@@ -18,7 +32,7 @@ function colToLetter(col) {
     return result;
 }
 
-// Web mode: fetch to unified API, adapt Response format
+// Web mode: fetch to unified API
 async function fetchUnified(method, path, body = null) {
     const opts = { method, headers: {} };
     if (body !== null) {
@@ -33,11 +47,12 @@ async function fetchUnified(method, path, body = null) {
     return json;
 }
 
-// API Functions - same signatures as legacy, adapted for unified API
+// API Functions
 
 const GetCellValue = async (row, col) => {
     if (isNativeMode) {
-        return window.wails.Call.GetCellValue(row, col).then(r => r.data?.computed ?? '');
+        const r = await WailsAPI.GetCellValue(row, col);
+        return r.data?.computed ?? '';
     }
     const json = await fetchUnified('GET', `/api/get-cell?row=${row}&col=${col}`);
     return json.data?.computed ?? '';
@@ -45,7 +60,8 @@ const GetCellValue = async (row, col) => {
 
 const GetCellRawValue = async (row, col) => {
     if (isNativeMode) {
-        return window.wails.Call.GetCellValue(row, col).then(r => r.data?.value ?? '');
+        const r = await WailsAPI.GetCellValue(row, col);
+        return r.data?.value ?? '';
     }
     const json = await fetchUnified('GET', `/api/get-cell?row=${row}&col=${col}`);
     return json.data?.value ?? '';
@@ -53,7 +69,7 @@ const GetCellRawValue = async (row, col) => {
 
 const SetCellValue = async (row, col, value) => {
     if (isNativeMode) {
-        const r = await window.wails.Call.SetCellValue(row, col, value);
+        const r = await WailsAPI.SetCellValue(row, col, value);
         return { hasUnsavedChanges: r.data?.hasUnsavedChanges ?? true };
     }
     const json = await fetchUnified('POST', '/api/set-cell', { row, col, value });
@@ -62,14 +78,16 @@ const SetCellValue = async (row, col, value) => {
 
 const GetCellRef = async (row, col) => {
     if (isNativeMode) {
-        return window.wails.Call.GetCellRef(row, col).then(r => r.data ?? colToLetter(col) + (row + 1));
+        const r = await WailsAPI.GetCellRef(row, col);
+        return r.data?.ref ?? colToLetter(col) + (row + 1);
     }
+    // Web mode doesn't have GetCellRef endpoint, compute locally
     return colToLetter(col) + (row + 1);
 };
 
 const GetAllCells = async () => {
     if (isNativeMode) {
-        const r = await window.wails.Call.GetAllCells();
+        const r = await WailsAPI.GetAllCells();
         const cells = {};
         (r.data || []).forEach(c => {
             const ref = colToLetter(c.col) + (c.row + 1);
@@ -88,44 +106,36 @@ const GetAllCells = async () => {
 
 const GetFileStatus = async () => {
     if (isNativeMode) {
-        const r = await window.wails.Call.GetFileStatus();
-        return { path: r.data?.path ?? '', hasUnsavedChanges: r.data?.modified ?? false };
+        const r = await WailsAPI.GetFileStatus();
+        return r.data || { path: '', saved: true, modified: false, filename: 'Untitled' };
     }
     const json = await fetchUnified('GET', '/api/status');
-    return {
-        path: json.data?.path ?? '',
-        hasUnsavedChanges: json.data?.modified ?? false
-    };
+    return json.data || { path: '', saved: true, modified: false, filename: 'Untitled' };
 };
 
 const NewFile = async () => {
     if (isNativeMode) {
-        await window.wails.Call.NewSpreadsheet();
-        return { success: true };
+        await WailsAPI.NewSpreadsheet();
+        return;
     }
     await fetchUnified('POST', '/api/new');
-    return { success: true };
 };
 
-// File operations - use legacy routes (no unified equivalents for upload/download)
-const DownloadFile = async (filename) => {
-    const response = await fetch(`${API_BASE}/api/file/download`);
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error);
+const SaveFile = async (path) => {
+    if (isNativeMode) {
+        await WailsAPI.SaveFile(path);
+        return;
     }
-    return await response.blob();
+    await fetchUnified('POST', '/api/save', { path });
 };
 
-const UploadFile = async (fileData) => {
-    const response = await fetch(`${API_BASE}/api/file/upload`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: fileData
-    });
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error);
+const LoadFile = async (path) => {
+    if (isNativeMode) {
+        await WailsAPI.LoadFile(path);
+        return;
     }
-    return await response.json();
+    await fetchUnified('POST', '/api/load', { path });
 };
+
+// Export for app.js (now a module)
+export { GetCellValue, GetCellRawValue, SetCellValue, GetCellRef, GetAllCells, GetFileStatus, NewFile, SaveFile, LoadFile };

@@ -1,0 +1,23 @@
+{
+  "name": "GoSheet",
+  "outputfilename": "GoSheet",
+  "assetdir": "./frontend",
+  "builddir": "./build",
+  "wailsjsdir": "./frontend",
+  "info": {
+    "companyName": "GoSheet",
+    "productName": "GoSheet",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2026",
+    "comments": "Native spreadsheet application"
+  },
+  "mac": {
+    "minimumSystemVersion": "11.0",
+    "universalBinary": true
+  },
+  "nsisType": "multiple",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "auto"
+}

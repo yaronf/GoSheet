@@ -58,14 +58,14 @@ development_status:
   epic-2-retrospective: optional
   
   # Epic 3: Native App Foundation
-  epic-3: backlog
-  3-1-generate-wails-reference-template: backlog
-  3-2-create-wails-configuration: backlog
-  3-3-create-native-mode-entry-point: backlog
-  3-4-implement-wailsapi-with-ipc-binding: backlog
-  3-5-create-native-mode-fileservice-stub: backlog
-  3-6-update-frontend-api-client-for-native-mode: backlog
-  3-7-verify-native-app-launches-and-displays-grid: backlog
+  epic-3: done
+  3-1-generate-wails-reference-template: done
+  3-2-create-wails-configuration: done
+  3-3-create-native-mode-entry-point: done
+  3-4-implement-wailsapi-with-ipc-binding: done
+  3-5-create-native-mode-fileservice-stub: done
+  3-6-update-frontend-api-client-for-native-mode: done
+  3-7-verify-native-app-launches-and-displays-grid: done
   epic-3-retrospective: optional
   
   # Epic 4: Native File Operations

@@ -2,7 +2,6 @@
 build/
 build/bin/
 build/darwin/
-wails.json
 *.app
 
 # Temporary files

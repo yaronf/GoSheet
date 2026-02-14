@@ -1,5 +1,7 @@
-// GoSheet Frontend - Pure JavaScript (no build system needed)
-// API functions provided by api-client.js (mode-aware: web fetch or Wails IPC)
+// GoSheet Frontend - ES6 Module
+// API functions imported from api-client.js (mode-aware: web fetch or Wails IPC)
+
+import { GetCellValue, GetCellRawValue, SetCellValue, GetCellRef, GetAllCells, GetFileStatus, NewFile, SaveFile, LoadFile } from './api-client.js';
 
 // Spreadsheet configuration
 // Backend supports up to 2^31 rows/columns (Go int on 64-bit systems)
@@ -712,12 +714,22 @@ function startEditingWithChar(row, col, initialChar) {
     setupEditorHandlers(input, row, col, cell, originalContent);
 }
 
-// Initialize
+// Initialize - wait for DOM and modules to be ready
+console.log('[app.js] Starting initialization...');
 buildSpreadsheet();
-loadCells();
 
-// Select A1 by default
-selectCell(0, 0);
+// Load cells after a short delay to ensure Wails runtime is ready
+setTimeout(async () => {
+    console.log('[app.js] Loading cells...');
+    try {
+        await loadCells();
+        console.log('[app.js] Cells loaded successfully');
+        // Select A1 by default
+        selectCell(0, 0);
+    } catch (err) {
+        console.error('[app.js] Failed to load cells:', err);
+    }
+}, 100);
 
 // Set up formula bar event handlers
 const formulaBar = document.getElementById('formula-bar');
