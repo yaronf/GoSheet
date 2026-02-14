@@ -13,12 +13,12 @@ playwright install chromium --quiet 2>/dev/null || playwright install chromium
 # Kill any existing server on port 8080
 echo "Stopping existing server..."
 lsof -ti:$GOSHEET_PORT | xargs kill -9 2>/dev/null
-pkill -9 -f "go run main.go" 2>/dev/null
+pkill -9 -f "go run ./cmd/web" 2>/dev/null
 sleep 1
 
-# Start fresh server in background
+# Start fresh server in background (cmd/web = web mode with unified API)
 echo "Starting server on port $GOSHEET_PORT..."
-(cd server && go run main.go -port $GOSHEET_PORT > /tmp/gosheet.log 2>&1) &
+(go run ./cmd/web -port $GOSHEET_PORT > /tmp/gosheet.log 2>&1) &
 SERVER_PID=$!
 
 # Wait for server to be ready

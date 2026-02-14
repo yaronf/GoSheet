@@ -49,12 +49,12 @@ development_status:
   epic-1-retrospective: optional
   
   # Epic 2: Web Mode Preservation
-  epic-2: backlog
-  2-1-create-web-mode-entry-point: backlog
-  2-2-implement-httpapi-wrapper: backlog
-  2-3-implement-web-mode-fileservice: backlog
-  2-4-update-frontend-for-unified-api: backlog
-  2-5-verify-all-tests-pass: backlog
+  epic-2: done
+  2-1-create-web-mode-entry-point: done
+  2-2-implement-httpapi-wrapper: done
+  2-3-implement-web-mode-fileservice: done
+  2-4-update-frontend-for-unified-api: done
+  2-5-verify-all-tests-pass: done
   epic-2-retrospective: optional
   
   # Epic 3: Native App Foundation
