@@ -924,6 +924,7 @@ All tests passing: **42 Go unit tests + 32 Playwright UI tests** (1 skipped by d
 3. **Test before commit** - Never commit without running the app and verifying the fix
 4. **Update sprint status accurately** - Epic 4 should have been marked "in-progress" not "done" until tested
 5. **Story completion notes must include test results** - "Verified by launching app and clicking Load button - dialog appeared"
+6. **Native app testing is mandatory** - Web mode tests (Playwright) don't cover native-specific features like file dialogs, IPC, or macOS integration. Need automated native app testing or comprehensive manual test plans.
 
 ### Metrics
 
@@ -935,8 +936,23 @@ All tests passing: **42 Go unit tests + 32 Playwright UI tests** (1 skipped by d
 - **Time to fix after testing started**: ~10 minutes
 - **Time wasted by not testing first**: Unknown (but significant)
 
-### Key Takeaway
+### Key Takeaways
 
 > **The most important test is the one you actually run.**
 > 
 > All the checklists, story documents, and commit messages in the world don't matter if the feature doesn't work when the user tries it. Epic 4 taught us that "done" means "tested and working", not "code exists and compiles".
+
+> **Web mode tests don't validate native mode.**
+> 
+> The Playwright tests run against the web mode HTTP server. They don't test:
+> - Native file dialogs (uses browser file input instead)
+> - Wails IPC communication (uses HTTP fetch instead)  
+> - macOS-specific features (menus, dock, file associations)
+> - Frontend-backend integration in native mode
+> 
+> **We need native app testing.** Options:
+> 1. Automated UI testing for macOS apps (e.g., XCTest, Appium)
+> 2. Comprehensive manual test plans executed before marking epics "done"
+> 3. Smoke test script that launches native app and verifies core features
+> 
+> Until we have native app testing, **manual verification is non-negotiable** for any native-mode feature.
