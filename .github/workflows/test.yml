@@ -30,8 +30,8 @@ jobs:
     - name: Install Node dependencies
       run: npm ci
     
-    - name: Install Playwright browsers and Electron dependencies
-      run: npx playwright install --with-deps chromium electron
+    - name: Install Playwright browsers with system dependencies
+      run: npx playwright install --with-deps chromium
     
     - name: Build Go server
       run: |
