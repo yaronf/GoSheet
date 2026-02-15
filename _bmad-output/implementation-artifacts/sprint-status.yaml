@@ -1,8 +1,18 @@
 # generated: 2026-02-14
+# last_updated: 2026-02-15 (Electron migration)
 # project: spreadsheet
 # project_key: NOKEY
 # tracking_system: file-system
 # story_location: _bmad-output/implementation-artifacts
+#
+# MAJOR REVISION (2026-02-15): Migrated from Wails to Electron
+# - Epic 1: Marked OBSOLETE (API abstraction not needed)
+# - Epic 2: Marked OBSOLETE (web mode not needed)
+# - Epic 3: Reset with 7 new Electron stories
+# - Epic 4: Marked ADAPTED (backend reusable, frontend updated in Epic 3)
+# - Epic 5: Reset with 6 new Playwright Electron stories
+# - Epic 7: Marked ADAPTED (uses Electron APIs)
+# See: sprint-change-proposal-2026-02-15.md for full rationale
 
 # STATUS DEFINITIONS:
 # ==================
@@ -40,36 +50,50 @@ tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 
 development_status:
-  # Epic 1: Consistent Spreadsheet Actions & Error Handling
-  epic-1: done
-  1-1-create-api-package-structure: done
-  1-2-define-response-struct-with-error-codes: done
-  1-3-define-spreadsheetapi-interface: done
-  1-4-define-fileservice-interface: done
-  epic-1-retrospective: optional
+  # Epic 1: Consistent Spreadsheet Actions & Error Handling [OBSOLETE]
+  # Reason: API abstraction layer not needed for Electron single-mode architecture
+  epic-1: obsolete
+  1-1-create-api-package-structure: obsolete
+  1-2-define-response-struct-with-error-codes: obsolete
+  1-3-define-spreadsheetapi-interface: obsolete
+  1-4-define-fileservice-interface: obsolete
+  epic-1-retrospective: obsolete
   
-  # Epic 2: Web Mode Preservation
-  epic-2: done
-  2-1-create-web-mode-entry-point: done
-  2-2-implement-httpapi-wrapper: done
-  2-3-implement-web-mode-fileservice: done
-  2-4-update-frontend-for-unified-api: done
-  2-5-verify-all-tests-pass: done
-  epic-2-retrospective: optional
+  # Epic 2: Web Mode Preservation [OBSOLETE]
+  # Reason: Electron eliminates need for separate web mode
+  epic-2: obsolete
+  2-1-create-web-mode-entry-point: obsolete
+  2-2-implement-httpapi-wrapper: obsolete
+  2-3-implement-web-mode-fileservice: obsolete
+  2-4-update-frontend-for-unified-api: obsolete
+  2-5-verify-all-tests-pass: obsolete
+  epic-2-retrospective: obsolete
   
-  # Epic 3: Native App Foundation
+  # Epic 3: Electron Desktop App [REVISED - Replaces Wails Implementation]
+  # Reason: Electron provides better testability via Playwright native integration
+  # Status: COMPLETE (2026-02-15) - App launches, editing works, 6 bugs fixed during retro
   epic-3: done
-  3-1-generate-wails-reference-template: done
-  3-2-create-wails-configuration: done
-  3-3-create-native-mode-entry-point: done
-  3-4-implement-wailsapi-with-ipc-binding: done
-  3-5-create-native-mode-fileservice-stub: done
-  3-6-update-frontend-api-client-for-native-mode: done
-  3-7-verify-native-app-launches-and-displays-grid: done
-  epic-3-retrospective: optional
+  # NEW Electron stories:
+  3-1-create-electron-main-process: done
+  3-2-create-electron-preload-script: done
+  3-3-integrate-go-http-server: done
+  3-4-implement-electron-file-dialogs: done
+  3-5-update-frontend-for-electron-ipc: done
+  3-6-configure-electron-builder: done
+  3-7-verify-electron-app-launches: done
+  epic-3-retrospective: done
+  # OLD Wails stories (obsolete):
+  3-1-generate-wails-reference-template: obsolete
+  3-2-create-wails-configuration: obsolete
+  3-3-create-native-mode-entry-point: obsolete
+  3-4-implement-wailsapi-with-ipc-binding: obsolete
+  3-5-create-native-mode-fileservice-stub: obsolete
+  3-6-update-frontend-api-client-for-native-mode: obsolete
+  3-7-verify-native-app-launches-and-displays-grid: obsolete
   
-  # Epic 4: Native File Operations
-  epic-4: in-progress
+  # Epic 4: Native File Operations [ADAPTED - Backend Reused, Frontend Updated]
+  # Status: Backend 100% reusable, frontend IPC updates covered in Epic 3 Story 3.5
+  epic-4: done
   4-1-implement-native-file-dialogs: done
   4-2-implement-direct-file-io: done
   4-3-implement-new-spreadsheet: done
@@ -78,32 +102,52 @@ development_status:
   4-6-implement-save-as: done
   4-7-implement-file-status-tracking: done
   4-8-implement-unsaved-changes-warnings: done
-  epic-4-retrospective: optional
+  epic-4-retrospective: done
   
-  # Epic 5: CSV Import/Export
-  epic-5: backlog
-  5-1-implement-csv-import-dialog: backlog
-  5-2-implement-csv-data-import: backlog
-  5-3-implement-csv-export-dialog: backlog
-  5-4-verify-csv-round-trip: backlog
+  # Epic 5: Playwright Electron Testing [REPLACED - pyax → Playwright]
+  # Reason: pyax cannot test Wails WebView content; Playwright has native Electron support
+  epic-5: in-progress
+  # NEW Playwright Electron stories:
+  5-1-setup-playwright-electron-environment: done
+  5-2-port-existing-tests-to-electron-api: done
+  5-3-implement-dialog-stubbing-tests: backlog
+  5-4-create-file-operation-tests: backlog
+  5-5-verify-all-tests-pass-in-electron: backlog
+  5-6-update-cicd-for-electron-testing: backlog
   epic-5-retrospective: optional
+  # OLD pyax stories (obsolete):
+  5-1-setup-pyax-testing-infrastructure: obsolete
+  5-2-implement-page-object-pattern: obsolete
+  5-3-create-file-dialog-smoke-tests: obsolete
+  5-4-create-keyboard-shortcut-tests: obsolete
+  5-5-integrate-native-tests-into-workflow: obsolete
+  5-6-verify-native-tests-pass: obsolete
   
-  # Epic 6: macOS Integration & Polish
+  # Epic 6: CSV Import/Export (SHIFTED from Epic 5)
   epic-6: backlog
-  6-1-implement-file-menu: backlog
-  6-2-implement-edit-menu: backlog
-  6-3-implement-help-menu: backlog
-  6-4-implement-keyboard-shortcuts: backlog
-  6-5-implement-recent-files-list: backlog
-  6-6-implement-dock-integration: backlog
-  6-7-implement-file-associations: backlog
-  6-8-add-app-and-file-icons: backlog
+  6-1-implement-csv-import-dialog: backlog
+  6-2-implement-csv-data-import: backlog
+  6-3-implement-csv-export-dialog: backlog
+  6-4-verify-csv-round-trip: backlog
   epic-6-retrospective: optional
   
-  # Epic 7: Welcome Screen & Lifecycle
+  # Epic 7: macOS Integration & Polish [ADAPTED for Electron]
+  # Status: Uses Electron APIs instead of Wails APIs (Menu.buildFromTemplate, app.dock, etc.)
   epic-7: backlog
-  7-1-design-welcome-screen-layout: backlog
-  7-2-implement-welcome-screen-display: backlog
-  7-3-implement-graceful-shutdown: backlog
-  7-4-verify-complete-user-experience: backlog
+  7-1-implement-file-menu: backlog
+  7-2-implement-edit-menu: backlog
+  7-3-implement-help-menu: backlog
+  7-4-implement-keyboard-shortcuts: backlog
+  7-5-implement-recent-files-list: backlog
+  7-6-implement-dock-integration: backlog
+  7-7-implement-file-associations: backlog
+  7-8-add-app-and-file-icons: backlog
   epic-7-retrospective: optional
+  
+  # Epic 8: Welcome Screen & Lifecycle (SHIFTED from Epic 7)
+  epic-8: backlog
+  8-1-design-welcome-screen-layout: backlog
+  8-2-implement-welcome-screen-display: backlog
+  8-3-implement-graceful-shutdown: backlog
+  8-4-verify-complete-user-experience: backlog
+  epic-8-retrospective: optional

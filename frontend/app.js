@@ -626,6 +626,25 @@ document.addEventListener('keydown', (e) => {
         console.log('Global handler: target is INPUT, ignoring');
         return;
     }
+
+    // Cmd/Ctrl + O, S, N - File operations (macOS: Cmd, Windows/Linux: Ctrl)
+    if (e.metaKey || e.ctrlKey) {
+        if (e.key === 'o') {
+            e.preventDefault();
+            document.getElementById('load-btn').click();
+            return;
+        }
+        if (e.key === 's') {
+            e.preventDefault();
+            document.getElementById('save-btn').click();
+            return;
+        }
+        if (e.key === 'n') {
+            e.preventDefault();
+            document.getElementById('new-btn').click();
+            return;
+        }
+    }
     
     if (selectedCell) {
         const { row, col } = selectedCell;

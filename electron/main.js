@@ -1,0 +1,204 @@
+// Story 3.1: Electron Main Process
+// Handles app lifecycle, Go server spawning, and window creation
+
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { spawn } = require('child_process');
+const path = require('node:path');
+
+let mainWindow;
+let goServer;
+const GO_SERVER_PORT = 3000;
+
+// Story 3.3: Start Go HTTP Server as child process
+function startGoServer() {
+  console.log('[Electron] Starting Go HTTP server...');
+  
+  // Determine Go server binary path
+  // In development: use server/ directory relative to project root
+  // In production: use packaged binary in app resources
+  const isDev = !app.isPackaged;
+  const serverPath = isDev
+    ? path.join(__dirname, '..', 'server', 'gosheet-server')
+    : path.join(process.resourcesPath, 'server', 'gosheet-server');
+  
+  console.log(`[Electron] Mode: ${isDev ? 'development' : 'production'}`);
+  console.log(`[Electron] Server path: ${serverPath}`);
+  
+  // Check if server binary exists
+  const fs = require('fs');
+  if (!fs.existsSync(serverPath)) {
+    console.error(`[Electron] ERROR: Go server binary not found at: ${serverPath}`);
+    console.error(`[Electron] Please build the server first: make build`);
+    dialog.showErrorBox(
+      'Server Not Found',
+      `Go server binary not found.\n\nPlease build the server first:\n  make build\n\nExpected location:\n  ${serverPath}`
+    );
+    app.quit();
+    return;
+  }
+  
+  // Spawn Go server process
+  goServer = spawn(serverPath, ['--port', GO_SERVER_PORT.toString()], {
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  
+  // Log server output
+  goServer.stdout.on('data', (data) => {
+    console.log(`[Go Server] ${data.toString().trim()}`);
+  });
+  
+  goServer.stderr.on('data', (data) => {
+    console.error(`[Go Server Error] ${data.toString().trim()}`);
+  });
+  
+  goServer.on('error', (error) => {
+    console.error('[Electron] Failed to start Go server:', error);
+  });
+  
+  goServer.on('close', (code) => {
+    console.log(`[Electron] Go server exited with code ${code}`);
+  });
+  
+  console.log(`[Electron] Go server started with PID: ${goServer.pid}`);
+}
+
+// Story 3.1: Create main window
+function createWindow() {
+  console.log('[Electron] Creating main window...');
+  
+  const isTest = process.env.NODE_ENV === 'test';
+  
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    title: 'GoSheet',
+    show: !isTest, // Hide window in test mode
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
+  });
+  
+  // Load frontend from Go HTTP server
+  const serverUrl = `http://localhost:${GO_SERVER_PORT}`;
+  console.log(`[Electron] Loading frontend from: ${serverUrl}`);
+  
+  mainWindow.loadURL(serverUrl).catch((err) => {
+    console.error('[Electron] Failed to load URL:', err);
+    // Retry after a short delay if server isn't ready yet
+    setTimeout(() => {
+      mainWindow.loadURL(serverUrl);
+    }, 1000);
+  });
+  
+  // Open DevTools in development mode
+  if (process.argv.includes('--dev')) {
+    mainWindow.webContents.openDevTools();
+  }
+  
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+  
+  console.log('[Electron] Main window created');
+}
+
+// Story 3.4: Setup IPC handlers
+function setupIpcHandlers() {
+  // IPC handler for file dialogs - Open File
+  ipcMain.handle('dialog:openFile', async () => {
+    console.log('[Electron] Open file dialog requested');
+    
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Open Spreadsheet',
+      filters: [
+        { name: 'Spreadsheet Files', extensions: ['sheet'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+    
+    if (result.canceled) {
+      console.log('[Electron] Open dialog cancelled');
+      return null;
+    }
+    
+    const filePath = result.filePaths[0];
+    console.log(`[Electron] File selected: ${filePath}`);
+    return filePath;
+  });
+
+  // IPC handler for file dialogs - Save File
+  ipcMain.handle('dialog:saveFile', async (event, defaultName = 'Untitled.sheet') => {
+    console.log(`[Electron] Save file dialog requested (default: ${defaultName})`);
+    
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save Spreadsheet',
+      defaultPath: defaultName,
+      filters: [
+        { name: 'Spreadsheet Files', extensions: ['sheet'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    if (result.canceled) {
+      console.log('[Electron] Save dialog cancelled');
+      return null;
+    }
+    
+    const filePath = result.filePath;
+    console.log(`[Electron] Save path selected: ${filePath}`);
+    return filePath;
+  });
+}
+
+// App lifecycle management
+app.whenReady().then(() => {
+  console.log('[Electron] App ready, initializing...');
+  
+  // Story 3.4: Setup IPC handlers
+  setupIpcHandlers();
+  
+  // Story 3.3: Start Go server first
+  startGoServer();
+  
+  // Wait for server to be ready before creating window
+  setTimeout(() => {
+    createWindow();
+  }, 1000);
+  
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+// Cleanup on quit
+app.on('window-all-closed', () => {
+  console.log('[Electron] All windows closed');
+  
+  // Kill Go server process
+  if (goServer) {
+    console.log('[Electron] Terminating Go server...');
+    goServer.kill();
+  }
+  
+  // Quit app (except on macOS where apps typically stay open)
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  console.log('[Electron] App quitting, cleaning up...');
+  
+  // Ensure Go server is terminated
+  if (goServer) {
+    goServer.kill('SIGTERM');
+  }
+});
+
+console.log('[Electron] Main process initialized');

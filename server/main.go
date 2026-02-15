@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"gosheet/controller"
 )
@@ -75,11 +76,33 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 // Serve static files from frontend directory
 func serveStatic(w http.ResponseWriter, r *http.Request) {
+	// Determine frontend directory path
+	// When run from Electron, cwd is the project root
+	// When run standalone, cwd might be server/ directory
+	frontendDir := getFrontendDir()
+	
 	if r.URL.Path == "/" {
-		http.ServeFile(w, r, "../frontend/index.html")
+		http.ServeFile(w, r, frontendDir+"/index.html")
 		return
 	}
-	http.ServeFile(w, r, "../frontend"+r.URL.Path)
+	http.ServeFile(w, r, frontendDir+r.URL.Path)
+}
+
+// Get frontend directory path (handles both Electron and standalone modes)
+func getFrontendDir() string {
+	// Try current directory first (Electron mode: cwd is project root)
+	if _, err := os.Stat("frontend/index.html"); err == nil {
+		return "frontend"
+	}
+	
+	// Try parent directory (standalone mode: cwd is server/)
+	if _, err := os.Stat("../frontend/index.html"); err == nil {
+		return "../frontend"
+	}
+	
+	// Fallback to relative path
+	log.Println("Warning: Could not find frontend directory, using ../frontend")
+	return "../frontend"
 }
 
 // API Handlers
@@ -90,8 +113,15 @@ func handleGetCellValue(w http.ResponseWriter, r *http.Request) {
 	
 	value := ctrl.GetCellValue(row, col)
 	
+	response := map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"computed": value,
+		},
+	}
+	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(value)
+	json.NewEncoder(w).Encode(response)
 }
 
 func handleGetCellRawValue(w http.ResponseWriter, r *http.Request) {
@@ -100,8 +130,15 @@ func handleGetCellRawValue(w http.ResponseWriter, r *http.Request) {
 	
 	value := ctrl.GetCellRawValue(row, col)
 	
+	response := map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"value": value,
+		},
+	}
+	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(value)
+	json.NewEncoder(w).Encode(response)
 }
 
 func handleSetCellValue(w http.ResponseWriter, r *http.Request) {
@@ -135,10 +172,13 @@ func handleSetCellValue(w http.ResponseWriter, r *http.Request) {
 	
 	// Include the updated file status in the response
 	response := map[string]interface{}{
-		"value":             value,
-		"displayValue":      displayValue,
-		"isFormula":         isFormula,
-		"hasUnsavedChanges": ctrl.HasUnsavedChanges(),
+		"success": true,
+		"data": map[string]interface{}{
+			"value":             value,
+			"displayValue":      displayValue,
+			"isFormula":         isFormula,
+			"hasUnsavedChanges": ctrl.HasUnsavedChanges(),
+		},
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
@@ -156,22 +196,31 @@ func handleGetCellRef(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetAllCells(w http.ResponseWriter, r *http.Request) {
-	// Build a map of all non-empty cells
-	cells := make(map[string]string)
+	// Build array of cell data
+	cells := []map[string]interface{}{}
 	
 	// Iterate through reasonable range
 	for row := 0; row < 100; row++ {
 		for col := 0; col < 26; col++ {
 			value := ctrl.GetCellValue(row, col)
 			if value != "" {
-				ref := ctrl.GetCellRef(row, col)
-				cells[ref] = value
+				cells = append(cells, map[string]interface{}{
+					"row":      row,
+					"col":      col,
+					"computed": value,
+					"value":    ctrl.GetCellRawValue(row, col),
+				})
 			}
 		}
 	}
 	
+	response := map[string]interface{}{
+		"success": true,
+		"data":    cells,
+	}
+	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cells)
+	json.NewEncoder(w).Encode(response)
 }
 
 func handleSaveFile(w http.ResponseWriter, r *http.Request) {
@@ -243,10 +292,26 @@ func handleNewFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFileStatus(w http.ResponseWriter, r *http.Request) {
+	filePath := ctrl.GetFilePath()
+	filename := "Untitled"
+	if filePath != "" {
+		// Extract filename from path
+		parts := strings.Split(filePath, "/")
+		if len(parts) > 0 {
+			filename = parts[len(parts)-1]
+		}
+	}
+	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"path":            ctrl.GetFilePath(),
-		"hasUnsavedChanges": ctrl.HasUnsavedChanges(),
+		"success": true,
+		"data": map[string]interface{}{
+			"path":              filePath,
+			"saved":             !ctrl.HasUnsavedChanges(),
+			"modified":          ctrl.HasUnsavedChanges(),
+			"hasUnsavedChanges": ctrl.HasUnsavedChanges(),
+			"filename":          filename,
+		},
 	})
 }
 
