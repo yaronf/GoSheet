@@ -131,11 +131,22 @@ const SaveFile = async (path) => {
 
 const LoadFile = async (path) => {
     if (isNativeMode) {
-        await WailsAPI.LoadFile(path);
+        // In native mode, use OpenFile() which shows the dialog
+        await WailsAPI.OpenFile();
         return;
     }
+    // In web mode, path is required (for Playwright tests)
     await fetchUnified('POST', '/api/load', { path });
 };
 
+const SaveAs = async () => {
+    if (isNativeMode) {
+        await WailsAPI.SaveAs();
+        return;
+    }
+    // Web mode doesn't have SaveAs (uses Save with different path)
+    throw new Error('SaveAs not available in web mode');
+};
+
 // Export for app.js (now a module)
-export { GetCellValue, GetCellRawValue, SetCellValue, GetCellRef, GetAllCells, GetFileStatus, NewFile, SaveFile, LoadFile };
+export { GetCellValue, GetCellRawValue, SetCellValue, GetCellRef, GetAllCells, GetFileStatus, NewFile, SaveFile, SaveAs, LoadFile };

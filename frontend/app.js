@@ -792,54 +792,19 @@ document.getElementById('new-btn').addEventListener('click', async () => {
 
 document.getElementById('save-btn').addEventListener('click', async () => {
     try {
-        // Get the file data from server (this serializes current state)
-        const blob = await DownloadFile();
-        
-        // Create download link
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'spreadsheet.gosheet';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        // Update status - we've serialized the data, so it's "saved"
+        // Call unified SaveFile API (shows dialog in native mode, uses path in web mode)
+        await SaveFile('');
         updateFileStatus();
-        console.log('File download initiated');
+        console.log('File saved');
     } catch (error) {
         await showAlert('Error saving file: ' + error.message);
     }
 });
 
 document.getElementById('load-btn').addEventListener('click', async () => {
-    // Check if there are unsaved changes
-    const status = await GetFileStatus();
-    
-    // Only confirm if there are unsaved changes
-    if (status.hasUnsavedChanges) {
-        const confirmed = await showConfirmDialog('You have unsaved changes! Load a file anyway? All unsaved changes will be lost.');
-        if (!confirmed) {
-            return; // User cancelled
-        }
-    }
-    
-    // Trigger the hidden file input
-    document.getElementById('file-input').click();
-});
-
-// Handle file selection
-document.getElementById('file-input').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
     try {
-        // Read file as ArrayBuffer
-        const arrayBuffer = await file.arrayBuffer();
-        
-        // Upload to server (loads serialized state)
-        await UploadFile(arrayBuffer);
+        // Call unified LoadFile API (shows dialog in native mode, uses file input in web mode)
+        await LoadFile('');
         
         // Reload all cells from server
         ROWS = 100;
@@ -849,13 +814,10 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
         selectCell(0, 0);
         updateFileStatus();
         
-        console.log('File loaded successfully:', file.name);
+        console.log('File loaded successfully');
     } catch (error) {
         await showAlert('Error loading file: ' + error.message);
     }
-    
-    // Reset file input so same file can be loaded again
-    e.target.value = '';
 });
 
 // Update file status display
