@@ -174,8 +174,9 @@ This ensures tests run headless in CI without requiring Xvfb.
 
 ## Status
 
-**Current Status:** in-progress (awaiting CI verification)  
-**Last Updated:** 2026-02-15
+**Current Status:** done  
+**Last Updated:** 2026-02-15  
+**Completed:** 2026-02-15
 
 ## Implementation Summary
 
@@ -286,15 +287,87 @@ Attempted to debug why Electron tests fail in Cursor's AI Shell:
 - ✅ CI/CD (GitHub Actions)
 - ❌ Cursor AI Shell (environment limitation)
 
-### Next Steps
+### CI/CD Debugging & Resolution (2026-02-15)
 
-**To Complete This Story:**
-1. Commit all changes (workflow file, package.json, README)
-2. Push to GitHub to trigger first CI run
-3. Verify workflow runs successfully in GitHub Actions
-4. Check that all 80 tests pass in CI
-5. Download and review test artifacts
-6. Mark story as done only after CI verification
+**Initial CI Failures:**
 
-**After Completion:**
-- Complete Epic 5 retrospective
+All tests were failing in GitHub Actions with "Process failed to launch!" error. Through systematic debugging, identified and resolved multiple issues:
+
+**Issue 1: Missing Electron System Dependencies**
+- **Problem:** Ubuntu runner lacked required libraries for Electron
+- **Solution:** Added system dependencies installation step:
+  ```yaml
+  - name: Install system dependencies for Electron
+    run: |
+      sudo apt-get update
+      sudo apt-get install -y \
+        libnss3 libatk1.0-0 libatk-bridge2.0-0 \
+        libcups2 libdrm2 libxkbcommon0 \
+        libxcomposite1 libxdamage1 libxfixes3 \
+        libxrandr2 libgbm1 libasound2t64 xvfb
+  ```
+
+**Issue 2: Package Name Change (Ubuntu 24.04)**
+- **Problem:** `libasound2` package renamed to `libasound2t64` in Ubuntu 24.04
+- **Solution:** Updated package name in workflow
+
+**Issue 3: Missing Electron Launch Flags**
+- **Problem:** Electron requires specific flags for headless CI environments
+- **Solution:** Updated `playwright_tests/fixtures.js` to include:
+  ```javascript
+  args: [
+    path.join(__dirname, '..', 'electron', 'main.js'),
+    '--no-sandbox',           // Required for Docker/CI
+    '--disable-gpu',          // No GPU in headless
+    '--disable-dev-shm-usage', // Prevent /dev/shm issues
+  ]
+  ```
+
+**Issue 4: CSV Tests Not Using Fixtures**
+- **Problem:** `test_csv_import.spec.js` and `test_csv_roundtrip.spec.js` were launching Electron directly without proper flags
+- **Solution:** Refactored tests to use fixtures pattern:
+  - Removed manual `beforeAll`/`afterAll` Electron launch
+  - Changed imports to use `./fixtures`
+  - Updated all test functions to accept `{ window, electronApp }` parameters
+
+**Issue 5: Display Server for Electron**
+- **Problem:** Electron needs X11 display server even in headless mode
+- **Solution:** Wrapped test execution with `xvfb-run`:
+  ```yaml
+  run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npm test
+  ```
+
+**Final Result:**
+- ✅ All 58 Playwright Electron tests passing in CI
+- ✅ All 42 Go unit tests passing in CI
+- ✅ Total CI runtime: ~6 minutes
+- ✅ Test artifacts uploaded for debugging
+- ✅ Workflow runs on every push to main/develop
+
+### Commits Made
+
+1. `Fix CI: Correct Playwright install command` - Fixed invalid `electron` target
+2. `Fix CI: Add Electron system dependencies` - Added required Ubuntu packages
+3. `Fix CI: Update libasound2 to libasound2t64 for Ubuntu 24.04` - Package name fix
+4. `Fix CI: Add Electron sandbox and GPU flags for headless environment` - Launch flags
+5. `Fix CI: Update CSV tests to use fixtures with proper Electron launch flags` - Test refactoring
+
+### Final Acceptance Criteria Verification
+
+| Criteria | Status | Evidence |
+|----------|--------|----------|
+| All tests pass locally | ✅ Pass | 58 Playwright + 42 Go tests |
+| GitHub Actions workflow created | ✅ Pass | `.github/workflows/test.yml` |
+| Runs on push/PR | ✅ Pass | Triggered on main/develop |
+| Sets up Node.js 18+ | ✅ Pass | Uses setup-node@v4 |
+| Sets up Go 1.21 | ✅ Pass | Uses setup-go@v5 |
+| Installs dependencies | ✅ Pass | npm ci, go mod, Playwright |
+| Builds Go server | ✅ Pass | server/gosheet-server |
+| Runs Playwright tests | ✅ Pass | All 58 tests passing |
+| Runs Go tests | ✅ Pass | All 42 tests passing |
+| Reports test results | ✅ Pass | Artifacts uploaded |
+| Headless mode works | ✅ Pass | xvfb-run + test flags |
+| Documentation updated | ✅ Pass | README.md |
+| **All tests pass in CI** | ✅ **Pass** | **GitHub Actions successful** |
+
+**Overall:** ✅ **Story Complete - All acceptance criteria met**

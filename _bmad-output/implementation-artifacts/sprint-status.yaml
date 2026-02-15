@@ -106,14 +106,15 @@ development_status:
   
   # Epic 5: Playwright Electron Testing [REPLACED - pyax → Playwright]
   # Reason: pyax cannot test Wails WebView content; Playwright has native Electron support
-  epic-5: in-progress
+  # Status: COMPLETE (2026-02-15) - All 58 tests passing in GitHub Actions CI
+  epic-5: done
   # NEW Playwright Electron stories:
   5-1-setup-playwright-electron-environment: done
   5-2-port-existing-tests-to-electron-api: done
   5-3-implement-dialog-stubbing-tests: done
   5-4-create-file-operation-tests: done
   5-5-verify-all-tests-pass-in-electron: done
-  5-6-update-cicd-for-electron-testing: in-progress
+  5-6-update-cicd-for-electron-testing: done
   epic-5-retrospective: optional
   # OLD pyax stories (obsolete):
   5-1-setup-pyax-testing-infrastructure: obsolete
