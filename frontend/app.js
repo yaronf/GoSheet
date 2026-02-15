@@ -1,7 +1,7 @@
 // GoSheet Frontend - ES6 Module
 // API functions imported from api-client.js (mode-aware: web fetch or Wails IPC)
 
-import { GetCellValue, GetCellRawValue, SetCellValue, GetCellRef, GetAllCells, GetFileStatus, NewFile, SaveFile, LoadFile } from './api-client.js';
+import { GetCellValue, GetCellRawValue, SetCellValue, GetCellRef, GetAllCells, GetFileStatus, NewFile, SaveFile, LoadFile, PreviewCSV, ImportCSV, ExportCSV } from './api-client.js';
 
 // Spreadsheet configuration
 // Backend supports up to 2^31 rows/columns (Go int on 64-bit systems)
@@ -124,6 +124,8 @@ document.querySelector('#app').innerHTML = `
         <button id="new-btn" class="toolbar-btn">New</button>
         <button id="save-btn" class="toolbar-btn">Save</button>
         <button id="load-btn" class="toolbar-btn">Load</button>
+        <button id="import-csv-btn" class="toolbar-btn">Import CSV</button>
+        <button id="export-csv-btn" class="toolbar-btn">Export CSV</button>
         <input type="file" id="file-input" accept=".gosheet" style="display: none;" />
         <span id="file-status" class="file-status"></span>
     </div>
@@ -142,6 +144,23 @@ document.querySelector('#app').innerHTML = `
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-secondary" id="modal-cancel">Cancel</button>
                 <button class="modal-btn modal-btn-primary" id="modal-ok">OK</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="csv-preview-modal">
+        <div class="modal-dialog modal-dialog-large">
+            <div class="modal-header">
+                <h2>Import CSV Preview</h2>
+            </div>
+            <div class="modal-body">
+                <div id="csv-preview-info"></div>
+                <div id="csv-preview-table-container">
+                    <table id="csv-preview-table"></table>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" id="csv-preview-cancel">Cancel</button>
+                <button class="modal-btn modal-btn-primary" id="csv-preview-import">Import</button>
             </div>
         </div>
     </div>
@@ -821,6 +840,18 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 });
 
 document.getElementById('load-btn').addEventListener('click', async () => {
+    // Check if there are unsaved changes
+    const status = await GetFileStatus();
+    console.log('Load button clicked, status:', status);
+    
+    // Only confirm if there are unsaved changes
+    if (status.hasUnsavedChanges) {
+        const confirmed = await showConfirmDialog('You have unsaved changes! Load a different file anyway? All unsaved changes will be lost.');
+        if (!confirmed) {
+            return; // User cancelled
+        }
+    }
+    
     try {
         // Call unified LoadFile API (shows dialog in native mode, uses file input in web mode)
         await LoadFile('');
@@ -836,6 +867,132 @@ document.getElementById('load-btn').addEventListener('click', async () => {
         console.log('File loaded successfully');
     } catch (error) {
         await showAlert('Error loading file: ' + error.message);
+    }
+});
+
+document.getElementById('import-csv-btn').addEventListener('click', async () => {
+    try {
+        // Get CSV preview
+        const preview = await PreviewCSV('');
+        
+        if (!preview) {
+            // User cancelled file dialog
+            return;
+        }
+        
+        // Show preview modal
+        showCSVPreviewModal(preview);
+    } catch (error) {
+        await showAlert('Error previewing CSV: ' + error.message);
+    }
+});
+
+function showCSVPreviewModal(preview) {
+    const modal = document.getElementById('csv-preview-modal');
+    const infoEl = document.getElementById('csv-preview-info');
+    const tableEl = document.getElementById('csv-preview-table');
+    const importBtn = document.getElementById('csv-preview-import');
+    const cancelBtn = document.getElementById('csv-preview-cancel');
+    
+    // Display file info
+    const filename = preview.path.split('/').pop();
+    infoEl.innerHTML = `
+        <p><strong>File:</strong> ${filename}</p>
+        <p><strong>Size:</strong> ${preview.rows} rows × ${preview.cols} columns</p>
+        <p><strong>Preview:</strong> First ${preview.preview.length} rows</p>
+    `;
+    
+    // Build preview table
+    let tableHTML = '<thead><tr>';
+    // Column headers (A, B, C, ...)
+    for (let col = 0; col < preview.cols; col++) {
+        const colLetter = String.fromCharCode(65 + (col % 26));
+        tableHTML += `<th>${colLetter}</th>`;
+    }
+    tableHTML += '</tr></thead><tbody>';
+    
+    // Data rows
+    preview.preview.forEach((row, rowIdx) => {
+        tableHTML += '<tr>';
+        for (let col = 0; col < preview.cols; col++) {
+            const value = row[col] || '';
+            tableHTML += `<td>${value}</td>`;
+        }
+        tableHTML += '</tr>';
+    });
+    tableHTML += '</tbody>';
+    
+    tableEl.innerHTML = tableHTML;
+    
+    // Show modal
+    modal.classList.add('active');
+    
+    // Handle Import button
+    const handleImport = async () => {
+        modal.classList.remove('active');
+        importBtn.removeEventListener('click', handleImport);
+        cancelBtn.removeEventListener('click', handleCancel);
+        
+        try {
+            // Check for unsaved changes
+            const status = await GetFileStatus();
+            if (status.hasUnsavedChanges) {
+                const confirmed = await showConfirmDialog('You have unsaved changes! Import CSV anyway? All unsaved changes will be lost.');
+                if (!confirmed) {
+                    return; // User cancelled
+                }
+            }
+            
+            // Import CSV data
+            const result = await ImportCSV(preview.path);
+            
+            // Reload grid
+            ROWS = Math.max(100, result.rows);
+            COLS = Math.max(26, result.cols);
+            buildSpreadsheet();
+            await loadCells();
+            selectCell(0, 0);
+            updateFileStatus();
+            
+            console.log(`CSV imported: ${result.message}`);
+        } catch (error) {
+            await showAlert('Error importing CSV: ' + error.message);
+        }
+    };
+    
+    // Handle Cancel button
+    const handleCancel = () => {
+        modal.classList.remove('active');
+        importBtn.removeEventListener('click', handleImport);
+        cancelBtn.removeEventListener('click', handleCancel);
+    };
+    
+    importBtn.addEventListener('click', handleImport);
+    cancelBtn.addEventListener('click', handleCancel);
+    
+    // Close on overlay click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            handleCancel();
+        }
+    });
+}
+
+document.getElementById('export-csv-btn').addEventListener('click', async () => {
+    try {
+        // Export CSV
+        const result = await ExportCSV('');
+        
+        if (!result) {
+            // User cancelled file dialog
+            return;
+        }
+        
+        // Show success message
+        await showAlert(`Exported to ${result.path}`);
+        console.log(`CSV exported: ${result.message}`);
+    } catch (error) {
+        await showAlert('Error exporting CSV: ' + error.message);
     }
 });
 

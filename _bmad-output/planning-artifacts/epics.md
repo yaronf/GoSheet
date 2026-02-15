@@ -1,16 +1,20 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update']
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/architecture.md'
-epicCount: 7
+  - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-02-15.md'
+  - '_bmad-output/planning-artifacts/electron-migration-analysis.md'
+epicCount: 8
 totalFRs: 51
 totalNFRs: 23
-totalStories: 31
-status: 'complete'
+totalStories: 36
+status: 'updated'
 validationStatus: 'passed'
 readyForDevelopment: true
 completedDate: '2026-02-14'
+lastUpdated: '2026-02-15'
+updateReason: 'MAJOR REVISION: Migrated from Wails to Electron. Epic 2 marked obsolete, Epic 3 rewritten for Electron, Epic 4 adapted, Epic 5 replaced with Playwright Electron testing'
 ---
 
 # spreadsheet - Epic Breakdown
@@ -18,6 +22,21 @@ completedDate: '2026-02-14'
 ## Overview
 
 This document provides the complete epic and story breakdown for spreadsheet, decomposing the requirements from the PRD and Architecture into implementable stories.
+
+**MAJOR REVISION (2026-02-15):**
+This document was originally written for Wails v3 dual-mode architecture. During Epic 5 implementation, we discovered that pyax (macOS Accessibility API) cannot access Wails WebView content, making automated UI testing impossible. After comprehensive analysis, we pivoted to Electron with Playwright native integration.
+
+**Changes Made:**
+- ✅ **Epic 2**: Marked as OBSOLETE (web mode no longer needed)
+- ✅ **Epic 3**: Complete rewrite for Electron (7 new stories)
+- ✅ **Epic 4**: Marked as ADAPTED (backend 100% reusable, frontend IPC updates in Epic 3)
+- ✅ **Epic 5**: Complete replacement (pyax → Playwright Electron, 6 new stories)
+- ✅ **Epics 6-8**: Unchanged (CSV, macOS integration, welcome screen)
+
+**See Also:**
+- `sprint-change-proposal-2026-02-15.md` - Full migration rationale and impact analysis
+- `electron-migration-analysis.md` - Technical deep dive on Electron vs Wails
+- `architecture.md` - Updated architecture document
 
 ## Requirements Inventory
 
@@ -198,96 +217,98 @@ This document provides the complete epic and story breakdown for spreadsheet, de
 - FR32: Epic 2 - Display error messages in cells for invalid formulas
 
 **Data Import/Export (6 FRs):**
-- FR33: Epic 5 - Import CSV files containing data
-- FR34: Epic 5 - Display messaging that CSV import is data-only
-- FR35: Epic 5 - Import CSV data into grid cells
-- FR36: Epic 5 - Mark imported data as unsaved
-- FR37: Epic 5 - Export current spreadsheet to CSV
-- FR38: Epic 5 - Export computed values to CSV (formulas evaluated)
+- FR33: Epic 6 - Import CSV files containing data (SHIFTED from Epic 5)
+- FR34: Epic 6 - Display messaging that CSV import is data-only (SHIFTED from Epic 5)
+- FR35: Epic 6 - Import CSV data into grid cells (SHIFTED from Epic 5)
+- FR36: Epic 6 - Mark imported data as unsaved (SHIFTED from Epic 5)
+- FR37: Epic 6 - Export current spreadsheet to CSV (SHIFTED from Epic 5)
+- FR38: Epic 6 - Export computed values to CSV (formulas evaluated) (SHIFTED from Epic 5)
 
 **macOS Integration (8 FRs):**
-- FR39: Epic 6 - File menu (New, Open, Save, Save As, Import CSV, Export CSV, Recent Files, Close, Quit)
-- FR40: Epic 6 - Edit menu (Cut, Copy, Paste, Select All)
-- FR41: Epic 6 - Help menu (About)
-- FR42: Epic 6 - Keyboard shortcuts (Cmd+N/O/S/W/Q, Cmd+X/C/V)
-- FR43: Epic 6 - Double-click .sheet files to open
-- FR44: Epic 6 - Recent files in dock menu
-- FR45: Epic 6 - Custom icon for .sheet files in Finder
-- FR46: Epic 6 - App icon in dock
+- FR39: Epic 7 - File menu (New, Open, Save, Save As, Import CSV, Export CSV, Recent Files, Close, Quit) (SHIFTED from Epic 6)
+- FR40: Epic 7 - Edit menu (Cut, Copy, Paste, Select All) (SHIFTED from Epic 6)
+- FR41: Epic 7 - Help menu (About) (SHIFTED from Epic 6)
+- FR42: Epic 7 - Keyboard shortcuts (Cmd+N/O/S/W/Q, Cmd+X/C/V) (SHIFTED from Epic 6)
+- FR43: Epic 7 - Double-click .sheet files to open (SHIFTED from Epic 6)
+- FR44: Epic 7 - Recent files in dock menu (SHIFTED from Epic 6)
+- FR45: Epic 7 - Custom icon for .sheet files in Finder (SHIFTED from Epic 6)
+- FR46: Epic 7 - App icon in dock (SHIFTED from Epic 6)
 
 **Application Lifecycle (5 FRs):**
 - FR47: Epic 3 - Launch in <1 second
-- FR48: Epic 7 - Welcome screen on first launch
-- FR49: Epic 7 - Display recent files on welcome screen
-- FR50: Epic 7 - Close gracefully when user quits
+- FR48: Epic 8 - Welcome screen on first launch (SHIFTED from Epic 7)
+- FR49: Epic 8 - Display recent files on welcome screen (SHIFTED from Epic 7)
+- FR50: Epic 8 - Close gracefully when user quits (SHIFTED from Epic 7)
 - FR51: Epic 3 - Single window (one spreadsheet at a time)
 
 **Non-Functional Requirements (23 NFRs):**
 All NFRs are cross-cutting and verified across multiple epics:
 - Performance (7 NFRs): Verified in Epics 3-7
-- Reliability (7 NFRs): Verified in all epics (test preservation)
-- Usability (5 NFRs): Verified in Epics 3-7
-- Maintainability (5 NFRs): Verified in Epics 1-2 (dual-mode architecture)
-- Compatibility (4 NFRs): Verified in Epics 3-7
+- Reliability (7 NFRs): Verified in all epics (test preservation, Epic 5 Playwright testing)
+- Usability (5 NFRs): Verified in Epics 3-7 (Electron dialogs acceptable per user)
+- Maintainability (5 NFRs): Verified in Epics 3-5 (single-mode architecture, simpler than dual-mode)
+- Compatibility (4 NFRs): Verified in Epics 3-7 (cross-platform ready)
 - Security (6 NFRs): Verified in all epics
 
 ## Epic List
 
-### Epic 1: Consistent Spreadsheet Actions & Error Handling
-**Goal:** Establish a consistent contract for spreadsheet actions and error handling so the UI can reliably report success/failure and stay responsive.
+### Epic 1: Consistent Spreadsheet Actions & Error Handling [OBSOLETE - Not Needed for Electron]
 
-**User Outcome:** Users see predictable behavior and clear, actionable errors when they perform spreadsheet actions (and later, the same UI can run in both web and native modes).
+**Status:** OBSOLETE as of 2026-02-15  
+**Reason:** Electron single-mode architecture doesn't need API abstraction layer. HTTP API already provides consistent error handling.
+
+**Original Goal:** Establish a consistent contract for spreadsheet actions and error handling so the UI can reliably report success/failure and stay responsive.
+
+**Migration:** 
+- HTTP API already provides structured JSON responses (existing)
+- No need for separate API abstraction layer
+- Frontend uses HTTP fetch directly (existing pattern)
+- Error codes already defined in HTTP handlers
 
 **FRs covered:** None directly (enabling requirement for reliable UI/API behavior)
 
 **Architecture requirements covered:**
-- Unified API Layer - Create `api/` package with SpreadsheetAPI and FileService interfaces
-- Structured JSON responses with error codes (CIRCULAR_REF, FILE_NOT_FOUND, etc.)
-- Package-based separation - `cmd/native/` and `cmd/web/` entry points
-- Response struct with success, data, error, and code fields
+- HTTP JSON responses with error codes (existing, preserved)
+- No package separation needed (single-mode architecture)
 
-**Why standalone:** Delivers a consistent action+error contract that the UI can depend on. This reduces regressions and makes subsequent epics implementable without redesigning frontend-backend interactions.
-
-**Implementation notes:**
-- Create `api/spreadsheet.go` with SpreadsheetAPI interface
-- Create `api/fileservice.go` with FileService interface
-- Create `api/response.go` with Response struct and error codes
-- Define all API method signatures
-- No implementations yet (Epic 2 and Epic 3)
+**Why obsolete:** The unified API layer was designed for dual-mode architecture (native Wails IPC + web HTTP). Electron uses HTTP for spreadsheet operations (existing) and IPC for file dialogs only (simple, no abstraction needed).
 
 ---
 
-### Epic 2: Web Mode Preservation
-**Goal:** Existing web-based spreadsheet continues working with new API layer, all 74 tests pass.
+### Epic 2: Web Mode Preservation [OBSOLETE - Replaced by Electron]
 
-**User Outcome:** Users can continue using the web version while native app is being built. Validates API design works correctly.
+**Status:** OBSOLETE as of 2026-02-15  
+**Reason:** Electron architecture eliminates need for separate web mode. Playwright tests run natively against Electron app.
 
-**FRs covered:** FR12-FR32 (Spreadsheet Core + Formula Engine - already implemented, now wrapped with new API)
+**Original Goal:** Existing web-based spreadsheet continues working with new API layer, all 74 tests pass.
+
+**Migration:** 
+- HTTP server code reused as embedded server in Electron
+- Playwright tests migrated to Electron API (Epic 5)
+- All 5 stories' work preserved in new architecture
+
+**Stories (completed but obsolete):**
+- 2.1-2.5: Code reused in Electron embedded server
+
+**FRs covered:** FR12-FR32 (Spreadsheet Core + Formula Engine - already implemented, preserved in Electron)
 - FR12-FR21: Grid display, cell selection, navigation, editing, formula bar, 5K+ cells, progress indicators
 - FR22-FR32: Formulas, arithmetic, cell/range references, functions, dependencies, circular refs, normalization, errors
 
 **Architecture requirements covered:**
-- Implement web mode API (wrap existing HTTP handlers)
-- Mode-aware file service (web mode with browser File API)
-- Preserve existing test suite (42 Go + 32 Playwright tests)
-- Thread-safe controller methods
-
-**Why standalone:** Preserves existing functionality, validates API design, maintains test suite. Users can continue working in web mode.
-
-**Implementation notes:**
-- Create `cmd/web/main.go` (HTTP server entry point)
-- Create `cmd/web/api_http.go` (HttpAPI implementation)
-- Create `cmd/web/fileservice_http.go` (browser File API wrapper)
-- Wrap existing controller methods with new API interfaces
-- Verify all 42 Go unit tests pass
-- Verify all 32 Playwright UI tests pass
+- HTTP server preserved as embedded server in Electron
+- All 42 Go unit tests preserved (no changes)
+- All 32 Playwright UI tests ported to Electron API (Epic 5)
 
 ---
 
-### Epic 3: Native App Foundation
-**Goal:** Native macOS app launches and displays spreadsheet grid with basic editing.
+### Epic 3: Electron Desktop App [REVISED - Replaces Wails Implementation]
 
-**User Outcome:** Users can launch a native .app and edit cells in a spreadsheet.
+**Status:** REVISED as of 2026-02-15 (original Wails work obsolete)  
+**Reason:** Electron provides better testability via Playwright native integration
+
+**Goal:** Create Electron desktop app with embedded Go HTTP server
+
+**User Outcome:** Users can launch GoSheet as desktop app with native-like dialogs
 
 **FRs covered:** FR47, FR51, FR12-FR19, FR21
 - FR47: Launch in <1 second
@@ -295,28 +316,29 @@ All NFRs are cross-cutting and verified across multiple epics:
 - FR12-FR19: Grid display, cell selection, navigation, editing, formula bar, delete
 - FR21: Progress indicator for large operations
 
+**Architecture Benefits:**
+- ✅ Playwright native Electron support (no pyax hacks)
+- ✅ Simpler codebase (-700 lines vs dual-mode)
+- ✅ Cross-platform ready (Windows, Linux, macOS)
+- ✅ 100% Go backend reused (no changes needed)
+
 **Architecture requirements covered:**
-- Manual Wails v3 integration (generate reference template)
-- Implement native mode API (Wails IPC binding)
-- Update frontend for unified API (api-client.js with mode detection)
-- Wails v3.0.0-alpha.67 specific version
+- Electron 28+ with embedded Go HTTP server
+- Electron IPC for file dialogs
 - Universal binary support (Intel + Apple Silicon)
+- electron-builder for packaging
 
-**Why standalone:** Delivers first native app experience - users can open app, see grid, and edit cells. Basic functionality works.
-
-**Implementation notes:**
-- Generate Wails reference template: `cd /tmp && wails3 init -n wails-reference -t vanilla`
-- Create `wails.json` configuration
-- Create `cmd/native/main.go` (Wails app initialization)
-- Create `cmd/native/api_wails.go` (WailsAPI implementation)
-- Create `cmd/native/fileservice_wails.go` (stub for now, Epic 4)
-- Update `frontend/api-client.js` with mode detection
-- Build and test native .app launches and displays grid
+**Why standalone:** Delivers complete Electron foundation - app launches, displays grid, file dialogs work. All subsequent features build on this.
 
 ---
 
-### Epic 4: Native File Operations
-**Goal:** Users can create, open, save, and manage .sheet files using native macOS dialogs with accurate file status.
+### Epic 4: Native File Operations [ADAPTED - Backend Reused, Frontend Updated]
+
+**Status:** ADAPTED as of 2026-02-15  
+**Backend Status:** ✅ 100% reusable (no changes needed)  
+**Frontend Status:** ⚠️ Needs Electron IPC updates
+
+**Goal:** Users can create, open, save, and manage .sheet files using Electron dialogs with accurate file status.
 
 **User Outcome:** Users can trust their data is saved correctly with real file paths. Solves the core problem from the PRD.
 
@@ -329,23 +351,73 @@ All NFRs are cross-cutting and verified across multiple epics:
 - FR10: Warn before closing unsaved changes
 - FR11: Warn before loading with unsaved changes
 
+**What's Reusable:**
+- ✅ All Go backend code (controller methods, file I/O logic)
+- ✅ File status tracking logic
+- ✅ Unsaved changes detection
+- ✅ Save/Open/SaveAs workflows
+
+**What Needs Updating:**
+- ⚠️ Frontend: Replace Wails IPC calls with Electron IPC (done in Story 3.5)
+- ⚠️ Dialog triggering: Use window.electronAPI instead of Wails bindings
+
+**Adaptation Status:**
+- Stories 4.1-4.8: Backend code 100% reusable
+- Frontend IPC updates: Covered by Story 3.5
+- **Additional effort: 0 hours** (handled by Epic 3)
+
 **Architecture requirements covered:**
-- Mode-aware file service (native mode with Wails dialogs)
-- Native macOS dialogs (not browser-based)
+- Electron IPC for file dialogs
+- Electron dialogs (non-native but acceptable per user)
 - Direct file I/O to user-chosen paths
 
 **Why standalone:** Complete file workflow - New, Open, Save, Save As with accurate status and warnings. Users can fully manage their files.
 
 **Implementation notes:**
-- Implement `cmd/native/fileservice_wails.go` with Wails OpenFileDialog and SaveFileDialog
-- Add file status tracking in controller
-- Add unsaved changes warnings before close/load/quit
-- Test file operations with real file paths
-- Verify file status accuracy
+- Backend file operations already implemented (Epic 4 completed)
+- Frontend IPC updates completed in Epic 3, Story 3.5
+- No additional implementation needed for this epic
 
 ---
 
-### Epic 5: CSV Import/Export
+### Epic 5: Playwright Electron Testing [REPLACED - pyax → Playwright]
+
+**Status:** REPLACED as of 2026-02-15  
+**Reason:** Discovery - pyax cannot test Wails WebView content (HTML/JS invisible to accessibility API)
+
+**Critical Finding:**
+- ❌ pyax can see native macOS windows but NOT WebView content
+- ❌ HTML buttons, JavaScript events invisible to accessibility API
+- ❌ Cannot click buttons, cannot test keyboard shortcuts in WebView
+- ✅ Playwright has native Electron support (official API)
+
+**Goal:** Automated Electron app testing using Playwright native integration
+
+**User Outcome:** Developers can run automated UI tests against Electron app with full coverage
+
+**FRs covered:** None directly (enabling requirement for reliable native feature development)
+
+**NFRs covered:** NFR-R1-R7 (Reliability - automated test coverage for Electron app)
+
+**Architecture Benefits:**
+- ✅ Playwright `_electron` API (first-class support)
+- ✅ Dialog stubbing via electron-playwright-helpers
+- ✅ Can test all UI elements (buttons, inputs, everything)
+- ✅ Can test keyboard shortcuts
+- ✅ Can test IPC communication
+- ✅ CI/CD friendly (headless mode, no accessibility permissions)
+
+**Why standalone:** Epic 4 retrospective revealed that manual testing is not sustainable. The original pyax approach failed because WebView content is invisible to accessibility APIs. Playwright Electron provides official, native integration that solves this completely.
+
+**Total Effort:** ~24 hours (3 days)
+
+**Previous Work Status:**
+- Stories 5.1-5.5 (pyax): Obsolete, replaced by Playwright approach
+- Isolated test runner infrastructure: Reusable concept, different implementation
+
+---
+
+### Epic 6: CSV Import/Export (SHIFTED from Epic 5)
 **Goal:** Users can import data from CSV files and export spreadsheets to CSV format.
 
 **User Outcome:** Users can migrate data from other tools and share data with non-.sheet users.
@@ -377,7 +449,11 @@ All NFRs are cross-cutting and verified across multiple epics:
 
 ---
 
-### Epic 6: macOS Integration & Polish
+### Epic 7: macOS Integration & Polish [ADAPTED for Electron]
+
+**Status:** ADAPTED as of 2026-02-15  
+**Migration Status:** Needs updates for Electron APIs
+
 **Goal:** App feels like a native macOS application with menu bar, keyboard shortcuts, dock integration, and file associations.
 
 **User Outcome:** Users get a polished native experience with standard macOS patterns.
@@ -394,17 +470,17 @@ All NFRs are cross-cutting and verified across multiple epics:
 - FR6: Recent files list
 
 **Architecture requirements covered:**
-- Wails built-in APIs for macOS integration
+- Electron built-in APIs for macOS integration (Menu, app.dock, etc.)
 - Recent files list storage and display
 - macOS HIG compliance
 
 **Why standalone:** Delivers complete macOS native experience on top of working file operations. Users get all standard macOS features.
 
 **Implementation notes:**
-- Implement menu bar with File, Edit, Help menus
+- Implement menu bar using `Menu.buildFromTemplate()`
 - Bind keyboard shortcuts to menu items
-- Configure file associations in wails.json (Info.plist)
-- Implement dock menu with recent files
+- Configure file associations in `package.json` (electron-builder)
+- Implement dock menu using `app.dock.setMenu()`
 - Add app icon and custom .sheet file icon
 - Implement recent files list persistence
 - Test all keyboard shortcuts
@@ -412,7 +488,7 @@ All NFRs are cross-cutting and verified across multiple epics:
 
 ---
 
-### Epic 7: Welcome Screen & Lifecycle
+### Epic 8: Welcome Screen & Lifecycle (SHIFTED from Epic 7)
 **Goal:** Users see a welcoming first-run experience with easy access to recent files and common actions.
 
 **User Outcome:** Users can quickly start new spreadsheets or resume work on recent files.
@@ -439,11 +515,14 @@ All NFRs are cross-cutting and verified across multiple epics:
 
 ---
 
-## Epic 1: Consistent Spreadsheet Actions & Error Handling
+## Epic 1: Consistent Spreadsheet Actions & Error Handling [OBSOLETE]
 
-**Goal:** Establish a consistent contract for spreadsheet actions and error handling so the UI can reliably report success/failure and stay responsive.
+**Status:** OBSOLETE as of 2026-02-15  
+**Reason:** Electron single-mode architecture doesn't need API abstraction layer
 
-**User Outcome:** Users see predictable behavior and clear, actionable errors when they perform spreadsheet actions (and later, the same UI can run in both web and native modes).
+**Original Goal:** Establish a consistent contract for spreadsheet actions and error handling so the UI can reliably report success/failure and stay responsive.
+
+**Migration:** HTTP API already provides structured JSON responses. No additional abstraction needed for Electron.
 
 **FRs covered:** None directly (enabling requirement for reliable UI/API behavior)
 
@@ -693,185 +772,255 @@ So that I can confirm no functionality was broken during refactoring.
 
 ---
 
-## Epic 3: Native App Foundation
+## Epic 3: Electron Desktop App [REVISED]
 
-**Goal:** Native macOS app launches and displays spreadsheet grid with basic editing.
+**Status:** REVISED as of 2026-02-15 (original Wails work obsolete)  
+**Reason:** Electron provides better testability via Playwright native integration
 
-**User Outcome:** Users can launch a native .app and edit cells in a spreadsheet.
+**Goal:** Create Electron desktop app with embedded Go HTTP server
+
+**User Outcome:** Users can launch GoSheet as desktop app with native-like dialogs
 
 **FRs covered:** FR47, FR51, FR12-FR19, FR21
 
+**Architecture Benefits:**
+- ✅ Playwright native Electron support (no pyax hacks)
+- ✅ Simpler codebase (-700 lines vs dual-mode)
+- ✅ Cross-platform ready (Windows, Linux, macOS)
+- ✅ 100% Go backend reused (no changes needed)
+
 **Architecture requirements covered:**
-- Manual Wails v3 integration (generate reference template)
-- Implement native mode API (Wails IPC binding)
-- Update frontend for unified API (api-client.js with mode detection)
-- Wails v3.0.0-alpha.67 specific version
+- Electron 28+ with embedded Go HTTP server
+- Electron IPC for file dialogs
 - Universal binary support (Intel + Apple Silicon)
+- electron-builder for packaging
 
-### Story 3.1: Generate Wails Reference Template
+**Total Effort:** ~18 hours (2-3 days)
+
+### Story 3.1: Create Electron Main Process
+
+**Effort:** 4 hours (~200 lines)
 
 As a developer,
-I want to generate a Wails v3 reference template,
-So that I can learn the patterns and configuration needed for integration.
+I want to create the Electron main process that launches the Go server and creates the app window,
+So that the Electron app can run with the embedded Go backend.
+
+**Tasks:**
+- Create `electron/main.js` with app lifecycle
+- Implement Go server spawn as child process
+- Create BrowserWindow with proper configuration
+- Handle app quit and cleanup
+- Port management for Go server
 
 **Acceptance Criteria:**
 
-**Given** Wails v3.0.0-alpha.67 is installed
-**When** I run `cd /tmp && wails3 init -n wails-reference -t vanilla`
-**Then** a reference project is created in `/tmp/wails-reference/`
-**And** I can review the following patterns:
-- `main.go` structure for Wails app initialization
-- `wails.json` configuration format
-- `@wailsio/runtime` integration in frontend
-- Build configuration
-**And** I document the key patterns in architecture notes
-**And** I identify which patterns apply to the brownfield migration
-
-### Story 3.2: Create Wails Configuration
-
-As a developer,
-I want to create a wails.json configuration for the spreadsheet app,
-So that Wails can build the native macOS application.
-
-**Acceptance Criteria:**
-
-**Given** the reference template patterns are understood
-**When** I create `wails.json` in the project root
-**Then** it configures:
-- App name: "GoSheet"
-- App ID: "com.gosheet.app"
-- Frontend directory: "./frontend"
-- Build directory: "./build"
-- macOS target: macOS 11+ (Big Sur)
-- Architecture: Universal binary (Intel + Apple Silicon)
-- Entry point: "./cmd/native"
-**And** `go.mod` is updated with Wails v3.0.0-alpha.67 dependency
-**And** the configuration is validated with `wails3 doctor`
-
-### Story 3.3: Create Native Mode Entry Point
-
-As a developer,
-I want a native mode entry point that initializes the Wails app,
-So that the spreadsheet can run as a native macOS application.
-
-**Acceptance Criteria:**
-
-**Given** wails.json is configured and Wails v3 dependency is added
-**When** I create `cmd/native/main.go`
-**Then** it initializes a Wails application with:
+**Given** Electron 28+ is installed and Go server binary exists
+**When** I create `electron/main.js`
+**Then** it initializes an Electron application with:
 - App title: "GoSheet"
 - Window size: 1200x800 (default)
-- Frameless: false (standard macOS window)
 - Resizable: true
-**And** it creates an instance of `controller.AppController`
-**And** it serves the frontend from `frontend/` directory
-**And** it starts the Wails event loop
-**And** the app can be launched with `wails3 dev`
-**And** an empty window opens showing the frontend
+- Preload script: `electron/preload.js`
+**And** it spawns the Go HTTP server as a child process on port 3000
+**And** it waits for server startup before creating the window
+**And** it loads `http://localhost:3000` in the BrowserWindow
+**And** it handles app quit by killing the Go server process
+**And** the app can be launched with `npm start`
+**And** the window opens showing the frontend from the Go server
 
-### Story 3.4: Implement WailsAPI with IPC Binding
+### Story 3.2: Create Electron Preload Script
+
+**Effort:** 2 hours (~50 lines)
 
 As a developer,
-I want a WailsAPI implementation that exposes controller methods via IPC,
-So that the frontend can call Go functions directly in native mode.
+I want to create a secure IPC bridge between the renderer and main process,
+So that the frontend can safely call file dialog functions.
+
+**Tasks:**
+- Create `electron/preload.js` with contextBridge
+- Expose file dialog APIs to renderer
+- Implement secure IPC communication
+- Document API surface for frontend
 
 **Acceptance Criteria:**
 
-**Given** the native mode entry point exists and SpreadsheetAPI interface is defined
-**When** I create `cmd/native/api_wails.go`
-**Then** it defines a `WailsAPI` struct that implements `SpreadsheetAPI` interface
-**And** it wraps the existing `controller.AppController` instance
-**And** each API method:
-- Calls the corresponding controller method
-- Converts Go errors to `Response` struct with appropriate error codes
-- Returns `Response` with success=true and data on success
-- Returns `Response` with success=false, error message, and error code on failure
-**And** all methods are exported (PascalCase) for Wails binding
-**And** the WailsAPI is bound to the Wails runtime in `main.go`
-**And** methods are callable from JavaScript via `window.wails.Call.*`
+**Given** the Electron main process exists
+**When** I create `electron/preload.js`
+**Then** it exposes `window.electronAPI` with:
+- `openFileDialog()` - returns Promise<string|null>
+- `saveFileDialog(defaultName)` - returns Promise<string|null>
+**And** it uses `contextBridge.exposeInMainWorld` for security
+**And** context isolation is maintained (no Node.js APIs leaked to renderer)
+**And** the preload script is configured in BrowserWindow
+**And** `window.electronAPI` is available in the renderer process
 
-### Story 3.5: Create Native Mode FileService Stub
+### Story 3.3: Integrate Go HTTP Server
+
+**Effort:** 2 hours (~50 lines)
 
 As a developer,
-I want a native mode FileService stub,
-So that the app compiles and runs (full implementation in Epic 4).
+I want to embed the existing Go HTTP server in Electron as a child process,
+So that the frontend can communicate with the backend via HTTP.
+
+**Tasks:**
+- Spawn Go server binary from Electron main
+- Handle server startup and readiness
+- Implement port management (dynamic or fixed)
+- Handle server lifecycle (start, stop, restart)
+- Log server output for debugging
 
 **Acceptance Criteria:**
 
-**Given** the FileService interface is defined
-**When** I create `cmd/native/fileservice_wails.go`
-**Then** it defines a `WailsFileService` struct that implements `FileService` interface
-**And** all methods return placeholder implementations:
-- `OpenFileDialog` returns empty string and nil error
-- `SaveFileDialog` returns empty string and nil error
-- `ReadFile` returns empty byte slice and nil error
-- `WriteFile` returns nil error
-**And** the file includes TODO comments indicating full implementation in Epic 4
-**And** the app compiles successfully with the stub
+**Given** the Go server binary exists
+**When** Electron main process starts
+**Then** it spawns the Go server as a child process
+**And** the server runs on port 3000 (or dynamically assigned)
+**And** the main process waits for server readiness before creating the window
+**And** the renderer can fetch from `http://localhost:3000`
+**And** the server stops when Electron quits
+**And** server output is logged to console for debugging
 
-### Story 3.6: Update Frontend API Client for Native Mode
+### Story 3.4: Implement Electron File Dialogs
+
+**Effort:** 4 hours (~100 lines)
 
 As a developer,
-I want the frontend API client to support native mode,
-So that the same frontend code works in both native and web modes.
+I want to implement file dialogs via Electron IPC,
+So that users can open and save files with native-like dialogs.
+
+**Tasks:**
+- Implement IPC handler for `dialog:openFile`
+- Implement IPC handler for `dialog:saveFile`
+- Configure file filters (.sheet extension)
+- Handle dialog cancellation
+- Return file paths to renderer
 
 **Acceptance Criteria:**
 
-**Given** the WailsAPI is implemented and bound to Wails runtime
-**When** I update `frontend/api-client.js`
-**Then** in native mode (when `window.wails` exists), it provides wrapper functions:
-- `api.setCellValue(row, col, value)` → `window.wails.Call.SetCellValue(row, col, value)`
-- `api.getCellValue(row, col)` → `window.wails.Call.GetCellValue(row, col)`
-- `api.getCellFormula(row, col)` → `window.wails.Call.GetCellFormula(row, col)`
-- `api.deleteCell(row, col)` → `window.wails.Call.DeleteCell(row, col)`
-- `api.newSpreadsheet()` → `window.wails.Call.NewSpreadsheet()`
-- `api.loadFile(path)` → `window.wails.Call.LoadFile(path)`
-- `api.saveFile(path)` → `window.wails.Call.SaveFile(path)`
-- `api.getFileStatus()` → `window.wails.Call.GetFileStatus()`
-- `api.getAllCells()` → `window.wails.Call.GetAllCells()`
-**And** all functions return Promises that resolve to the Response object
-**And** the mode detection logs which mode is active (for debugging)
-**And** the frontend works identically in both modes
+**Given** the preload script exposes dialog APIs
+**When** I implement IPC handlers in `electron/main.js`
+**Then** `dialog:openFile` handler:
+- Shows Electron open dialog
+- Filters for .sheet files
+- Returns file path or null if cancelled
+- Dialog is modal to main window
+**And** `dialog:saveFile` handler:
+- Shows Electron save dialog with default filename
+- Filters for .sheet files
+- Returns file path or null if cancelled
+- Dialog is modal to main window
+**And** both handlers use `ipcMain.handle` for async responses
 
-### Story 3.7: Verify Native App Launches and Displays Grid
+### Story 3.5: Update Frontend for Electron IPC
+
+**Effort:** 2 hours (~50 lines)
 
 As a developer,
-I want to verify the native app launches and displays the spreadsheet grid,
-So that users can see and interact with cells.
+I want to update the frontend to use Electron IPC for file dialogs,
+So that file operations work in the Electron app.
+
+**Tasks:**
+- Update `frontend/app.js` to use `window.electronAPI`
+- Keep HTTP API for spreadsheet operations
+- Add fallback for browser development mode
+- Update file operation flows
 
 **Acceptance Criteria:**
 
-**Given** the native mode is fully implemented
-**When** I run `wails3 dev`
-**Then** the native app launches in <1 second (FR47)
+**Given** the Electron IPC is implemented
+**When** I update `frontend/app.js`
+**Then** file dialog functions use Electron IPC:
+- `openFile()` calls `window.electronAPI.openFileDialog()`
+- `saveFile()` calls `window.electronAPI.saveFileDialog()`
+**And** spreadsheet operations still use HTTP fetch to localhost:3000
+**And** there's a fallback for browser development mode (check if `window.electronAPI` exists)
+**And** no Wails code remains
+**And** file operations work end-to-end in Electron app
+
+### Story 3.6: Configure electron-builder
+
+**Effort:** 2 hours (~50 lines)
+
+As a developer,
+I want to configure electron-builder for packaging,
+So that the app can be distributed as a macOS .app bundle.
+
+**Tasks:**
+- Create `package.json` with Electron dependencies
+- Configure electron-builder for macOS
+- Include Go server binary in package
+- Set up .app bundle structure
+- Configure code signing (if applicable)
+
+**Acceptance Criteria:**
+
+**Given** the Electron app is working in development
+**When** I configure `package.json` and electron-builder
+**Then** `package.json` includes:
+- Electron 28+ dependency
+- electron-builder dependency
+- Scripts: `start`, `build`, `test`
+**And** electron-builder config specifies:
+- App name: "GoSheet"
+- App ID: "com.gosheet.app"
+- macOS category: productivity
+- Universal binary (Intel + Apple Silicon)
+- Go server binary included in resources
+**And** `npm run build` creates `.app` bundle in `dist/mac/`
+**And** the packaged app launches successfully
+
+### Story 3.7: Verify Electron App Launches
+
+**Effort:** 2 hours (testing)
+
+As a developer,
+I want to verify the Electron app works end-to-end,
+So that users can launch the app and use basic features.
+
+**Tasks:**
+- Launch Electron app from package
+- Verify Go server starts
+- Verify UI loads and displays grid
+- Test file dialogs (open, save)
+- Test basic spreadsheet operations
+- Verify app quits cleanly
+
+**Acceptance Criteria:**
+
+**Given** the Electron app is fully implemented
+**When** I launch the app with `npm start`
+**Then** the app launches in <1 second (FR47)
 **And** the app runs as a single-window application (FR51)
-**And** opening files or creating a new spreadsheet reuses the existing window (no additional spreadsheet windows are created) (FR51)
-**And** the app window displays the spreadsheet grid with row and column headers (FR12)
-**And** I can click to select cells (FR13)
-**And** I can navigate cells using arrow keys, Tab, and Enter (FR14)
-**And** I can type to edit cell values (FR15)
-**And** I can see cell values and computed results in the grid (FR16)
-**And** I can see the selected cell's formula in the formula bar (FR17)
-**And** I can edit formulas in the formula bar (FR18)
-**And** I can delete cell contents using Delete or Backspace (FR19)
-**And** formulas evaluate correctly (using existing formula engine)
-**And** the app supports 5,000+ cells without performance issues (FR20)
+**And** the UI displays correctly with spreadsheet grid (FR12)
+**And** file dialogs work (open and save)
+**And** I can enter data and formulas (FR15, FR22)
+**And** formulas evaluate correctly (existing formula engine)
+**And** I can save and load files
+**And** no console errors appear
+**And** the app quits cleanly without hanging
+**And** the Go server process is killed on quit
 **And** all 42 Go unit tests still pass
 
 ---
 
-## Epic 4: Native File Operations
+## Epic 4: Native File Operations [COMPLETED - Backend Reusable for Electron]
 
-**Goal:** Users can create, open, save, and manage .sheet files using native macOS dialogs with accurate file status.
+**Status:** COMPLETED (backend implementation done, frontend adapted in Epic 3)  
+**Migration Status:** Backend 100% reusable, frontend IPC updated in Story 3.5
+
+**Goal:** Users can create, open, save, and manage .sheet files using dialogs with accurate file status.
 
 **User Outcome:** Users can trust their data is saved correctly with real file paths. Solves the core problem from the PRD.
 
 **FRs covered:** FR1-FR5, FR10-FR11
 
 **Architecture requirements covered:**
-- Mode-aware file service (native mode with Wails dialogs)
-- Native macOS dialogs (not browser-based)
+- File dialogs via Electron IPC (updated from Wails)
+- Electron dialogs (non-native but acceptable per user)
 - Direct file I/O to user-chosen paths
+
+**Implementation Notes:**
+The stories below were originally implemented for Wails but the Go backend code (controller methods, file I/O logic) is 100% reusable with Electron. Frontend IPC calls were updated in Epic 3, Story 3.5 to use `window.electronAPI` instead of Wails bindings.
 
 ### Story 4.1: Implement Native File Dialogs
 
@@ -1043,7 +1192,232 @@ So that I don't accidentally lose data.
 
 ---
 
-## Epic 5: CSV Import/Export
+## Epic 5: Native Testing Infrastructure
+
+**Goal:** Automate testing of native macOS features to eliminate manual testing bottleneck.
+
+**User Outcome:** Developers can confidently iterate on native features with automated test coverage.
+
+**NFRs covered:** NFR-R1-R7 (Reliability - automated test coverage)
+
+**Based on:** Technical Research (Feb 15, 2026)
+
+### Story 5.1: Set Up Playwright Electron Environment
+
+**Effort:** 2 hours
+
+As a developer,
+I want to configure Playwright for Electron testing,
+So that I can write automated tests for the Electron app.
+
+**Tasks:**
+- Install @playwright/test
+- Install electron-playwright-helpers
+- Create test configuration
+- Set up test fixtures for Electron app
+- Document test execution
+
+**Acceptance Criteria:**
+
+**Given** I have Node.js 18+ installed
+**When** I run `npm install --save-dev @playwright/test electron-playwright-helpers`
+**Then** Playwright and helpers are installed successfully
+**When** I create `playwright.config.js`
+**Then** the config specifies:
+- Test directory: `playwright_tests/`
+- Timeout: 30 seconds
+- Workers: 1 (Electron apps don't parallelize well)
+**When** I create test fixtures in `playwright_tests/fixtures.js`
+**Then** the file contains:
+- `electronApp` fixture that launches Electron via `_electron.launch()`
+- `window` fixture that gets first window via `electronApp.firstWindow()`
+- Cleanup that closes app after tests
+**When** I run `npx playwright test --list`
+**Then** Playwright discovers tests
+**And** a simple smoke test passes (app launches successfully)
+
+### Story 5.2: Port Existing Playwright Tests to Electron API
+
+**Effort:** 8 hours
+
+As a developer,
+I want to migrate the 32 existing browser Playwright tests to Electron API,
+So that all test coverage is maintained in the Electron app.
+
+**Tasks:**
+- Update test imports (_electron API)
+- Replace page.goto with electronApp.firstWindow()
+- Update selectors if needed
+- Verify all assertions work
+- Run full test suite
+
+**Acceptance Criteria:**
+
+**Given** Playwright Electron environment is set up
+**When** I update `playwright_tests/test_spreadsheet.py`
+**Then** tests use `_electron.launch()` instead of browser navigation
+**And** tests use `electronApp.firstWindow()` to get the window
+**And** all 32 existing tests are ported:
+- Cell selection and navigation tests
+- Formula evaluation tests
+- String function tests
+- Formula bar tests
+- File operation tests
+- Circular reference tests
+- All other existing tests
+**When** I run `npm test`
+**Then** all 32 ported tests pass
+**And** no browser-specific code remains
+**And** test coverage is maintained (same scenarios, same assertions)
+
+### Story 5.3: Implement Dialog Stubbing Tests
+
+**Effort:** 4 hours
+
+As a developer,
+I want to test file dialogs with stubbing,
+So that tests don't show real dialogs and can run in CI/CD.
+
+**Tasks:**
+- Stub showOpenDialog with test paths
+- Stub showSaveDialog with test paths
+- Test dialog cancellation
+- Verify file operations with stubbed dialogs
+
+**Acceptance Criteria:**
+
+**Given** Playwright tests are ported to Electron
+**When** I create `playwright_tests/test_file_dialogs.spec.js`
+**Then** the file contains dialog stubbing tests using electron-playwright-helpers
+**And** test `can stub open dialog` exists:
+- Stubs `showOpenDialog` to return `/tmp/test.sheet`
+- Clicks Load button
+- Verifies file was loaded (checks via HTTP API)
+**And** test `can stub save dialog` exists:
+- Stubs `showSaveDialog` to return `/tmp/saved.sheet`
+- Clicks Save button
+- Verifies file was saved
+**And** test `can test dialog cancellation` exists:
+- Stubs dialog to return null (cancelled)
+- Clicks Load button
+- Verifies app returns to normal state (no error)
+**When** I run `npm test`
+**Then** all dialog stubbing tests pass
+**And** no real dialogs appear during tests
+**And** file operations work with stubbed paths
+
+### Story 5.4: Create File Operation Tests
+
+**Effort:** 4 hours
+
+As a developer,
+I want end-to-end tests for file operations,
+So that I can verify New, Open, Save, and Save As workflows work correctly.
+
+**Tasks:**
+- Test New spreadsheet workflow
+- Test Open file workflow
+- Test Save file workflow
+- Test Save As workflow
+- Test file status tracking
+- Test unsaved changes warnings
+
+**Acceptance Criteria:**
+
+**Given** dialog stubbing is working
+**When** I create `playwright_tests/test_file_operations.spec.js`
+**Then** the file contains comprehensive file operation tests
+**And** test `New spreadsheet workflow` exists:
+- Stubs confirm dialog (unsaved changes warning)
+- Clicks New button
+- Verifies grid is cleared
+- Verifies status shows "Unsaved"
+**And** test `Open file workflow` exists:
+- Stubs open dialog with test file path
+- Clicks Load button
+- Verifies file was loaded
+- Verifies status shows file path
+**And** test `Save file workflow` exists:
+- Enters data in cells
+- Stubs save dialog with test path
+- Clicks Save button
+- Verifies status shows "Saved"
+**And** test `file status tracking` exists:
+- Verifies status updates after save/load/edit
+**When** I run `npm test`
+**Then** all file operation tests pass
+**And** edge cases are covered (cancellation, errors)
+
+### Story 5.5: Verify All Tests Pass in Electron
+
+**Effort:** 4 hours
+
+As a developer,
+I want to verify the complete test suite passes in Electron,
+So that I can confirm full test coverage is maintained.
+
+**Tasks:**
+- Run complete test suite
+- Fix Electron-specific issues
+- Verify test coverage
+- Document any limitations
+- Update test documentation
+
+**Acceptance Criteria:**
+
+**Given** all tests are ported and dialog stubbing works
+**When** I run `npm test`
+**Then** all tests pass successfully:
+- 32 ported Playwright tests (from browser version)
+- Dialog stubbing tests
+- File operation tests
+- Keyboard shortcut tests (if added)
+**And** test output shows 0 failures
+**And** tests complete in < 60 seconds total
+**And** test coverage is maintained (same scenarios as before)
+**And** no flaky tests (run 3 times, all pass)
+**When** I run `go test ./tests/...`
+**Then** all 42 Go unit tests still pass (unchanged)
+**And** I document test results in story completion notes
+**And** I update README with Electron test instructions
+
+### Story 5.6: Update CI/CD for Electron Testing
+
+**Effort:** 2 hours
+
+As a developer,
+I want to automate test execution in CI/CD,
+So that tests run automatically on every commit.
+
+**Tasks:**
+- Update test scripts in package.json
+- Configure GitHub Actions (if applicable)
+- Document test execution for team
+- Set up test reporting
+
+**Acceptance Criteria:**
+
+**Given** all Electron tests pass locally
+**When** I update `package.json` scripts
+**Then** `npm test` runs Playwright Electron tests
+**And** `npm run test:unit` runs Go unit tests
+**And** `npm run test:all` runs both test suites
+**When** I create `.github/workflows/test.yml` (if using GitHub)
+**Then** the workflow:
+- Runs on push and pull request
+- Sets up Node.js 18+ and Go 1.x
+- Installs dependencies
+- Builds Go server binary
+- Runs `npm test` (Playwright Electron)
+- Runs `go test ./tests/...` (Go unit tests)
+- Reports test results
+**And** tests run in headless mode (no GUI needed)
+**And** I document test execution in README
+**And** team knows how to run tests locally and in CI
+
+---
+
+## Epic 6: CSV Import/Export (SHIFTED from Epic 5)
 
 **Goal:** Users can import data from CSV files and export spreadsheets to CSV format.
 
@@ -1056,7 +1430,7 @@ So that I don't accidentally lose data.
 - Data-only import (formulas not preserved)
 - Computed values export (formulas evaluated)
 
-### Story 5.1: Implement CSV Import Dialog
+### Story 6.1: Implement CSV Import Dialog
 
 As a user,
 I want to import CSV files into a new spreadsheet,
@@ -1079,7 +1453,7 @@ So that I can work with data from other tools.
 **And** if the file can't be read, an error shows with FILE_READ_ERROR code
 **And** if the CSV is malformed, an error shows with PARSE_ERROR code
 
-### Story 5.2: Implement CSV Data Import
+### Story 6.2: Implement CSV Data Import
 
 As a user,
 I want to import CSV data into the spreadsheet grid,
@@ -1101,7 +1475,7 @@ So that I can edit and enhance the imported data.
 **And** 500 rows import in <1 second (NFR-P5)
 **And** if there were unsaved changes before importing, a warning appeared first
 
-### Story 5.3: Implement CSV Export Dialog
+### Story 6.3: Implement CSV Export Dialog
 
 As a user,
 I want to export my spreadsheet to CSV format,
@@ -1122,7 +1496,7 @@ So that I can share data with users who don't have the app.
 **And** a success message appears: "Exported to <path>"
 **And** if the file can't be written, an error shows with FILE_WRITE_ERROR code
 
-### Story 5.4: Verify CSV Round-Trip
+### Story 6.4: Verify CSV Round-Trip
 
 As a developer,
 I want to verify CSV import/export works correctly,
@@ -1145,7 +1519,10 @@ So that users can reliably exchange data.
 
 ---
 
-## Epic 6: macOS Integration & Polish
+## Epic 7: macOS Integration & Polish [ADAPTED for Electron]
+
+**Status:** ADAPTED as of 2026-02-15  
+**Migration Status:** Needs updates for Electron APIs
 
 **Goal:** App feels like a native macOS application with menu bar, keyboard shortcuts, dock integration, and file associations.
 
@@ -1154,11 +1531,17 @@ So that users can reliably exchange data.
 **FRs covered:** FR39-FR46, FR6
 
 **Architecture requirements covered:**
-- Wails built-in APIs for macOS integration
+- Electron built-in APIs for macOS integration (Menu, app.dock, etc.)
 - Recent files list storage and display
 - macOS HIG compliance
 
-### Story 6.1: Implement File Menu
+**Implementation Notes:**
+Stories below reference Wails APIs but will use Electron equivalents:
+- `application.Menu` → `Menu.buildFromTemplate()`
+- `application.DockMenu` → `app.dock.setMenu()`
+- `wails.json` file associations → `package.json` electron-builder config
+
+### Story 7.1: Implement File Menu
 
 As a user,
 I want a File menu with standard macOS actions,
@@ -1183,7 +1566,7 @@ So that I can access file operations using familiar patterns.
 **And** keyboard shortcuts work correctly (FR42, NFR-U2)
 **And** the menu follows macOS HIG (NFR-U1)
 
-### Story 6.2: Implement Edit Menu
+### Story 7.2: Implement Edit Menu
 
 As a user,
 I want an Edit menu with standard macOS actions,
@@ -1205,7 +1588,7 @@ So that I can use familiar editing commands.
 **And** the menu follows macOS HIG (NFR-U1)
 **And** Undo/Redo are NOT included (deferred to Phase 2 per PRD)
 
-### Story 6.3: Implement Help Menu
+### Story 7.3: Implement Help Menu
 
 As a user,
 I want a Help menu with app information,
@@ -1225,7 +1608,7 @@ So that I can learn about the application.
 - Brief description: "Lightweight, fast spreadsheet for macOS"
 **And** the dialog follows macOS HIG (NFR-U1)
 
-### Story 6.4: Implement Keyboard Shortcuts
+### Story 7.4: Implement Keyboard Shortcuts
 
 As a user,
 I want keyboard shortcuts for common actions,
@@ -1250,7 +1633,7 @@ So that I can work efficiently without using the mouse.
 **And** shortcuts follow macOS conventions (NFR-U2)
 **And** shortcuts work even when menu bar is hidden
 
-### Story 6.5: Implement Recent Files List
+### Story 7.5: Implement Recent Files List
 
 As a user,
 I want to see a list of recently opened files,
@@ -1271,7 +1654,7 @@ So that I can quickly resume work on recent spreadsheets.
 **And** if the file no longer exists, it's removed from the list
 **And** the recent files list is also displayed in the dock menu (Story 6.6)
 
-### Story 6.6: Implement Dock Integration
+### Story 7.6: Implement Dock Integration
 
 As a user,
 I want dock integration with recent files,
@@ -1291,7 +1674,7 @@ So that I can quickly access recent spreadsheets from the dock.
 **Then** the app launches (if not running) and creates a new spreadsheet
 **And** the app icon is visible in the dock (FR46)
 
-### Story 6.7: Implement File Associations
+### Story 7.7: Implement File Associations
 
 As a user,
 I want to double-click .sheet files to open them,
@@ -1312,7 +1695,7 @@ So that I can launch the app and open files in one action.
 **And** if the app is already running, the file opens in the current window
 **And** file associations work on macOS 11+ (NFR-C1)
 
-### Story 6.8: Add App and File Icons
+### Story 7.8: Add App and File Icons
 
 As a user,
 I want custom icons for the app and .sheet files,
@@ -1335,7 +1718,7 @@ So that the app looks polished and professional.
 
 ---
 
-## Epic 7: Welcome Screen & Lifecycle
+## Epic 8: Welcome Screen & Lifecycle (SHIFTED from Epic 7)
 
 **Goal:** Users see a welcoming first-run experience with easy access to recent files and common actions.
 
@@ -1347,7 +1730,7 @@ So that the app looks polished and professional.
 - Welcome screen UX design
 - Recent files display integration
 
-### Story 7.1: Design Welcome Screen Layout
+### Story 8.1: Design Welcome Screen Layout
 
 As a user,
 I want a clean welcome screen when I launch the app,
@@ -1370,7 +1753,7 @@ So that I can quickly choose what to do next.
 **And** the design follows macOS HIG (NFR-U1)
 **And** the layout is responsive to window resizing
 
-### Story 7.2: Implement Welcome Screen Display
+### Story 8.2: Implement Welcome Screen Display
 
 As a user,
 I want the welcome screen to appear on first launch,
@@ -1396,7 +1779,7 @@ So that I can easily get started with the app.
 **When** I click a recent file
 **Then** that file is opened
 
-### Story 7.3: Implement Graceful Shutdown
+### Story 8.3: Implement Graceful Shutdown
 
 As a user,
 I want the app to close gracefully when I quit,
@@ -1417,7 +1800,7 @@ So that my settings and recent files are preserved.
 **And** on macOS, closing the window quits the app (single window per PRD)
 **And** the shutdown is graceful with no crashes or data loss
 
-### Story 7.4: Verify Complete User Experience
+### Story 8.4: Verify Complete User Experience
 
 As a developer,
 I want to verify the complete user experience from launch to quit,

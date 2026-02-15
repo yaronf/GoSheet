@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"gosheet/api"
 	"gosheet/controller"
 )
 
@@ -22,19 +23,8 @@ func main() {
 	port := flag.String("port", "3000", "Port to run the server on")
 	flag.Parse()
 	
-	// Create controller
+	// Create controller with empty spreadsheet
 	ctrl = controller.NewAppController()
-	
-	// Add sample data
-	log.Println("Loading sample data...")
-	ctrl.SetCellValue(0, 0, "10")
-	ctrl.SetCellValue(1, 0, "20")
-	ctrl.SetCellValue(2, 0, "30")
-	ctrl.SetCellValue(3, 0, "=SUM(A1:A3)")
-	ctrl.SetCellValue(0, 1, "=A1*2")
-	// Clear Modified flag - sample data is the initial state, not "unsaved changes"
-	ctrl.Sheet.Modified = false
-	log.Println("Sample data loaded")
 	
 	// Enable CORS for development
 	http.HandleFunc("/", corsMiddleware(serveStatic))
@@ -49,6 +39,9 @@ func main() {
 	http.HandleFunc("/api/file/status", corsMiddleware(handleFileStatus))
 	http.HandleFunc("/api/file/download", corsMiddleware(handleDownloadFile))
 	http.HandleFunc("/api/file/upload", corsMiddleware(handleUploadFile))
+	http.HandleFunc("/api/csv/preview", corsMiddleware(handleCSVPreview))
+	http.HandleFunc("/api/csv/import", corsMiddleware(handleCSVImport))
+	http.HandleFunc("/api/csv/export", corsMiddleware(handleCSVExport))
 	
 	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
 	fmt.Printf("Open http://localhost:%s in your browser\n", *port)
@@ -364,5 +357,181 @@ func handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
+	})
+}
+
+func handleCSVPreview(w http.ResponseWriter, r *http.Request) {
+	api.HandleCSVPreview(w, r)
+}
+
+func handleCSVImport(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Parse request
+	var req api.CSVImportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(api.CSVImportResponse{
+			Success: false,
+			Error:   "Invalid request format",
+			Code:    "INVALID_REQUEST",
+		})
+		return
+	}
+	
+	if req.Path == "" {
+		json.NewEncoder(w).Encode(api.CSVImportResponse{
+			Success: false,
+			Error:   "File path is required",
+			Code:    "INVALID_REQUEST",
+		})
+		return
+	}
+	
+	// Parse CSV file
+	records, err := api.ParseCSVFile(req.Path)
+	if err != nil {
+		json.NewEncoder(w).Encode(api.CSVImportResponse{
+			Success: false,
+			Error:   err.Error(),
+			Code:    "PARSE_ERROR",
+		})
+		return
+	}
+	
+	// Determine column count (max columns in any row)
+	maxCols := 0
+	for _, row := range records {
+		if len(row) > maxCols {
+			maxCols = len(row)
+		}
+	}
+	
+	// Clear existing spreadsheet and import CSV data
+	ctrl.NewFile()
+	
+	// Import CSV data into spreadsheet
+	for rowIdx, row := range records {
+		for colIdx, value := range row {
+			// Import all values as plain text (no formula interpretation)
+			ctrl.SetCellValue(rowIdx, colIdx, value)
+		}
+	}
+	
+	// Return success
+	json.NewEncoder(w).Encode(api.CSVImportResponse{
+		Success: true,
+		Rows:    len(records),
+		Cols:    maxCols,
+		Message: fmt.Sprintf("Imported %d rows, %d columns", len(records), maxCols),
+	})
+}
+
+func handleCSVExport(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	// Parse request
+	var req api.CSVExportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(api.CSVExportResponse{
+			Success: false,
+			Error:   "Invalid request format",
+			Code:    "INVALID_REQUEST",
+		})
+		return
+	}
+	
+	if req.Path == "" {
+		json.NewEncoder(w).Encode(api.CSVExportResponse{
+			Success: false,
+			Error:   "File path is required",
+			Code:    "INVALID_REQUEST",
+		})
+		return
+	}
+	
+	// Collect all non-empty cells
+	type cellData struct {
+		row      int
+		col      int
+		computed string
+	}
+	var cells []cellData
+	maxRow, maxCol := -1, -1
+	
+	// Scan a reasonable range for non-empty cells
+	for row := 0; row < 1000; row++ {
+		for col := 0; col < 100; col++ {
+			value := ctrl.GetCellValue(row, col)
+			if value != "" {
+				cells = append(cells, cellData{row: row, col: col, computed: value})
+				if row > maxRow {
+					maxRow = row
+				}
+				if col > maxCol {
+					maxCol = col
+				}
+			}
+		}
+	}
+	
+	// If no cells, export empty CSV
+	if len(cells) == 0 {
+		// Write empty file
+		if err := os.WriteFile(req.Path, []byte(""), 0644); err != nil {
+			json.NewEncoder(w).Encode(api.CSVExportResponse{
+				Success: false,
+				Error:   fmt.Sprintf("Failed to write file: %v", err),
+				Code:    "FILE_WRITE_ERROR",
+			})
+			return
+		}
+		
+		json.NewEncoder(w).Encode(api.CSVExportResponse{
+			Success: true,
+			Rows:    0,
+			Cols:    0,
+			Message: "Exported empty spreadsheet",
+		})
+		return
+	}
+	
+	// Build 2D array for CSV export
+	records := make([][]string, maxRow+1)
+	for i := range records {
+		records[i] = make([]string, maxCol+1)
+	}
+	
+	// Fill in cell values (computed values, not formulas)
+	for _, cell := range cells {
+		records[cell.row][cell.col] = cell.computed
+	}
+	
+	// Generate CSV
+	csvContent, err := api.GenerateCSV(records)
+	if err != nil {
+		json.NewEncoder(w).Encode(api.CSVExportResponse{
+			Success: false,
+			Error:   err.Error(),
+			Code:    "CSV_GENERATION_ERROR",
+		})
+		return
+	}
+	
+	// Write to file
+	if err := os.WriteFile(req.Path, []byte(csvContent), 0644); err != nil {
+		json.NewEncoder(w).Encode(api.CSVExportResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to write file: %v", err),
+			Code:    "FILE_WRITE_ERROR",
+		})
+		return
+	}
+	
+	// Return success
+	json.NewEncoder(w).Encode(api.CSVExportResponse{
+		Success: true,
+		Rows:    maxRow + 1,
+		Cols:    maxCol + 1,
+		Message: fmt.Sprintf("Exported %d rows, %d columns to %s", maxRow+1, maxCol+1, req.Path),
 	})
 }

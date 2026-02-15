@@ -30,16 +30,18 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     await expect(cellA1).toBeVisible();
   });
 
-  test('sample data is loaded', async ({ window }) => {
-    // Wait a bit for data to load
+  test('spreadsheet starts empty', async ({ window }) => {
+    // Wait a bit for page to load
     await window.waitForTimeout(500);
     
-    // Check sample data
-    await expect(window.locator('#cell-0-0')).toHaveText('10');
-    await expect(window.locator('#cell-1-0')).toHaveText('20');
-    await expect(window.locator('#cell-2-0')).toHaveText('30');
-    await expect(window.locator('#cell-3-0')).toHaveText('60');  // SUM formula result
-    await expect(window.locator('#cell-0-1')).toHaveText('20');  // A1*2 formula result
+    // Check that spreadsheet starts empty
+    await expect(window.locator('#cell-0-0')).toHaveText('');
+    await expect(window.locator('#cell-1-0')).toHaveText('');
+    await expect(window.locator('#cell-2-0')).toHaveText('');
+    
+    // Verify file status shows saved (empty spreadsheet is saved state)
+    const fileStatus = window.locator('#file-status');
+    await expect(fileStatus).toContainText('Saved');
   });
 
   test('clicking a cell selects it', async ({ window }) => {
@@ -450,8 +452,19 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   test('formula bar shows formula for formula cells', async ({ window }) => {
     await window.waitForTimeout(500);
     
-    // Click on cell B1 which has formula =A1*2
+    // Create test data first
+    const cellA1 = window.locator('#cell-0-0');
+    await cellA1.click();
+    await window.keyboard.type('10');
+    await window.keyboard.press('Enter');
+    
     const cellB1 = window.locator('#cell-0-1');
+    await cellB1.click();
+    await window.keyboard.type('=A1*2');
+    await window.keyboard.press('Enter');
+    await window.waitForTimeout(300);
+    
+    // Click on cell B1 which has formula =A1*2
     await cellB1.click();
     await window.waitForTimeout(300);
     
@@ -464,7 +477,6 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     await expect(cellRef).toHaveText('B1');
     
     // Click on cell A1 which has value 10
-    const cellA1 = window.locator('#cell-0-0');
     await cellA1.click();
     await window.waitForTimeout(300);
     
@@ -475,6 +487,13 @@ test.describe('GoSheet Spreadsheet Tests', () => {
 
   test('formula bar editing updates cell', async ({ window }) => {
     await window.waitForTimeout(500);
+    
+    // Create test data in A1
+    const cellA1 = window.locator('#cell-0-0');
+    await cellA1.click();
+    await window.keyboard.type('10');
+    await window.keyboard.press('Enter');
+    await window.waitForTimeout(200);
     
     // Click on empty cell D5
     const cellD5 = window.locator('#cell-4-3');
@@ -502,8 +521,19 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   test('double-click formula cell shows formula in editor', async ({ window }) => {
     await window.waitForTimeout(500);
     
-    // Double-click on cell B1 which has formula =A1*2
+    // Create test data first
+    const cellA1 = window.locator('#cell-0-0');
+    await cellA1.click();
+    await window.keyboard.type('10');
+    await window.keyboard.press('Enter');
+    
     const cellB1 = window.locator('#cell-0-1');
+    await cellB1.click();
+    await window.keyboard.type('=A1*2');
+    await window.keyboard.press('Enter');
+    await window.waitForTimeout(300);
+    
+    // Double-click on cell B1 which has formula =A1*2
     await cellB1.dblclick();
     await window.waitForTimeout(500);
     
@@ -521,8 +551,14 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   test('formula bar updates after cell edit', async ({ window }) => {
     await window.waitForTimeout(500);
     
-    // Select cell A1
+    // Create test data in A1
     const cellA1 = window.locator('#cell-0-0');
+    await cellA1.click();
+    await window.keyboard.type('10');
+    await window.keyboard.press('Enter');
+    await window.waitForTimeout(200);
+    
+    // Select cell A1 again
     await cellA1.click();
     await window.waitForTimeout(300);
     
@@ -669,15 +705,29 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   test('new file clears data', async ({ window }) => {
     await window.waitForTimeout(500);
     
-    // Verify sample data exists
-    await expect(window.locator('#cell-0-0')).toHaveText('10');
+    // Create some data first
+    const cellA1 = window.locator('#cell-0-0');
+    await cellA1.click();
+    await window.keyboard.type('Test Data');
+    await window.keyboard.press('Enter');
+    await window.waitForTimeout(200);
+    
+    // Verify data exists
+    await expect(cellA1).toHaveText('Test Data');
     
     // Click New button
     await window.locator('#new-btn').click();
     await window.waitForTimeout(300);
     
-    // Cell should be empty (no unsaved changes, so no modal)
-    await expect(window.locator('#cell-0-0')).toHaveText('');
+    // Handle unsaved changes modal if it appears
+    const modal = window.locator('#modal-overlay');
+    if (await modal.isVisible()) {
+      await window.locator('#modal-ok').click();
+      await window.waitForTimeout(300);
+    }
+    
+    // Cell should be empty after clearing
+    await expect(cellA1).toHaveText('');
   });
 
   test('new file warns on unsaved changes', async ({ window }) => {

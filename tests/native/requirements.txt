@@ -1,0 +1,4 @@
+# Native macOS tests (pyax + pytest)
+pyax[highlight]>=0.3.0
+pytest>=7.0
+pytest-xdist>=3.0  # For parallel execution: pytest -n 2

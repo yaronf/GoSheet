@@ -110,10 +110,10 @@ development_status:
   # NEW Playwright Electron stories:
   5-1-setup-playwright-electron-environment: done
   5-2-port-existing-tests-to-electron-api: done
-  5-3-implement-dialog-stubbing-tests: backlog
-  5-4-create-file-operation-tests: backlog
-  5-5-verify-all-tests-pass-in-electron: backlog
-  5-6-update-cicd-for-electron-testing: backlog
+  5-3-implement-dialog-stubbing-tests: done
+  5-4-create-file-operation-tests: done
+  5-5-verify-all-tests-pass-in-electron: done
+  5-6-update-cicd-for-electron-testing: in-progress
   epic-5-retrospective: optional
   # OLD pyax stories (obsolete):
   5-1-setup-pyax-testing-infrastructure: obsolete
@@ -124,11 +124,11 @@ development_status:
   5-6-verify-native-tests-pass: obsolete
   
   # Epic 6: CSV Import/Export (SHIFTED from Epic 5)
-  epic-6: backlog
-  6-1-implement-csv-import-dialog: backlog
-  6-2-implement-csv-data-import: backlog
-  6-3-implement-csv-export-dialog: backlog
-  6-4-verify-csv-round-trip: backlog
+  epic-6: done
+  6-1-implement-csv-import-dialog: done
+  6-2-implement-csv-data-import: done
+  6-3-implement-csv-export-dialog: done
+  6-4-verify-csv-round-trip: done
   epic-6-retrospective: optional
   
   # Epic 7: macOS Integration & Polish [ADAPTED for Electron]
@@ -151,3 +151,13 @@ development_status:
   8-3-implement-graceful-shutdown: backlog
   8-4-verify-complete-user-experience: backlog
   epic-8-retrospective: optional
+  
+  # Epic 9: Code Quality & Technical Debt
+  epic-9: backlog
+  9-1-rename-wails-references: backlog
+  9-2-setup-linting-and-formatting: backlog
+  9-3-add-code-complexity-analysis: backlog
+  9-4-measure-test-coverage: backlog
+  9-5-refactor-high-complexity-code: backlog
+  9-6-document-code-quality-standards: backlog
+  epic-9-retrospective: optional

@@ -14,15 +14,30 @@ completedAt: '2026-02-14'
 validationScore: '9.5/10'
 ---
 
-# Architecture Decision Document - Native macOS Spreadsheet App
+# Architecture Decision Document - Electron Desktop Spreadsheet App
 
-**Project:** GoSheet Native App Conversion  
+**Project:** GoSheet Electron Migration  
 **Architect:** Winston  
-**Date:** 2026-02-14  
+**Date:** 2026-02-15 (Updated from 2026-02-14)  
 **Status:** Complete - Ready for Implementation  
 **Quality Score:** 9.5/10
 
 _This document builds collaboratively through step-by-step discovery. Sections are appended as we work through each architectural decision together._
+
+**REVISION HISTORY:**
+- 2026-02-14: Initial architecture (Wails v3 dual-mode)
+- 2026-02-15: **MAJOR REVISION** - Migrated to Electron with embedded Go server (single-mode architecture)
+
+**MIGRATION CONTEXT:**
+This document was originally written for Wails v3 dual-mode architecture. During Epic 5 implementation (Native Testing Infrastructure), we discovered that pyax (macOS Accessibility API) cannot access Wails WebView content, making automated UI testing impossible. After comprehensive analysis (see `electron-migration-analysis.md` and `sprint-change-proposal-2026-02-15.md`), we pivoted to Electron with Playwright native integration, which provides:
+
+- ✅ **Full testability**: Playwright has first-class Electron support (official API)
+- ✅ **Simpler architecture**: Single-mode vs dual-mode (-700 lines of code)
+- ✅ **100% Go backend preserved**: No changes to model, controller, or HTTP server
+- ✅ **Cross-platform ready**: Windows/Linux support for future phases
+- ⚠️ **Trade-off**: Non-native dialogs (Electron vs NSOpenPanel) - user explicitly accepted
+
+This revision updates all sections to reflect the Electron architecture while preserving the original decision-making framework and patterns.
 
 ---
 
@@ -50,83 +65,87 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 **Scale & Complexity:**
 
-- **Primary domain**: Desktop application (macOS native wrapper around web frontend)
+- **Primary domain**: Desktop application (Electron with embedded Go HTTP server)
 - **Complexity level**: MEDIUM
   - Brownfield migration (existing codebase with 74 tests)
-  - Dual-mode architecture (native for users, web for testing)
-  - Wails v3 alpha (evolving API surface)
-  - File I/O migration (browser API → native dialogs)
-- **Estimated architectural components**: 8 major components
-  1. Wails v3 wrapper layer
-  2. IPC bridge (Go ↔ JavaScript)
-  3. Native file dialogs (Save/Save As/Open/Import/Export)
-  4. macOS menu bar integration
-  5. Dock integration (recent files)
-  6. Build system (dual-mode with build tags)
-  7. Existing Go backend (model, controller, formula engine) - **preserved**
-  8. Existing web frontend (HTML/CSS/JS) - **preserved**
+  - Single-mode architecture (Electron app with embedded Go server)
+  - Electron + Playwright native integration (mature, stable)
+  - File I/O via Electron dialogs (non-native but testable)
+- **Estimated architectural components**: 7 major components
+  1. Electron main process (Node.js)
+  2. Electron preload script (IPC bridge)
+  3. Embedded Go HTTP server (child process)
+  4. Electron file dialogs (via IPC)
+  5. macOS menu bar integration (Electron APIs)
+  6. Existing Go backend (model, controller, formula engine) - **100% preserved**
+  7. Existing web frontend (HTML/CSS/JS) - **95% preserved**
 
 ### Technical Constraints & Dependencies
 
 **Hard Constraints:**
-- **Wails v3.0.0-alpha.67**: Specific version chosen for macOS stability (ghost windows fix, file input fix, drag-and-drop fix)
-- **macOS 11+ (Big Sur)**: Minimum OS version, spans WebKit 611-619+
+- **Electron 40.4.1**: Latest stable desktop framework (Feb 2026) with native Playwright support
+- **Node.js 18+**: Required for Electron main process
+- **macOS 11+ (Big Sur)**: Minimum OS version, Chromium-based rendering
 - **Universal binary**: Must support both Intel and Apple Silicon
 - **Existing .sheet file format**: Binary serialization with gob encoding - cannot break compatibility
-- **Test preservation**: All 42 Go unit tests + 32 Playwright UI tests must pass without modification
+- **Test preservation**: All 42 Go unit tests + 32 Playwright UI tests must pass (ported to Electron API)
 - **No network**: 100% offline operation (NFR-S1)
 
-**Technology Stack (Existing):**
-- **Backend**: Go 1.x with participle parser, gob serialization
+**Technology Stack:**
+- **Desktop Framework**: Electron 40.4.1 (main process: Node.js 24, renderer: Chromium 144)
+- **Backend**: Go 1.x with participle parser, gob serialization (embedded HTTP server)
 - **Frontend**: Vanilla HTML/CSS/JavaScript (no build tools)
-- **Testing**: Go unit tests + Playwright (Python)
-- **HTTP Server**: Go net/http (for web mode)
+- **Testing**: Go unit tests + Playwright Electron (native integration)
+- **IPC**: Electron IPC (contextBridge + ipcRenderer/ipcMain)
 
 **Dependencies:**
-- Wails v3.0.0-alpha.67 (alpha stability risk)
-- macOS WebKit (system webview, no Chromium)
-- Go build tags for mode separation
+- Electron 40.4.1 (latest stable, Feb 2026)
+- Chromium (embedded in Electron, consistent across platforms)
+- electron-builder (packaging and distribution)
+- @playwright/test (Electron testing)
 
 **Migration Constraints:**
-- IPC API must mirror existing HTTP REST API (decision made during PRD validation)
-- Both modes must call identical controller methods
-- File I/O layer is the only code that differs between modes
+- Go backend 100% reusable (no changes needed)
+- Frontend needs minor IPC updates (Electron dialogs instead of browser File API)
+- HTTP server reused as embedded server (child process)
 
 ### Cross-Cutting Concerns Identified
 
-1. **Dual-Mode Architecture** (affects all components)
-   - Build tag strategy: `//go:build wails` vs `//go:build web`
-   - Mode-specific code limited to: file I/O, IPC vs HTTP, entry points
-   - Shared code: model, controller, formula engine, frontend
+1. **Single-Mode Architecture** (affects all components)
+   - Electron app with embedded Go HTTP server (child process)
+   - No build tags needed (simpler than dual-mode)
+   - All code runs in single mode: Electron + Go server
+   - Frontend uses HTTP for spreadsheet operations, IPC for file dialogs
 
 2. **Thread Safety** (affects backend)
    - Existing `sync.RWMutex` in dependency graph
-   - IPC bridge will introduce concurrent access from JavaScript
-   - Need to verify all controller methods are thread-safe
+   - HTTP server handles concurrent requests from Electron renderer
+   - All controller methods already thread-safe (verified in existing implementation)
 
-3. **Error Handling** (affects IPC boundary)
-   - Go errors must serialize to JavaScript-friendly format
+3. **Error Handling** (affects HTTP/IPC boundaries)
+   - Go errors serialize to JSON for HTTP responses
    - Circular reference errors, file I/O errors, formula parse errors
    - Consistent error display in UI (existing: `#ERROR: message` in cells)
 
 4. **File Path Handling** (affects file operations)
-   - Native mode: Real file paths (e.g., `~/Documents/budget.sheet`)
-   - Web mode: Temp files for Playwright tests
-   - File status display must adapt to mode
+   - Electron dialogs return real file paths (e.g., `~/Documents/budget.sheet`)
+   - Backend reads/writes directly to user-chosen paths
+   - File status display shows real paths
 
-5. **Test Mocking Strategy** (affects testing)
-   - Playwright tests run in web mode (HTTP server)
-   - Need to mock/stub native file dialogs for web mode
-   - Or: Accept that Playwright tests use browser File API (existing approach)
+5. **Test Strategy** (affects testing)
+   - Playwright tests use Electron native API (`_electron.launch()`)
+   - Dialog stubbing via electron-playwright-helpers
+   - Can test all UI elements (buttons, inputs, everything)
+   - No accessibility permissions needed (unlike pyax)
 
 6. **Performance Monitoring** (affects all components)
    - NFR targets: <1s launch, <3s load, <200ms recalc
-   - Need instrumentation to verify performance in native mode
-   - Existing performance is acceptable in web mode
+   - Need instrumentation to verify performance in Electron
+   - Existing performance is acceptable in web mode (baseline)
 
-7. **macOS Integration** (affects native mode only)
+7. **macOS Integration** (affects Electron main process)
    - Menu bar, keyboard shortcuts, dock, file associations
-   - All standard macOS patterns - low risk
+   - All via Electron APIs (well-documented, stable)
    - Custom file icon needs design asset (noted in PRD validation)
 
 ---
@@ -135,101 +154,101 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 ### Primary Technology Domain
 
-**Desktop Application (macOS native)** - Brownfield migration from Go HTTP + web frontend to Wails v3 native app
+**Desktop Application (Cross-platform)** - Brownfield migration from Go HTTP + web frontend to Electron desktop app with embedded Go server
 
 ### Unique Project Constraints
 
 This is **not a greenfield project**. Key constraints:
-- Existing Go backend (`model/`, `controller/`) with 42 unit tests - **must preserve**
-- Existing vanilla JS frontend with 32 Playwright tests - **must preserve**
-- Dual-mode architecture requirement (native for users, web for testing)
+- Existing Go backend (`model/`, `controller/`) with 42 unit tests - **must preserve 100%**
+- Existing vanilla JS frontend with 32 Playwright tests - **must preserve and port to Electron API**
+- Single-mode architecture (Electron only, no separate web mode)
 - No frontend build tools (vanilla HTML/CSS/JS)
+- Testability is critical requirement (Playwright native Electron support)
 
 ### Starter Options Considered
 
-**Option 1: Official Wails v3 Vanilla Template**
-- Command: `wails3 init -n spreadsheet -t vanilla`
-- Provides: Project structure, `@wailsio/runtime` integration, `wails.json` config, build setup
-- **Issue**: Creates new project structure incompatible with existing codebase
+**Option 1: Electron Quick Start Template**
+- Command: `npm init electron-app@latest spreadsheet`
+- Provides: Basic Electron structure, main.js, preload.js, package.json
+- **Issue**: Creates new project structure, doesn't integrate Go backend
 
-**Option 2: Manual Wails v3 Integration (RECOMMENDED)**
-- Approach: Study official template, extract patterns, apply to existing code
-- Preserves: Existing structure, all tests, dual-mode capability
-- Trade-off: More manual setup, but maintains project continuity
+**Option 2: Manual Electron Integration (RECOMMENDED)**
+- Approach: Create Electron main process, integrate existing Go HTTP server as child process
+- Preserves: Existing Go backend (100%), existing frontend (95%), all tests
+- Trade-off: Manual setup, but maintains project continuity and enables testability
 
-### Selected Approach: Manual Integration with Reference Template
+### Selected Approach: Manual Electron Integration
 
 **Rationale:**
 - Brownfield migration requires preserving existing architecture
-- 74 tests must continue passing without modification
-- Dual-mode build system needs custom setup (not provided by standard template)
+- 74 tests must continue passing (42 Go unit tests + 32 Playwright tests ported to Electron)
+- Go HTTP server already working - reuse as embedded server
 - Existing code organization (`model/`, `controller/`, `frontend/`) is clean and should be maintained
+- **Testability**: Playwright has native Electron support (no pyax hacks needed)
 
 **Implementation Strategy:**
 
-1. **Generate reference template** (for learning):
-   ```bash
-   cd /tmp
-   wails3 init -n wails-reference -t vanilla
-   ```
+1. **Create Electron main process** (`electron/main.js`):
+   - Launch Go HTTP server as child process
+   - Create BrowserWindow loading from localhost
+   - Implement IPC handlers for file dialogs
+   - Handle app lifecycle (quit, cleanup)
 
-2. **Extract key patterns** from reference:
-   - `main.go` structure for Wails app initialization
-   - `wails.json` configuration format
-   - `@wailsio/runtime` integration in frontend
-   - Build configuration (`Taskfile.yml` or similar)
+2. **Create preload script** (`electron/preload.js`):
+   - Expose safe IPC methods to renderer via contextBridge
+   - `window.electronAPI.openFileDialog()`, `saveFileDialog()`
 
-3. **Create dual-mode entry points** in existing codebase:
-   - `cmd/native/main.go` (Wails v3 mode) with `//go:build wails`
-   - `cmd/web/main.go` (HTTP server mode) with `//go:build web`
-   - Shared `controller/` and `model/` packages (no build tags)
+3. **Update frontend** (minimal changes):
+   - Keep existing HTTP API calls for spreadsheet operations
+   - Add Electron IPC calls for file dialogs
+   - Remove browser File API workarounds
 
-4. **Integrate Wails runtime** into existing frontend:
-   - Add `@wailsio/runtime` for native file dialogs, menus, dock
-   - Keep existing frontend code, add mode detection
-   - Use feature detection: `if (window.wails) { /* native */ } else { /* web */ }`
+4. **Configure build** (`package.json`, `electron-builder`):
+   - Include Go server binary in package
+   - Configure macOS .app bundle
+   - Set up universal binary (Intel + Apple Silicon)
 
 ### Architectural Decisions Established
 
 **Language & Runtime:**
 - Go 1.x (existing, preserved)
-- Wails v3.0.0-alpha.67 wrapper for native mode
+- Node.js 18+ (Electron main process)
+- Electron 40.4.1 (desktop framework)
 - Vanilla JavaScript (no TypeScript, no build tools)
 
 **Build System:**
-- Go build tags for mode separation (`wails` vs `web`)
-- Wails CLI (`wails3 dev`, `wails3 build`) for native mode
-- Standard `go run` for web mode
-- Shared core logic (no duplication)
+- npm scripts for Electron development (`npm start`)
+- electron-builder for packaging
+- Standard `go build` for server binary
+- Single-mode (no build tags needed)
 
 **Project Structure:**
 ```
 spreadsheet/
-├── cmd/
-│   ├── native/          # NEW: Wails v3 entry point (//go:build wails)
-│   │   └── main.go
-│   └── web/             # NEW: HTTP server entry point (//go:build web)
-│       └── main.go
-├── model/               # EXISTING: Preserved
-├── controller/          # EXISTING: Preserved
-├── frontend/            # EXISTING: Preserved, enhanced with @wailsio/runtime
-├── tests/               # EXISTING: Preserved
-├── playwright_tests/    # EXISTING: Preserved
-├── wails.json           # NEW: Wails configuration
-└── go.mod               # EXISTING: Updated with Wails v3 dependency
+├── electron/
+│   ├── main.js          # NEW: Electron main process
+│   └── preload.js       # NEW: IPC bridge
+├── model/               # EXISTING: Preserved (100%)
+├── controller/          # EXISTING: Preserved (100%)
+├── frontend/            # EXISTING: Preserved (95% - minor IPC updates)
+├── tests/               # EXISTING: Preserved (100%)
+├── playwright_tests/    # EXISTING: Ported to Electron API
+├── package.json         # NEW: Electron dependencies
+└── go.mod               # EXISTING: No changes needed
 ```
 
 **Testing Strategy:**
-- Go unit tests: Run in both modes (no changes needed)
-- Playwright tests: Run in web mode only (existing approach)
-- Native mode testing: Manual QA initially, automated later if needed
+- Go unit tests: Run as-is (no changes needed)
+- Playwright tests: Port to Electron API (`_electron.launch()`)
+- Dialog stubbing: Use electron-playwright-helpers
+- **Key benefit**: Can test all UI elements (buttons, inputs, keyboard shortcuts)
 
 **Development Workflow:**
-- **Native development**: `wails3 dev` (hot reload with Wails)
-- **Web development**: `go run cmd/web/main.go` (existing workflow)
-- **Testing**: `./test.sh` (runs web mode + Playwright, existing)
+- **Development**: `npm start` (launches Electron + Go server)
+- **Testing**: `npm test` (Playwright Electron tests)
+- **Build**: `npm run build` (creates .app bundle)
 
-**Note:** This approach requires more manual setup than a standard Wails template, but it's the only way to preserve the existing codebase and dual-mode architecture while migrating to native macOS.
+**Note:** This approach is simpler than dual-mode Wails architecture (-700 lines of code) and provides better testability via Playwright native Electron support.
 
 ---
 
@@ -238,200 +257,480 @@ spreadsheet/
 ### Decision Priority Analysis
 
 **Critical Decisions (Block Implementation):**
-1. IPC Bridge Design - Unified API Layer
-2. File Dialog Strategy - Mode-aware file service
-3. Build Tag Strategy - Package-based separation
-4. Error Handling - Structured JSON responses
+1. Electron + Embedded Go Server Architecture
+2. File Dialog Strategy - Electron IPC for dialogs
+3. Testing Strategy - Playwright Native Electron Integration
+4. Error Handling - HTTP JSON responses
 
 **Important Decisions (Shape Architecture):**
-5. macOS Integration - Wails built-in APIs
+5. macOS Integration - Electron built-in APIs
 
 **Deferred Decisions (Post-MVP):**
 - Code signing and notarization (Phase 2 per PRD)
 - Undo/Redo implementation (Phase 2 per PRD)
 - Excel import (Growth feature per PRD)
 
-### Decision 1: IPC Bridge Design
+### Decision 1: Electron + Embedded Go Server Architecture
 
-**Decision**: Unified API Layer  
-**Category**: API & Communication (CRITICAL)
+**Decision**: Electron Desktop App with Embedded Go HTTP Server  
+**Category**: Architecture Foundation (CRITICAL)
+
+**Context:**
+- Original plan: Wails v3 dual-mode (web for testing, native for users)
+- Discovery: pyax cannot test Wails WebView content (HTML/JS invisible to accessibility API)
+- Pivot: Electron + Playwright native integration solves testability completely
 
 **Rationale**: 
-- Frontend code remains identical in both native and web modes
-- Backend transparently handles mode switching
-- True dual-mode architecture with zero frontend duplication
-- Consistent with brownfield migration goal of preserving existing code
+- **Testability**: Playwright has native Electron support (official API, dialog stubbing)
+- **Simplicity**: Single codebase, no build tags, -700 lines of code vs dual-mode
+- **Reusability**: 100% of Go backend unchanged, existing HTTP server reused
+- **Cross-platform**: Windows/Linux ready (Wails was macOS-only in our impl)
+- **Ecosystem**: Larger community, better tooling, more examples
 
-**Implementation Approach**:
-```go
-// api/spreadsheet.go - Unified interface
-type SpreadsheetAPI interface {
-    SetCellValue(row, col int, value string) Response
-    GetCellValue(row, col int) Response
-    SaveFile(path string) Response
-    LoadFile(path string) Response
-    // ... other methods
-}
+**Architecture:**
 
-// api/response.go - Structured response
-type Response struct {
-    Success bool        `json:"success"`
-    Data    interface{} `json:"data,omitempty"`
-    Error   string      `json:"error,omitempty"`
-}
-
-// cmd/native/api_wails.go - Wails implementation
-type WailsAPI struct {
-    controller *controller.AppController
-}
-
-// cmd/web/api_http.go - HTTP implementation  
-type HttpAPI struct {
-    controller *controller.AppController
-}
+```
+┌─────────────────────────────────────┐
+│ Electron Main Process (Node.js)    │
+│  - Launch Go HTTP server (child)   │
+│  - Create BrowserWindow             │
+│  - Handle native dialogs via IPC   │
+│  - Package as .app/.exe bundle      │
+└─────────────────────────────────────┘
+         ↓ IPC (file dialogs)
+         ↓ HTTP (spreadsheet API)
+┌─────────────────────────────────────┐
+│ Electron Renderer (Chromium)        │
+│  - Load frontend/index.html         │
+│  - Fetch to localhost:PORT          │
+│  - Send IPC for file dialogs        │
+└─────────────────────────────────────┘
+         ↓ HTTP
+┌─────────────────────────────────────┐
+│ Go HTTP Server (embedded)           │
+│  - controller.AppController         │
+│  - All backend logic (unchanged)    │
+│  - REST API (unchanged)             │
+└─────────────────────────────────────┘
 ```
 
-**Frontend Usage** (same in both modes):
+**Implementation:**
+
+**Electron Main Process** (~200 lines):
 ```javascript
-// Frontend doesn't know if it's native or web
-const result = await api.setCellValue(row, col, value);
-if (result.success) {
-    // handle success
-} else {
-    // handle error
+// electron/main.js
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { spawn } = require('child_process');
+
+let goServer;
+
+function startGoServer() {
+  goServer = spawn('./server/gosheet-server', ['--port', '3000']);
+}
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1200, height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true
+    }
+  });
+  win.loadURL('http://localhost:3000');
+}
+
+// IPC handlers for file dialogs
+ipcMain.handle('dialog:openFile', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'GoSheet Files', extensions: ['sheet'] }]
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
+
+app.whenReady().then(() => {
+  startGoServer();
+  setTimeout(createWindow, 1000);
+});
+
+app.on('window-all-closed', () => {
+  if (goServer) goServer.kill();
+  app.quit();
+});
+```
+
+**Preload Script** (~50 lines):
+```javascript
+// electron/preload.js
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
+  saveFileDialog: (name) => ipcRenderer.invoke('dialog:saveFile', name)
+});
+```
+
+**Frontend Updates** (~50 lines):
+```javascript
+// frontend/api-client.js
+// Spreadsheet operations: HTTP (unchanged)
+async function setCellValue(row, col, value) {
+  const response = await fetch('http://localhost:3000/api/set-cell', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ row, col, value })
+  });
+  return await response.json();
+}
+
+// File dialogs: Electron IPC (new)
+async function openFile() {
+  const path = await window.electronAPI.openFileDialog();
+  if (!path) return; // User cancelled
+  
+  const response = await fetch('http://localhost:3000/api/file/load', {
+    method: 'POST',
+    body: JSON.stringify({ path })
+  });
+  return await response.json();
 }
 ```
 
-**Affects**: All frontend-backend communication, controller layer, both entry points
+**Trade-offs:**
+- ❌ Non-native dialogs (Electron dialogs vs NSOpenPanel) - acceptable per user
+- ❌ Need Node.js (adds JavaScript to build) - minimal impact
+- ✅ Net positive: testability gains outweigh native dialog loss
+
+**Affects**: All components, replaces Wails architecture entirely
 
 ### Decision 2: File Dialog Strategy
 
-**Decision**: Mode-aware File Service with Unified Interface  
+**Decision**: Electron IPC for File Dialogs + HTTP for File Operations  
 **Category**: File Management (CRITICAL)
 
 **Rationale**:
-- Consistent with unified API layer approach
-- Frontend remains mode-agnostic
-- Encapsulates platform-specific file dialog logic
-- Preserves existing Playwright test infrastructure (web mode uses browser File API)
+- Electron dialogs provide native-like UX (acceptable per user)
+- IPC is secure and well-documented (contextBridge pattern)
+- Go backend handles actual file I/O (existing code reused)
+- Playwright can stub dialogs for testing (electron-playwright-helpers)
 
 **Implementation Approach**:
-```go
-// api/fileservice.go - Interface
-type FileService interface {
-    OpenFileDialog(filters []string) (path string, err error)
-    SaveFileDialog(defaultName string) (path string, err error)
-    ReadFile(path string) ([]byte, error)
-    WriteFile(path string, data []byte) error
+
+**Electron Main Process** (IPC handlers):
+```javascript
+// electron/main.js
+ipcMain.handle('dialog:openFile', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    filters: [{ name: 'GoSheet Files', extensions: ['sheet'] }]
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
+
+ipcMain.handle('dialog:saveFile', async (event, defaultName) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: defaultName || 'Untitled.sheet',
+    filters: [{ name: 'GoSheet Files', extensions: ['sheet'] }]
+  });
+  return result.canceled ? null : result.filePath;
+});
+```
+
+**Frontend** (calls IPC for dialog, HTTP for file operations):
+```javascript
+// frontend/api-client.js
+async function openFile() {
+  // Step 1: Get file path from Electron dialog (IPC)
+  const path = await window.electronAPI.openFileDialog();
+  if (!path) return; // User cancelled
+  
+  // Step 2: Tell Go backend to load file (HTTP)
+  const response = await fetch('http://localhost:3000/api/file/load', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path })
+  });
+  return await response.json();
 }
 
-// cmd/native/fileservice_wails.go
-type WailsFileService struct {
-    app *application.App
-}
-func (s *WailsFileService) OpenFileDialog(filters []string) (string, error) {
-    return wails.OpenFileDialog(s.app, filters)
-}
-
-// cmd/web/fileservice_http.go
-type HttpFileService struct {
-    // Uses existing HTTP upload/download endpoints
+async function saveFile() {
+  // Step 1: Get save path from Electron dialog (IPC)
+  const path = await window.electronAPI.saveFileDialog('Untitled.sheet');
+  if (!path) return; // User cancelled
+  
+  // Step 2: Tell Go backend to save file (HTTP)
+  const response = await fetch('http://localhost:3000/api/file/save', {
+    method: 'POST',
+    body: JSON.stringify({ path })
+  });
+  return await response.json();
 }
 ```
 
-**Native Mode**: Uses Wails `OpenFileDialog()`, `SaveFileDialog()` - real file paths  
-**Web Mode**: Uses existing HTTP endpoints + browser File API - temp files for Playwright
+**Go Backend** (unchanged - existing file I/O):
+```go
+// controller/app.go (existing, preserved)
+func (c *AppController) LoadFile(path string) error {
+    return c.spreadsheet.LoadFromFile(path)
+}
+
+func (c *AppController) SaveFile(path string) error {
+    return c.spreadsheet.SaveToFile(path)
+}
+```
+
+**Testing** (Playwright dialog stubbing):
+```javascript
+// tests/electron/test_file_operations.spec.js
+const { stubDialog } = require('electron-playwright-helpers');
+
+test('can open file', async () => {
+  // Stub dialog to return test file path
+  await stubDialog(electronApp, 'showOpenDialog', {
+    filePaths: ['/tmp/test.sheet']
+  });
+  
+  // Click Load button - dialog is stubbed
+  await window.getByRole('button', { name: 'Load' }).click();
+  
+  // Verify file was loaded
+  const status = await window.evaluate(() => 
+    fetch('http://localhost:3000/api/file/status').then(r => r.json())
+  );
+  expect(status.path).toBe('/tmp/test.sheet');
+});
+```
+
+**Benefits:**
+- ✅ Real file paths (no temp files)
+- ✅ Testable (dialog stubbing works perfectly)
+- ✅ Go backend unchanged (100% reused)
+- ✅ Clear separation: IPC for UI, HTTP for data
 
 **Affects**: File operations (FR1-FR11), file status display, Playwright tests
 
-### Decision 3: Build Strategy
+### Decision 3: Testing Strategy - Playwright Native Electron Integration
 
-**Decision**: Package-based Separation (No Build Tags)  
-**Category**: Build System (CRITICAL)
+**Decision**: Playwright Native Electron API for All UI Testing  
+**Category**: Testing (CRITICAL)
+
+**Context:**
+- Original approach: pyax (macOS Accessibility API) for native app testing
+- Critical discovery: pyax cannot see Wails WebView content (HTML/JS invisible)
+- Pivot: Playwright has first-class Electron support (official API)
 
 **Rationale**:
-- Clearest separation between modes
-- Least error-prone (no forgotten build tags)
-- Explicit package selection in build commands
-- Easier to understand for future maintainers
+- **Native Integration**: Playwright `_electron` API is official, mature, well-documented
+- **Full Coverage**: Can test all UI elements (buttons, inputs, keyboard shortcuts)
+- **Dialog Stubbing**: Built-in dialog mocking (no real dialogs needed for tests)
+- **CI/CD Friendly**: Headless mode, no accessibility permissions needed
+- **No Hacks**: Official API, not a workaround
+
+**Implementation:**
+
+**Test Setup**:
+```javascript
+// tests/electron/test_app.spec.js
+const { _electron: electron } = require('playwright');
+const { test, expect } = require('@playwright/test');
+const { stubDialog } = require('electron-playwright-helpers');
+
+let electronApp;
+let window;
+
+test.beforeAll(async () => {
+  electronApp = await electron.launch({ args: ['electron/main.js'] });
+  window = await electronApp.firstWindow();
+});
+
+test.afterAll(async () => {
+  await electronApp.close();
+});
+```
+
+**Testing UI Elements**:
+```javascript
+test('can enter formula and see result', async () => {
+  await window.locator('[data-row="0"][data-col="0"]').click();
+  await window.keyboard.type('=2+2');
+  await window.keyboard.press('Enter');
+  
+  const cellValue = await window.locator('[data-row="0"][data-col="0"]').textContent();
+  expect(cellValue).toBe('4');
+});
+```
+
+**Testing File Dialogs**:
+```javascript
+test('can open file dialog', async () => {
+  await stubDialog(electronApp, 'showOpenDialog', {
+    filePaths: ['/tmp/test.sheet']
+  });
+  
+  await window.getByRole('button', { name: 'Load' }).click();
+  
+  const status = await window.evaluate(() =>
+    fetch('http://localhost:3000/api/file/status').then(r => r.json())
+  );
+  expect(status.path).toBe('/tmp/test.sheet');
+});
+```
+
+**Comparison with pyax:**
+
+| Feature | pyax + Wails | Playwright + Electron |
+|---------|--------------|----------------------|
+| Can test HTML buttons | ❌ No | ✅ Yes |
+| Can test keyboard shortcuts | ❌ No | ✅ Yes |
+| Can stub file dialogs | ❌ No | ✅ Yes |
+| Native integration | ❌ Hack | ✅ Official API |
+| CI/CD friendly | ❌ Needs permissions | ✅ Headless mode |
+
+**Migration Path:**
+1. Port existing 32 Playwright tests to Electron API
+2. Update test imports (`_electron.launch()`)
+3. Replace `page.goto()` with `electronApp.firstWindow()`
+4. Add dialog stubbing tests
+5. Verify all tests pass
 
 **Project Structure**:
 ```
 spreadsheet/
-├── cmd/
-│   ├── native/              # Wails v3 entry point
-│   │   ├── main.go          # Wails app initialization
-│   │   ├── api_wails.go     # Wails IPC implementation
-│   │   └── fileservice_wails.go
-│   └── web/                 # HTTP server entry point
-│       ├── main.go          # HTTP server initialization
-│       ├── api_http.go      # HTTP handler implementation
-│       └── fileservice_http.go
-├── api/                     # Shared interfaces
-│   ├── spreadsheet.go       # SpreadsheetAPI interface
-│   ├── fileservice.go       # FileService interface
-│   └── response.go          # Response struct
-├── model/                   # EXISTING: Preserved
-├── controller/              # EXISTING: Preserved
-├── frontend/                # EXISTING: Preserved
-├── tests/                   # EXISTING: Preserved
-├── playwright_tests/        # EXISTING: Preserved
-├── wails.json               # NEW: Wails configuration
-└── go.mod                   # EXISTING: Updated
+├── electron/
+│   ├── main.js              # NEW: Electron main process
+│   └── preload.js           # NEW: IPC bridge
+├── model/                   # EXISTING: Preserved (100%)
+├── controller/              # EXISTING: Preserved (100%)
+├── frontend/                # EXISTING: Preserved (95%)
+├── tests/                   # EXISTING: Preserved (100%)
+├── playwright_tests/        # EXISTING: Ported to Electron API
+├── package.json             # NEW: Electron dependencies
+└── go.mod                   # EXISTING: No changes
 ```
 
 **Build Commands**:
-- **Native**: `wails3 dev` (development) or `wails3 build` (production)
-- **Web**: `go run ./cmd/web` (development) or `go build -o bin/web ./cmd/web` (production)
-- **Tests**: `go test ./tests/...` (unit tests), `./test.sh` (Playwright in web mode)
+- **Development**: `npm start` (launches Electron + Go server)
+- **Testing**: `npm test` (Playwright Electron tests)
+- **Build**: `npm run build` (creates .app bundle)
+- **Go Tests**: `go test ./tests/...` (unit tests, unchanged)
 
-**Affects**: All components, build process, CI/CD, developer workflow
+**Affects**: All UI testing, test infrastructure, CI/CD pipeline
 
 ### Decision 4: macOS Integration Approach
 
-**Decision**: Wails Built-in APIs for All macOS Features  
+**Decision**: Electron Built-in APIs for All macOS Features  
 **Category**: Platform Integration (IMPORTANT)
 
 **Rationale**:
-- Wails v3 provides all required macOS integration features
-- Maintained by Wails team, stable APIs
+- Electron provides all required macOS integration features
+- Mature, stable APIs with excellent documentation
 - Sufficient for MVP requirements (FR39-FR46)
-- Avoids CGo complexity
-- Keeps potential for future cross-platform support (Phase 3)
+- Cross-platform ready (Windows, Linux) for future phases
+- Easier than Wails (no alpha stability concerns)
 
-**Features Implemented via Wails APIs**:
+**Features Implemented via Electron APIs**:
 
-| Feature | Wails v3 API | PRD Requirement |
+| Feature | Electron API | PRD Requirement |
 |---------|--------------|-----------------|
-| Menu bar | `application.Menu` | FR39 (File, Edit, Help menus) |
-| Keyboard shortcuts | `application.KeyBinding` | FR42 (Cmd+N/O/S/W/Q, etc.) |
-| File dialogs | `application.OpenFileDialog`, `SaveFileDialog` | FR1-FR4 (Save, Open, Import, Export) |
-| Dock integration | `application.DockMenu` | FR44 (Recent files in dock) |
-| File associations | `Info.plist` via Wails build | FR43 (Double-click .sheet files) |
-| App icon | `build/appicon.png` via Wails build | FR46 (App icon in dock) |
-| Custom file icon | `build/` assets via Wails build | FR45 (Custom .sheet icon) |
+| Menu bar | `Menu.buildFromTemplate()` | FR39 (File, Edit, Help menus) |
+| Keyboard shortcuts | `accelerator` in menu items | FR42 (Cmd+N/O/S/W/Q, etc.) |
+| File dialogs | `dialog.showOpenDialog()`, `showSaveDialog()` | FR1-FR4 (Save, Open, Import, Export) |
+| Dock integration | `app.dock.setMenu()` | FR44 (Recent files in dock) |
+| File associations | `Info.plist` via electron-builder | FR43 (Double-click .sheet files) |
+| App icon | `build/icon.icns` via electron-builder | FR46 (App icon in dock) |
+| Custom file icon | `build/` assets via electron-builder | FR45 (Custom .sheet icon) |
+
+**Implementation Example (Menu Bar)**:
+```javascript
+// electron/main.js
+const { Menu } = require('electron');
+
+const template = [
+  {
+    label: 'File',
+    submenu: [
+      { label: 'New', accelerator: 'CmdOrCtrl+N', click: () => { /* ... */ } },
+      { label: 'Open...', accelerator: 'CmdOrCtrl+O', click: () => { /* ... */ } },
+      { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => { /* ... */ } },
+      { type: 'separator' },
+      { label: 'Quit', accelerator: 'CmdOrCtrl+Q', role: 'quit' }
+    ]
+  },
+  {
+    label: 'Edit',
+    submenu: [
+      { label: 'Cut', accelerator: 'CmdOrCtrl+X', role: 'cut' },
+      { label: 'Copy', accelerator: 'CmdOrCtrl+C', role: 'copy' },
+      { label: 'Paste', accelerator: 'CmdOrCtrl+V', role: 'paste' }
+    ]
+  },
+  {
+    label: 'Help',
+    submenu: [
+      { label: 'Documentation', click: () => { /* ... */ } }
+    ]
+  }
+];
+
+const menu = Menu.buildFromTemplate(template);
+Menu.setApplicationMenu(menu);
+```
+
+**Implementation Example (Dock Integration)**:
+```javascript
+// electron/main.js
+const { app } = require('electron');
+
+// Recent files in dock menu
+app.dock.setMenu(Menu.buildFromTemplate([
+  { label: 'Recent Files:', enabled: false },
+  { label: 'budget.sheet', click: () => openFile('~/Documents/budget.sheet') },
+  { label: 'report.sheet', click: () => openFile('~/Documents/report.sheet') }
+]));
+```
+
+**Implementation Example (File Associations)**:
+```json
+// package.json (electron-builder config)
+{
+  "build": {
+    "mac": {
+      "category": "public.app-category.productivity",
+      "fileAssociations": [
+        {
+          "ext": "sheet",
+          "name": "GoSheet Spreadsheet",
+          "role": "Editor",
+          "icon": "build/icons/sheet-icon.icns"
+        }
+      ]
+    }
+  }
+}
+```
 
 **Implementation Notes**:
-- Menu bar: Define in `cmd/native/main.go` during app initialization
-- Keyboard shortcuts: Bind to menu items or register globally
-- Recent files: Maintain list in app state, populate dock menu dynamically
-- File associations: Configure in `wails.json` → generates `Info.plist`
+- Menu bar: Define in `electron/main.js` during app initialization
+- Keyboard shortcuts: Use `accelerator` property in menu items
+- Recent files: Maintain list in app state, update dock menu dynamically
+- File associations: Configure in `package.json` → electron-builder generates `Info.plist`
 
-**Affects**: Native mode only (web mode doesn't need these features)
+**Affects**: Electron main process, app initialization, packaging
 
-### Decision 5: Error Handling Across IPC Boundary
+### Decision 5: Error Handling - HTTP JSON Responses
 
-**Decision**: Structured JSON Error Responses  
+**Decision**: HTTP JSON Responses for All Backend Communication  
 **Category**: API & Communication (IMPORTANT)
 
 **Rationale**:
-- More robust than string-based errors
-- Easier to handle different error types in frontend
-- Better for future extensibility (error codes, validation errors, etc.)
-- Consistent with modern API design patterns
+- Reuse existing HTTP API (no changes to Go backend)
+- Consistent with existing error handling patterns
+- Frontend already knows how to handle HTTP responses
+- Simpler than dual-mode error handling
 
-**Response Format**:
+**Response Format** (existing, preserved):
 ```go
+// Existing HTTP handlers return JSON
 type Response struct {
     Success bool        `json:"success"`
     Data    interface{} `json:"data,omitempty"`
@@ -441,88 +740,112 @@ type Response struct {
 
 **Error Handling Pattern**:
 
-**Backend (Go)**:
+**Backend (Go)** - unchanged:
 ```go
-func (api *WailsAPI) SetCellValue(row, col int, value string) Response {
-    err := api.controller.SetCellValue(row, col, value)
+// Existing HTTP handler
+func handleSetCell(w http.ResponseWriter, r *http.Request) {
+    var req SetCellRequest
+    json.NewDecoder(r.Body).Decode(&req)
+    
+    err := controller.SetCellValue(req.Row, req.Col, req.Value)
     if err != nil {
-        return Response{Success: false, Error: err.Error()}
+        json.NewEncoder(w).Encode(Response{
+            Success: false,
+            Error: err.Error(),
+        })
+        return
     }
-    return Response{Success: true}
+    
+    json.NewEncoder(w).Encode(Response{Success: true})
 }
 ```
 
-**Frontend (JavaScript)**:
+**Frontend (JavaScript)** - unchanged:
 ```javascript
-const result = await api.setCellValue(row, col, value);
-if (!result.success) {
-    // Display error to user
-    showError(result.error);
-    return;
+// Existing fetch calls work as-is
+async function setCellValue(row, col, value) {
+    const response = await fetch('http://localhost:3000/api/set-cell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row, col, value })
+    });
+    
+    const result = await response.json();
+    if (!result.success) {
+        showError(result.error);
+        return;
+    }
+    // Continue with success case
 }
-// Continue with success case
 ```
 
 **Cell Error Display** (existing pattern preserved):
-- Formula errors (circular refs, invalid syntax) still display as `#ERROR: message` in cell computed value
-- API errors (file I/O, network in web mode) use structured response
+- Formula errors (circular refs, invalid syntax) display as `#ERROR: message` in cell computed value
+- API errors (file I/O) use HTTP JSON response
 - Separation of concerns: cell-level errors vs operation-level errors
 
-**Affects**: All API methods, frontend error handling, existing error display logic
+**Key Insight:**
+- Electron renderer → Go server: HTTP (existing, unchanged)
+- Electron renderer → Electron main: IPC (new, for file dialogs only)
+- Two separate communication channels, each with appropriate error handling
+
+**Affects**: No changes to existing error handling (HTTP API preserved)
 
 ### Decision Impact Analysis
 
 **Implementation Sequence** (ordered by dependency):
 
-1. **Create unified API interfaces** (`api/` package)
-   - Define `SpreadsheetAPI` and `FileService` interfaces
-   - Define `Response` struct
+1. **Create Electron main process** (`electron/main.js`)
+   - Launch Go HTTP server as child process
+   - Create BrowserWindow
+   - Implement IPC handlers for file dialogs
    - No dependencies, foundational
 
-2. **Implement web mode API** (`cmd/web/`)
-   - Wrap existing HTTP handlers with new interfaces
-   - Minimal changes to existing code
-   - Validates interface design
+2. **Create Electron preload script** (`electron/preload.js`)
+   - Expose file dialog APIs via contextBridge
+   - Secure IPC communication
+   - Depends on main process IPC handlers
 
-3. **Set up Wails project structure**
-   - Generate reference template, extract patterns
-   - Create `wails.json`, update `go.mod`
-   - Add `@wailsio/runtime` to frontend
+3. **Update frontend for Electron IPC** (`frontend/`)
+   - Add Electron IPC calls for file dialogs
+   - Keep existing HTTP calls for spreadsheet operations
+   - Minimal changes (~50 lines)
 
-4. **Implement native mode API** (`cmd/native/`)
-   - Wails app initialization
-   - IPC binding for `SpreadsheetAPI`
-   - Native `FileService` implementation
+4. **Configure electron-builder** (`package.json`)
+   - Include Go server binary in package
+   - Configure macOS .app bundle
+   - Set up universal binary
 
-5. **Update frontend for unified API**
-   - Replace direct HTTP calls with API abstraction
-   - Add mode detection and API initialization
-   - Update error handling for structured responses
-
-6. **Implement macOS integration**
+5. **Implement macOS integration** (`electron/main.js`)
    - Menu bar, keyboard shortcuts
    - Dock integration (recent files)
-   - File associations
+   - File associations (via electron-builder config)
 
-7. **Test dual-mode functionality**
-   - Verify all 42 Go unit tests pass
-   - Verify all 32 Playwright tests pass in web mode
-   - Manual QA in native mode
+6. **Port Playwright tests to Electron API** (`playwright_tests/`)
+   - Update test imports (`_electron.launch()`)
+   - Replace `page.goto()` with `electronApp.firstWindow()`
+   - Add dialog stubbing tests
+
+7. **Test Electron app functionality**
+   - Verify all 42 Go unit tests pass (unchanged)
+   - Verify all 32 Playwright tests pass (ported to Electron)
+   - Manual QA for macOS integration
 
 **Cross-Component Dependencies**:
 
-- **Unified API Layer** → affects all other decisions (foundational)
-- **File Service** → depends on Unified API Layer, affects file operations
-- **Build Strategy** → affects how all components are compiled and deployed
-- **macOS Integration** → depends on Wails setup, affects native mode only
-- **Error Handling** → affects Unified API Layer and frontend
+- **Electron Main Process** → foundational, all other components depend on it
+- **Preload Script** → depends on main process, enables frontend IPC
+- **Frontend Updates** → depends on preload script, minimal changes
+- **macOS Integration** → depends on main process, Electron APIs
+- **Testing Strategy** → depends on Electron app, Playwright Electron API
 
 **Risk Mitigation**:
 
-- **Wails v3 alpha stability**: Pin to v3.0.0-alpha.67, monitor release notes, be prepared to upgrade if critical bugs found
-- **Dual-mode complexity**: Implement and test web mode first (validates interface design), then add native mode
+- **Electron learning curve**: Excellent documentation, large community, mature ecosystem
+- **Go server integration**: HTTP server already working, just needs spawn logic
 - **Test preservation**: Run full test suite after each major change, any test failures are blockers
-- **Performance**: Instrument both modes to verify NFR targets (launch <1s, load <3s, recalc <200ms)
+- **Performance**: Instrument Electron app to verify NFR targets (launch <1s, load <3s, recalc <200ms)
+- **Dialog behavior**: User explicitly accepted non-native dialogs for testability gains
 
 ---
 
@@ -530,16 +853,18 @@ if (!result.success) {
 
 ### Pattern Categories Defined
 
-**Critical Conflict Points Identified:** 6 areas where AI agents could make different implementation choices
+**Critical Conflict Points Identified:** 5 areas where AI agents could make different implementation choices
 
 These patterns ensure multiple AI agents write compatible, consistent code that works together seamlessly.
 
-### Pattern 1: API Response Format (CRITICAL)
+**Note:** Patterns simplified for Electron single-mode architecture (vs previous dual-mode Wails approach).
 
-**Rule**: All API methods MUST return this exact structure:
+### Pattern 1: HTTP API Response Format (CRITICAL)
+
+**Rule**: All HTTP API endpoints MUST return this exact JSON structure (existing, preserved):
 
 ```go
-// api/response.go
+// Existing HTTP response format
 type Response struct {
     Success bool        `json:"success"`
     Data    interface{} `json:"data,omitempty"`
@@ -589,56 +914,49 @@ if (!result.success && result.code === "CIRCULAR_REF") {
 assert.equal(result.code, "FILE_NOT_FOUND");
 ```
 
-**ALL AI AGENTS MUST**: Use this exact Response struct for all API methods, never return raw data or different error formats.
+**ALL AI AGENTS MUST**: Use this exact Response struct for all HTTP API endpoints, never return raw data or different error formats. This is existing code - do not change.
 
-### Pattern 2: Go Package Organization (IMPORTANT)
+### Pattern 2: Project Organization (IMPORTANT)
 
-**Rule**: New packages follow this structure:
+**Rule**: New Electron code follows this structure:
 
 ```
 spreadsheet/
-├── api/                    # NEW: Interfaces and shared types
-│   ├── spreadsheet.go      # SpreadsheetAPI interface
-│   ├── fileservice.go      # FileService interface
-│   └── response.go         # Response struct, error codes
-├── cmd/
-│   ├── native/             # NEW: Wails v3 entry point
-│   │   ├── main.go         # Wails app initialization
-│   │   ├── api_wails.go    # WailsAPI implementation
-│   │   └── fileservice_wails.go
-│   └── web/                # NEW: HTTP server entry point
-│       ├── main.go         # HTTP server initialization
-│       ├── api_http.go     # HttpAPI implementation
-│       └── fileservice_http.go
-├── controller/             # EXISTING: Business logic coordination
-│   └── app.go              # AppController (preserved)
-├── model/                  # EXISTING: Core data structures
-│   ├── cell.go             # Cell, Spreadsheet (preserved)
-│   ├── dependencies.go     # DependencyGraph (preserved)
-│   ├── formula.go          # Formula evaluation (preserved)
-│   └── file.go             # File I/O (preserved)
-├── frontend/               # EXISTING: HTML/CSS/JS
+├── electron/               # NEW: Electron application
+│   ├── main.js             # Main process (Node.js)
+│   └── preload.js          # IPC bridge (contextBridge)
+├── controller/             # EXISTING: Business logic (100% preserved)
+│   └── app.go              # AppController
+├── model/                  # EXISTING: Core data structures (100% preserved)
+│   ├── cell.go             # Cell, Spreadsheet
+│   ├── dependencies.go     # DependencyGraph
+│   ├── formula.go          # Formula evaluation
+│   └── file.go             # File I/O
+├── server/                 # EXISTING: HTTP server (reused as embedded)
+│   └── main.go             # HTTP server entry point
+├── frontend/               # EXISTING: HTML/CSS/JS (95% preserved)
 │   ├── index.html          # (preserved)
-│   ├── app.js              # (preserved, enhanced with mode detection)
+│   ├── app.js              # (preserved, minor IPC updates)
 │   └── styles.css          # (preserved)
-├── tests/                  # EXISTING: Go unit tests
-│   ├── formula_test.go     # (preserved)
-│   ├── dependencies_test.go # (preserved)
-│   └── api_test.go         # NEW: API interface tests
-├── playwright_tests/       # EXISTING: UI tests
-│   └── test_spreadsheet.py # (preserved)
-├── wails.json              # NEW: Wails configuration
-└── go.mod                  # EXISTING: Updated with Wails dependency
+├── tests/                  # EXISTING: Go unit tests (100% preserved)
+│   ├── formula_test.go
+│   ├── dependencies_test.go
+│   └── ...
+├── playwright_tests/       # EXISTING: UI tests (ported to Electron API)
+│   └── test_spreadsheet.py # (updated for Electron)
+├── package.json            # NEW: Electron dependencies
+└── go.mod                  # EXISTING: No changes needed
 ```
 
 **Package Placement Rules**:
-- **Interfaces and shared types** → `api/` package
-- **Business logic coordination** → `controller/` package (existing)
-- **Core data structures** → `model/` package (existing)
-- **Mode-specific implementations** → `cmd/native/` or `cmd/web/`
-- **Shared utilities** (if needed) → `internal/util/` (not yet needed)
+- **Electron code** → `electron/` directory (main.js, preload.js)
+- **Business logic** → `controller/` package (existing, no changes)
+- **Core data structures** → `model/` package (existing, no changes)
+- **HTTP server** → `server/` directory (existing, reused as embedded)
+- **Frontend** → `frontend/` directory (existing, minor IPC updates)
+- **Tests** → `tests/` (Go unit tests), `playwright_tests/` (Electron UI tests)
 
-**ALL AI AGENTS MUST**: Place new code in the correct package according to these rules. Never create new top-level packages without architectural approval.
+**ALL AI AGENTS MUST**: Place new Electron code in `electron/` directory. Do not modify Go backend (`model/`, `controller/`) unless absolutely necessary. Frontend changes should be minimal (IPC for file dialogs only).
 
 ### Pattern 3: Error Message Format (IMPORTANT)
 
@@ -780,12 +1098,15 @@ Is this a formula evaluation error?
 
 ### Pattern Examples
 
-**Good Example: API Method Implementation**
+**Good Example: HTTP API Handler (existing, preserved)**
 
 ```go
-// cmd/native/api_wails.go
-func (api *WailsAPI) SetCellValue(row, col int, value string) Response {
-    err := api.controller.SetCellValue(row, col, value)
+// server/main.go (existing HTTP handler)
+func handleSetCell(w http.ResponseWriter, r *http.Request) {
+    var req SetCellRequest
+    json.NewDecoder(r.Body).Decode(&req)
+    
+    err := controller.SetCellValue(req.Row, req.Col, req.Value)
     if err != nil {
         // Determine error code based on error type
         code := "PARSE_ERROR"
@@ -795,24 +1116,30 @@ func (api *WailsAPI) SetCellValue(row, col int, value string) Response {
             code = "EMPTY_CELL_REF"
         }
         
-        return Response{
+        json.NewEncoder(w).Encode(Response{
             Success: false,
             Error:   err.Error(),
             Code:    code,
-        }
+        })
+        return
     }
     
-    return Response{Success: true}
+    json.NewEncoder(w).Encode(Response{Success: true})
 }
 ```
 
-**Good Example: Error Handling in Frontend**
+**Good Example: Error Handling in Frontend (existing, preserved)**
 
 ```javascript
-// frontend/app.js
+// frontend/app.js (existing HTTP fetch)
 async function setCellValue(row, col, value) {
-    const result = await api.setCellValue(row, col, value);
+    const response = await fetch('http://localhost:3000/api/set-cell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row, col, value })
+    });
     
+    const result = await response.json();
     if (!result.success) {
         // Handle specific error codes
         if (result.code === "CIRCULAR_REF") {
@@ -834,65 +1161,64 @@ async function setCellValue(row, col, value) {
 
 ```go
 // ❌ WRONG: Different response format
-func (api *WailsAPI) GetCellValue(row, col int) map[string]interface{} {
-    value := api.controller.GetCellValue(row, col)
-    return map[string]interface{}{
+func handleGetCell(w http.ResponseWriter, r *http.Request) {
+    value := controller.GetCellValue(row, col)
+    json.NewEncoder(w).Encode(map[string]interface{}{
         "status": "ok",  // ❌ Should be "success"
         "value": value,  // ❌ Should be in "data" field
-    }
+    })
 }
 
-// ✅ CORRECT: Use Response struct
-func (api *WailsAPI) GetCellValue(row, col int) Response {
-    value := api.controller.GetCellValue(row, col)
-    return Response{
+// ✅ CORRECT: Use Response struct (existing pattern)
+func handleGetCell(w http.ResponseWriter, r *http.Request) {
+    value := controller.GetCellValue(row, col)
+    json.NewEncoder(w).Encode(Response{
         Success: true,
         Data: map[string]interface{}{"value": value},
-    }
+    })
 }
 ```
 
 **Anti-Pattern: Wrong Package Placement**
 
 ```go
-// ❌ WRONG: Implementation in api/ package
-// api/wails_api.go
-type WailsAPI struct { ... }  // ❌ Implementation doesn't belong in api/
+// ❌ WRONG: HTTP handlers in model/ package
+// model/handlers.go
+func HandleSetCell(w http.ResponseWriter, r *http.Request) { ... }  // ❌ Wrong package
 
-// ✅ CORRECT: Interface in api/, implementation in cmd/native/
-// api/spreadsheet.go
-type SpreadsheetAPI interface { ... }  // ✅ Interface in api/
-
-// cmd/native/api_wails.go
-type WailsAPI struct { ... }  // ✅ Implementation in cmd/native/
+// ✅ CORRECT: HTTP handlers in server/ package (existing)
+// server/main.go
+func handleSetCell(w http.ResponseWriter, r *http.Request) { ... }  // ✅ Correct
 ```
 
 **Anti-Pattern: Mixed Error Types**
 
 ```go
-// ❌ WRONG: Using cell-level error format in API response
-func (api *WailsAPI) LoadFile(path string) Response {
-    err := api.controller.LoadFile(path)
+// ❌ WRONG: Using cell-level error format in HTTP response
+func handleLoadFile(w http.ResponseWriter, r *http.Request) {
+    err := controller.LoadFile(path)
     if err != nil {
-        return Response{
+        json.NewEncoder(w).Encode(Response{
             Success: false,
             Error: "#ERROR: File not found",  // ❌ Wrong format for API error
-        }
+        })
+        return
     }
-    return Response{Success: true}
+    json.NewEncoder(w).Encode(Response{Success: true})
 }
 
-// ✅ CORRECT: Use operation-level error with code
-func (api *WailsAPI) LoadFile(path string) Response {
-    err := api.controller.LoadFile(path)
+// ✅ CORRECT: Use operation-level error with code (existing pattern)
+func handleLoadFile(w http.ResponseWriter, r *http.Request) {
+    err := controller.LoadFile(path)
     if err != nil {
-        return Response{
+        json.NewEncoder(w).Encode(Response{
             Success: false,
             Error: "File not found: " + path,  // ✅ Clear message
             Code: "FILE_NOT_FOUND",  // ✅ Error code for testing
-        }
+        })
+        return
     }
-    return Response{Success: true}
+    json.NewEncoder(w).Encode(Response{Success: true})
 }
 ```
 
@@ -904,33 +1230,33 @@ func (api *WailsAPI) LoadFile(path string) Response {
 ### Requirements to Structure Mapping
 
 **FR Category 1: File Management (11 FRs)** → Lives in:
-- API interface: `api/fileservice.go`
-- Native implementation: `cmd/native/fileservice_wails.go`
-- Web implementation: `cmd/web/fileservice_http.go`
-- Controller logic: `controller/app.go` (file operations methods)
+- Electron IPC: `electron/main.js` (dialog handlers)
+- Electron preload: `electron/preload.js` (IPC bridge)
+- Frontend: `frontend/app.js` (IPC calls for dialogs)
+- Controller logic: `controller/app.go` (file operations methods - existing, preserved)
 - Model: `model/file.go` (existing, preserved)
 
 **FR Category 2: Spreadsheet Core (9 FRs)** → Lives in:
-- Model: `model/cell.go`, `model/spreadsheet.go` (existing, preserved)
-- Controller: `controller/app.go` (existing, preserved)
-- Frontend: `frontend/index.html`, `frontend/app.js` (existing, enhanced)
+- Model: `model/cell.go`, `model/spreadsheet.go` (existing, 100% preserved)
+- Controller: `controller/app.go` (existing, 100% preserved)
+- Frontend: `frontend/index.html`, `frontend/app.js` (existing, 95% preserved)
 
 **FR Category 3: Formula Engine (11 FRs)** → Lives in:
-- Model: `model/formula.go`, `model/dependencies.go` (existing, preserved)
-- Tests: `tests/formula_test.go`, `tests/dependencies_test.go` (existing, preserved)
+- Model: `model/formula.go`, `model/dependencies.go` (existing, 100% preserved)
+- Tests: `tests/formula_test.go`, `tests/dependencies_test.go` (existing, 100% preserved)
 
 **FR Category 4: Data Import/Export (6 FRs)** → Lives in:
 - Controller: `controller/app.go` (CSV import/export methods)
-- File service: Uses `FileService` interface for dialogs
+- Electron dialogs: `electron/main.js` (file picker for CSV)
 
 **FR Category 5: macOS Integration (8 FRs)** → Lives in:
-- Native entry point: `cmd/native/main.go` (menu bar, keyboard shortcuts, dock)
-- Wails config: `wails.json` (file associations, icons)
-- Build assets: `build/appicon.png`, `build/icons/` (custom icons)
+- Electron main: `electron/main.js` (menu bar, keyboard shortcuts, dock)
+- electron-builder config: `package.json` (file associations, icons)
+- Build assets: `build/icon.icns`, `build/icons/` (custom icons)
 
 **FR Category 6: Application Lifecycle (5 FRs)** → Lives in:
-- Native entry point: `cmd/native/main.go`
-- Web entry point: `cmd/web/main.go`
+- Electron main: `electron/main.js` (app lifecycle)
+- Go server: `server/main.go` (embedded HTTP server)
 - Frontend: `frontend/index.html` (welcome screen - to be added)
 
 ### Complete Project Directory Structure
@@ -939,9 +1265,9 @@ func (api *WailsAPI) LoadFile(path string) Response {
 spreadsheet/
 ├── README.md                          # Project documentation
 ├── BMAD.md                            # BMAD methodology tracking (existing)
-├── go.mod                             # Go module definition (existing, will update)
-├── go.sum                             # Go dependencies (existing, will update)
-├── wails.json                         # NEW: Wails v3 configuration
+├── go.mod                             # Go module definition (existing, no changes)
+├── go.sum                             # Go dependencies (existing, no changes)
+├── package.json                       # NEW: Electron dependencies
 ├── .gitignore                         # Git ignore patterns (existing)
 │
 ├── _bmad/                             # BMAD methodology files (existing)
@@ -951,96 +1277,84 @@ spreadsheet/
 │   ├── planning-artifacts/
 │   │   ├── prd.md                     # Product Requirements (existing)
 │   │   ├── prd-validation-report-2026-02-14.md
-│   │   └── architecture.md            # This document (in progress)
-│   └── implementation-artifacts/      # Future: Epics, stories
+│   │   ├── architecture.md            # This document (updated for Electron)
+│   │   ├── electron-migration-analysis.md  # Migration analysis
+│   │   └── sprint-change-proposal-2026-02-15.md  # Sprint change
+│   └── implementation-artifacts/      # Epics, stories
 │
-├── api/                               # NEW: Shared interfaces and types
-│   ├── spreadsheet.go                 # SpreadsheetAPI interface
-│   ├── fileservice.go                 # FileService interface
-│   └── response.go                    # Response struct, error codes
+├── electron/                          # NEW: Electron application
+│   ├── main.js                        # Main process (Node.js)
+│   └── preload.js                     # IPC bridge (contextBridge)
 │
-├── cmd/                               # NEW: Application entry points
-│   ├── native/                        # Wails v3 native mode
-│   │   ├── main.go                    # Wails app initialization, menu bar, dock
-│   │   ├── api_wails.go               # WailsAPI implementation (IPC bridge)
-│   │   └── fileservice_wails.go       # Native file dialogs (Wails)
-│   └── web/                           # HTTP server web mode
-│       ├── main.go                    # HTTP server initialization
-│       ├── api_http.go                # HttpAPI implementation (REST endpoints)
-│       └── fileservice_http.go        # Browser file dialogs (existing pattern)
+├── controller/                        # EXISTING: Business logic (100% preserved)
+│   └── app.go                         # AppController
 │
-├── controller/                        # EXISTING: Business logic coordination
-│   └── app.go                         # AppController (preserved, no changes)
+├── model/                             # EXISTING: Core data structures (100% preserved)
+│   ├── cell.go                        # Cell struct
+│   ├── coords.go                      # Coordinate conversion
+│   ├── dependencies.go                # DependencyGraph
+│   ├── file.go                        # File I/O
+│   ├── formula.go                     # Formula evaluation
+│   ├── formula_ast.go                 # AST parser
+│   └── spreadsheet.go                 # Spreadsheet struct
 │
-├── model/                             # EXISTING: Core data structures
-│   ├── cell.go                        # Cell struct (preserved)
-│   ├── coords.go                      # Coordinate conversion (preserved)
-│   ├── dependencies.go                # DependencyGraph (preserved)
-│   ├── file.go                        # File I/O (preserved)
-│   ├── formula.go                     # Formula evaluation (preserved)
-│   ├── formula_ast.go                 # AST parser (preserved)
-│   └── spreadsheet.go                 # Spreadsheet struct (preserved)
+├── server/                            # EXISTING: HTTP server (reused as embedded)
+│   └── main.go                        # HTTP server entry point
 │
-├── frontend/                          # EXISTING: Web UI (HTML/CSS/JS)
-│   ├── index.html                     # Main HTML (preserved, enhanced)
-│   ├── app.js                         # Frontend logic (preserved, enhanced)
-│   ├── styles.css                     # Styles (preserved)
-│   └── api-client.js                  # NEW: API abstraction layer
+├── frontend/                          # EXISTING: Web UI (95% preserved)
+│   ├── index.html                     # Main HTML (preserved)
+│   ├── app.js                         # Frontend logic (minor IPC updates)
+│   └── styles.css                     # Styles (preserved)
 │
-├── tests/                             # EXISTING: Go unit tests
-│   ├── coords_test.go                 # Coordinate tests (preserved)
-│   ├── dependencies_test.go           # Dependency graph tests (preserved)
-│   ├── formula_test.go                # Formula tests (preserved)
-│   ├── model_test.go                  # Model tests (preserved)
-│   ├── normalize_test.go              # Normalization tests (preserved)
-│   └── api_test.go                    # NEW: API interface tests
+├── tests/                             # EXISTING: Go unit tests (100% preserved)
+│   ├── coords_test.go                 # Coordinate tests
+│   ├── dependencies_test.go           # Dependency graph tests
+│   ├── formula_test.go                # Formula tests
+│   ├── model_test.go                  # Model tests
+│   └── normalize_test.go              # Normalization tests
 │
-├── playwright_tests/                  # EXISTING: UI tests (Python)
-│   ├── test_spreadsheet.py            # Main UI tests (preserved)
-│   └── conftest.py                    # Playwright config (preserved)
+├── playwright_tests/                  # EXISTING: UI tests (ported to Electron)
+│   ├── test_spreadsheet.py            # Main UI tests (updated for Electron API)
+│   └── conftest.py                    # Playwright config (updated)
 │
-├── build/                             # NEW: Wails build assets
-│   ├── appicon.png                    # App icon (macOS dock)
-│   ├── darwin/                        # macOS-specific assets
-│   │   └── Info.plist                 # Generated by Wails
+├── build/                             # NEW: Electron build assets
+│   ├── icon.icns                      # App icon (macOS dock)
+│   ├── icon.png                       # App icon (Linux)
 │   └── icons/                         # Custom file icons
 │       └── sheet-icon.icns            # .sheet file icon
-│
-├── server/                            # EXISTING: Will be replaced by cmd/web/
-│   └── main.go                        # Legacy, will migrate to cmd/web/main.go
 │
 ├── specs/                             # EXISTING: Specifications
 │   ├── PRODUCT_BRIEF.md               # Product brief (existing)
 │   ├── TECH_SPEC.md                   # Technical spec (existing)
 │   └── FORMULA_GRAMMAR.md             # Formula grammar (existing)
 │
-├── test.sh                            # EXISTING: Playwright test runner
+├── test.sh                            # EXISTING: Test runner (updated for Electron)
 └── .cursor/                           # Cursor IDE configuration (existing)
 ```
 
 ### Architectural Boundaries
 
-**API Boundaries:**
+**Communication Boundaries:**
 
-1. **Unified API Layer** (Decision 1):
-   - Interface: `api/SpreadsheetAPI` - all spreadsheet operations
-   - Native: `cmd/native/api_wails.go` - Wails IPC binding
-   - Web: `cmd/web/api_http.go` - HTTP REST endpoints
-   - Contract: All methods return `api.Response` with error codes
+1. **HTTP API Layer** (existing, preserved):
+   - Location: `server/main.go` - HTTP REST endpoints
+   - Protocol: HTTP JSON
+   - Used for: All spreadsheet operations (get/set cell, formulas, etc.)
+   - Contract: All endpoints return JSON with `{success, data, error, code}`
 
-2. **File Service Layer** (Decision 2):
-   - Interface: `api/FileService` - file dialog operations
-   - Native: `cmd/native/fileservice_wails.go` - Wails dialogs
-   - Web: `cmd/web/fileservice_http.go` - Browser File API
-   - Contract: Returns file paths (native) or temp paths (web)
+2. **Electron IPC Layer** (new):
+   - Location: `electron/main.js` - IPC handlers
+   - Protocol: Electron IPC (contextBridge)
+   - Used for: File dialogs only (open, save)
+   - Contract: Returns file paths or null (cancelled)
 
-3. **Controller Layer** (existing):
+3. **Controller Layer** (existing, 100% preserved):
    - Location: `controller/AppController`
    - Responsibility: Business logic, validation, orchestration
-   - Called by: Both API implementations
+   - Called by: HTTP handlers
    - Calls: Model layer only
 
-4. **Model Layer** (existing):
+4. **Model Layer** (existing, 100% preserved):
    - Location: `model/` package
    - Responsibility: Data structures, formula evaluation, dependencies
    - Called by: Controller only
@@ -1052,54 +1366,65 @@ Frontend-Backend Communication:
 ```
 Frontend (JavaScript)
     ↓
-API Abstraction (api-client.js)
-    ↓ (mode detection)
-    ├─→ Native: window.wails.Call.* (IPC)
-    └─→ Web: fetch('/api/*') (HTTP)
+    ├─→ Spreadsheet operations: fetch('http://localhost:3000/api/*') (HTTP)
+    └─→ File dialogs: window.electronAPI.openFileDialog() (IPC)
     ↓
-Unified Response {success, data, error, code}
+HTTP Response {success, data, error, code} OR IPC Response (file path)
 ```
 
-Mode-Specific Entry Points:
+Electron Architecture:
 ```
-Native Mode:                    Web Mode:
-cmd/native/main.go              cmd/web/main.go
-├─→ Initialize Wails            ├─→ Initialize HTTP server
-├─→ Set up menu bar             ├─→ Register HTTP handlers
-├─→ Bind WailsAPI to IPC        ├─→ Serve frontend files
-└─→ Run event loop              └─→ Listen on port 8080
+Electron Main Process (electron/main.js)
+├─→ Spawn Go HTTP server (child process)
+├─→ Create BrowserWindow
+├─→ Set up menu bar
+├─→ Register IPC handlers (file dialogs)
+└─→ Handle app lifecycle
+
+Electron Renderer (Chromium)
+├─→ Load frontend from http://localhost:3000
+├─→ HTTP fetch for spreadsheet operations
+└─→ IPC calls for file dialogs
+
+Go HTTP Server (server/main.go)
+├─→ Serve frontend files
+├─→ Handle REST API endpoints
+└─→ Call controller methods
 ```
 
 **Data Boundaries:**
 
 1. **File I/O**: 
-   - Native: Direct file system via Wails → real paths
-   - Web: Browser File API → temp files for tests
-   - Abstraction: `FileService` interface
+   - Electron dialogs: Return real file paths via IPC
+   - Go backend: Reads/writes directly to user-chosen paths
+   - No temp files: Direct file system access
 
 2. **State Management**:
    - Backend: `AppController` holds `Spreadsheet` instance
    - Frontend: Minimal UI state only
-   - Sync: Frontend fetches on every operation
+   - Sync: Frontend fetches on every operation (HTTP)
 
 3. **Dependency Graph**:
    - Location: `model.DependencyGraph` (in-memory)
-   - Thread-safe: `sync.RWMutex`
+   - Thread-safe: `sync.RWMutex` (existing)
    - Not persisted: Rebuilt from formulas on load
 
 ### Integration Points
 
 **Internal Communication:**
 
-Frontend → API Layer:
-- Native: `window.wails.Call.SetCellValue(row, col, value)`
-- Web: `fetch('/api/set-cell', {method: 'POST', ...})`
-- Both return: `{success, data, error, code}`
+Frontend → HTTP API:
+- HTTP: `fetch('http://localhost:3000/api/set-cell', {method: 'POST', ...})`
+- Returns: `{success, data, error, code}`
 
-API Layer → Controller:
-- Both call: `controller.SetCellValue(row, col, value)`
+Frontend → Electron IPC:
+- IPC: `window.electronAPI.openFileDialog()`
+- Returns: file path string or null
+
+HTTP API → Controller:
+- Calls: `controller.SetCellValue(row, col, value)`
 - Controller returns: Go `error` type
-- API converts to: `Response` struct
+- HTTP handler converts to: JSON response
 
 Controller → Model:
 - Calls: `spreadsheet.SetCell(row, col, value)`
@@ -1108,7 +1433,7 @@ Controller → Model:
 
 **External Integrations:**
 - None: 100% offline (NFR-S1)
-- File System: Only native file dialogs (macOS)
+- File System: Electron dialogs + Go file I/O
 - No network, cloud sync, or telemetry
 
 **Data Flow:**
@@ -1117,10 +1442,9 @@ User Action (edit cell)
     ↓
 Frontend (app.js)
     ↓
-API Abstraction (api-client.js)
+HTTP fetch to localhost:3000
     ↓
-    ├─→ Native: IPC → cmd/native/api_wails.go
-    └─→ Web: HTTP → cmd/web/api_http.go
+HTTP Handler (server/main.go)
     ↓
 Controller (controller/app.go)
     ↓
@@ -1131,9 +1455,30 @@ Model (model/spreadsheet.go, cell.go)
     ├─→ Recalculate dependents
     └─→ Set Modified flag
     ↓
-Response {success: true}
+HTTP Response {success: true}
     ↓
 Frontend updates UI
+```
+
+**File Dialog Flow:**
+```
+User Action (click Load button)
+    ↓
+Frontend (app.js)
+    ↓
+IPC call: window.electronAPI.openFileDialog()
+    ↓
+Electron Main (electron/main.js)
+    ↓
+dialog.showOpenDialog()
+    ↓
+Returns file path (or null if cancelled)
+    ↓
+Frontend receives path
+    ↓
+HTTP POST /api/file/load with path
+    ↓
+Go backend loads file
 ```
 
 ### File Organization Patterns
@@ -1163,55 +1508,57 @@ Frontend updates UI
 
 ### Development Workflow Integration
 
-**Development Servers:**
+**Development:**
 
-Native Mode:
+Electron Development Mode:
 ```bash
-wails3 dev
-# Wails app with hot reload
-# Entry: cmd/native/main.go
+npm start
+# Launches Electron app + Go HTTP server
+# Hot reload via electron-reload (optional)
+# Entry: electron/main.js
 ```
 
-Web Mode:
+Go Server Standalone (optional):
 ```bash
-go run ./cmd/web
-# HTTP server on port 8080
-# Entry: cmd/web/main.go
+go run ./server
+# HTTP server on port 3000
+# For testing backend in browser
 ```
 
 Testing:
 ```bash
-go test ./tests/...        # Go unit tests
-./test.sh                  # Playwright tests
+go test ./tests/...        # Go unit tests (unchanged)
+npm test                   # Playwright Electron tests
 ```
 
 **Build Process:**
 
-Native Build:
+Electron Build:
 ```bash
-wails3 build
-# Output: build/bin/spreadsheet.app
+npm run build
+# Uses electron-builder
+# Output: dist/mac/GoSheet.app
 # Universal binary (Intel + Apple Silicon)
 ```
 
-Web Build:
+Go Server Binary:
 ```bash
-go build -o bin/web ./cmd/web
-# For Playwright testing only
+go build -o server/gosheet-server ./server
+# Embedded in Electron package
 ```
 
 **Deployment:**
 
-Native App (production):
-- Distribution: macOS .app via direct download
+Electron App (production):
+- Distribution: macOS .app via direct download (or DMG)
 - Installation: Drag to Applications
-- File associations: Via Info.plist
-- Updates: Manual (Phase 2: auto-update)
+- File associations: Via Info.plist (generated by electron-builder)
+- Updates: Manual (Phase 2: electron-updater)
 - Code signing: Phase 2 (MVP unsigned)
 
-Web Mode (testing only):
-- Not deployed to users
-- CI/CD testing only
+**No Web Mode:**
+- Single-mode architecture (Electron only)
+- Simpler deployment, simpler codebase
 
 
 ---
@@ -1235,69 +1582,70 @@ Web Mode (testing only):
 ### Coherence Validation ✅
 
 **Decision Compatibility:**
-- ✅ Wails v3.0.0-alpha.67 + Go 1.x + Vanilla JS → All compatible
-- ✅ Unified API Layer + Dual-mode build → Architecturally sound
-- ✅ Package-based separation + No build tags → Clean, no conflicts
-- ✅ Structured JSON responses + Error codes → Consistent pattern
+- ✅ Electron 40.4.1 + Go 1.x + Node.js 24 + Vanilla JS → All compatible
+- ✅ Electron + Embedded Go Server → Architecturally sound
+- ✅ Single-mode architecture → Simpler, no build tags needed
+- ✅ HTTP JSON responses + Electron IPC → Clear separation
 
 **Pattern Consistency:**
-- ✅ Response struct format → Supports unified API decision
-- ✅ Package organization → Aligns with dual-mode architecture
-- ✅ Error handling (cell vs operation) → Clear separation
+- ✅ HTTP Response struct format → Existing pattern preserved
+- ✅ Project organization → Electron code separate, Go backend untouched
+- ✅ Error handling (cell vs operation) → Clear separation (existing)
 - ✅ File naming conventions → Matches existing codebase
 
 **Structure Alignment:**
-- ✅ `api/` package → Supports unified API layer
-- ✅ `cmd/native/` and `cmd/web/` → Enables dual-mode builds
-- ✅ Preserved `model/` and `controller/` → Maintains existing architecture
-- ✅ Integration boundaries → Properly defined and documented
+- ✅ `electron/` directory → Contains all Electron-specific code
+- ✅ `server/` directory → Reused as embedded HTTP server
+- ✅ Preserved `model/` and `controller/` → 100% unchanged
+- ✅ Integration boundaries → HTTP for data, IPC for dialogs
 
 ### Requirements Coverage Validation ✅
 
 **Functional Requirements (51 FRs) - All Covered:**
-- ✅ File Management (11 FRs) → FileService interface + native/web implementations
-- ✅ Spreadsheet Core (9 FRs) → Existing model/controller (preserved)
-- ✅ Formula Engine (11 FRs) → Existing formula.go, dependencies.go (preserved)
-- ✅ Data Import/Export (6 FRs) → Controller + FileService
-- ✅ macOS Integration (8 FRs) → cmd/native/main.go + Wails APIs
-- ✅ Application Lifecycle (5 FRs) → Dual entry points + frontend
+- ✅ File Management (11 FRs) → Electron IPC dialogs + Go backend file I/O
+- ✅ Spreadsheet Core (9 FRs) → Existing model/controller (100% preserved)
+- ✅ Formula Engine (11 FRs) → Existing formula.go, dependencies.go (100% preserved)
+- ✅ Data Import/Export (6 FRs) → Controller + Electron dialogs
+- ✅ macOS Integration (8 FRs) → electron/main.js + Electron APIs
+- ✅ Application Lifecycle (5 FRs) → Electron main process + Go server
 
 **Non-Functional Requirements (23 NFRs) - All Covered:**
-- ✅ Performance (7 NFRs) → Wails native app + existing backend
-- ✅ Reliability (7 NFRs) → 74 tests preserved, error handling defined
-- ✅ Usability (5 NFRs) → Wails macOS HIG compliance
-- ✅ Maintainability (5 NFRs) → Dual-mode architecture, shared core
+- ✅ Performance (7 NFRs) → Electron app + existing backend (Chromium engine)
+- ✅ Reliability (7 NFRs) → 74 tests (42 Go + 32 Playwright ported to Electron)
+- ✅ Usability (5 NFRs) → Electron dialogs (non-native but acceptable per user)
+- ✅ Maintainability (5 NFRs) → Single-mode architecture, simpler codebase (-700 lines)
 - ✅ Compatibility (4 NFRs) → macOS 11+, Universal binary, file format preserved
 - ✅ Security (6 NFRs) → 100% local, circular ref detection
 
 ### Implementation Readiness ✅
 
 **Clear Entry Points:**
-- ✅ Native: `cmd/native/main.go` - Wails initialization documented
-- ✅ Web: `cmd/web/main.go` - HTTP server documented
-- ✅ Both call same controller methods - clear pattern
+- ✅ Electron: `electron/main.js` - Main process documented with code examples
+- ✅ Preload: `electron/preload.js` - IPC bridge documented
+- ✅ Go Server: `server/main.go` - Existing HTTP server reused
 
 **Defined Interfaces:**
-- ✅ `SpreadsheetAPI` - All methods defined with Response format
-- ✅ `FileService` - File dialog abstraction defined
-- ✅ `Response` struct - Error codes standardized (CIRCULAR_REF, FILE_NOT_FOUND, etc.)
+- ✅ HTTP API - Existing endpoints preserved (no changes)
+- ✅ Electron IPC - File dialog APIs defined (openFileDialog, saveFileDialog)
+- ✅ `Response` struct - Error codes standardized (existing, preserved)
 
 **Implementation Sequence (7 steps):**
-1. Create unified API interfaces (`api/` package)
-2. Implement web mode API (wrap existing HTTP handlers)
-3. Set up Wails project structure
-4. Implement native mode API
-5. Update frontend for unified API
-6. Implement macOS integration
-7. Test dual-mode functionality
+1. Create Electron main process (`electron/main.js`)
+2. Create Electron preload script (`electron/preload.js`)
+3. Update frontend for Electron IPC (file dialogs only)
+4. Configure electron-builder (`package.json`)
+5. Implement macOS integration (menu bar, keyboard shortcuts)
+6. Port Playwright tests to Electron API
+7. Test Electron app functionality
 
 ### Risk Assessment ✅
 
 **Identified Risks with Mitigation:**
-1. ✅ Wails v3 alpha stability → Pin to alpha.67, monitor releases
-2. ✅ Dual-mode complexity → Implement web first, validate interface
-3. ✅ Test preservation → Run full suite after each change
-4. ✅ Performance targets → Instrument both modes, verify NFRs
+1. ✅ Electron learning curve → Excellent documentation, large community, mature ecosystem
+2. ✅ Go server integration → HTTP server already working, just needs spawn logic
+3. ✅ Test preservation → Run full suite after each change (42 Go + 32 Playwright ported)
+4. ✅ Performance targets → Instrument Electron app, verify NFRs
+5. ✅ Dialog behavior → User explicitly accepted non-native dialogs for testability gains
 
 ### Gap Analysis
 
@@ -1310,20 +1658,22 @@ Web Mode (testing only):
 
 ### Architecture Strengths
 
-1. **Brownfield-aware design** - Preserves existing code and 74 tests
-2. **Dual-mode architecture** - Clean separation, shared core logic
-3. **Clear boundaries** - API, Component, Data boundaries well-defined
-4. **Consistent patterns** - Error codes, package organization, naming conventions
+1. **Brownfield-aware design** - Preserves existing code and 74 tests (100% Go backend, 95% frontend)
+2. **Single-mode architecture** - Simpler than dual-mode (-700 lines of code)
+3. **Clear boundaries** - HTTP for data, IPC for dialogs, well-defined separation
+4. **Consistent patterns** - Error codes, project organization, naming conventions
 5. **Complete mapping** - All 51 FRs + 23 NFRs → specific files/directories
 6. **Risk mitigation** - All major risks identified with strategies
+7. **Testability** - Playwright native Electron support (no pyax hacks)
 
 ### Recommendations for Implementation
 
-1. **Start with Step 1** (Create API interfaces) - Foundation for everything
-2. **Implement web mode first** - Validates interface design, preserves tests
-3. **Generate Wails reference** - Learn from official template: `cd /tmp && wails3 init -n wails-reference -t vanilla`
+1. **Start with Step 1** (Create Electron main process) - Foundation for everything
+2. **Implement IPC for file dialogs** - Small, testable change
+3. **Port Playwright tests incrementally** - Validate each test works with Electron API
 4. **Test continuously** - Run full suite (42 Go + 32 Playwright) after each major change
 5. **Defer minor details** - Welcome screen, file icon can be simple initially
+6. **Reference Electron docs** - Excellent documentation at electronjs.org
 
 ### Architecture Document Status
 
@@ -1348,20 +1698,93 @@ Web Mode (testing only):
 
 ## Summary
 
-This architecture document defines a comprehensive migration strategy for converting the existing Go HTTP + web frontend spreadsheet application to a native macOS app using Wails v3.0.0-alpha.67, while preserving all existing functionality and maintaining a dual-mode architecture for testing.
+This architecture document defines a comprehensive migration strategy for converting the existing Go HTTP + web frontend spreadsheet application to an Electron desktop app with embedded Go server, while preserving all existing functionality and enabling comprehensive automated testing.
 
 **Key Architectural Decisions:**
-1. Unified API Layer - Frontend code identical in both modes
-2. Mode-aware File Service - Native dialogs vs browser File API
-3. Package-based Separation - `cmd/native/` and `cmd/web/`
-4. Wails Built-in APIs - All macOS integration via Wails
-5. Structured JSON Responses - Error codes for reliable testing
+1. Electron + Embedded Go Server - Single-mode architecture, simpler codebase
+2. Electron IPC for File Dialogs - Native-like UX, fully testable
+3. Playwright Native Electron Integration - Official API, no hacks needed
+4. HTTP API Preserved - 100% of Go backend unchanged
+5. Testability First - User explicitly chose Electron for testability gains
 
 **Implementation Approach:**
-- Manual Wails integration (not standard template)
-- Preserve existing codebase structure
-- Maintain all 74 tests (42 Go + 32 Playwright)
-- Incremental migration with web mode first
+- Create Electron main process and preload script
+- Reuse existing Go HTTP server as embedded child process
+- Minimal frontend changes (IPC for file dialogs only)
+- Port all 74 tests (42 Go unit tests + 32 Playwright UI tests)
+- Net result: -700 lines of code vs dual-mode Wails approach
+
+**Migration Context:**
+- Original plan: Wails v3 dual-mode (web for testing, native for users)
+- Critical discovery: pyax cannot test Wails WebView content (HTML/JS invisible)
+- Pivot: Electron + Playwright native integration solves testability completely
+- User approval: Non-native dialogs acceptable for testability gains
 
 **Architecture Quality:** 9.5/10 - EXCELLENT, Ready for Implementation
+
+---
+
+## Future Considerations & Technical Debt
+
+This section captures architectural improvements and technical debt items identified during implementation for future consideration.
+
+### 1. OpenAPI Schema & Code Generation for API Contracts
+
+**Priority:** Medium  
+**Identified:** Epic 3 Retrospective (2026-02-15)  
+**Context:** Epic 3 and Epic 4 both experienced API contract mismatches between frontend and backend, resulting in 100% failure rate on first test.
+
+**Problem:**
+- Frontend and backend developed with incompatible API contract assumptions
+- Multiple rounds of fixes needed to align response formats
+- No single source of truth for API contracts
+- Manual synchronization between frontend expectations and backend responses
+
+**Proposed Solution:**
+- Define API contracts using OpenAPI 3.x specification
+- Auto-generate TypeScript types for frontend from OpenAPI schema
+- Auto-generate Go server stubs/validators from OpenAPI schema
+- Compile-time verification of API contract compliance
+
+**Benefits:**
+- Eliminates API contract mismatches (prevents Epic 3/4 pattern)
+- Single source of truth for API contracts
+- Automatic documentation generation
+- Type safety across frontend/backend boundary
+- Easier to maintain as API evolves
+
+**Effort Estimate:** ~8-16 hours
+- Define OpenAPI schema for existing endpoints (~4 hours)
+- Integrate code generation tooling (~2-4 hours)
+- Update build process (~2 hours)
+- Migrate existing code to use generated types (~4-6 hours)
+
+**When to Implement:**
+- After Epic 5 (testing infrastructure in place)
+- Before adding new API endpoints (Epic 6+)
+- Consider as part of Epic 7 (polish & quality improvements)
+
+**References:**
+- OpenAPI Generator: https://openapi-generator.tech/
+- Go: oapi-codegen, go-swagger
+- TypeScript: openapi-typescript, openapi-generator-cli
+
+**Related Issues:**
+- Epic 3: 6 API contract bugs (Wails import map, endpoint mismatches, response format)
+- Epic 4: 4 API contract bugs (frontend not calling new APIs, API signature mismatches)
+
+---
+
+### 2. Additional Future Considerations
+
+*(Space reserved for future architectural improvements and technical debt items)*
+
+**Potential Areas:**
+- Performance optimization for large spreadsheets (>10K cells)
+- Offline mode / local-first architecture
+- Real-time collaboration (if multi-user support added)
+- Plugin/extension architecture
+- Advanced formula engine optimizations
+
+---
 

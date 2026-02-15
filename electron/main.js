@@ -152,6 +152,52 @@ function setupIpcHandlers() {
     console.log(`[Electron] Save path selected: ${filePath}`);
     return filePath;
   });
+
+  // IPC handler for CSV file dialogs - Import CSV
+  ipcMain.handle('dialog:importCSV', async () => {
+    console.log('[Electron] Import CSV dialog requested');
+    
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import CSV File',
+      filters: [
+        { name: 'CSV Files', extensions: ['csv'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+    
+    if (result.canceled) {
+      console.log('[Electron] Import CSV dialog cancelled');
+      return null;
+    }
+    
+    const filePath = result.filePaths[0];
+    console.log(`[Electron] CSV file selected: ${filePath}`);
+    return filePath;
+  });
+
+  // IPC handler for CSV file dialogs - Export CSV
+  ipcMain.handle('dialog:exportCSV', async (event, defaultName = 'Untitled.csv') => {
+    console.log(`[Electron] Export CSV dialog requested (default: ${defaultName})`);
+    
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export to CSV',
+      defaultPath: defaultName,
+      filters: [
+        { name: 'CSV Files', extensions: ['csv'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    if (result.canceled) {
+      console.log('[Electron] Export CSV dialog cancelled');
+      return null;
+    }
+    
+    const filePath = result.filePath;
+    console.log(`[Electron] CSV export path selected: ${filePath}`);
+    return filePath;
+  });
 }
 
 // App lifecycle management

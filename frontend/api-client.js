@@ -1,20 +1,13 @@
-// GoSheet API Client - Mode-aware (web vs native)
-// Web mode: fetch to unified HTTP API
-// Native mode: Wails generated bindings (ES6 modules)
+// GoSheet API Client - Mode-aware (web vs Electron)
+// Web mode: fetch to HTTP API (for Playwright testing)
+// Electron mode: HTTP API for spreadsheet operations + Electron IPC for file dialogs
 
-// Try to import Wails bindings (only available in native mode)
-let WailsAPI = null;
-let isNativeMode = false;
+// Story 3.5: Detect Electron mode by checking for window.electronAPI
+const isElectronMode = typeof window !== 'undefined' && window.electronAPI !== undefined;
 
-try {
-    // Dynamic import for Wails bindings
-    const module = await import('./gosheet/wailsapi.js');
-    WailsAPI = module;
-    isNativeMode = true;
-    console.log('[api-client] Native mode - using Wails bindings');
-} catch (e) {
-    // Import failed - we're in web mode
-    isNativeMode = false;
+if (isElectronMode) {
+    console.log('[api-client] Electron mode - using HTTP API + Electron IPC for dialogs');
+} else {
     console.log('[api-client] Web mode - using HTTP fetch');
 }
 
@@ -50,52 +43,31 @@ async function fetchUnified(method, path, body = null) {
 // API Functions
 
 const GetCellValue = async (row, col) => {
-    if (isNativeMode) {
-        const r = await WailsAPI.GetCellValue(row, col);
-        return r.data?.computed ?? '';
-    }
-    const json = await fetchUnified('GET', `/api/get-cell?row=${row}&col=${col}`);
+    // Story 3.5: Electron uses HTTP API for spreadsheet operations (same as web mode)
+    const json = await fetchUnified('GET', `/api/cell/value?row=${row}&col=${col}`);
     return json.data?.computed ?? '';
 };
 
 const GetCellRawValue = async (row, col) => {
-    if (isNativeMode) {
-        const r = await WailsAPI.GetCellValue(row, col);
-        return r.data?.value ?? '';
-    }
-    const json = await fetchUnified('GET', `/api/get-cell?row=${row}&col=${col}`);
+    // Story 3.5: Electron uses HTTP API for spreadsheet operations
+    const json = await fetchUnified('GET', `/api/cell/raw?row=${row}&col=${col}`);
     return json.data?.value ?? '';
 };
 
 const SetCellValue = async (row, col, value) => {
-    if (isNativeMode) {
-        const r = await WailsAPI.SetCellValue(row, col, value);
-        return { hasUnsavedChanges: r.data?.hasUnsavedChanges ?? true };
-    }
-    const json = await fetchUnified('POST', '/api/set-cell', { row, col, value });
+    // Story 3.5: Electron uses HTTP API for spreadsheet operations
+    const json = await fetchUnified('POST', '/api/cell/set', { row, col, value });
     return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
 };
 
 const GetCellRef = async (row, col) => {
-    if (isNativeMode) {
-        const r = await WailsAPI.GetCellRef(row, col);
-        return r.data?.ref ?? colToLetter(col) + (row + 1);
-    }
-    // Web mode doesn't have GetCellRef endpoint, compute locally
+    // Story 3.5: Compute cell reference locally (no API call needed)
     return colToLetter(col) + (row + 1);
 };
 
 const GetAllCells = async () => {
-    if (isNativeMode) {
-        const r = await WailsAPI.GetAllCells();
-        const cells = {};
-        (r.data || []).forEach(c => {
-            const ref = colToLetter(c.col) + (c.row + 1);
-            cells[ref] = c.computed ?? c.value ?? '';
-        });
-        return cells;
-    }
-    const json = await fetchUnified('GET', '/api/cells');
+    // Story 3.5: Electron uses HTTP API for spreadsheet operations
+    const json = await fetchUnified('GET', '/api/cells/all');
     const cells = {};
     (json.data || []).forEach(c => {
         const ref = colToLetter(c.col) + (c.row + 1);
@@ -105,48 +77,114 @@ const GetAllCells = async () => {
 };
 
 const GetFileStatus = async () => {
-    if (isNativeMode) {
-        const r = await WailsAPI.GetFileStatus();
-        return r.data || { path: '', saved: true, modified: false, filename: 'Untitled' };
-    }
-    const json = await fetchUnified('GET', '/api/status');
+    // Story 3.5: Electron uses HTTP API for spreadsheet operations
+    const json = await fetchUnified('GET', '/api/file/status');
     return json.data || { path: '', saved: true, modified: false, filename: 'Untitled' };
 };
 
 const NewFile = async () => {
-    if (isNativeMode) {
-        await WailsAPI.NewSpreadsheet();
-        return;
-    }
-    await fetchUnified('POST', '/api/new');
+    // Story 3.5: Electron uses HTTP API for spreadsheet operations
+    await fetchUnified('POST', '/api/file/new');
 };
 
 const SaveFile = async (path) => {
-    if (isNativeMode) {
-        await WailsAPI.SaveFile(path);
-        return;
+    // Story 3.5: Use Electron IPC for file dialog, HTTP API for save operation
+    if (isElectronMode && !path) {
+        // Show Electron save dialog
+        const status = await GetFileStatus();
+        const defaultName = status.filename || 'Untitled.sheet';
+        path = await window.electronAPI.saveFileDialog(defaultName);
+        
+        if (!path) {
+            // User cancelled dialog
+            console.log('[api-client] Save cancelled by user');
+            return;
+        }
     }
-    await fetchUnified('POST', '/api/save', { path });
+    
+    // Save via HTTP API
+    await fetchUnified('POST', '/api/file/save', { path });
 };
 
 const LoadFile = async (path) => {
-    if (isNativeMode) {
-        // In native mode, use OpenFile() which shows the dialog
-        await WailsAPI.OpenFile();
-        return;
+    // Story 3.5: Use Electron IPC for file dialog, HTTP API for load operation
+    if (isElectronMode && !path) {
+        // Show Electron open dialog
+        path = await window.electronAPI.openFileDialog();
+        
+        if (!path) {
+            // User cancelled dialog
+            console.log('[api-client] Load cancelled by user');
+            return;
+        }
     }
-    // In web mode, path is required (for Playwright tests)
-    await fetchUnified('POST', '/api/load', { path });
+    
+    // Load via HTTP API
+    await fetchUnified('POST', '/api/file/load', { path });
 };
 
 const SaveAs = async () => {
-    if (isNativeMode) {
-        await WailsAPI.SaveAs();
-        return;
+    // Story 3.5: SaveAs is just SaveFile with empty path (forces dialog)
+    await SaveFile('');
+};
+
+const PreviewCSV = async (path) => {
+    // Story 6.1: Use Electron IPC for file dialog, HTTP API for CSV preview
+    if (isElectronMode && !path) {
+        // Show Electron import CSV dialog
+        path = await window.electronAPI.importCSVDialog();
+        
+        if (!path) {
+            // User cancelled dialog
+            console.log('[api-client] Import CSV cancelled by user');
+            return null;
+        }
     }
-    // Web mode doesn't have SaveAs (uses Save with different path)
-    throw new Error('SaveAs not available in web mode');
+    
+    // Get CSV preview via HTTP API
+    const json = await fetchUnified('POST', '/api/csv/preview', { path });
+    return {
+        path,
+        rows: json.rows,
+        cols: json.cols,
+        preview: json.preview
+    };
+};
+
+const ImportCSV = async (path) => {
+    // Story 6.2: Import CSV data into spreadsheet
+    const json = await fetchUnified('POST', '/api/csv/import', { path });
+    return {
+        rows: json.rows,
+        cols: json.cols,
+        message: json.message
+    };
+};
+
+const ExportCSV = async (path) => {
+    // Story 6.3: Export spreadsheet to CSV
+    if (isElectronMode && !path) {
+        // Show Electron save dialog
+        const status = await GetFileStatus();
+        const defaultName = status.filename ? status.filename.replace(/\.sheet$/, '.csv') : 'Untitled.csv';
+        path = await window.electronAPI.exportCSVDialog(defaultName);
+        
+        if (!path) {
+            // User cancelled dialog
+            console.log('[api-client] Export CSV cancelled by user');
+            return null;
+        }
+    }
+    
+    // Export via HTTP API
+    const json = await fetchUnified('POST', '/api/csv/export', { path });
+    return {
+        path,
+        rows: json.rows,
+        cols: json.cols,
+        message: json.message
+    };
 };
 
 // Export for app.js (now a module)
-export { GetCellValue, GetCellRawValue, SetCellValue, GetCellRef, GetAllCells, GetFileStatus, NewFile, SaveFile, SaveAs, LoadFile };
+export { GetCellValue, GetCellRawValue, SetCellValue, GetCellRef, GetAllCells, GetFileStatus, NewFile, SaveFile, SaveAs, LoadFile, PreviewCSV, ImportCSV, ExportCSV };

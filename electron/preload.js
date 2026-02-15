@@ -17,6 +17,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFileDialog: (defaultName) => {
     console.log(`[Preload] saveFileDialog called (default: ${defaultName})`);
     return ipcRenderer.invoke('dialog:saveFile', defaultName);
+  },
+  
+  // Story 6.1: Import CSV dialog
+  importCSVDialog: () => {
+    console.log('[Preload] importCSVDialog called');
+    return ipcRenderer.invoke('dialog:importCSV');
+  },
+  
+  // Story 6.3: Export CSV dialog
+  exportCSVDialog: (defaultName) => {
+    console.log(`[Preload] exportCSVDialog called (default: ${defaultName})`);
+    return ipcRenderer.invoke('dialog:exportCSV', defaultName);
   }
 });
 
