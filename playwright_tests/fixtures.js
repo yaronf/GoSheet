@@ -15,11 +15,17 @@ exports.test = base.test.extend({
     // Launch Electron app
     const electronApp = await playwright._electron.launch({
       executablePath: electronPath,
-      args: [path.join(__dirname, '..', 'electron', 'main.js')],
+      args: [
+        path.join(__dirname, '..', 'electron', 'main.js'),
+        '--no-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+      ],
       // Set environment variable to indicate we're in test mode
       env: {
         ...process.env,
         NODE_ENV: 'test',
+        ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
       },
       timeout: 30000,
     });
