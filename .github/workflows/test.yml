@@ -27,6 +27,24 @@ jobs:
     - name: Install Go dependencies
       run: go mod download
     
+    - name: Install system dependencies for Electron
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libnss3 \
+          libatk1.0-0 \
+          libatk-bridge2.0-0 \
+          libcups2 \
+          libdrm2 \
+          libxkbcommon0 \
+          libxcomposite1 \
+          libxdamage1 \
+          libxfixes3 \
+          libxrandr2 \
+          libgbm1 \
+          libasound2 \
+          xvfb
+    
     - name: Install Node dependencies
       run: npm ci
     
@@ -46,6 +64,7 @@ jobs:
       run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npm test
       env:
         NODE_ENV: test
+        DEBUG: pw:api
     
     - name: Upload test results
       if: always()
