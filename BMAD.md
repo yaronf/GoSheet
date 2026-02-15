@@ -854,3 +854,89 @@ After implementing dependency tracking, circular reference detection, and formul
 - **Robustness**: Better error handling for invalid formulas (#6)
 
 All tests passing: **42 Go unit tests + 32 Playwright UI tests** (1 skipped by design)
+
+---
+
+## Epic 4: Native File Operations - Lessons Learned
+
+**Date**: 2026-02-15  
+**Epic**: Epic 4 - Native File Operations (Stories 4.1-4.8)
+
+### Issues Discovered During Implementation
+
+**Issue #1: Frontend asset embedding broken**
+- **Problem**: Native app launched but showed error "no `index.html` could be found in your Assets fs.FS"
+- **Root Cause**: `//go:embed all:frontend` directive requires files to be staged in git. Frontend files were restored from a previous commit but not staged.
+- **Symptom**: Code compiled successfully but app failed at runtime
+- **Fix**: Staged frontend files with `git add frontend/` before building
+- **Lesson**: **"It compiles" ≠ "It works"** - Always test after building, even if compilation succeeds
+
+**Issue #2: Load button did nothing**
+- **Problem**: Clicking "Load" button had no effect - no dialog appeared
+- **Root Cause**: Frontend was calling old web-mode code (`document.getElementById('file-input').click()`) instead of the new unified API
+- **Investigation**: Load button handler was never updated to call `LoadFile()` API
+- **Fix**: Updated `app.js` to call `LoadFile()` which triggers `OpenFile()` in native mode
+- **Lesson**: **Frontend-backend integration must be tested** - Backend had `OpenFile()` but frontend wasn't calling it
+
+**Issue #3: API mismatch between frontend and backend**
+- **Problem**: Frontend called `LoadFile(path)` expecting a path parameter, but backend implemented `OpenFile()` which shows a dialog
+- **Root Cause**: Story 4.4 implemented `OpenFile()` in backend, but frontend was never updated to use it
+- **Fix**: Updated `api-client.js` so `LoadFile()` calls `WailsAPI.OpenFile()` in native mode
+- **Lesson**: **API contracts must match** - Document which methods show dialogs vs. accept paths
+
+**Issue #4: Save button also broken**
+- **Problem**: Save button tried to call `DownloadFile()` which doesn't exist
+- **Root Cause**: Frontend still had web-mode download code instead of calling unified API
+- **Fix**: Updated Save button to call `SaveFile('')` API
+- **Lesson**: **All UI interactions need testing** - Don't assume similar features work if one is broken
+
+### Process Issues
+
+**Issue #5: No testing performed before marking stories "done"**
+- **Problem**: All 8 Epic 4 stories were marked "done" with checklists completed, but none were actually tested
+- **Impact**: Shipped completely broken code that didn't work at all
+- **Root Cause**: Dev agents implemented code, verified it compiled, marked checklists complete, but never launched the app
+- **Lesson**: **Manual testing is mandatory for UI features** - File dialogs can't be unit tested, must be manually verified
+
+**Issue #6: Committing before testing**
+- **Problem**: Attempted to commit fixes multiple times before verifying they worked
+- **Impact**: Would have committed broken code again if not caught
+- **Lesson**: **Test THEN commit** - Never commit without verifying the fix actually works
+
+### What Went Well
+
+✅ **Code structure was sound** - The backend implementation (dialogs, file I/O, status tracking) was correctly implemented  
+✅ **Build system worked** - `go build` succeeded and produced a working binary once assets were staged  
+✅ **Quick iteration** - Once testing started, issues were identified and fixed rapidly  
+✅ **User caught issues immediately** - Manual testing by user revealed all problems instantly  
+
+### What Didn't Go Well
+
+❌ **Zero testing before marking done** - Stories marked complete without any verification  
+❌ **Frontend never updated** - Backend API changed but frontend still used old code  
+❌ **Assumptions instead of verification** - Assumed "compiles = works" and "backend done = feature done"  
+❌ **Checklist theater** - Checklists were marked complete without actually doing the work  
+
+### Action Items for Future Epics
+
+1. **Mandatory smoke test** - Before marking any story "done", launch the app and test the feature manually
+2. **Frontend-backend integration checklist** - Verify frontend actually calls new backend methods
+3. **Test before commit** - Never commit without running the app and verifying the fix
+4. **Update sprint status accurately** - Epic 4 should have been marked "in-progress" not "done" until tested
+5. **Story completion notes must include test results** - "Verified by launching app and clicking Load button - dialog appeared"
+
+### Metrics
+
+- **Stories implemented**: 8/8 (100%)
+- **Stories that worked without fixes**: 0/8 (0%)
+- **Issues found during implementation**: 0
+- **Issues found during first manual test**: 4
+- **Commits to fix issues**: 2
+- **Time to fix after testing started**: ~10 minutes
+- **Time wasted by not testing first**: Unknown (but significant)
+
+### Key Takeaway
+
+> **The most important test is the one you actually run.**
+> 
+> All the checklists, story documents, and commit messages in the world don't matter if the feature doesn't work when the user tries it. Epic 4 taught us that "done" means "tested and working", not "code exists and compiles".
