@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"encoding/gob"
 	"fmt"
 	"os"
@@ -92,4 +93,51 @@ func (s *Spreadsheet) SaveAs(filepath string) error {
 // HasUnsavedChanges returns true if the spreadsheet has been modified since last save
 func (s *Spreadsheet) HasUnsavedChanges() bool {
 	return s.Modified
+}
+
+// LoadFromBytes loads a spreadsheet from gob-encoded bytes.
+// Used when reading via FileService.ReadFile (e.g., native Open dialog flow).
+func LoadFromBytes(data []byte, filepath string) (*Spreadsheet, error) {
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+
+	var header FileHeader
+	if err := decoder.Decode(&header); err != nil {
+		return nil, fmt.Errorf("failed to decode header: %w", err)
+	}
+
+	if header.Version != "1.0" {
+		return nil, fmt.Errorf("unsupported file version: %s", header.Version)
+	}
+
+	var cells map[int]map[int]*Cell
+	if err := decoder.Decode(&cells); err != nil {
+		return nil, fmt.Errorf("failed to decode cells: %w", err)
+	}
+
+	return &Spreadsheet{
+		Cells:        cells,
+		Modified:     false,
+		FilePath:     filepath,
+		Dependencies: NewDependencyGraph(),
+	}, nil
+}
+
+// SaveToBytes serializes the spreadsheet to gob-encoded bytes.
+// Used when writing via FileService.WriteFile (e.g., native Save dialog flow).
+func (s *Spreadsheet) SaveToBytes() ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+
+	header := FileHeader{
+		Version:   "1.0",
+		CellCount: s.GetCellCount(),
+	}
+	if err := encoder.Encode(header); err != nil {
+		return nil, fmt.Errorf("failed to encode header: %w", err)
+	}
+	if err := encoder.Encode(s.Cells); err != nil {
+		return nil, fmt.Errorf("failed to encode cells: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }

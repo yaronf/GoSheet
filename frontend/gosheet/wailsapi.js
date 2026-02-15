@@ -96,6 +96,16 @@ export function GetFileStatus() {
 }
 
 /**
+ * HasUnsavedChanges returns true if there are unsaved changes.
+ * @returns {$CancellablePromise<api$0.Response>}
+ */
+export function HasUnsavedChanges() {
+    return $Call.ByID(388144661).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
+}
+
+/**
  * ImportCSV imports data from a CSV file. Stub for Epic 5.
  * @param {string} path
  * @returns {$CancellablePromise<api$0.Response>}
@@ -107,7 +117,7 @@ export function ImportCSV(path) {
 }
 
 /**
- * LoadFile loads a .sheet file from disk.
+ * LoadFile loads a .sheet file from disk (path provided by caller).
  * @param {string} path
  * @returns {$CancellablePromise<api$0.Response>}
  */
@@ -119,6 +129,8 @@ export function LoadFile(path) {
 
 /**
  * NewSpreadsheet creates a new empty spreadsheet.
+ * Clears all cells, resets file status to "Untitled - Unsaved", clears file path, sets modified=false.
+ * If there are unsaved changes, shows Save/Don't Save/Cancel dialog first.
  * @returns {$CancellablePromise<api$0.Response>}
  */
 export function NewSpreadsheet() {
@@ -128,7 +140,30 @@ export function NewSpreadsheet() {
 }
 
 /**
+ * OpenFile shows native Open dialog, reads file via FileService, loads spreadsheet.
+ * Returns early with success if user cancels dialog.
+ * If there are unsaved changes, shows Save/Don't Save/Cancel dialog first.
+ * @returns {$CancellablePromise<api$0.Response>}
+ */
+export function OpenFile() {
+    return $Call.ByID(1147815984).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
+}
+
+/**
+ * SaveAs shows Save dialog and saves to the chosen path.
+ * @returns {$CancellablePromise<api$0.Response>}
+ */
+export function SaveAs() {
+    return $Call.ByID(3517471551).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
+}
+
+/**
  * SaveFile saves the spreadsheet to disk.
+ * When path is empty: uses current file path or shows Save dialog if none.
  * @param {string} path
  * @returns {$CancellablePromise<api$0.Response>}
  */

@@ -69,15 +69,15 @@ development_status:
   epic-3-retrospective: optional
   
   # Epic 4: Native File Operations
-  epic-4: backlog
-  4-1-implement-native-file-dialogs: backlog
-  4-2-implement-direct-file-io: backlog
-  4-3-implement-new-spreadsheet: backlog
-  4-4-implement-open-file: backlog
-  4-5-implement-save-file: backlog
-  4-6-implement-save-as: backlog
-  4-7-implement-file-status-tracking: backlog
-  4-8-implement-unsaved-changes-warnings: backlog
+  epic-4: in-progress
+  4-1-implement-native-file-dialogs: done
+  4-2-implement-direct-file-io: done
+  4-3-implement-new-spreadsheet: done
+  4-4-implement-open-file: done
+  4-5-implement-save-file: done
+  4-6-implement-save-as: done
+  4-7-implement-file-status-tracking: done
+  4-8-implement-unsaved-changes-warnings: done
   epic-4-retrospective: optional
   
   # Epic 5: CSV Import/Export

@@ -194,12 +194,23 @@ func (c *AppController) LoadFile(path string) error {
 	if err != nil {
 		return err
 	}
+	return c.loadSheet(sheet)
+}
+
+// LoadFromBytes loads a spreadsheet from gob-encoded bytes (e.g., from FileService.ReadFile).
+func (c *AppController) LoadFromBytes(data []byte, path string) error {
+	log.Printf("Loading spreadsheet from bytes, path: %s", path)
+	sheet, err := model.LoadFromBytes(data, path)
+	if err != nil {
+		return err
+	}
+	return c.loadSheet(sheet)
+}
+
+// loadSheet sets the sheet and rebuilds dependency graph and recalculates formulas.
+func (c *AppController) loadSheet(sheet *model.Spreadsheet) error {
 	c.Sheet = sheet
-	
-	// Rebuild dependency graph from formulas
 	c.rebuildDependencyGraph()
-	
-	// Recalculate all formulas after loading
 	c.recalculateAllFormulas()
 	return nil
 }

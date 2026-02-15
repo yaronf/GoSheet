@@ -28,9 +28,6 @@ func main() {
 	ctrl.Sheet.Modified = false
 	log.Println("Sample data loaded")
 
-	// Create WailsAPI service
-	wailsAPI := NewWailsAPI(ctrl)
-
 	// Sub fs to serve from frontend/ without the "frontend" prefix in URLs
 	frontendFS, err := fs.Sub(frontendAssets, "frontend")
 	if err != nil {
@@ -40,9 +37,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "GoSheet",
 		Description: "Native spreadsheet application",
-		Services: []application.Service{
-			application.NewService(wailsAPI),
-		},
+		Services:    []application.Service{},
 		Assets: application.AssetOptions{
 			Handler: application.BundledAssetFileServer(frontendFS),
 		},
@@ -50,6 +45,11 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
+
+	fileSvc := NewWailsFileService(app)
+	wailsAPI := NewWailsAPI(ctrl, fileSvc, app)
+	app.RegisterService(application.NewService(fileSvc))
+	app.RegisterService(application.NewService(wailsAPI))
 
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:         "GoSheet",

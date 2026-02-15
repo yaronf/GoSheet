@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"gosheet/api"
 	"gosheet/controller"
 	"gosheet/model"
@@ -16,12 +17,14 @@ import (
 // WailsAPI wraps controller.AppController and implements api.SpreadsheetAPI.
 // Exposed to frontend via Wails service binding - methods callable via window.wails.Call.
 type WailsAPI struct {
-	ctrl *controller.AppController
+	ctrl    *controller.AppController
+	fileSvc api.FileService
+	app     *application.App
 }
 
-// NewWailsAPI creates a WailsAPI that wraps the given controller.
-func NewWailsAPI(ctrl *controller.AppController) *WailsAPI {
-	return &WailsAPI{ctrl: ctrl}
+// NewWailsAPI creates a WailsAPI that wraps the given controller, file service, and app.
+func NewWailsAPI(ctrl *controller.AppController, fileSvc api.FileService, app *application.App) *WailsAPI {
+	return &WailsAPI{ctrl: ctrl, fileSvc: fileSvc, app: app}
 }
 
 // Compile-time check that WailsAPI implements api.SpreadsheetAPI
@@ -95,12 +98,27 @@ func (w *WailsAPI) GetCellRef(row, col int) api.Response {
 }
 
 // NewSpreadsheet creates a new empty spreadsheet.
+// Clears all cells, resets file status to "Untitled - Unsaved", clears file path, sets modified=false.
+// If there are unsaved changes, shows Save/Don't Save/Cancel dialog first.
 func (w *WailsAPI) NewSpreadsheet() api.Response {
+	if w.ctrl.HasUnsavedChanges() {
+		choice := w.showUnsavedChangesDialog("Create new spreadsheet")
+		switch choice {
+		case "cancel":
+			return api.NewSuccessResponse(map[string]interface{}{"cancelled": true})
+		case "save":
+			if resp := w.SaveFile(""); !resp.Success {
+				return resp
+			}
+		case "dontsave":
+			// proceed
+		}
+	}
 	w.ctrl.NewFile()
 	return api.NewSuccessResponse(nil)
 }
 
-// LoadFile loads a .sheet file from disk.
+// LoadFile loads a .sheet file from disk (path provided by caller).
 func (w *WailsAPI) LoadFile(path string) api.Response {
 	err := w.ctrl.LoadFile(path)
 	if err != nil {
@@ -117,13 +135,94 @@ func (w *WailsAPI) LoadFile(path string) api.Response {
 	})
 }
 
+// OpenFile shows native Open dialog, reads file via FileService, loads spreadsheet.
+// Returns early with success if user cancels dialog.
+// If there are unsaved changes, shows Save/Don't Save/Cancel dialog first.
+func (w *WailsAPI) OpenFile() api.Response {
+	if w.ctrl.HasUnsavedChanges() {
+		choice := w.showUnsavedChangesDialog("Open file")
+		switch choice {
+		case "cancel":
+			return api.NewSuccessResponse(map[string]interface{}{"cancelled": true})
+		case "save":
+			if resp := w.SaveFile(""); !resp.Success {
+				return resp
+			}
+		case "dontsave":
+			// proceed
+		}
+	}
+
+	path, err := w.fileSvc.OpenFileDialog([]string{".sheet"})
+	if err != nil {
+		return api.NewErrorResponse(err.Error(), api.FILE_READ_ERROR)
+	}
+	if path == "" {
+		return api.NewSuccessResponse(nil) // User cancelled
+	}
+
+	data, err := w.fileSvc.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return api.NewErrorResponse(err.Error(), api.FILE_NOT_FOUND)
+		}
+		return api.NewErrorResponse(err.Error(), api.FILE_READ_ERROR)
+	}
+
+	err = w.ctrl.LoadFromBytes(data, path)
+	if err != nil {
+		return api.NewErrorResponse(err.Error(), api.PARSE_ERROR)
+	}
+
+	return api.NewSuccessResponse(map[string]interface{}{
+		"cellCount": w.ctrl.Sheet.GetCellCount(),
+	})
+}
+
 // SaveFile saves the spreadsheet to disk.
+// When path is empty: uses current file path or shows Save dialog if none.
 func (w *WailsAPI) SaveFile(path string) api.Response {
-	err := w.ctrl.SaveFile(path)
+	if path == "" {
+		path = w.ctrl.GetFilePath()
+		if path == "" {
+			var err error
+			path, err = w.fileSvc.SaveFileDialog("Untitled.sheet")
+			if err != nil {
+				return api.NewErrorResponse(err.Error(), api.FILE_WRITE_ERROR)
+			}
+			if path == "" {
+				return api.NewSuccessResponse(nil) // User cancelled
+			}
+		}
+	}
+
+	data, err := w.ctrl.Sheet.SaveToBytes()
 	if err != nil {
 		return api.NewErrorResponse(err.Error(), api.FILE_WRITE_ERROR)
 	}
+	if err := w.fileSvc.WriteFile(path, data); err != nil {
+		return api.NewErrorResponse(err.Error(), api.FILE_WRITE_ERROR)
+	}
+
+	w.ctrl.Sheet.FilePath = path
+	w.ctrl.Sheet.Modified = false
 	return api.NewSuccessResponse(nil)
+}
+
+// SaveAs shows Save dialog and saves to the chosen path.
+func (w *WailsAPI) SaveAs() api.Response {
+	defaultName := "Untitled.sheet"
+	if p := w.ctrl.GetFilePath(); p != "" {
+		defaultName = filepath.Base(p)
+	}
+	path, err := w.fileSvc.SaveFileDialog(defaultName)
+	if err != nil {
+		return api.NewErrorResponse(err.Error(), api.FILE_WRITE_ERROR)
+	}
+	if path == "" {
+		return api.NewSuccessResponse(nil) // User cancelled
+	}
+	return w.SaveFile(path)
 }
 
 // GetFileStatus retrieves the current file status.
@@ -131,15 +230,51 @@ func (w *WailsAPI) GetFileStatus() api.Response {
 	path := w.ctrl.GetFilePath()
 	modified := w.ctrl.HasUnsavedChanges()
 	filename := ""
+	status := "Untitled - Unsaved"
 	if path != "" {
 		filename = filepath.Base(path)
+		if modified {
+			status = filename + " - Unsaved*"
+		} else {
+			status = "Saved: " + path
+		}
+	} else if modified {
+		status = "Untitled - Unsaved*"
 	}
 	return api.NewSuccessResponse(map[string]interface{}{
-		"path":     path,
-		"saved":    !modified,
-		"modified": modified,
-		"filename": filename,
+		"path":              path,
+		"saved":             !modified,
+		"modified":          modified,
+		"filename":          filename,
+		"status":            status,
+		"hasUnsavedChanges": modified,
 	})
+}
+
+// HasUnsavedChanges returns true if there are unsaved changes.
+func (w *WailsAPI) HasUnsavedChanges() api.Response {
+	return api.NewSuccessResponse(map[string]interface{}{
+		"hasUnsavedChanges": w.ctrl.HasUnsavedChanges(),
+	})
+}
+
+// showUnsavedChangesDialog shows Save/Don't Save/Cancel dialog. Returns "save", "dontsave", or "cancel".
+func (w *WailsAPI) showUnsavedChangesDialog(action string) string {
+	result := make(chan string, 1)
+	d := w.app.Dialog.Question().
+		SetTitle("Unsaved Changes").
+		SetMessage("You have unsaved changes. Save before " + action + "?")
+
+	saveBtn := d.AddButton("Save")
+	saveBtn.OnClick(func() { result <- "save" })
+	dontSaveBtn := d.AddButton("Don't Save")
+	dontSaveBtn.OnClick(func() { result <- "dontsave" })
+	cancelBtn := d.AddButton("Cancel")
+	cancelBtn.SetAsCancel()
+	cancelBtn.OnClick(func() { result <- "cancel" })
+
+	go d.Show()
+	return <-result
 }
 
 // GetAllCells retrieves all non-empty cells for rendering.
