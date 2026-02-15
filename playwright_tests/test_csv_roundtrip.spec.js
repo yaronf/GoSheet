@@ -1,29 +1,11 @@
 // Story 6.4: CSV Round-Trip Verification Tests
 // Tests CSV import → export → import to verify data integrity
 
-const { test, expect } = require('@playwright/test');
-const { _electron: electron } = require('playwright');
+const { test, expect } = require('./fixtures');
 const { stubDialog } = require('electron-playwright-helpers');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-
-let electronApp;
-let window;
-
-test.beforeAll(async () => {
-  electronApp = await electron.launch({
-    args: ['.'],
-    env: { ...process.env, NODE_ENV: 'test' }
-  });
-  window = await electronApp.firstWindow();
-  await window.waitForLoadState('domcontentloaded');
-  await window.waitForTimeout(1000);
-});
-
-test.afterAll(async () => {
-  await electronApp.close();
-});
 
 // Helper to clear spreadsheet and ensure no modals are open
 async function clearSpreadsheet(window) {
@@ -40,7 +22,7 @@ async function clearSpreadsheet(window) {
 }
 
 test.describe('CSV Round-Trip Verification', () => {
-  test('Simple data round-trip preserves values', async () => {
+  test('Simple data round-trip preserves values', async ({ window, electronApp }) => {
     // Create test CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const importPath = path.join(testDir, 'import.csv');
@@ -98,7 +80,7 @@ test.describe('CSV Round-Trip Verification', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Formula round-trip exports computed values', async () => {
+  test('Formula round-trip exports computed values', async ({ window, electronApp }) => {
     // Clear spreadsheet
     await clearSpreadsheet(window);
 
@@ -159,7 +141,7 @@ test.describe('CSV Round-Trip Verification', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Special characters round-trip (commas, quotes)', async () => {
+  test('Special characters round-trip (commas, quotes)', async ({ window, electronApp }) => {
     // Clear spreadsheet
     await clearSpreadsheet(window);
 
@@ -206,7 +188,7 @@ test.describe('CSV Round-Trip Verification', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Large dataset round-trip (100 rows)', async () => {
+  test('Large dataset round-trip (100 rows)', async ({ window, electronApp }) => {
     // Clear spreadsheet first
     await clearSpreadsheet(window);
     
@@ -267,7 +249,7 @@ test.describe('CSV Round-Trip Verification', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Empty cells preserved in round-trip', async () => {
+  test('Empty cells preserved in round-trip', async ({ window, electronApp }) => {
     // Clear spreadsheet
     await clearSpreadsheet(window);
 

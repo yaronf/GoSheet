@@ -1,38 +1,20 @@
 // Story 6.1: CSV Import Dialog Tests
 // Tests CSV file selection, preview display, and user interaction
 
-const { test, expect } = require('@playwright/test');
-const { _electron: electron } = require('playwright');
+const { test, expect } = require('./fixtures');
 const { stubDialog } = require('electron-playwright-helpers');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-let electronApp;
-let window;
-
-test.beforeAll(async () => {
-  electronApp = await electron.launch({
-    args: ['.'],
-    env: { ...process.env, NODE_ENV: 'test' }
-  });
-  window = await electronApp.firstWindow();
-  await window.waitForLoadState('domcontentloaded');
-  await window.waitForTimeout(1000);
-});
-
-test.afterAll(async () => {
-  await electronApp.close();
-});
-
 test.describe('CSV Import Dialog', () => {
-  test('Import CSV button exists', async () => {
+  test('Import CSV button exists', async ({ window }) => {
     const importBtn = window.locator('#import-csv-btn');
     await expect(importBtn).toBeVisible();
     await expect(importBtn).toHaveText('Import CSV');
   });
 
-  test('CSV preview modal opens and displays file info', async () => {
+  test('CSV preview modal opens and displays file info', async ({ window, electronApp }) => {
     // Create test CSV file
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'test.csv');
@@ -85,7 +67,7 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('CSV preview handles large files (shows first 10 rows)', async () => {
+  test('CSV preview handles large files (shows first 10 rows)', async ({ window, electronApp }) => {
     // Create test CSV with 20 rows
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'large.csv');
@@ -123,7 +105,7 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('CSV preview Cancel button closes modal', async () => {
+  test('CSV preview Cancel button closes modal', async ({ window, electronApp }) => {
     // Create test CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'test.csv');
@@ -146,7 +128,7 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('CSV import loads data into spreadsheet', async () => {
+  test('CSV import loads data into spreadsheet', async ({ window, electronApp }) => {
     // Create test CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'test.csv');
@@ -189,7 +171,7 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('CSV import warns on unsaved changes', async () => {
+  test('CSV import warns on unsaved changes', async ({ window, electronApp }) => {
     // First, create some data
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('Test');
@@ -236,7 +218,7 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('CSV import clears existing data', async () => {
+  test('CSV import clears existing data', async ({ window, electronApp }) => {
     // First, create some data
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('Old Data');
@@ -278,7 +260,7 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Cancelled file dialog does not show preview', async () => {
+  test('Cancelled file dialog does not show preview', async ({ window, electronApp }) => {
     // Stub the file dialog to return cancelled
     await stubDialog(electronApp, 'showOpenDialog', { canceled: true });
 
@@ -293,7 +275,7 @@ test.describe('CSV Import Dialog', () => {
     await expect(modal).not.toBeVisible();
   });
 
-  test('Invalid CSV file shows error', async () => {
+  test('Invalid CSV file shows error', async ({ window, electronApp }) => {
     // Create CSV with unclosed quote (parse error)
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'invalid.csv');
@@ -320,7 +302,7 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Empty CSV file shows error', async () => {
+  test('Empty CSV file shows error', async ({ window, electronApp }) => {
     // Create empty CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'empty.csv');
@@ -348,13 +330,13 @@ test.describe('CSV Import Dialog', () => {
 });
 
 test.describe('CSV Export', () => {
-  test('Export CSV button exists', async () => {
+  test('Export CSV button exists', async ({ window }) => {
     const exportBtn = window.locator('#export-csv-btn');
     await expect(exportBtn).toBeVisible();
     await expect(exportBtn).toHaveText('Export CSV');
   });
 
-  test('Export CSV creates file with data', async () => {
+  test('Export CSV creates file with data', async ({ window, electronApp }) => {
     // Create some data
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('Name');
@@ -404,7 +386,7 @@ test.describe('CSV Export', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Export CSV with formulas exports computed values', async () => {
+  test('Export CSV with formulas exports computed values', async ({ window, electronApp }) => {
     // Create data with formula
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('10');
@@ -444,7 +426,7 @@ test.describe('CSV Export', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Export empty spreadsheet creates empty file', async () => {
+  test('Export empty spreadsheet creates empty file', async ({ window, electronApp }) => {
     // Clear any existing data - New button might show unsaved changes modal
     await window.locator('#new-btn').click();
     
@@ -478,7 +460,7 @@ test.describe('CSV Export', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Export CSV cancelled does not create file', async () => {
+  test('Export CSV cancelled does not create file', async ({ window, electronApp }) => {
     // Stub the save dialog to return cancelled
     await stubDialog(electronApp, 'showSaveDialog', { canceled: true });
 
