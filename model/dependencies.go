@@ -1,17 +1,36 @@
+// Package model provides dependency tracking for spreadsheet formulas.
+//
+// The DependencyGraph tracks which cells depend on which other cells,
+// enabling efficient recalculation (only recalculate affected cells)
+// and circular reference detection.
+//
+// Key operations:
+//   - AddDependency: Record that a cell's formula references another cell
+//   - RemoveDependencies: Clear all dependencies when a cell changes
+//   - DetectCircularReference: Check if adding a dependency would create a cycle
+//   - GetCalculationOrder: Get topologically sorted list of cells to recalculate
+//
+// Thread-safety: All operations are protected by a read-write mutex for
+// concurrent access from multiple HTTP request handlers.
 package model
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // DependencyGraph tracks cell dependencies for efficient recalculation
+// Thread-safe for concurrent access from multiple HTTP request handlers
 type DependencyGraph struct {
 	// dependents[A1] = [B1, C1] means B1 and C1 have formulas that reference A1
 	dependents map[string]map[string]bool
 	// dependencies[B1] = [A1] means B1's formula references A1
 	dependencies map[string]map[string]bool
+	// mutex protects concurrent access to the graph
+	mu sync.RWMutex
 }
 
 // NewDependencyGraph creates a new dependency graph
@@ -23,19 +42,154 @@ func NewDependencyGraph() *DependencyGraph {
 }
 
 // ExtractCellReferences extracts all cell references from a formula
-// Returns both individual cells (A1, B2) and range references (A1:B2)
+// Expands ranges (A1:B2) into individual cells and returns all unique references
+// Uses AST parsing for accuracy instead of regex
 func ExtractCellReferences(formula string) []string {
+	seen := make(map[string]bool)
+	var refs []string
+	
+	// Try to parse the formula using AST
+	ast, err := ParseFormula(formula)
+	if err != nil {
+		// Fallback to regex if parsing fails
+		log.Printf("ExtractCellReferences: Failed to parse formula %q, using regex fallback: %v", formula, err)
+		return extractCellReferencesRegex(formula)
+	}
+	
+	// Walk the AST and extract cell references
+	var walk func(*Expression)
+	var walkPrimary func(*Primary)
+	var walkComparison func(*Comparison)
+	var walkAddition func(*Addition)
+	var walkMultiplication func(*Multiplication)
+	var walkUnary func(*Unary)
+	
+	walkPrimary = func(prim *Primary) {
+		if prim == nil {
+			return
+		}
+		
+		if prim.CellRef != nil {
+			ref := prim.CellRef.Ref
+			if !seen[ref] {
+				seen[ref] = true
+				refs = append(refs, ref)
+			}
+		}
+		
+		if prim.Range != nil {
+			// Expand range into individual cells
+			rangeStr := prim.Range.Start + ":" + prim.Range.End
+			expanded, err := ExpandRange(rangeStr)
+			if err == nil {
+				for _, cell := range expanded {
+					if !seen[cell] {
+						seen[cell] = true
+						refs = append(refs, cell)
+					}
+				}
+			}
+		}
+		
+		if prim.FuncCall != nil {
+			for _, arg := range prim.FuncCall.Args {
+				walk(arg)
+			}
+		}
+		
+		if prim.SubExpr != nil {
+			walk(prim.SubExpr)
+		}
+	}
+	
+	walkUnary = func(u *Unary) {
+		if u == nil {
+			return
+		}
+		if u.Unary != nil {
+			walkUnary(u.Unary)
+		}
+		if u.Primary != nil {
+			walkPrimary(u.Primary)
+		}
+	}
+	
+	walkMultiplication = func(m *Multiplication) {
+		if m == nil {
+			return
+		}
+		walkUnary(m.Left)
+		if m.Right != nil {
+			walkMultiplication(m.Right)
+		}
+	}
+	
+	walkAddition = func(a *Addition) {
+		if a == nil {
+			return
+		}
+		walkMultiplication(a.Left)
+		if a.Right != nil {
+			walkAddition(a.Right)
+		}
+	}
+	
+	walkComparison = func(c *Comparison) {
+		if c == nil {
+			return
+		}
+		walkAddition(c.Left)
+		if c.Right != nil {
+			walkComparison(c.Right)
+		}
+	}
+	
+	walk = func(expr *Expression) {
+		if expr == nil {
+			return
+		}
+		walkComparison(expr.Comparison)
+	}
+	
+	// Start walking from the root
+	walk(ast.Expr)
+	
+	return refs
+}
+
+// extractCellReferencesRegex is a fallback regex-based implementation
+func extractCellReferencesRegex(formula string) []string {
 	// Remove leading = if present
 	formula = strings.TrimPrefix(formula, "=")
 	
-	// Pattern matches cell references like A1, AA100, etc.
-	cellPattern := regexp.MustCompile(`\b([A-Z]+\d+)\b`)
-	matches := cellPattern.FindAllString(formula, -1)
+	// Pattern matches ranges like A1:B2
+	rangePattern := regexp.MustCompile(`\b([A-Z]+\d+):([A-Z]+\d+)\b`)
 	
-	// Remove duplicates
+	// Pattern matches individual cell references like A1, AA100, etc.
+	cellPattern := regexp.MustCompile(`\b([A-Z]+\d+)\b`)
+	
 	seen := make(map[string]bool)
 	var refs []string
-	for _, match := range matches {
+	
+	// First, find and expand all ranges
+	rangeMatches := rangePattern.FindAllString(formula, -1)
+	for _, rangeRef := range rangeMatches {
+		expanded, err := ExpandRange(rangeRef)
+		if err == nil {
+			for _, cell := range expanded {
+				if !seen[cell] {
+					seen[cell] = true
+					refs = append(refs, cell)
+				}
+			}
+		}
+	}
+	
+	// Then find individual cell references (that aren't part of ranges)
+	// Remove ranges from formula first to avoid double-counting
+	formulaWithoutRanges := rangePattern.ReplaceAllString(formula, "")
+	cellMatches := cellPattern.FindAllString(formulaWithoutRanges, -1)
+	for _, match := range cellMatches {
 		if !seen[match] {
 			seen[match] = true
 			refs = append(refs, match)
@@ -86,6 +240,11 @@ func ExpandRange(rangeRef string) ([]string, error) {
 
 // AddDependency records that targetCell's formula depends on sourceCell
 func (dg *DependencyGraph) AddDependency(targetCell, sourceCell string) {
+	dg.mu.Lock()
+	defer dg.mu.Unlock()
+	
+	log.Printf("DependencyGraph: Adding %s -> %s", targetCell, sourceCell)
+	
 	// targetCell depends on sourceCell
 	if dg.dependencies[targetCell] == nil {
 		dg.dependencies[targetCell] = make(map[string]bool)
@@ -101,6 +260,11 @@ func (dg *DependencyGraph) AddDependency(targetCell, sourceCell string) {
 
 // RemoveDependencies removes all dependencies for a cell (when it's cleared or changed)
 func (dg *DependencyGraph) RemoveDependencies(cell string) {
+	dg.mu.Lock()
+	defer dg.mu.Unlock()
+	
+	log.Printf("DependencyGraph: Removing dependencies for %s", cell)
+	
 	// Remove from dependencies map and update dependents
 	if deps, exists := dg.dependencies[cell]; exists {
 		for dep := range deps {
@@ -117,6 +281,9 @@ func (dg *DependencyGraph) RemoveDependencies(cell string) {
 
 // GetDependents returns all cells that depend on the given cell
 func (dg *DependencyGraph) GetDependents(cell string) []string {
+	dg.mu.RLock()
+	defer dg.mu.RUnlock()
+	
 	if dg.dependents[cell] == nil {
 		return nil
 	}
@@ -130,6 +297,9 @@ func (dg *DependencyGraph) GetDependents(cell string) []string {
 
 // GetDependencies returns all cells that the given cell depends on
 func (dg *DependencyGraph) GetDependencies(cell string) []string {
+	dg.mu.RLock()
+	defer dg.mu.RUnlock()
+	
 	if dg.dependencies[cell] == nil {
 		return nil
 	}
@@ -144,12 +314,19 @@ func (dg *DependencyGraph) GetDependencies(cell string) []string {
 // DetectCircularReference checks if adding a dependency would create a cycle
 // Returns true if circular reference detected, along with the cycle path
 func (dg *DependencyGraph) DetectCircularReference(targetCell, sourceCell string) (bool, []string) {
+	dg.mu.RLock()
+	defer dg.mu.RUnlock()
+	
 	// Check if sourceCell transitively depends on targetCell
 	// If so, adding targetCell -> sourceCell would create a cycle
 	visited := make(map[string]bool)
 	path := []string{targetCell}
 	
-	return dg.hasCycleDFS(targetCell, sourceCell, visited, path)
+	hasCycle, cyclePath := dg.hasCycleDFS(targetCell, sourceCell, visited, path)
+	if hasCycle {
+		log.Printf("DependencyGraph: Circular reference detected: %v", cyclePath)
+	}
+	return hasCycle, cyclePath
 }
 
 // hasCycleDFS performs depth-first search to detect cycles
@@ -180,6 +357,9 @@ func (dg *DependencyGraph) hasCycleDFS(target, current string, visited map[strin
 // GetCalculationOrder returns cells in topological order for recalculation
 // Returns error if circular reference detected
 func (dg *DependencyGraph) GetCalculationOrder(changedCells []string) ([]string, error) {
+	dg.mu.RLock()
+	defer dg.mu.RUnlock()
+	
 	// Find all cells that need recalculation (transitive dependents)
 	toRecalc := make(map[string]bool)
 	var queue []string

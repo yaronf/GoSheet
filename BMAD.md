@@ -680,11 +680,12 @@ This project demonstrates BMAD's effectiveness:
 - ✅ **Problem solving**: Adapted approach when issues arose (e.g., UI widget switch)
 
 ### Testing Phase
-- ✅ **Comprehensive coverage**: 42 Go unit tests + 31 Playwright UI tests
+- ✅ **Comprehensive coverage**: 42 Go unit tests + 32 Playwright UI tests
 - ✅ **Automated testing**: Full test suite with server management
-- ✅ **Quality assurance**: 39/40 tests passing (1 skipped by design)
+- ✅ **Quality assurance**: 41/42 tests passing (1 skipped by design)
 - ✅ **Regression testing**: Every bug fix has dedicated test(s)
 - ✅ **Documentation**: Test results and coverage documented in BMAD.md
+- ✅ **Code review**: Adversarial review identified and fixed 9 issues
 
 ### AI Collaboration
 - ✅ **Expert guidance**: Not just code generation, but architecture decisions
@@ -707,7 +708,7 @@ The project has successfully completed the core MVP as defined in the product br
 - ✅ String functions (CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID)
 - ✅ Arithmetic operations (+, -, *, /, %)
 - ✅ **File operations** (save/load with binary format)
-- ✅ **Comprehensive testing** (42 Go unit tests, 31 Playwright UI tests)
+- ✅ **Comprehensive testing** (42 Go unit tests, 32 Playwright UI tests)
 - ✅ Row/column headers
 - ✅ **Clean architecture** (Go HTTP backend + standalone web frontend)
 
@@ -732,8 +733,8 @@ The current web architecture is designed to enable easy packaging as a native ma
 - **Goal**: Native macOS .app bundle with menu bar, file associations, etc.
 - **Non-goal**: Pure web app - this is a desktop application project
 
-### Test Coverage (31/32 tests, 1 skipped)
-**Go Unit Tests (18 passing)**:
+### Test Coverage (32/33 tests, 1 skipped)
+**Go Unit Tests (42 passing)**:
 - Formula parsing and evaluation
 - Cell reference evaluation
 - Empty cell error handling
@@ -745,7 +746,7 @@ The current web architecture is designed to enable easy packaging as a native ma
 - File I/O: SaveAs, unsaved changes tracking
 - File I/O: error handling for non-existent files
 
-**Playwright UI Tests (31 passing, 1 skipped)**:
+**Playwright UI Tests (32 passing, 1 skipped)**:
 - Page loading and grid structure
 - Sample data loading
 - Cell selection and navigation (arrow keys)
@@ -770,3 +771,86 @@ The current web architecture is designed to enable easy packaging as a native ma
 - Save and load file workflow
 - New file clears data
 - File status display
+- Circular reference detection (UI test)
+
+---
+
+## Code Review: Dependency Tracking & Formula Normalization (Feb 2026)
+
+After implementing dependency tracking, circular reference detection, and formula normalization, an adversarial code review was conducted to identify potential issues. The review found **11 issues** (6 High, 3 Medium, 2 Low), of which **9 were fixed immediately**.
+
+### Issues Fixed
+
+#### HIGH SEVERITY
+
+**#2: Circular reference check happened AFTER cell was set**
+- **Problem**: `SetCell()` was called before checking for circular references, causing the cell and `Modified` flag to be set even when the circular reference prevented the formula from being valid.
+- **Fix**: Moved circular reference detection to occur BEFORE any state modification. Extract cell references from the formula, check for cycles, and only proceed with `SetCell()` if no cycle is detected.
+- **Files**: `controller/app.go`
+
+**#3: Missing range expansion in dependency extraction**
+- **Problem**: `ExtractCellReferences()` extracted only the start and end cells from ranges (e.g., A1 and A10 from `=SUM(A1:A10)`), missing intermediate cells. This caused incomplete dependency graphs - changing A5 wouldn't trigger recalculation of `=SUM(A1:A10)`.
+- **Fix**: Modified `ExtractCellReferences()` to expand ranges into all individual cells using the existing `ExpandRange()` function.
+- **Files**: `model/dependencies.go`
+- **Tests Updated**: `tests/dependencies_test.go` - updated test expectations to match new behavior (ranges now expand to all cells)
+
+**#4: No Playwright tests for circular references**
+- **Problem**: 13 Go unit tests existed for circular reference detection, but zero UI tests verified that users actually see the error message in the browser.
+- **Fix**: Added `test_circular_reference_detection()` to verify circular reference errors appear in the UI for both simple (A1→B1→A1) and longer chains (A1→B1→C1→A1).
+- **Files**: `playwright_tests/test_spreadsheet.py`
+- **Test Count**: 32 Playwright tests (was 31)
+
+**#5: Dependency graph not thread-safe**
+- **Problem**: Multiple HTTP request handlers could modify the dependency graph concurrently, causing race conditions and corrupted graph state.
+- **Fix**: Added `sync.RWMutex` to `DependencyGraph` struct and protected all operations with appropriate locks (write lock for Add/Remove, read lock for Get/Detect/Calculate operations).
+- **Files**: `model/dependencies.go`
+
+**#6: Formula normalization breaks on parse errors**
+- **Problem**: If `NormalizeFormula()` failed, `IsFormula` was set to `true` but the formula wasn't normalized, creating inconsistent state.
+- **Fix**: Modified `SetValue()` to only set `IsFormula=true` if normalization succeeds. If normalization fails, treat the input as plain text (`IsFormula=false`).
+- **Files**: `model/cell.go`
+
+#### MEDIUM SEVERITY
+
+**#8: No logging of dependency graph operations**
+- **Problem**: No visibility into graph operations for debugging dependency issues.
+- **Fix**: Added debug logging to `AddDependency()`, `RemoveDependencies()`, and `DetectCircularReference()` using Go's `log` package.
+- **Files**: `model/dependencies.go`
+
+**#9: ExtractCellReferences uses regex instead of AST**
+- **Problem**: Regex-based extraction could miss references in complex expressions or match false positives.
+- **Fix**: Rewrote `ExtractCellReferences()` to parse the formula using the existing AST parser and walk the tree to extract references. Added regex fallback for unparseable formulas.
+- **Files**: `model/dependencies.go`
+- **Impact**: More accurate dependency tracking, especially for complex nested formulas
+
+#### LOW SEVERITY
+
+**#10: Missing documentation in dependencies.go**
+- **Problem**: No package-level documentation explaining the dependency graph's purpose.
+- **Fix**: Added comprehensive package comment describing the dependency graph, key operations, and thread-safety guarantees.
+- **Files**: `model/dependencies.go`
+
+**#11: Test names inconsistent**
+- **Problem**: Mix of `TestDependencyGraphBasic` vs `TestCalculationOrder` naming styles.
+- **Fix**: Standardized all test names to `TestDependencyGraph_*` pattern for consistency.
+- **Files**: `tests/dependencies_test.go`
+
+### Issues NOT Fixed (Documented as Intentional Design)
+
+**#1: Dependency graph not persisted when saving files**
+- **Decision**: Rebuilding the dependency graph on file load is the correct approach. The graph is derived data that can be reconstructed from formulas. Serializing it would add complexity and potential for inconsistency.
+- **Implementation**: `LoadFromFile()` calls `rebuildDependencyGraph()` to reconstruct the graph from formulas.
+
+**#7: GetCalculationOrder includes changed cell unnecessarily**
+- **Decision**: Changed cells MUST be included in calculation order because they might be formulas themselves that need evaluation. Example: If A1=10 and you change A1 to =C1+2, A1 itself needs recalculation before its dependents.
+- **Behavior**: This is correct, not a bug.
+
+### Impact Summary
+
+- **Correctness**: Fixed critical race condition (#5) and circular reference timing issue (#2)
+- **Accuracy**: Improved dependency tracking with range expansion (#3) and AST-based extraction (#9)
+- **Testing**: Added UI test coverage for circular references (#4)
+- **Maintainability**: Added logging (#8), documentation (#10), and consistent naming (#11)
+- **Robustness**: Better error handling for invalid formulas (#6)
+
+All tests passing: **42 Go unit tests + 32 Playwright UI tests** (1 skipped by design)

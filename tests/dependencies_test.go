@@ -6,7 +6,7 @@ import (
 	"gosheet/model"
 )
 
-func TestExtractCellReferences(t *testing.T) {
+func TestDependencyGraph_ExtractCellReferences(t *testing.T) {
 	tests := []struct {
 		name     string
 		formula  string
@@ -25,7 +25,7 @@ func TestExtractCellReferences(t *testing.T) {
 		{
 			name:     "Function with references",
 			formula:  "=SUM(A1:A10)",
-			expected: []string{"A1", "A10"},
+			expected: []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"}, // Range is expanded
 		},
 		{
 			name:     "Duplicate references",
@@ -35,7 +35,7 @@ func TestExtractCellReferences(t *testing.T) {
 		{
 			name:     "Mixed case",
 			formula:  "=a1+B2",
-			expected: []string{"B2"}, // Regex matches uppercase letters followed by digits
+			expected: []string{"A1", "B2"}, // AST parser normalizes lowercase to uppercase
 		},
 		{
 			name:     "No references",
@@ -68,7 +68,7 @@ func TestExtractCellReferences(t *testing.T) {
 	}
 }
 
-func TestExpandRange(t *testing.T) {
+func TestDependencyGraph_ExpandRange(t *testing.T) {
 	tests := []struct {
 		name     string
 		rangeRef string
@@ -143,7 +143,7 @@ func TestExpandRange(t *testing.T) {
 	}
 }
 
-func TestDependencyGraphBasic(t *testing.T) {
+func TestDependencyGraph_Basic(t *testing.T) {
 	dg := model.NewDependencyGraph()
 
 	// Add dependency: B1 depends on A1
@@ -162,7 +162,7 @@ func TestDependencyGraphBasic(t *testing.T) {
 	}
 }
 
-func TestDependencyGraphMultiple(t *testing.T) {
+func TestDependencyGraph_Multiple(t *testing.T) {
 	dg := model.NewDependencyGraph()
 
 	// Create chain: C1 depends on B1, B1 depends on A1
@@ -182,7 +182,7 @@ func TestDependencyGraphMultiple(t *testing.T) {
 	}
 }
 
-func TestRemoveDependencies(t *testing.T) {
+func TestDependencyGraph_RemoveDependencies(t *testing.T) {
 	dg := model.NewDependencyGraph()
 
 	// Add dependencies
@@ -205,7 +205,7 @@ func TestRemoveDependencies(t *testing.T) {
 	}
 }
 
-func TestCircularReferenceDetection(t *testing.T) {
+func TestDependencyGraph_CircularReferenceDetection(t *testing.T) {
 	dg := model.NewDependencyGraph()
 
 	// Create: B1 depends on A1
@@ -238,7 +238,7 @@ func TestCircularReferenceDetection(t *testing.T) {
 	}
 }
 
-func TestCircularReferenceDetectionLongerChain(t *testing.T) {
+func TestDependencyGraph_CircularReferenceLongerChain(t *testing.T) {
 	dg := model.NewDependencyGraph()
 
 	// Create chain: C1 → B1 → A1
@@ -255,7 +255,7 @@ func TestCircularReferenceDetectionLongerChain(t *testing.T) {
 	t.Logf("Detected cycle path: %v", path)
 }
 
-func TestNoCircularReferenceWhenNoCycle(t *testing.T) {
+func TestDependencyGraph_NoCircularReferenceWhenNoCycle(t *testing.T) {
 	dg := model.NewDependencyGraph()
 
 	// Create: B1 depends on A1, C1 depends on A1 (no cycle)
@@ -270,7 +270,7 @@ func TestNoCircularReferenceWhenNoCycle(t *testing.T) {
 	}
 }
 
-func TestCalculationOrder(t *testing.T) {
+func TestDependencyGraph_CalculationOrder(t *testing.T) {
 	dg := model.NewDependencyGraph()
 
 	// Create dependencies: C1 → B1 → A1
@@ -308,7 +308,7 @@ func TestCalculationOrder(t *testing.T) {
 	}
 }
 
-func TestCalculationOrderMultipleBranches(t *testing.T) {
+func TestDependencyGraph_CalculationOrderMultipleBranches(t *testing.T) {
 	dg := model.NewDependencyGraph()
 
 	// Create diamond dependency:
@@ -343,7 +343,7 @@ func TestCalculationOrderMultipleBranches(t *testing.T) {
 	}
 }
 
-func TestCalculationOrderWithCircularReference(t *testing.T) {
+func TestDependencyGraph_CalculationOrderWithCircularReference(t *testing.T) {
 	dg := model.NewDependencyGraph()
 
 	// Create circular dependency: B1 → A1 → B1
@@ -360,7 +360,7 @@ func TestCalculationOrderWithCircularReference(t *testing.T) {
 	}
 }
 
-func TestIntegrationWithSpreadsheet(t *testing.T) {
+func TestDependencyGraph_IntegrationWithSpreadsheet(t *testing.T) {
 	sheet := model.NewSpreadsheet()
 
 	// Verify dependency graph is initialized

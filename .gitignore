@@ -23,6 +23,7 @@ __pycache__/
 # IDE
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 
@@ -33,3 +34,8 @@ __pycache__/
 *.test
 *.out
 server/server
+gosheet
+web
+
+# BMAD framework
+_bmad/

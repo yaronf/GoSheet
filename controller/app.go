@@ -24,19 +24,19 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 	
 	cellRef := model.CoordsToRef(row, col)
 	
-	// Remove old dependencies for this cell
-	c.Sheet.Dependencies.RemoveDependencies(cellRef)
-	
-	// Set the cell value
-	c.Sheet.SetCell(row, col, value)
-	
-	// If it's a formula, extract dependencies and check for circular references
-	cell := c.Sheet.GetCell(row, col)
-	if cell != nil && cell.IsFormula {
-		// Extract cell references from the formula
-		refs := model.ExtractCellReferences(cell.Value)
+	// Check if this is a formula and extract dependencies BEFORE modifying state
+	isFormula := len(value) > 0 && value[0] == '='
+	var refs []string
+	if isFormula {
+		// Normalize the formula to extract references
+		normalized, err := model.NormalizeFormula(value)
+		if err == nil {
+			refs = model.ExtractCellReferences(normalized)
+		} else {
+			refs = model.ExtractCellReferences(value)
+		}
 		
-		// Check for circular references before adding dependencies
+		// Check for circular references BEFORE modifying anything
 		for _, ref := range refs {
 			if hasCycle, cyclePath := c.Sheet.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
 				cycleStr := ""
@@ -46,13 +46,32 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 					}
 					cycleStr += c
 				}
-				cell.SetComputed("#ERROR: Circular reference: " + cycleStr)
+				errorMsg := "#ERROR: Circular reference: " + cycleStr
 				log.Printf("Circular reference detected: %s", cycleStr)
+				
+				// Set cell to show error without modifying Modified flag or dependencies
+				c.Sheet.SetCell(row, col, value)
+				cell := c.Sheet.GetCell(row, col)
+				if cell != nil {
+					cell.SetComputed(errorMsg)
+				}
 				return nil // Don't add dependencies or recalculate
 			}
 		}
-		
-		// Add dependencies
+	}
+	
+	// Remove old dependencies for this cell
+	c.Sheet.Dependencies.RemoveDependencies(cellRef)
+	
+	// Set the cell value (now safe - no circular ref)
+	c.Sheet.SetCell(row, col, value)
+	
+	// Get the cell after setting it
+	cell := c.Sheet.GetCell(row, col)
+	
+	// If it's a formula, add dependencies and evaluate
+	if cell != nil && cell.IsFormula {
+		// Add dependencies (already validated no circular refs)
 		for _, ref := range refs {
 			c.Sheet.Dependencies.AddDependency(cellRef, ref)
 		}

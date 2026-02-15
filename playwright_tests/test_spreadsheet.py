@@ -1037,5 +1037,83 @@ def test_file_status_tracks_changes(page: Page, base_url):
     assert 'saved' in status_text.lower(), f"Expected 'saved' after download, got: {status_text}"
 
 
+def test_circular_reference_detection(page: Page, base_url):
+    """Test that circular references are detected and show error message"""
+    import requests
+    
+    # Start with a clean spreadsheet
+    requests.post(f'{base_url}/api/file/new')
+    page.goto(base_url)
+    time.sleep(0.5)
+    
+    # Create a simple circular reference: A1=B1, B1=A1
+    # First set B1 to a value so A1 can reference it
+    cell_b1 = page.locator('#cell-0-1')
+    cell_b1.click()
+    time.sleep(0.2)
+    page.keyboard.type('10')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Set A1 to =B1
+    cell_a1 = page.locator('#cell-0-0')
+    cell_a1.click()
+    time.sleep(0.2)
+    page.keyboard.type('=B1')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Verify A1 shows computed value (10)
+    a1_value = cell_a1.text_content()
+    assert '10' in a1_value, f"Expected A1 to show 10, got: {a1_value}"
+    
+    # Now change B1 to =A1 (creates circular reference)
+    cell_b1.click()
+    time.sleep(0.2)
+    # Clear existing value first
+    page.keyboard.press('Delete')
+    time.sleep(0.2)
+    page.keyboard.type('=A1')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # B1 should show circular reference error
+    b1_value = cell_b1.text_content()
+    assert '#ERROR' in b1_value.upper() or 'CIRCULAR' in b1_value.upper(), \
+        f"Expected B1 to show circular reference error, got: {b1_value}"
+    
+    # Test longer chain: A1=B1, B1=C1, C1=A1
+    requests.post(f'{base_url}/api/file/new')
+    page.reload()
+    time.sleep(0.5)
+    
+    # Set A1=B1
+    cell_a1.click()
+    time.sleep(0.2)
+    page.keyboard.type('=B1')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Set B1=C1
+    cell_b1.click()
+    time.sleep(0.2)
+    page.keyboard.type('=C1')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # Set C1=A1 (creates 3-cell circular reference)
+    cell_c1 = page.locator('#cell-0-2')
+    cell_c1.click()
+    time.sleep(0.2)
+    page.keyboard.type('=A1')
+    page.keyboard.press('Enter')
+    time.sleep(0.5)
+    
+    # C1 should show circular reference error
+    c1_value = cell_c1.text_content()
+    assert '#ERROR' in c1_value.upper() or 'CIRCULAR' in c1_value.upper(), \
+        f"Expected C1 to show circular reference error, got: {c1_value}"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])

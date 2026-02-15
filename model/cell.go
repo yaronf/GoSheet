@@ -16,18 +16,23 @@ func NewCell(value string) *Cell {
 
 // SetValue updates the cell's value and determines if it's a formula
 func (c *Cell) SetValue(value string) {
-	c.IsFormula = len(value) > 0 && value[0] == '='
+	startsWithEquals := len(value) > 0 && value[0] == '='
 	
-	// Normalize formulas (uppercase refs, remove spaces)
-	if c.IsFormula {
+	// Try to normalize formulas (uppercase refs, remove spaces)
+	if startsWithEquals {
 		normalized, err := NormalizeFormula(value)
 		if err == nil {
+			// Successfully normalized - it's a valid formula
+			c.IsFormula = true
 			c.Value = normalized
 		} else {
-			// If normalization fails, keep original
+			// Normalization failed - treat as plain text
+			c.IsFormula = false
 			c.Value = value
+			c.Computed = value
 		}
 	} else {
+		c.IsFormula = false
 		c.Value = value
 		c.Computed = value
 	}
