@@ -134,15 +134,15 @@ development_status:
   
   # Epic 7: macOS Integration & Polish [ADAPTED for Electron]
   # Status: Uses Electron APIs instead of Wails APIs (Menu.buildFromTemplate, app.dock, etc.)
-  epic-7: backlog
-  7-1-implement-file-menu: backlog
-  7-2-implement-edit-menu: backlog
-  7-3-implement-help-menu: backlog
-  7-4-implement-keyboard-shortcuts: backlog
-  7-5-implement-recent-files-list: backlog
-  7-6-implement-dock-integration: backlog
-  7-7-implement-file-associations: backlog
-  7-8-add-app-and-file-icons: backlog
+  epic-7: in-progress
+  7-1-implement-file-menu: ready-for-dev
+  7-2-implement-edit-menu: ready-for-dev
+  7-3-implement-help-menu: ready-for-dev
+  7-4-implement-keyboard-shortcuts: ready-for-dev
+  7-5-implement-recent-files-list: ready-for-dev
+  7-6-implement-dock-integration: ready-for-dev
+  7-7-implement-file-associations: ready-for-dev
+  7-8-add-app-and-file-icons: ready-for-dev
   epic-7-retrospective: optional
   
   # Epic 8: Welcome Screen & Lifecycle (SHIFTED from Epic 7)
