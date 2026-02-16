@@ -102,11 +102,12 @@ function buildMenu() {
         { type: 'separator' },
         {
           id: 'recent-files',
-          label: 'Recent Files',
+          label: 'Open Recent',
+          role: 'recentdocuments',
           submenu: [
             {
-              label: 'No Recent Files',
-              enabled: false
+              label: 'Clear Recent',
+              role: 'clearrecentdocuments'
             }
           ]
         },

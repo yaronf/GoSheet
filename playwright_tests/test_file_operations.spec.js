@@ -218,11 +218,8 @@ test.describe('File Operation Tests', () => {
       // Verify status shows "Unsaved changes"
       await expect(status).toContainText('Unsaved', { timeout: 5000 });
       
-      // Stub save dialog and save file
-      await eph.stubDialog(electronApp, 'showSaveDialog', { 
-        filePath: testFilePath 
-      });
-      
+      // Save again - should NOT show dialog since file already has a path
+      // No need to stub dialog for second save
       await window.locator('#save-btn').click();
       await window.waitForTimeout(1000);
       

@@ -139,7 +139,7 @@ development_status:
   7-2-implement-edit-menu: done
   7-3-implement-help-menu: done
   7-4-implement-keyboard-shortcuts: done
-  7-5-implement-recent-files-list: ready-for-dev
+  7-5-implement-recent-files-list: done
   7-6-implement-dock-integration: ready-for-dev
   7-7-implement-file-associations: ready-for-dev
   7-8-add-app-and-file-icons: ready-for-dev
@@ -152,7 +152,8 @@ development_status:
   8-1-design-welcome-screen-layout: backlog
   8-2-implement-welcome-screen-display: backlog
   8-3-implement-graceful-shutdown: backlog
-  8-4-verify-complete-user-experience: backlog
+  8-4-fix-macos-window-close-behavior: backlog
+  8-5-verify-complete-user-experience: backlog
   epic-8-retrospective: optional
   
   # Epic 9: Documentation & Project Cleanup
@@ -171,4 +172,5 @@ development_status:
   10-5-refactor-high-complexity-code: backlog
   10-6-document-code-quality-standards: backlog
   10-7-enhance-accessibility: ready-for-dev
+  10-8-implement-proper-logging: backlog
   epic-10-retrospective: optional

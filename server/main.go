@@ -74,6 +74,11 @@ func serveStatic(w http.ResponseWriter, r *http.Request) {
 	// When run standalone, cwd might be server/ directory
 	frontendDir := getFrontendDir()
 	
+	// Disable caching in development mode
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	
 	if r.URL.Path == "/" {
 		http.ServeFile(w, r, frontendDir+"/index.html")
 		return

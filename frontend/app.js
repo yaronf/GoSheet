@@ -830,8 +830,17 @@ document.getElementById('new-btn').addEventListener('click', async () => {
 
 document.getElementById('save-btn').addEventListener('click', async () => {
     try {
-        // Call unified SaveFile API (shows dialog in native mode, uses path in web mode)
-        await SaveFile('');
+        // Get current file status to check if we have a path
+        const status = await GetFileStatus();
+        
+        // If file has a path, save directly; otherwise show dialog
+        const path = await SaveFile(status.path || '');
+        
+        // Story 7.5: Add to recent files after successful save
+        if (path && window.electronAPI && window.electronAPI.addRecentFile) {
+            await window.electronAPI.addRecentFile(path);
+        }
+        
         updateFileStatus();
         console.log('File saved');
     } catch (error) {
@@ -854,7 +863,12 @@ document.getElementById('load-btn').addEventListener('click', async () => {
     
     try {
         // Call unified LoadFile API (shows dialog in native mode, uses file input in web mode)
-        await LoadFile('');
+        const path = await LoadFile('');
+        
+        // Story 7.5: Add to recent files after successful load
+        if (path && window.electronAPI && window.electronAPI.addRecentFile) {
+            await window.electronAPI.addRecentFile(path);
+        }
         
         // Reload all cells from server
         ROWS = 100;
@@ -1068,7 +1082,13 @@ if (window.electronAPI) {
         console.log('[App] Menu Save As triggered');
         try {
             // Call SaveFile with empty string to force dialog
-            await SaveFile('');
+            const path = await SaveFile('');
+            
+            // Story 7.5: Add to recent files after successful save
+            if (path && window.electronAPI && window.electronAPI.addRecentFile) {
+                await window.electronAPI.addRecentFile(path);
+            }
+            
             updateFileStatus();
             console.log('File saved via Save As');
         } catch (error) {
@@ -1088,11 +1108,41 @@ if (window.electronAPI) {
         document.getElementById('export-csv-btn').click();
     });
     
-    // Open recent file from menu (Story 7.5 will implement full functionality)
+    // Story 7.5: Open recent file from menu
     window.electronAPI.onMenuOpenRecent(async (event, filePath) => {
         console.log('[App] Menu Open Recent triggered:', filePath);
-        // TODO: Story 7.5 will implement loading specific file path
-        await showAlert('Recent files feature coming in Story 7.5');
+        
+        // Check if there are unsaved changes
+        const status = await GetFileStatus();
+        if (status.hasUnsavedChanges) {
+            const confirmed = await showConfirmDialog('You have unsaved changes! Open a different file anyway? All unsaved changes will be lost.');
+            if (!confirmed) {
+                return; // User cancelled
+            }
+        }
+        
+        try {
+            // Load the file directly using the provided path
+            const loadedPath = await LoadFile(filePath);
+            
+            // Add to recent files after successful load
+            if (loadedPath && window.electronAPI && window.electronAPI.addRecentFile) {
+                await window.electronAPI.addRecentFile(loadedPath);
+            }
+            
+            // Reload all cells from server
+            ROWS = 100;
+            COLS = 26;
+            buildSpreadsheet();
+            await loadCells();
+            selectCell(0, 0);
+            updateFileStatus();
+            
+            console.log('Recent file loaded successfully:', filePath);
+        } catch (error) {
+            console.error('[App] Error loading recent file:', error);
+            await showAlert('Error loading file: ' + error.message);
+        }
     });
     
     // Story 7.2: Edit menu handlers

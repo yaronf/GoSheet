@@ -98,12 +98,15 @@ const SaveFile = async (path) => {
         if (!path) {
             // User cancelled dialog
             console.log('[api-client] Save cancelled by user');
-            return;
+            return null;
         }
     }
     
     // Save via HTTP API
     await fetchUnified('POST', '/api/file/save', { path });
+    
+    // Story 7.5: Return path for recent files tracking
+    return path;
 };
 
 const LoadFile = async (path) => {
@@ -115,12 +118,15 @@ const LoadFile = async (path) => {
         if (!path) {
             // User cancelled dialog
             console.log('[api-client] Load cancelled by user');
-            return;
+            return null;
         }
     }
     
     // Load via HTTP API
     await fetchUnified('POST', '/api/file/load', { path });
+    
+    // Story 7.5: Return path for recent files tracking
+    return path;
 };
 
 const SaveAs = async () => {

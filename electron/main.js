@@ -94,18 +94,35 @@ function createWindow() {
   const serverUrl = `http://localhost:${GO_SERVER_PORT}`;
   console.log(`[Electron] Loading frontend from: ${serverUrl}`);
   
-  mainWindow.loadURL(serverUrl).catch((err) => {
-    console.error('[Electron] Failed to load URL:', err);
-    // Retry after a short delay if server isn't ready yet
-    setTimeout(() => {
-      mainWindow.loadURL(serverUrl);
-    }, 1000);
-  });
+  // Clear cache in development mode to ensure latest code is loaded
+  if (process.env.NODE_ENV !== 'production') {
+    mainWindow.webContents.session.clearCache().then(() => {
+      console.log('[Electron] Cache cleared');
+      loadURL();
+    });
+  } else {
+    loadURL();
+  }
+  
+  function loadURL() {
+    mainWindow.loadURL(serverUrl).catch((err) => {
+      console.error('[Electron] Failed to load URL:', err);
+      // Retry after a short delay if server isn't ready yet
+      setTimeout(() => {
+        mainWindow.loadURL(serverUrl);
+      }, 1000);
+    });
+  }
   
   // Open DevTools in development mode
-  if (process.argv.includes('--dev')) {
+  if (process.env.NODE_ENV !== 'production') {
     mainWindow.webContents.openDevTools();
   }
+  
+  // Forward renderer console logs to main process terminal
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Renderer Console] ${message}`);
+  });
   
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -216,6 +233,13 @@ function setupIpcHandlers() {
     console.log('[Electron] Menu state update received:', state);
     updateMenuState(state);
   });
+
+  // Story 7.5: IPC handler to add file to recent documents
+  ipcMain.handle('file:addRecent', async (event, filePath) => {
+    console.log('[Electron] Adding to recent documents:', filePath);
+    app.addRecentDocument(filePath);
+    return true;
+  });
 }
 
 // App lifecycle management
@@ -247,6 +271,22 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+});
+
+// Story 7.5: Handle opening files from recent documents menu
+app.on('open-file', (event, path) => {
+  event.preventDefault();
+  console.log('[Electron] Open file from recent documents:', path);
+  
+  // If window exists, send the file path to renderer to load it
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('menu-open-recent', path);
+  } else {
+    // Window not ready yet, store the path to open after window is created
+    // This can happen if app is launched by double-clicking a file
+    console.log('[Electron] Window not ready, will open file after window creation');
+    // TODO: Store path and open after window is ready
+  }
 });
 
 // Cleanup on quit

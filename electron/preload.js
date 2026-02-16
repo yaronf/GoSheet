@@ -72,6 +72,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onMenuSelectAll: (callback) => {
     ipcRenderer.on('menu-select-all', callback);
+  },
+  
+  // Story 7.5: Recent files management
+  addRecentFile: (filePath) => {
+    console.log('[Preload] addRecentFile called:', filePath);
+    return ipcRenderer.invoke('file:addRecent', filePath);
   }
 });
 
