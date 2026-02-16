@@ -24,7 +24,6 @@ __pycache__/
 # IDE
 .vscode/
 .idea/
-.cursor/
 *.swp
 *.swo
 

@@ -10,6 +10,9 @@ let mainWindow;
 let goServer;
 const GO_SERVER_PORT = 3000;
 
+// Story 7.7: Store file path to open when app is launched by double-clicking a file
+let pendingFileToOpen = null;
+
 // Story 3.3: Start Go HTTP Server as child process
 function startGoServer() {
   console.log('[Electron] Starting Go HTTP server...');
@@ -122,6 +125,15 @@ function createWindow() {
   // Forward renderer console logs to main process terminal
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
     console.log(`[Renderer Console] ${message}`);
+  });
+  
+  // Story 7.7: Handle pending file to open after window is ready
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (pendingFileToOpen) {
+      console.log('[Electron] Window ready, opening pending file:', pendingFileToOpen);
+      mainWindow.webContents.send('menu-open-recent', pendingFileToOpen);
+      pendingFileToOpen = null;
+    }
   });
   
   mainWindow.on('closed', () => {
@@ -276,7 +288,7 @@ app.whenReady().then(() => {
 // Story 7.5: Handle opening files from recent documents menu
 app.on('open-file', (event, path) => {
   event.preventDefault();
-  console.log('[Electron] Open file from recent documents:', path);
+  console.log('[Electron] Open file from recent documents or file association:', path);
   
   // If window exists, send the file path to renderer to load it
   if (mainWindow && mainWindow.webContents) {
@@ -284,8 +296,8 @@ app.on('open-file', (event, path) => {
   } else {
     // Window not ready yet, store the path to open after window is created
     // This can happen if app is launched by double-clicking a file
-    console.log('[Electron] Window not ready, will open file after window creation');
-    // TODO: Store path and open after window is ready
+    console.log('[Electron] Window not ready, storing file to open after window creation');
+    pendingFileToOpen = path;
   }
 });
 

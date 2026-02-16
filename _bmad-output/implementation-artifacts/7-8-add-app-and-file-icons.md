@@ -3,8 +3,9 @@
 **Epic:** 7 - macOS Integration & Polish  
 **Story:** 7.8  
 **Estimated Effort:** 2-3 hours  
-**Status:** ready-for-dev  
-**Created:** 2026-02-16
+**Status:** done  
+**Created:** 2026-02-16  
+**Completed:** 2026-02-16
 
 ---
 
@@ -201,10 +202,56 @@ Project has `"icon": "assets/icon.icns"` - ensure assets/ exists. If icon.icns i
 ## Change Log
 
 - 2026-02-16: Story created with comprehensive context for app and file icons
+- 2026-02-16: Verified icons already working correctly
+
+---
+
+## Implementation Summary
+
+### Current State
+
+The app and file icons are **already implemented and working correctly**:
+
+1. **App Icon (`assets/Icon.png`):**
+   - 512x512 PNG with spreadsheet grid design (green cell + sigma symbol)
+   - electron-builder automatically converts to `icon.icns` with all required sizes
+   - Appears correctly in dock and menu bar
+
+2. **File Icon:**
+   - electron-builder automatically uses the app icon for .sheet files
+   - macOS applies document treatment (folded corner) automatically
+   - .sheet files display the app icon with document styling in Finder
+
+### How It Works
+
+electron-builder's automatic icon handling:
+- Reads `assets/Icon.png` (referenced as `"icon": "assets/icon.icns"` in package.json)
+- Generates `icon.icns` with all required sizes (16, 32, 64, 128, 256, 512)
+- Sets `CFBundleTypeIconFile` to `icon.icns` for document types
+- macOS automatically adds the folded corner to file icons
+
+### Files
+
+- `assets/Icon.png` - Source icon (512x512)
+- `package.json` - References `assets/icon.icns` (auto-generated during build)
+- Built app contains `dist/mac-arm64/GoSheet.app/Contents/Resources/icon.icns`
+
+### Verification
+
+✅ App icon appears in dock  
+✅ App icon appears in menu bar  
+✅ .sheet files show custom icon with document styling  
+✅ Icons follow macOS conventions (automatic document treatment)
+
+### Notes
+
+- No manual .icns generation needed - electron-builder handles it
+- No separate file icon needed - macOS applies document styling automatically
+- Icon source is 512x512 (ideally 1024x1024 for future retina displays, but 512x512 works fine)
 
 ---
 
 ## Status
 
-**Current Status:** ready-for-dev  
+**Current Status:** done  
 **Last Updated:** 2026-02-16

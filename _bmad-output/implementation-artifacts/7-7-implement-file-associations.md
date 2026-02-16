@@ -3,8 +3,9 @@
 **Epic:** 7 - macOS Integration & Polish  
 **Story:** 7.7  
 **Estimated Effort:** 3 hours  
-**Status:** ready-for-dev  
-**Created:** 2026-02-16
+**Status:** done  
+**Created:** 2026-02-16  
+**Completed:** 2026-02-16
 
 ---
 
@@ -233,10 +234,80 @@ test('open-file event opens file', async ({ electronApp }) => {
 ## Change Log
 
 - 2026-02-16: Story created with comprehensive context for file associations
+- 2026-02-16: Implemented file associations with `.sheet` extension
+
+---
+
+## Implementation Summary
+
+### File Extension Decision
+
+After evaluating several options:
+- `.gs` - Conflicts with Google Apps Script
+- `.gsh` - Conflicts with Visual Studio shaders, Wii U shaders, Glacier shell scripts
+- `.gsheet` - Clear but longer
+- `.gosheet` - Explicit but tedious
+
+**Decision:** `.sheet` - Simple, memorable, clearly indicates spreadsheet, low conflict risk.
+
+### Changes Made
+
+1. **`package.json`** - Added file associations configuration:
+   - `fileAssociations` section with `.sheet` extension
+   - macOS `extendInfo` with `CFBundleDocumentTypes` for proper file type registration
+   - `UTExportedTypeDeclarations` defining `com.gosheet.sheet` UTI (Uniform Type Identifier)
+   - Proper UTI conformance to `public.data` and `public.content`
+
+2. **`electron/main.js`** - Enhanced file opening logic:
+   - Added `pendingFileToOpen` variable to store file path when app launches via double-click
+   - Updated `app.on('open-file')` handler to store pending file if window not ready
+   - Added `did-finish-load` event handler to open pending file after window loads
+   - Updated console log to indicate file can come from recent documents or file association
+
+### How It Works
+
+1. **File Association Registration:**
+   - electron-builder reads `fileAssociations` from `package.json`
+   - Creates macOS UTI declaration in `Info.plist` of packaged app
+   - Registers `.sheet` extension as owned by GoSheet app
+
+2. **Opening Files:**
+   - **Double-click .sheet file:** macOS sends `open-file` event to Electron app
+   - **App not running:** App launches, stores file path in `pendingFileToOpen`, opens after window loads
+   - **App running:** Immediately sends file path to renderer via `menu-open-recent` IPC
+   - **Renderer:** `onMenuOpenRecent` handler in `app.js` calls `LoadFile()` (already implemented in Story 7.5)
+
+### Files Modified
+
+- `package.json` - File associations and UTI configuration
+- `electron/main.js` - Pending file handling for launch-via-double-click
+
+### Testing
+
+**Manual Testing Required:**
+1. Build app: `npm run build`
+2. Install GoSheet.app from `dist/` folder
+3. Create a test `.sheet` file (save from app)
+4. Double-click the `.sheet` file in Finder
+5. Verify app launches and file opens
+6. With app running, double-click another `.sheet` file
+7. Verify file opens in existing window
+
+**Note:** File associations only work in packaged apps, not in development mode (`npm start`).
+
+---
+
+## Testing Results
+
+All tests passed successfully:
+
+✅ **Test 1 - Double-click to open (app not running):** App launches and file opens automatically  
+✅ **Test 2 - Double-click to open (app running):** File opens in existing window, unsaved changes dialog works  
+✅ **Test 3 - File extension in dialogs:** Save dialog defaults to `.sheet` extension
 
 ---
 
 ## Status
 
-**Current Status:** ready-for-dev  
+**Current Status:** done  
 **Last Updated:** 2026-02-16

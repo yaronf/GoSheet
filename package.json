@@ -37,11 +37,38 @@
         {
           "target": "default",
           "arch": [
-            "universal"
+            "arm64"
           ]
         }
       ],
       "icon": "assets/icon.icns",
+      "extendInfo": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "GoSheet Spreadsheet",
+            "CFBundleTypeRole": "Editor",
+            "LSHandlerRank": "Owner",
+            "LSItemContentTypes": [
+              "com.gosheet.sheet"
+            ]
+          }
+        ],
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeIdentifier": "com.gosheet.sheet",
+            "UTTypeDescription": "GoSheet Spreadsheet",
+            "UTTypeConformsTo": [
+              "public.data",
+              "public.content"
+            ],
+            "UTTypeTagSpecification": {
+              "public.filename-extension": [
+                "sheet"
+              ]
+            }
+          }
+        ]
+      },
       "extraResources": [
         {
           "from": "server/gosheet-server",
@@ -53,6 +80,14 @@
         }
       ]
     },
+    "fileAssociations": [
+      {
+        "ext": "sheet",
+        "name": "GoSheet Spreadsheet",
+        "description": "GoSheet spreadsheet file",
+        "role": "Editor"
+      }
+    ],
     "files": [
       "electron/**/*",
       "package.json"

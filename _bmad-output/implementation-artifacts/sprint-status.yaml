@@ -141,8 +141,8 @@ development_status:
   7-4-implement-keyboard-shortcuts: done
   7-5-implement-recent-files-list: done
   7-6-implement-dock-integration: blocked
-  7-7-implement-file-associations: ready-for-dev
-  7-8-add-app-and-file-icons: ready-for-dev
+  7-7-implement-file-associations: done
+  7-8-add-app-and-file-icons: done
   7-9-implement-ux-design-system: ready-for-dev
   7-10-implement-dark-mode-support: ready-for-dev
   epic-7-retrospective: optional

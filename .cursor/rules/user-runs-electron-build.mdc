@@ -1,0 +1,59 @@
+---
+title: User Runs Electron Build
+tags: [electron, build, packaging]
+---
+
+# User Runs Electron Build
+
+## Rule
+
+**NEVER run `npm run build` (electron-builder) via the Shell tool.**
+
+The user must run `npm run build` manually in their terminal.
+
+## Reason
+
+electron-builder requires system-level permissions to:
+- Write to system cache directories (`~/Library/Caches/electron-builder/`)
+- Code sign the application bundle
+- Create DMG files with proper permissions
+- Access macOS security frameworks
+
+These operations fail when run through the Shell tool, even with `required_permissions: ["all"]`.
+
+## What to Do Instead
+
+1. **Tell the user** to run `npm run build` in their terminal
+2. **Provide clear instructions** on what to test after the build completes
+3. **Monitor the terminal output** by reading the terminal file if needed
+4. **Help debug** any build errors by reading terminal output
+
+## Example
+
+❌ **Don't do this:**
+```
+Shell: npm run build
+```
+
+✅ **Do this instead:**
+```
+Please run `npm run build` in your terminal to create the packaged app.
+
+After the build completes, you can test file associations by:
+1. Locating GoSheet.app in the dist/ folder
+2. Creating a test .sheet file
+3. Double-clicking the file to verify it opens in GoSheet
+```
+
+## Related Commands
+
+This rule applies to:
+- `npm run build` (electron-builder)
+- Any command that packages the Electron app
+- Commands that require macOS code signing or notarization
+
+## Notes
+
+- Development mode (`npm start`) works fine via Shell tool
+- Tests (`npm test`) work fine via Shell tool
+- Only the packaging/build process requires manual execution
