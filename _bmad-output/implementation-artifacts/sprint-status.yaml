@@ -162,9 +162,7 @@ development_status:
   9-3-remove-obsolete-wails-files: ready-for-dev
   9-4-clean-up-debug-and-test-artifacts: ready-for-dev
   9-5-organize-project-structure: ready-for-dev
-  epic-9-retrospective: optional
-
-  # Epic 10: Code Quality & Technical Debt (DEFERRED)
+  epic-9-retrospective: optional  # Epic 10: Code Quality & Technical Debt (DEFERRED)
   epic-10: backlog
   10-1-rename-wails-references: backlog
   10-2-setup-linting-and-formatting: backlog
