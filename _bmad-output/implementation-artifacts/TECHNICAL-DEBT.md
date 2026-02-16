@@ -28,12 +28,20 @@ During Story 5.1 implementation, we discovered compatibility issues:
 - `electronApp.firstWindow()` would hang indefinitely
 - **Solution:** Downgraded to Electron 30.5.1 + Playwright 1.48.2 (known stable combination)
 
+### Benefits of Upgrading
+
+- **Security:** Receive security patches and updates
+- **New APIs:** Access to `app.getRecentDocuments()` (added in v36+) needed for Story 7.6 Dock Integration
+- **Bug fixes:** Numerous stability improvements
+- **Future compatibility:** Stay on supported versions
+
 ### Recommended Upgrade Path
 
 1. **Test Electron 38.x + Playwright 1.58.2** (latest stable, released Feb 6, 2026)
    - Electron 38 is supported until March 10, 2026
    - Playwright 1.58.2 is stable (not alpha)
    - Less risky than jumping to Electron 40
+   - Includes `app.getRecentDocuments()` API
 
 2. **If successful, upgrade to Electron 40.x**
    - Longest support window (until June 30, 2026)
@@ -52,6 +60,8 @@ When upgrading, verify:
 - [ ] No zombie Electron processes after tests
 - [ ] App launches and functions correctly
 - [ ] File dialogs work via IPC
+- [ ] `app.getRecentDocuments()` API is available
+- [ ] Story 7.6 (Dock Integration) can be unblocked
 
 ### References
 

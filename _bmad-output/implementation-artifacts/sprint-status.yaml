@@ -140,7 +140,7 @@ development_status:
   7-3-implement-help-menu: done
   7-4-implement-keyboard-shortcuts: done
   7-5-implement-recent-files-list: done
-  7-6-implement-dock-integration: ready-for-dev
+  7-6-implement-dock-integration: blocked
   7-7-implement-file-associations: ready-for-dev
   7-8-add-app-and-file-icons: ready-for-dev
   7-9-implement-ux-design-system: ready-for-dev
