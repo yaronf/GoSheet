@@ -1010,6 +1010,15 @@ function displayFileStatus(hasUnsavedChanges) {
         statusEl.textContent = '✓ Saved';
         statusEl.style.color = '#51cf66';
     }
+    
+    // Story 7.1: Update menu state immediately when status changes
+    // This ensures menu responds to cell edits without waiting for updateFileStatus() poll
+    if (window.electronAPI && window.electronAPI.updateMenuState) {
+        window.electronAPI.updateMenuState({
+            hasUnsavedChanges: hasUnsavedChanges,
+            hasFilePath: false // Will be updated by updateFileStatus() with full info
+        });
+    }
 }
 
 /**
@@ -1019,9 +1028,198 @@ async function updateFileStatus() {
     try {
         const status = await GetFileStatus();
         displayFileStatus(status.hasUnsavedChanges);
+        
+        // Story 7.1: Update menu state in Electron
+        if (window.electronAPI && window.electronAPI.updateMenuState) {
+            window.electronAPI.updateMenuState({
+                hasUnsavedChanges: status.hasUnsavedChanges,
+                hasFilePath: status.currentFile !== ''
+            });
+        }
     } catch (error) {
         console.error('Error updating file status:', error);
     }
+}
+
+// Story 7.1: Setup menu event listeners for Electron
+if (window.electronAPI) {
+    console.log('[App] Setting up Electron menu event listeners');
+    
+    // New file from menu
+    window.electronAPI.onMenuNew(async () => {
+        console.log('[App] Menu New triggered');
+        document.getElementById('new-btn').click();
+    });
+    
+    // Open file from menu
+    window.electronAPI.onMenuOpen(async () => {
+        console.log('[App] Menu Open triggered');
+        document.getElementById('load-btn').click();
+    });
+    
+    // Save file from menu
+    window.electronAPI.onMenuSave(async () => {
+        console.log('[App] Menu Save triggered');
+        document.getElementById('save-btn').click();
+    });
+    
+    // Save As from menu - always show dialog even if file has path
+    window.electronAPI.onMenuSaveAs(async () => {
+        console.log('[App] Menu Save As triggered');
+        try {
+            // Call SaveFile with empty string to force dialog
+            await SaveFile('');
+            updateFileStatus();
+            console.log('File saved via Save As');
+        } catch (error) {
+            await showAlert('Error saving file: ' + error.message);
+        }
+    });
+    
+    // Import CSV from menu
+    window.electronAPI.onMenuImportCSV(async () => {
+        console.log('[App] Menu Import CSV triggered');
+        document.getElementById('import-csv-btn').click();
+    });
+    
+    // Export CSV from menu
+    window.electronAPI.onMenuExportCSV(async () => {
+        console.log('[App] Menu Export CSV triggered');
+        document.getElementById('export-csv-btn').click();
+    });
+    
+    // Open recent file from menu (Story 7.5 will implement full functionality)
+    window.electronAPI.onMenuOpenRecent(async (event, filePath) => {
+        console.log('[App] Menu Open Recent triggered:', filePath);
+        // TODO: Story 7.5 will implement loading specific file path
+        await showAlert('Recent files feature coming in Story 7.5');
+    });
+    
+    // Story 7.2: Edit menu handlers
+    
+    // Cut: Copy cell value to clipboard and clear cell
+    window.electronAPI.onMenuCut(async () => {
+        console.log('[App] Menu Cut triggered');
+        if (!selectedCell) {
+            console.log('[App] No cell selected for Cut');
+            return;
+        }
+        
+        try {
+            const { row, col } = selectedCell;
+            // Get raw value (formula, not computed)
+            const value = await GetCellRawValue(row, col);
+            
+            // Copy to clipboard
+            await navigator.clipboard.writeText(value);
+            console.log('[App] Cut: Copied to clipboard:', value);
+            
+            // Clear the cell
+            await SetCellValue(row, col, '');
+            await refreshAllCells();
+            updateFileStatus();
+        } catch (error) {
+            console.error('[App] Error during Cut:', error);
+            await showAlert('Error during Cut operation: ' + error.message);
+        }
+    });
+    
+    // Copy: Copy cell value to clipboard
+    window.electronAPI.onMenuCopy(async () => {
+        console.log('[App] Menu Copy triggered');
+        if (!selectedCell) {
+            console.log('[App] No cell selected for Copy');
+            return;
+        }
+        
+        try {
+            const { row, col } = selectedCell;
+            // Get raw value (formula, not computed)
+            const value = await GetCellRawValue(row, col);
+            
+            // Copy to clipboard
+            await navigator.clipboard.writeText(value);
+            console.log('[App] Copy: Copied to clipboard:', value);
+        } catch (error) {
+            console.error('[App] Error during Copy:', error);
+            await showAlert('Error during Copy operation: ' + error.message);
+        }
+    });
+    
+    // Paste: Paste clipboard content into selected cell
+    window.electronAPI.onMenuPaste(async () => {
+        console.log('[App] Menu Paste triggered');
+        if (!selectedCell) {
+            console.log('[App] No cell selected for Paste');
+            return;
+        }
+        
+        try {
+            const { row, col } = selectedCell;
+            
+            // Read from clipboard
+            const text = await navigator.clipboard.readText();
+            console.log('[App] Paste: Read from clipboard:', text);
+            
+            // Set cell value
+            await SetCellValue(row, col, text);
+            await refreshAllCells();
+            updateFileStatus();
+        } catch (error) {
+            console.error('[App] Error during Paste:', error);
+            await showAlert('Error during Paste operation: ' + error.message);
+        }
+    });
+    
+    // Select All: Select all non-empty cells
+    window.electronAPI.onMenuSelectAll(async () => {
+        console.log('[App] Menu Select All triggered');
+        
+        try {
+            // Get all cells from the server
+            const response = await fetch('/api/cells/all');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.cells && Object.keys(result.cells).length > 0) {
+                // Find the range of non-empty cells
+                let minRow = Infinity, maxRow = -Infinity;
+                let minCol = Infinity, maxCol = -Infinity;
+                
+                for (const cellRef in result.cells) {
+                    const match = cellRef.match(/^([A-Z]+)(\d+)$/);
+                    if (match) {
+                        const col = columnToIndex(match[1]);
+                        const row = parseInt(match[2]) - 1;
+                        
+                        minRow = Math.min(minRow, row);
+                        maxRow = Math.max(maxRow, row);
+                        minCol = Math.min(minCol, col);
+                        maxCol = Math.max(maxCol, col);
+                    }
+                }
+                
+                // For now, just select the first cell of the range
+                // (Full range selection would require extending the selection model)
+                if (minRow !== Infinity) {
+                    selectCell(minRow, minCol);
+                    console.log(`[App] Select All: Selected range from (${minRow},${minCol}) to (${maxRow},${maxCol})`);
+                    await showAlert(`Selected range: ${indexToColumn(minCol)}${minRow + 1} to ${indexToColumn(maxCol)}${maxRow + 1}\n(Note: Full range selection coming in future update)`);
+                }
+            } else {
+                console.log('[App] Select All: No non-empty cells found');
+                await showAlert('No cells to select');
+            }
+        } catch (error) {
+            console.error('[App] Error during Select All:', error);
+            await showAlert('Error during Select All operation: ' + error.message);
+        }
+    });
+    
+    console.log('[App] Electron menu event listeners registered (File + Edit)');
 }
 
 // Update file status on load

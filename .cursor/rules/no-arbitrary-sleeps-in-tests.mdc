@@ -1,0 +1,92 @@
+---
+description: Avoid arbitrary sleeps in tests - wait for actual conditions instead
+globs: "**/*.{spec,test}.{js,ts,jsx,tsx}"
+alwaysApply: false
+---
+
+# No Arbitrary Sleeps in Tests
+
+**Avoid using arbitrary timeouts in tests.** Instead, wait for actual conditions to be met.
+
+## Why This Matters
+
+- ⚡ **Faster tests**: Don't wait longer than necessary
+- 🎯 **More reliable**: Tests won't fail on slower machines
+- 📖 **Self-documenting**: Clear what we're waiting for
+- 🐛 **Easier debugging**: Failures show what condition wasn't met
+
+## Bad Examples
+
+```javascript
+// ❌ BAD: Arbitrary sleep
+await page.click('#button');
+await page.waitForTimeout(1000); // Hope 1s is enough
+const result = await page.textContent('#result');
+expect(result).toBe('Success');
+
+// ❌ BAD: Multiple arbitrary waits
+await page.type('#input', 'test');
+await page.waitForTimeout(500);
+await page.keyboard.press('Enter');
+await page.waitForTimeout(2000);
+const value = await page.textContent('#output');
+```
+
+## Good Examples
+
+```javascript
+// ✅ GOOD: Wait for actual element state
+await page.click('#button');
+const result = await page.locator('#result');
+await expect(result).toHaveText('Success', { timeout: 5000 });
+
+// ✅ GOOD: Wait for visibility
+await page.type('#input', 'test');
+await page.keyboard.press('Enter');
+const output = await page.locator('#output');
+await expect(output).toBeVisible();
+await expect(output).toContainText('test');
+
+// ✅ GOOD: Wait for element to be ready
+const cell = await page.locator('.cell');
+await expect(cell).toBeVisible();
+await cell.click();
+await cell.dblclick(); // Ensure edit mode
+await page.keyboard.type('data');
+await expect(cell).toHaveText('data');
+```
+
+## Playwright Best Practices
+
+Use Playwright's built-in waiters:
+- `await expect(locator).toBeVisible()`
+- `await expect(locator).toHaveText('expected')`
+- `await expect(locator).toContainText('partial')`
+- `await expect(locator).toBeEnabled()`
+- `await expect(locator).not.toBeVisible()`
+- `await page.waitForLoadState('domcontentloaded')`
+- `await page.waitForSelector('.element')`
+
+## When Sleeps Are Acceptable
+
+Only use `waitForTimeout()` when:
+1. **Testing animations**: Waiting for CSS transitions to complete
+2. **Debounce/throttle**: Testing debounced inputs (use the actual debounce time)
+3. **Third-party delays**: External services with known delays
+4. **Last resort**: Document WHY the sleep is needed
+
+```javascript
+// ✅ ACCEPTABLE: Testing animation (with comment)
+await page.click('#animate-button');
+// Wait for 300ms CSS transition to complete
+await page.waitForTimeout(300);
+await expect(element).toHaveCSS('opacity', '1');
+```
+
+## Migration Strategy
+
+When you see arbitrary sleeps:
+1. Identify what condition you're actually waiting for
+2. Replace with appropriate Playwright waiter
+3. Add timeout parameter if needed (default is usually 30s)
+4. Test on slower machines to verify reliability

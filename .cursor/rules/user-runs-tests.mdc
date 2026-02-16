@@ -1,0 +1,89 @@
+---
+description: User runs all tests - AI must never attempt to run tests in chat
+globs: ["**/*"]
+---
+
+# Rule: User Runs All Tests
+
+## Core Principle
+
+**The AI agent MUST NEVER run tests in the chat window.** Tests must always be run by the user in their terminal.
+
+## Why This Rule Exists
+
+**Technical Limitation: Electron refuses to run in the chat environment.**
+
+1. **Electron requires a display server** - The chat sandbox doesn't have X11/Wayland/macOS display server access
+2. **Spawn failures** - Electron processes fail with "Command failed to spawn: Aborted" 
+3. **Missing environment variables** - Display-related env vars (DISPLAY, etc.) are not available
+4. **User's terminal has proper setup** - The user's terminal has the correct display server connection and environment
+5. **Efficiency** - Attempting to run tests in chat always fails and wastes time and tokens
+
+## What AI Should Do Instead
+
+### ✅ CORRECT Behavior
+
+When tests are needed:
+1. **Create or update test files** as requested
+2. **Explain what the tests do** and what they're checking
+3. **Tell the user to run the tests**: "Please run `npm test` in your terminal and let me know the results"
+4. **Wait for user feedback** on test results
+5. **Fix issues based on user-reported failures**
+
+### ❌ INCORRECT Behavior
+
+**NEVER do these:**
+- Run `npm test` in the chat
+- Run `npm start` in the chat (unless explicitly for background process)
+- Run any test command (`jest`, `playwright test`, `mocha`, etc.)
+- Try to execute test files directly
+- Attempt to spawn test processes
+
+## Examples
+
+### Good Example
+
+```
+User: "Can you add tests for the menu system?"
+
+AI: "I'll create comprehensive tests for the menu system."
+[Creates test file]
+AI: "I've created 13 tests in `playwright_tests/test_menu.spec.js`. 
+Please run `npm test` and let me know if any fail."
+```
+
+### Bad Example
+
+```
+User: "Can you add tests for the menu system?"
+
+AI: "I'll create tests and run them."
+[Creates test file]
+[Attempts to run: npm test]
+AI: "Error: Command failed to spawn: Aborted"
+[Wastes time and tokens]
+```
+
+## When User Reports Test Failures
+
+When the user reports test failures:
+1. **Ask for the specific error output** if not provided
+2. **Read the test file** to understand what's being tested
+3. **Read the implementation** to find the bug
+4. **Fix the issue** in the implementation or test
+5. **Ask user to run tests again**
+
+## Exception: Background Processes
+
+The ONLY exception is when starting long-running background processes that need to stay running (e.g., `npm start` for a dev server). In this case:
+- Use `block_until_ms: 0` to background immediately
+- Monitor the terminal file for startup completion
+- This is NOT the same as running tests
+
+## Summary
+
+**Tests = User runs them**
+**Code = AI writes it**
+**Results = User reports them**
+
+This division of labor is efficient and respects the limitations of the chat environment.

@@ -29,6 +29,49 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportCSVDialog: (defaultName) => {
     console.log(`[Preload] exportCSVDialog called (default: ${defaultName})`);
     return ipcRenderer.invoke('dialog:exportCSV', defaultName);
+  },
+  
+  // Story 7.1: Menu state management
+  updateMenuState: (state) => {
+    console.log('[Preload] updateMenuState called:', state);
+    ipcRenderer.send('menu:updateState', state);
+  },
+  
+  // Story 7.1: Menu event listeners
+  onMenuNew: (callback) => {
+    ipcRenderer.on('menu-new', callback);
+  },
+  onMenuOpen: (callback) => {
+    ipcRenderer.on('menu-open', callback);
+  },
+  onMenuSave: (callback) => {
+    ipcRenderer.on('menu-save', callback);
+  },
+  onMenuSaveAs: (callback) => {
+    ipcRenderer.on('menu-save-as', callback);
+  },
+  onMenuImportCSV: (callback) => {
+    ipcRenderer.on('menu-import-csv', callback);
+  },
+  onMenuExportCSV: (callback) => {
+    ipcRenderer.on('menu-export-csv', callback);
+  },
+  onMenuOpenRecent: (callback) => {
+    ipcRenderer.on('menu-open-recent', callback);
+  },
+  
+  // Story 7.2: Edit menu event listeners
+  onMenuCut: (callback) => {
+    ipcRenderer.on('menu-cut', callback);
+  },
+  onMenuCopy: (callback) => {
+    ipcRenderer.on('menu-copy', callback);
+  },
+  onMenuPaste: (callback) => {
+    ipcRenderer.on('menu-paste', callback);
+  },
+  onMenuSelectAll: (callback) => {
+    ipcRenderer.on('menu-select-all', callback);
   }
 });
 
