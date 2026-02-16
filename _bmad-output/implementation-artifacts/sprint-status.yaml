@@ -137,7 +137,7 @@ development_status:
   epic-7: in-progress
   7-1-implement-file-menu: done
   7-2-implement-edit-menu: done
-  7-3-implement-help-menu: ready-for-dev
+  7-3-implement-help-menu: review
   7-4-implement-keyboard-shortcuts: ready-for-dev
   7-5-implement-recent-files-list: ready-for-dev
   7-6-implement-dock-integration: ready-for-dev

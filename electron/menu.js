@@ -1,10 +1,11 @@
 /**
- * Story 7.1 & 7.2: Electron Menu System
- * Native macOS menu bar with File and Edit menu integration
+ * Story 7.1, 7.2 & 7.3: Electron Menu System
+ * Native macOS menu bar with File, Edit, and Help menu integration
  * 
  * This module manages the application's native menu system, including:
  * - File menu with New, Open, Save, Save As, Import/Export CSV
  * - Edit menu with Cut, Copy, Paste, Select All
+ * - Help menu with About GoSheet
  * - Recent Files submenu
  * - Dynamic menu state management (enable/disable based on app state)
  * - Keyboard shortcuts (Cmd+N, Cmd+O, Cmd+S, Cmd+X, Cmd+C, Cmd+V, Cmd+A, etc.)
@@ -230,6 +231,23 @@ function buildMenu() {
           }
         }
       ]
+    },
+    
+    // Story 7.3: Help menu
+    {
+      label: 'Help',
+      role: 'help', // macOS places Help in standard location
+      submenu: [
+        {
+          id: 'about',
+          label: 'About GoSheet',
+          click: () => {
+            console.log('[Menu] About GoSheet triggered');
+            // Use Electron's native About panel (macOS)
+            app.showAboutPanel();
+          }
+        }
+      ]
     }
   ];
   
@@ -249,8 +267,10 @@ function buildMenu() {
   console.log('[Menu] Template has', template.length, 'top-level menus');
   const fileMenuIndex = process.platform === 'darwin' ? 1 : 0;
   const editMenuIndex = process.platform === 'darwin' ? 2 : 1;
+  const helpMenuIndex = process.platform === 'darwin' ? 3 : 2;
   console.log('[Menu] File menu has', template[fileMenuIndex].submenu.length, 'items');
   console.log('[Menu] Edit menu has', template[editMenuIndex].submenu.length, 'items');
+  console.log('[Menu] Help menu has', template[helpMenuIndex].submenu.length, 'items');
   
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);

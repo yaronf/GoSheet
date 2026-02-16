@@ -4,6 +4,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const { spawn } = require('child_process');
 const path = require('node:path');
+const { initializeMenu, updateMenuState } = require('./menu');
 
 let mainWindow;
 let goServer;
@@ -110,6 +111,9 @@ function createWindow() {
     mainWindow = null;
   });
   
+  // Story 7.1: Initialize menu system
+  initializeMenu(mainWindow);
+  
   console.log('[Electron] Main window created');
 }
 
@@ -206,11 +210,26 @@ function setupIpcHandlers() {
     console.log(`[Electron] CSV export path selected: ${filePath}`);
     return filePath;
   });
+
+  // Story 7.1: IPC handler for menu state updates
+  ipcMain.on('menu:updateState', (event, state) => {
+    console.log('[Electron] Menu state update received:', state);
+    updateMenuState(state);
+  });
 }
 
 // App lifecycle management
 app.whenReady().then(() => {
   console.log('[Electron] App ready, initializing...');
+  
+  // Story 7.3: Configure About panel for macOS
+  app.setAboutPanelOptions({
+    applicationName: app.getName(), // Uses productName from package.json
+    applicationVersion: app.getVersion(),
+    copyright: `© ${new Date().getFullYear()} All rights reserved`,
+    credits: 'Lightweight, fast spreadsheet for macOS'
+  });
+  console.log(`[Electron] About panel configured for ${app.getName()} v${app.getVersion()}`);
   
   // Story 3.4: Setup IPC handlers
   setupIpcHandlers();
