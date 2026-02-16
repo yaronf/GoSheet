@@ -225,6 +225,7 @@ Dock menu testing may require manual verification; Playwright may not easily sim
 ## References
 
 - [Electron app.dock](https://www.electronjs.org/docs/latest/api/app#appdocksetmenumenu-macos)
+- **[UX Design Specification](../planning-artifacts/ux-design-specification.md)** - Comprehensive UX patterns, keyboard shortcuts, macOS integration
 - [macOS Dock Menus (HIG)](https://developer.apple.com/design/human-interface-guidelines/menus#Dock-menus)
 - Story 7.5: Recent files list (data source)
 

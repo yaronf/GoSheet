@@ -259,6 +259,7 @@ test('File menu exists with all items', async ({ electronApp }) => {
 - [Electron Menu Documentation](https://www.electronjs.org/docs/latest/api/menu)
 - [Electron MenuItem Documentation](https://www.electronjs.org/docs/latest/api/menu-item)
 - [macOS Human Interface Guidelines - Menus](https://developer.apple.com/design/human-interface-guidelines/menus)
+- **[UX Design Specification](../planning-artifacts/ux-design-specification.md)** - Menu bar integration, keyboard shortcuts, macOS patterns
 - Epic 4: File Operations implementation
 - Epic 6: CSV Import/Export implementation
 

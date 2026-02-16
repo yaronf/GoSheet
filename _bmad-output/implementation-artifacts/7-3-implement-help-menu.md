@@ -197,6 +197,7 @@ test('Help menu shows About', async ({ electronApp }) => {
 ## References
 
 - [Electron app.setAboutPanelOptions](https://www.electronjs.org/docs/latest/api/app#appsetaboutpaneloptionsoptions)
+- **[UX Design Specification](../planning-artifacts/ux-design-specification.md)** - Comprehensive UX patterns, keyboard shortcuts, macOS integration
 - [Electron app.showAboutPanel](https://www.electronjs.org/docs/latest/api/app#appshowaboutpanel)
 - [macOS Human Interface Guidelines - About](https://developer.apple.com/design/human-interface-guidelines/windows-and-views/about-window)
 - Story 7.1: Menu implementation pattern

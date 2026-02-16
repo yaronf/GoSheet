@@ -240,6 +240,7 @@ test('Edit menu cut/copy/paste', async ({ electronApp }) => {
 ## References
 
 - [Electron Menu Documentation](https://www.electronjs.org/docs/latest/api/menu)
+- **[UX Design Specification](../planning-artifacts/ux-design-specification.md)** - Comprehensive UX patterns, keyboard shortcuts, macOS integration
 - [Electron clipboard Documentation](https://www.electronjs.org/docs/latest/api/clipboard)
 - [macOS Human Interface Guidelines - Edit Menu](https://developer.apple.com/design/human-interface-guidelines/menus)
 - Story 7.1: File menu implementation pattern

@@ -210,6 +210,7 @@ test('keyboard shortcuts trigger actions', async ({ electronApp }) => {
 ## References
 
 - [Electron MenuItem accelerator](https://www.electronjs.org/docs/latest/api/menu-item#menuitemaccelerator)
+- **[UX Design Specification](../planning-artifacts/ux-design-specification.md)** - Comprehensive UX patterns, keyboard shortcuts, macOS integration
 - [Electron globalShortcut](https://www.electronjs.org/docs/latest/api/global-shortcut)
 - [macOS Keyboard Shortcuts (HIG)](https://developer.apple.com/design/human-interface-guidelines/keyboard)
 - Stories 7.1, 7.2: Menu implementation

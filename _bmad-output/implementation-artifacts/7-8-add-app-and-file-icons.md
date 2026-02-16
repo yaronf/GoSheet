@@ -191,6 +191,7 @@ Project has `"icon": "assets/icon.icns"` - ensure assets/ exists. If icon.icns i
 ## References
 
 - [macOS App Icon Guidelines](https://developer.apple.com/design/human-interface-guidelines/app-icons)
+- **[UX Design Specification](../planning-artifacts/ux-design-specification.md)** - Comprehensive UX patterns, keyboard shortcuts, macOS integration
 - [electron-builder icons](https://www.electron.build/icons)
 - [iconutil man page](https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Optimizing/Optimizing.html)
 - Story 7.7: File associations (uses sheet-icon.icns)

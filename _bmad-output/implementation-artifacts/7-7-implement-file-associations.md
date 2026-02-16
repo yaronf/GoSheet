@@ -223,6 +223,7 @@ test('open-file event opens file', async ({ electronApp }) => {
 ## References
 
 - [electron-builder fileAssociations](https://www.electron.build/configuration/contents#fileassociations)
+- **[UX Design Specification](../planning-artifacts/ux-design-specification.md)** - Comprehensive UX patterns, keyboard shortcuts, macOS integration
 - [Electron app open-file event](https://www.electronjs.org/docs/latest/api/app#event-open-file-macos)
 - [macOS Document Types (Info.plist)](https://developer.apple.com/documentation/bundleresources/information_property_list/cfbundledocumenttypes)
 - Story 7.8: App and file icons

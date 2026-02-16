@@ -228,6 +228,7 @@ test('recent files persisted', async ({ electronApp }) => {
 ## References
 
 - [Electron app.getPath](https://www.electronjs.org/docs/latest/api/app#appgetpathname)
+- **[UX Design Specification](../planning-artifacts/ux-design-specification.md)** - Comprehensive UX patterns, keyboard shortcuts, macOS integration
 - [Electron app.addRecentDocument](https://www.electronjs.org/docs/latest/api/app#appaddrecentdocumentpath-macos-windows) (optional)
 - Story 7.1: File menu structure
 - Story 7.6: Dock integration (uses same recent files data)
