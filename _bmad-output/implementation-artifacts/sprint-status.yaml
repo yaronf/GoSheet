@@ -155,13 +155,22 @@ development_status:
   8-4-verify-complete-user-experience: backlog
   epic-8-retrospective: optional
   
-  # Epic 9: Code Quality & Technical Debt
-  epic-9: backlog
-  9-1-rename-wails-references: backlog
-  9-2-setup-linting-and-formatting: backlog
-  9-3-add-code-complexity-analysis: backlog
-  9-4-measure-test-coverage: backlog
-  9-5-refactor-high-complexity-code: backlog
-  9-6-document-code-quality-standards: backlog
-  9-7-enhance-accessibility: ready-for-dev
+  # Epic 9: Documentation & Project Cleanup
+  epic-9: ready-for-dev
+  9-1-update-readme-for-electron: ready-for-dev
+  9-2-create-user-documentation: ready-for-dev
+  9-3-remove-obsolete-wails-files: ready-for-dev
+  9-4-clean-up-debug-and-test-artifacts: ready-for-dev
+  9-5-organize-project-structure: ready-for-dev
   epic-9-retrospective: optional
+
+  # Epic 10: Code Quality & Technical Debt (DEFERRED)
+  epic-10: backlog
+  10-1-rename-wails-references: backlog
+  10-2-setup-linting-and-formatting: backlog
+  10-3-add-code-complexity-analysis: backlog
+  10-4-measure-test-coverage: backlog
+  10-5-refactor-high-complexity-code: backlog
+  10-6-document-code-quality-standards: backlog
+  10-7-enhance-accessibility: ready-for-dev
+  epic-10-retrospective: optional

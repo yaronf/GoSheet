@@ -1,20 +1,20 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update', 'epic-9-added']
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/architecture.md'
   - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-02-15.md'
   - '_bmad-output/planning-artifacts/electron-migration-analysis.md'
-epicCount: 8
+epicCount: 9
 totalFRs: 51
 totalNFRs: 23
-totalStories: 36
+totalStories: 42
 status: 'updated'
 validationStatus: 'passed'
 readyForDevelopment: true
 completedDate: '2026-02-14'
-lastUpdated: '2026-02-15'
-updateReason: 'MAJOR REVISION: Migrated from Wails to Electron. Epic 2 marked obsolete, Epic 3 rewritten for Electron, Epic 4 adapted, Epic 5 replaced with Playwright Electron testing'
+lastUpdated: '2026-02-16'
+updateReason: 'Added Epic 9 (Documentation & Project Cleanup) with 5 stories to finalize project for release'
 ---
 
 # spreadsheet - Epic Breakdown
@@ -1825,3 +1825,144 @@ So that users have a polished, reliable application.
 **And** the app is a Universal binary (Intel + Apple Silicon) (NFR-C2)
 **And** no data is ever corrupted or lost (NFR-R1)
 **And** the app never crashes (NFR-R3, NFR-R4, NFR-S4)
+
+---
+
+## Epic 9: Documentation & Project Cleanup
+
+**Goal:** Finalize the project for release by updating documentation to reflect the Electron architecture and removing obsolete files from the Wails migration.
+
+**Business Value:** Professional, clean project ready for distribution with accurate documentation for users and developers.
+
+**Dependencies:**
+- Epic 7 complete (macOS integration features documented)
+- Epic 8 complete (user experience finalized)
+
+**Estimated Effort:** 3-5 hours
+
+**PRD requirements covered:**
+- NFR-M1: Comprehensive documentation
+- Project maintainability and professionalism
+
+**Architecture requirements covered:**
+- Documentation accuracy
+- Clean project structure
+- Removal of obsolete Wails artifacts
+
+### Story 9.1: Update README for Electron Architecture
+
+As a developer or user,
+I want the README to accurately reflect the current Electron-based architecture,
+So that I understand how to build, test, and use the application.
+
+**Acceptance Criteria:**
+
+**Given** the project has migrated from Wails to Electron
+**When** I read the README
+**Then** the architecture section describes Electron (not Wails)
+**And** the status section shows Epic 5 and Epic 6 as completed
+**And** test counts are accurate (current Playwright + Go tests)
+**And** packaging/distribution instructions are included
+**And** the quick start section covers both development and packaged app usage
+**And** all Wails references are removed
+**And** the feature list includes dark mode and accessibility support
+**And** the project structure diagram reflects current directories
+**And** build commands use Makefile and npm scripts
+
+### Story 9.2: Create User Documentation
+
+As an end user,
+I want comprehensive user documentation,
+So that I can effectively use all features of the spreadsheet application.
+
+**Acceptance Criteria:**
+
+**Given** the application is feature-complete
+**When** I read the user documentation
+**Then** a USER_GUIDE.md file exists with the following sections:
+- Getting Started (launching the app, welcome screen)
+- Basic Operations (creating, opening, saving files)
+- Spreadsheet Basics (cell selection, editing, navigation)
+- Formulas (syntax, functions, cell references)
+- Keyboard Shortcuts (complete list with descriptions)
+- CSV Import/Export (data-only limitations)
+- File Formats (.sheet vs .csv)
+- Troubleshooting (common issues and solutions)
+**And** all instructions are clear and include screenshots or examples
+**And** the documentation is written for non-technical users
+
+### Story 9.3: Remove Obsolete Wails Files
+
+As a developer,
+I want obsolete Wails files removed from the project,
+So that the codebase is clean and doesn't confuse contributors.
+
+**Acceptance Criteria:**
+
+**Given** the project has fully migrated to Electron
+**When** I review the project files
+**Then** the following Wails files are deleted:
+- `api_wails.go`
+- `fileservice_wails.go`
+- `main.go` (Wails entry point)
+- `wails.json`
+- `cmd/` directory (Wails CLI entry points)
+- Old executables: `gosheet`, `web`
+**And** `.gitignore` is updated to reflect Electron structure
+**And** no Wails imports remain in Go code
+**And** the project builds successfully after cleanup
+
+### Story 9.4: Clean Up Debug and Test Artifacts
+
+As a developer,
+I want debug scripts and test artifacts removed,
+So that the repository only contains production-ready code.
+
+**Acceptance Criteria:**
+
+**Given** the testing infrastructure is finalized
+**When** I review the project files
+**Then** the following debug files are deleted:
+- `debug_app_ui.py`, `debug_app_ui2.py`, `debug_app_ui3.py`
+- `debug_pyax.py`, `debug_pyax2.py`
+- `test_file_dialog_manual.py`
+**And** the following old test scripts are deleted:
+- `test.sh`
+- `test-electron-launch.sh`
+- `run_native_tests.sh`
+**And** the following old virtual environments are deleted:
+- `venv/`
+- `venv-native-tests/`
+- `.venv/`
+- `.venv-native-tests/`
+**And** obsolete requirements files are deleted:
+- `requirements-native.txt`
+- `requirements-native-tests.txt`
+**And** test artifacts are deleted:
+- `test_data.csv`
+- `test-results/` (if not needed)
+- `playwright-report/` (if not needed)
+**And** `.pytest_cache/` is added to `.gitignore`
+**And** only production-ready test infrastructure remains
+
+### Story 9.5: Organize Project Structure
+
+As a developer,
+I want a clean, well-organized project structure,
+So that new contributors can easily navigate the codebase.
+
+**Acceptance Criteria:**
+
+**Given** obsolete files have been removed
+**When** I review the project structure
+**Then** the `specs/` directory is moved to `_bmad-output/planning-artifacts/specs/` or archived
+**And** the `api/` directory is removed (only contains `.gitkeep` files)
+**And** the `docs/` directory purpose is clarified or removed if empty
+**And** the README project structure diagram matches the actual structure
+**And** all directories have clear purposes
+**And** the root directory contains only essential files:
+  - Configuration files (package.json, go.mod, Makefile, etc.)
+  - Documentation (README.md, USER_GUIDE.md, BMAD.md, etc.)
+  - Source directories (electron/, frontend/, server/, model/, etc.)
+  - Build/test directories (dist/, build/, playwright_tests/, tests/)
+**And** a CONTRIBUTING.md file is created with development setup instructions
