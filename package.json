@@ -46,13 +46,19 @@
         {
           "from": "server/gosheet-server",
           "to": "server/gosheet-server"
+        },
+        {
+          "from": "frontend",
+          "to": "frontend"
         }
       ]
     },
     "files": [
       "electron/**/*",
-      "frontend/**/*",
       "package.json"
+    ],
+    "asarUnpack": [
+      "frontend/**/*"
     ],
     "directories": {
       "output": "dist",

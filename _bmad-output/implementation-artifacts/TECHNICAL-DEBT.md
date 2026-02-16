@@ -120,6 +120,104 @@ The codebase contains many functions, files, and identifiers that include "Wails
 
 ---
 
+## 3. Build Universal macOS Executable
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Discovered:** 2026-02-16 (Post Epic 6)
+
+### Issue
+
+The current build process fails when creating a universal macOS binary (x64 + arm64) because the Go server binary is architecture-specific but electron-builder expects it to be different for each architecture.
+
+### Current Behavior
+
+When running `npm run build`, electron-builder attempts to create a universal binary but fails with:
+
+```
+⨯ Detected file "Contents/Resources/server/gosheet-server" that's the same 
+  in both x64 and arm64 builds and not covered by the x64ArchFiles rule: "undefined"
+```
+
+### Current Workaround
+
+Build for a single architecture only:
+```bash
+npx electron-builder --mac --arm64  # For Apple Silicon
+npx electron-builder --mac --x64    # For Intel Macs
+```
+
+The arm64 build succeeds and is usable on Apple Silicon Macs, but we cannot distribute a single universal binary that works on both architectures.
+
+### Root Cause
+
+1. The Go server (`server/gosheet-server`) is compiled for the host architecture only
+2. electron-builder expects different binaries for x64 and arm64 when creating a universal build
+3. We're providing the same binary for both architectures, which electron-builder rejects
+
+### Recommended Solution
+
+**Option 1: Build separate Go binaries for each architecture**
+
+1. Cross-compile Go server for both architectures:
+   ```bash
+   # Build for arm64
+   GOOS=darwin GOARCH=arm64 go build -o server/gosheet-server-arm64 ./server
+   
+   # Build for x64
+   GOOS=darwin GOARCH=amd64 go build -o server/gosheet-server-x64 ./server
+   ```
+
+2. Update `package.json` to include both binaries:
+   ```json
+   "extraResources": [
+     {
+       "from": "server/gosheet-server-arm64",
+       "to": "server/gosheet-server",
+       "filter": ["**/*"],
+       "arch": ["arm64"]
+     },
+     {
+       "from": "server/gosheet-server-x64",
+       "to": "server/gosheet-server",
+       "filter": ["**/*"],
+       "arch": ["x64"]
+     }
+   ]
+   ```
+
+3. Update Makefile to build both architectures
+
+**Option 2: Configure x64ArchFiles rule**
+
+Add configuration to tell electron-builder that the Go server is intentionally the same:
+```json
+"mac": {
+  "x64ArchFiles": "Contents/Resources/server/gosheet-server"
+}
+```
+
+However, this may not work correctly as the binary would still be wrong for one architecture.
+
+**Recommended:** Option 1 (cross-compile separate binaries)
+
+### Impact
+
+- **Functional:** App works fine on single architecture
+- **Distribution:** Cannot provide universal binary for users
+- **User Experience:** Intel Mac users need separate download from Apple Silicon users
+
+### Estimated Effort
+
+2-3 hours (cross-compilation setup, testing on both architectures)
+
+### References
+
+- electron-builder universal build documentation
+- Go cross-compilation guide
+
+---
+
 ## Future Technical Debt Items
 
 Add additional technical debt items here as they are discovered.
