@@ -136,7 +136,7 @@ development_status:
   # Status: Uses Electron APIs instead of Wails APIs (Menu.buildFromTemplate, app.dock, etc.)
   epic-7: in-progress
   7-1-implement-file-menu: done
-  7-2-implement-edit-menu: review
+  7-2-implement-edit-menu: done
   7-3-implement-help-menu: ready-for-dev
   7-4-implement-keyboard-shortcuts: ready-for-dev
   7-5-implement-recent-files-list: ready-for-dev
