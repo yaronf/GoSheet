@@ -144,6 +144,7 @@ development_status:
   7-7-implement-file-associations: ready-for-dev
   7-8-add-app-and-file-icons: ready-for-dev
   7-9-implement-ux-design-system: ready-for-dev
+  7-10-implement-dark-mode-support: ready-for-dev
   epic-7-retrospective: optional
   
   # Epic 8: Welcome Screen & Lifecycle (SHIFTED from Epic 7)
@@ -162,4 +163,5 @@ development_status:
   9-4-measure-test-coverage: backlog
   9-5-refactor-high-complexity-code: backlog
   9-6-document-code-quality-standards: backlog
+  9-7-enhance-accessibility: ready-for-dev
   epic-9-retrospective: optional
