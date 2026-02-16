@@ -38,7 +38,15 @@ function startGoServer() {
   }
   
   // Spawn Go server process
+  // Set cwd to Resources directory so server can find frontend files
+  const serverCwd = isDev
+    ? path.join(__dirname, '..')  // Project root in dev mode
+    : process.resourcesPath;       // Resources directory in packaged app
+  
+  console.log(`[Electron] Server working directory: ${serverCwd}`);
+  
   goServer = spawn(serverPath, ['--port', GO_SERVER_PORT.toString()], {
+    cwd: serverCwd,
     stdio: ['ignore', 'pipe', 'pipe']
   });
   

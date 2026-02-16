@@ -83,23 +83,32 @@ func serveStatic(w http.ResponseWriter, r *http.Request) {
 
 // Get frontend directory path (handles both Electron and standalone modes)
 func getFrontendDir() string {
+	// Log current working directory for debugging
+	if cwd, err := os.Getwd(); err == nil {
+		log.Printf("Current working directory: %s", cwd)
+	}
+	
 	// Try current directory first (Electron dev mode: cwd is project root)
 	if _, err := os.Stat("frontend/index.html"); err == nil {
+		log.Println("Found frontend at: frontend/")
 		return "frontend"
 	}
 	
 	// Try Resources/frontend (Electron packaged app: cwd is Resources/)
 	if _, err := os.Stat("Resources/frontend/index.html"); err == nil {
+		log.Println("Found frontend at: Resources/frontend/")
 		return "Resources/frontend"
 	}
 	
 	// Try ../Resources/frontend (if cwd is Resources/server/)
 	if _, err := os.Stat("../Resources/frontend/index.html"); err == nil {
+		log.Println("Found frontend at: ../Resources/frontend/")
 		return "../Resources/frontend"
 	}
 	
 	// Try parent directory (standalone mode: cwd is server/)
 	if _, err := os.Stat("../frontend/index.html"); err == nil {
+		log.Println("Found frontend at: ../frontend/")
 		return "../frontend"
 	}
 	
