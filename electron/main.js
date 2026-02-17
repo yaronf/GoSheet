@@ -13,6 +13,11 @@ const GO_SERVER_PORT = 3000;
 // Story 7.7: Store file path to open when app is launched by double-clicking a file
 let pendingFileToOpen = null;
 
+// Story 7.11: Track whether we've decided to quit (for quit warning dialog)
+let isQuitting = false;
+let quitDialogShown = false;
+let lastQuitAttempt = 0;
+
 // Story 3.3: Start Go HTTP Server as child process
 function startGoServer() {
   console.log('[Electron] Starting Go HTTP server...');
@@ -149,6 +154,93 @@ function createWindow() {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('theme-changed', theme);
     }
+  });
+  
+  // Story 7.11: Quit warning dialog - prevent close if there are unsaved changes
+  mainWindow.on('close', (event) => {
+    // If we've already decided to quit, allow the close
+    if (isQuitting) {
+      return;
+    }
+    
+    // ALWAYS prevent the close initially
+    event.preventDefault();
+    
+    // Check if window is still valid
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) {
+      console.error('[Electron] Window destroyed during close, allowing quit');
+      isQuitting = true;
+      app.quit();
+      return;
+    }
+    
+    // Check for unsaved changes (async)
+    mainWindow.webContents.executeJavaScript('window.currentHasUnsavedChanges')
+      .then(hasUnsavedChanges => {
+        if (hasUnsavedChanges) {
+          // Show dialog (async)
+          return dialog.showMessageBox(mainWindow, {
+            type: 'warning',
+            buttons: ['Cancel', 'Quit Without Saving'],
+            defaultId: 0,  // Cancel is default (safer)
+            title: 'Unsaved Changes',
+            message: 'You have unsaved changes.',
+            detail: 'Do you want to quit without saving?'
+          });
+        } else {
+          // No unsaved changes, quit immediately
+          isQuitting = true;
+          app.quit();
+          return null;
+        }
+      })
+      .then(choice => {
+        const choiceStr = choice ? (choice.response === 0 ? 'Cancel' : 'Quit Without Saving') : 'null';
+        console.log('[Electron] Quit dialog choice:', choiceStr);
+        
+        if (choice && choice.response === 1) {
+          // User chose "Quit Without Saving"
+          isQuitting = true;
+          app.quit();
+        } else if (choice && choice.response === 0) {
+          // User chose "Cancel", reset flag so user can try to quit again
+          quitDialogShown = false;
+        } else {
+          // No choice (null), reset flag
+          quitDialogShown = false;
+        }
+        // If choice.response === 0 or choice is null, do nothing
+        // Window stays open and remains usable
+      })
+      .catch(error => {
+        console.error('[Electron] Error checking unsaved changes:', error);
+        console.error('[Electron] Error type:', error.name, 'Message:', error.message);
+        
+        // Don't auto-quit on error - show a dialog asking user what to do
+        dialog.showMessageBox(mainWindow, {
+          type: 'error',
+          buttons: ['Stay Open', 'Quit Anyway'],
+          defaultId: 0,  // Stay Open is default (safer)
+          title: 'Error Checking Changes',
+          message: 'Unable to check for unsaved changes.',
+          detail: 'An error occurred while checking if you have unsaved work. What would you like to do?'
+        }).then(errorChoice => {
+          if (errorChoice.response === 1) {
+            // User chose "Quit Anyway"
+            console.log('[Electron] User chose to quit despite error');
+            isQuitting = true;
+            app.quit();
+          } else {
+            // User chose "Stay Open"
+            console.log('[Electron] User chose to stay open after error');
+            quitDialogShown = false;
+          }
+        }).catch(dialogError => {
+          // If even the error dialog fails, log and stay open (safest option)
+          console.error('[Electron] Critical error - cannot show dialogs:', dialogError);
+          quitDialogShown = false;
+        });
+      });
   });
   
   mainWindow.on('closed', () => {
@@ -332,7 +424,28 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  // Story 7.11: Prevent quit if we haven't shown the dialog yet
+  if (!isQuitting && !quitDialogShown) {
+    // Debounce rapid quit attempts (prevent multiple dialogs within 500ms)
+    const now = Date.now();
+    if (now - lastQuitAttempt < 500) {
+      console.log('[Electron] Ignoring rapid quit attempt (debounced)');
+      event.preventDefault();
+      return;
+    }
+    lastQuitAttempt = now;
+    
+    event.preventDefault();
+    quitDialogShown = true;
+    
+    // Trigger the close event on the main window, which will handle the dialog
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.close();
+    }
+    return;
+  }
+  
   console.log('[Electron] App quitting, cleaning up...');
   
   // Ensure Go server is terminated

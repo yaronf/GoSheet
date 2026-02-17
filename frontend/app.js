@@ -16,6 +16,10 @@ const EXPAND_COLS = 10;      // Add 10 columns when expanding
 let selectedCell = null;
 let isEditing = false;
 
+// Story 7.11: Track unsaved changes for quit warning dialog
+// Exposed to window so Electron main process can check it via executeJavaScript()
+window.currentHasUnsavedChanges = false;
+
 // Custom modal dialog (replaces native confirm/alert for Cursor browser compatibility)
 function showConfirmDialog(message) {
     return new Promise((resolve) => {
@@ -1056,6 +1060,10 @@ function displayFileStatus(hasUnsavedChanges) {
         statusEl.textContent = '✓ Saved';
         statusEl.style.color = 'var(--color-success)'; // Green
     }
+    
+    // Story 7.11: Expose unsaved changes status to Electron main process
+    // This allows the quit warning dialog to check for unsaved changes
+    window.currentHasUnsavedChanges = hasUnsavedChanges;
     
     // Story 7.1: Update menu state immediately when status changes
     // This ensures menu responds to cell edits without waiting for updateFileStatus() poll

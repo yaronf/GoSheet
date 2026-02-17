@@ -145,6 +145,7 @@ development_status:
   7-8-add-app-and-file-icons: done
   7-9-implement-ux-design-system: done
   7-10-implement-dark-mode-support: done
+  7-11-implement-quit-warning-dialog: done
   epic-7-retrospective: optional
   
   # Epic 8: Welcome Screen & Lifecycle (SHIFTED from Epic 7)
