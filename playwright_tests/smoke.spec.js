@@ -41,16 +41,16 @@ test.describe('Electron App Smoke Tests', () => {
     await expect(fileStatus).toBeVisible();
     console.log('[Smoke Test] File status is visible');
     
-    // Verify buttons exist
-    const newButton = await window.locator('button:has-text("New")');
+    // Verify toolbar buttons exist (Story 7.12: Icon buttons)
+    const newButton = await window.locator('#new-btn');
     await expect(newButton).toBeVisible();
     console.log('[Smoke Test] New button is visible');
     
-    const loadButton = await window.locator('button:has-text("Load")');
+    const loadButton = await window.locator('#load-btn');
     await expect(loadButton).toBeVisible();
     console.log('[Smoke Test] Load button is visible');
     
-    const saveButton = await window.locator('button:has-text("Save")');
+    const saveButton = await window.locator('#save-btn');
     await expect(saveButton).toBeVisible();
     console.log('[Smoke Test] Save button is visible');
   });

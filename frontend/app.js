@@ -972,6 +972,9 @@ async function handleImportCSV() {
     }
 }
 
+// Expose for testing
+window.handleImportCSV = handleImportCSV;
+
 function showCSVPreviewModal(preview) {
     const modal = document.getElementById('csv-preview-modal');
     const infoEl = document.getElementById('csv-preview-info');
@@ -1081,6 +1084,9 @@ async function handleExportCSV() {
         await showAlert('Error exporting CSV: ' + error.message);
     }
 }
+
+// Expose for testing
+window.handleExportCSV = handleExportCSV;
 
 // Update file status display
 /**
