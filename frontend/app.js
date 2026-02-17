@@ -39,6 +39,7 @@ function showConfirmDialog(message) {
             overlay.classList.remove('active');
             okBtn.removeEventListener('click', handleOk);
             cancelBtn.removeEventListener('click', handleCancel);
+            document.removeEventListener('keydown', handleKeyDown);
             resolve(true);
         };
         
@@ -47,11 +48,20 @@ function showConfirmDialog(message) {
             overlay.classList.remove('active');
             okBtn.removeEventListener('click', handleOk);
             cancelBtn.removeEventListener('click', handleCancel);
+            document.removeEventListener('keydown', handleKeyDown);
             resolve(false);
+        };
+        
+        // Handle ESC key
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                handleCancel();
+            }
         };
         
         okBtn.addEventListener('click', handleOk);
         cancelBtn.addEventListener('click', handleCancel);
+        document.addEventListener('keydown', handleKeyDown);
         
         // Close on overlay click
         overlay.addEventListener('click', (e) => {
@@ -91,16 +101,25 @@ function showAlert(message) {
             overlay.classList.remove('active');
             cancelBtn.style.display = ''; // Restore for future confirm dialogs
             okBtn.removeEventListener('click', handleOk);
+            document.removeEventListener('keydown', handleKeyDown);
+            overlay.removeEventListener('click', handleOverlayClick);
             resolve();
         };
         
+        // Handle ESC key
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                handleOk();
+            }
+        };
+        
         okBtn.addEventListener('click', handleOk);
+        document.addEventListener('keydown', handleKeyDown);
         
         // Close on overlay click
         const handleOverlayClick = (e) => {
             if (e.target === overlay) {
                 handleOk();
-                overlay.removeEventListener('click', handleOverlayClick);
             }
         };
         overlay.addEventListener('click', handleOverlayClick);
@@ -125,11 +144,26 @@ function forceCleanupEditing() {
 // Initialize the spreadsheet
 document.querySelector('#app').innerHTML = `
     <div class="toolbar">
-        <button id="new-btn" class="toolbar-btn" title="Create a new spreadsheet (Cmd+N)">New</button>
-        <button id="save-btn" class="toolbar-btn" title="Save current spreadsheet (Cmd+S)">Save</button>
-        <button id="load-btn" class="toolbar-btn" title="Load an existing spreadsheet (Cmd+O)">Load</button>
-        <button id="import-csv-btn" class="toolbar-btn" title="Import data from CSV file">Import CSV</button>
-        <button id="export-csv-btn" class="toolbar-btn" title="Export spreadsheet to CSV file">Export CSV</button>
+        <button id="new-btn" class="toolbar-btn" title="Create a new spreadsheet (⌘N)" aria-label="New Spreadsheet">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+            </svg>
+        </button>
+        <button id="save-btn" class="toolbar-btn" title="Save current spreadsheet (⌘S)" aria-label="Save Spreadsheet">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+            </svg>
+        </button>
+        <button id="load-btn" class="toolbar-btn" title="Load an existing spreadsheet (⌘O)" aria-label="Load Spreadsheet">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
+            </svg>
+        </button>
         <input type="file" id="file-input" accept=".gosheet" style="display: none;" />
         <span id="file-status" class="file-status"></span>
     </div>
@@ -920,7 +954,8 @@ document.getElementById('load-btn').addEventListener('click', async () => {
     }
 });
 
-document.getElementById('import-csv-btn').addEventListener('click', async () => {
+// Story 7.12: Extract CSV import logic into function (CSV buttons removed from toolbar)
+async function handleImportCSV() {
     try {
         // Get CSV preview
         const preview = await PreviewCSV('');
@@ -935,7 +970,7 @@ document.getElementById('import-csv-btn').addEventListener('click', async () => 
     } catch (error) {
         await showAlert('Error previewing CSV: ' + error.message);
     }
-});
+}
 
 function showCSVPreviewModal(preview) {
     const modal = document.getElementById('csv-preview-modal');
@@ -1028,7 +1063,8 @@ function showCSVPreviewModal(preview) {
     });
 }
 
-document.getElementById('export-csv-btn').addEventListener('click', async () => {
+// Story 7.12: Extract CSV export logic into function (CSV buttons removed from toolbar)
+async function handleExportCSV() {
     try {
         // Export CSV
         const result = await ExportCSV('');
@@ -1044,7 +1080,7 @@ document.getElementById('export-csv-btn').addEventListener('click', async () => 
     } catch (error) {
         await showAlert('Error exporting CSV: ' + error.message);
     }
-});
+}
 
 // Update file status display
 /**
@@ -1137,15 +1173,16 @@ if (window.electronAPI) {
     });
     
     // Import CSV from menu
+    // Story 7.12: CSV buttons removed from toolbar, call functions directly
     window.electronAPI.onMenuImportCSV(async () => {
         console.log('[App] Menu Import CSV triggered');
-        document.getElementById('import-csv-btn').click();
+        await handleImportCSV();
     });
     
     // Export CSV from menu
     window.electronAPI.onMenuExportCSV(async () => {
         console.log('[App] Menu Export CSV triggered');
-        document.getElementById('export-csv-btn').click();
+        await handleExportCSV();
     });
     
     // Story 7.5: Open recent file from menu

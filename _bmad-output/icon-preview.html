@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Icon Options Preview - Story 7.12</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #14B8A6;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #14B8A6;
+            margin-top: 40px;
+        }
+        .option-set {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .icon-item {
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .icon-item:hover {
+            border-color: #14B8A6;
+            background: #f0fdfa;
+            transform: translateY(-2px);
+        }
+        .icon-item h3 {
+            margin: 0 0 15px 0;
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .icon-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 80px;
+        }
+        svg {
+            width: 48px;
+            height: 48px;
+            stroke: #333;
+            transition: stroke 0.2s;
+        }
+        .icon-item:hover svg {
+            stroke: #14B8A6;
+        }
+        .dark-mode {
+            background: #1F2937;
+        }
+        .dark-mode svg {
+            stroke: #F9FAFB;
+        }
+        .dark-mode .icon-item:hover svg {
+            stroke: #14B8A6;
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #14B8A6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .theme-toggle:hover {
+            background: #0d9488;
+        }
+        .recommendation {
+            background: #f0fdfa;
+            border-left: 4px solid #14B8A6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .recommendation strong {
+            color: #14B8A6;
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">Toggle Dark Mode</button>
+    
+    <h1>🎨 Icon Options Preview - Story 7.12</h1>
+    <p>Choose which icon set you prefer for the toolbar buttons. Click the toggle button above to see how they look in dark mode.</p>
+    
+    <div class="recommendation">
+        <strong>💡 Recommendation:</strong> Option A (Lucide Icons) - Clean, modern, and widely used. Good balance of detail and simplicity.
+    </div>
+
+    <!-- Option A: Lucide Icons -->
+    <div class="option-set">
+        <h2>Option A: Lucide Icons (Recommended)</h2>
+        <p>Clean, modern icons with consistent stroke width. MIT licensed, actively maintained.</p>
+        <div class="icon-grid">
+            <div class="icon-item">
+                <h3>New</h3>
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="12" y1="18" x2="12" y2="12"/>
+                        <line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">file-plus</p>
+            </div>
+            <div class="icon-item">
+                <h3>Save</h3>
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/>
+                        <polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">save (floppy disk)</p>
+            </div>
+            <div class="icon-item">
+                <h3>Load</h3>
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">folder-open</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option B: Heroicons -->
+    <div class="option-set">
+        <h2>Option B: Heroicons</h2>
+        <p>Designed by Tailwind CSS team. Slightly thinner strokes, modern aesthetic.</p>
+        <div class="icon-grid">
+            <div class="icon-item">
+                <h3>New</h3>
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">document-plus</p>
+            </div>
+            <div class="icon-item">
+                <h3>Save</h3>
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">arrow-down-tray</p>
+            </div>
+            <div class="icon-item">
+                <h3>Load</h3>
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" />
+                    </svg>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">folder-open</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option C: Feather Icons -->
+    <div class="option-set">
+        <h2>Option C: Feather Icons (Your Selection)</h2>
+        <p>Minimal and lightweight. Very simple, clean lines. <strong style="color: #14B8A6;">✓ With open folder for Load</strong></p>
+        <div class="icon-grid">
+            <div class="icon-item">
+                <h3>New</h3>
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">file-plus</p>
+            </div>
+            <div class="icon-item">
+                <h3>Save</h3>
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">save (floppy disk)</p>
+            </div>
+            <div class="icon-item" style="border-color: #14B8A6; background: #f0fdfa;">
+                <h3>Load ⭐</h3>
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v11z"></path>
+                        <path d="M2 10h20"></path>
+                    </svg>
+                </div>
+                <p style="font-size: 12px; color: #14B8A6; margin-top: 10px; font-weight: 600;">folder-open (CUSTOM MIX)</p>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 40px; padding: 20px; background: white; border-radius: 8px;">
+        <h2>📝 Your Decision</h2>
+        <p>Which option do you prefer?</p>
+        <ul style="line-height: 1.8;">
+            <li><strong>Option A (Lucide)</strong> - Balanced detail, modern, consistent</li>
+            <li><strong>Option B (Heroicons)</strong> - Thinner strokes, Tailwind aesthetic</li>
+            <li><strong>Option C (Feather)</strong> - Most minimal, very lightweight</li>
+        </ul>
+        <p style="margin-top: 20px; color: #666;">
+            <strong>Note:</strong> All icons will automatically adapt to dark mode using CSS variables. 
+            The "Load" icon in Option C is a closed folder (simpler) while A and B use open folders (more detailed).
+        </p>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            const sets = document.querySelectorAll('.option-set');
+            sets.forEach(set => set.classList.toggle('dark-mode'));
+        }
+    </script>
+</body>
+</html>
