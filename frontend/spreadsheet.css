@@ -91,6 +91,40 @@ input[type="text"].formula-bar {
   --cell-padding-horizontal: 4px;
 }
 
+/* Dark Mode Color Palette */
+[data-theme="dark"] {
+  /* Primary Colors */
+  --color-primary: #14B8A6;
+  --color-primary-hover: #2DD4BF;
+  --color-secondary: #818CF8;
+  
+  /* State Colors */
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-error: #F87171;
+  --color-info: #60A5FA;
+  
+  /* Backgrounds */
+  --color-bg-primary: #111827;
+  --color-bg-surface: #1F2937;
+  --color-bg-header: #374151;
+  
+  /* Text */
+  --color-text-primary: #F9FAFB;
+  --color-text-secondary: #9CA3AF;
+  
+  /* Borders */
+  --color-border: #374151;
+  --color-border-grid: #4B5563;
+  
+  /* Cell States */
+  --color-cell-selected-bg: rgba(20, 184, 166, 0.1);
+  --color-cell-selected-border: #14B8A6;
+  --color-cell-formula-bg: rgba(251, 191, 36, 0.1);
+  --color-cell-error-bg: rgba(248, 113, 113, 0.1);
+  --color-cell-error-text: #F87171;
+}
+
 /* Modal Dialog */
 .modal-overlay {
     display: none;
@@ -459,8 +493,8 @@ input[type="text"].formula-bar {
 }
 
 .cell.error-cell {
-    background: var(--color-cell-error-bg);
-    color: var(--color-cell-error-text);
+    background: var(--color-cell-error-bg) !important;
+    color: var(--color-cell-error-text) !important;
     font-weight: 500;
 }
 

@@ -1,7 +1,7 @@
 // Story 3.1: Electron Main Process
 // Handles app lifecycle, Go server spawning, and window creation
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeTheme } = require('electron');
 const { spawn } = require('child_process');
 const path = require('node:path');
 const { initializeMenu, updateMenuState } = require('./menu');
@@ -134,6 +134,20 @@ function createWindow() {
       console.log('[Electron] Window ready, opening pending file:', pendingFileToOpen);
       mainWindow.webContents.send('menu-open-recent', pendingFileToOpen);
       pendingFileToOpen = null;
+    }
+    
+    // Story 7.10: Send initial theme to renderer
+    const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+    console.log('[Electron] Sending initial theme to renderer:', theme);
+    mainWindow.webContents.send('theme-changed', theme);
+  });
+  
+  // Story 7.10: Listen for system theme changes
+  nativeTheme.on('updated', () => {
+    const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+    console.log('[Electron] System theme changed to:', theme);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('theme-changed', theme);
     }
   });
   

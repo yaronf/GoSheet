@@ -568,10 +568,19 @@ async function refreshAllCells() {
                 if (cell) {
                     cell.textContent = value;
                     
+                    // Check if it's an error cell
+                    if (value && value.startsWith('#ERROR')) {
+                        cell.classList.add('error-cell');
+                    } else {
+                        cell.classList.remove('error-cell');
+                    }
+                    
                     // Check if it's a formula cell
                     const rawValue = await GetCellRawValue(row, col);
                     if (rawValue && rawValue.startsWith('=')) {
                         cell.classList.add('formula-cell');
+                    } else {
+                        cell.classList.remove('formula-cell');
                     }
                     
                     // Add number-cell class for right alignment
@@ -619,10 +628,19 @@ async function loadCells() {
                 if (cell) {
                     cell.textContent = value;
                     
+                    // Check if it's an error cell
+                    if (value && value.startsWith('#ERROR')) {
+                        cell.classList.add('error-cell');
+                    } else {
+                        cell.classList.remove('error-cell');
+                    }
+                    
                     // Check if it's a formula cell
                     const rawValue = await GetCellRawValue(row, col);
                     if (rawValue && rawValue.startsWith('=')) {
                         cell.classList.add('formula-cell');
+                    } else {
+                        cell.classList.remove('formula-cell');
                     }
                     
                     // Add number-cell class for right alignment
@@ -1284,6 +1302,35 @@ if (window.electronAPI) {
     });
     
     console.log('[App] Electron menu event listeners registered (File + Edit)');
+}
+
+// Story 7.10: Dark mode support
+// Listen for theme changes from Electron main process
+if (window.electronAPI && window.electronAPI.onThemeChanged) {
+    window.electronAPI.onThemeChanged((theme) => {
+        console.log('[App] Theme changed to:', theme);
+        document.documentElement.setAttribute('data-theme', theme);
+    });
+    console.log('[App] Theme change listener registered');
+}
+
+// Fallback: Detect system preference directly (for web mode or if Electron API not available)
+if (window.matchMedia) {
+    // Initial detection
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        console.log('[App] Initial theme: dark (from media query)');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        console.log('[App] Initial theme: light (from media query)');
+    }
+    
+    // Listen for changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        const theme = e.matches ? 'dark' : 'light';
+        console.log('[App] System theme changed to:', theme);
+        document.documentElement.setAttribute('data-theme', theme);
+    });
 }
 
 // Update file status on load

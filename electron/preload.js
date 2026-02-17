@@ -78,6 +78,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addRecentFile: (filePath) => {
     console.log('[Preload] addRecentFile called:', filePath);
     return ipcRenderer.invoke('file:addRecent', filePath);
+  },
+  
+  // Story 7.10: Theme change listener
+  onThemeChanged: (callback) => {
+    ipcRenderer.on('theme-changed', (event, theme) => callback(theme));
   }
 });
 
