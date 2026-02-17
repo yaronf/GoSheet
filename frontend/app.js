@@ -121,17 +121,17 @@ function forceCleanupEditing() {
 // Initialize the spreadsheet
 document.querySelector('#app').innerHTML = `
     <div class="toolbar">
-        <button id="new-btn" class="toolbar-btn">New</button>
-        <button id="save-btn" class="toolbar-btn">Save</button>
-        <button id="load-btn" class="toolbar-btn">Load</button>
-        <button id="import-csv-btn" class="toolbar-btn">Import CSV</button>
-        <button id="export-csv-btn" class="toolbar-btn">Export CSV</button>
+        <button id="new-btn" class="toolbar-btn" title="Create a new spreadsheet (Cmd+N)">New</button>
+        <button id="save-btn" class="toolbar-btn" title="Save current spreadsheet (Cmd+S)">Save</button>
+        <button id="load-btn" class="toolbar-btn" title="Load an existing spreadsheet (Cmd+O)">Load</button>
+        <button id="import-csv-btn" class="toolbar-btn" title="Import data from CSV file">Import CSV</button>
+        <button id="export-csv-btn" class="toolbar-btn" title="Export spreadsheet to CSV file">Export CSV</button>
         <input type="file" id="file-input" accept=".gosheet" style="display: none;" />
         <span id="file-status" class="file-status"></span>
     </div>
     <div class="formula-bar-container">
-        <span class="cell-ref" id="cell-ref">A1</span>
-        <input type="text" class="formula-bar" id="formula-bar" placeholder="Enter value or formula..." />
+        <span class="cell-ref" id="cell-ref" title="Current cell reference">A1</span>
+        <input type="text" class="formula-bar" id="formula-bar" placeholder="Enter value or formula..." title="Enter cell value or formula (start with = for formulas)" />
     </div>
     <div class="spreadsheet-container" id="container">
         <table class="spreadsheet" id="spreadsheet">
@@ -573,6 +573,13 @@ async function refreshAllCells() {
                     if (rawValue && rawValue.startsWith('=')) {
                         cell.classList.add('formula-cell');
                     }
+                    
+                    // Add number-cell class for right alignment
+                    if (value && !isNaN(value) && value.trim() !== '') {
+                        cell.classList.add('number-cell');
+                    } else {
+                        cell.classList.remove('number-cell');
+                    }
                 }
             }
         }
@@ -616,6 +623,13 @@ async function loadCells() {
                     const rawValue = await GetCellRawValue(row, col);
                     if (rawValue && rawValue.startsWith('=')) {
                         cell.classList.add('formula-cell');
+                    }
+                    
+                    // Add number-cell class for right alignment
+                    if (value && !isNaN(value) && value.trim() !== '') {
+                        cell.classList.add('number-cell');
+                    } else {
+                        cell.classList.remove('number-cell');
                     }
                 }
             }
@@ -1019,10 +1033,10 @@ function displayFileStatus(hasUnsavedChanges) {
     const statusEl = document.getElementById('file-status');
     if (hasUnsavedChanges) {
         statusEl.textContent = '● Unsaved changes';
-        statusEl.style.color = '#ff6b6b';
+        statusEl.style.color = 'var(--color-warning)'; // Amber
     } else {
         statusEl.textContent = '✓ Saved';
-        statusEl.style.color = '#51cf66';
+        statusEl.style.color = 'var(--color-success)'; // Green
     }
     
     // Story 7.1: Update menu state immediately when status changes

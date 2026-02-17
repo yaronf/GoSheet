@@ -118,9 +118,10 @@ function createWindow() {
   }
   
   // Open DevTools in development mode
-  if (process.env.NODE_ENV !== 'production') {
-    mainWindow.webContents.openDevTools();
-  }
+  // Disabled by default - press Cmd+Option+I (Mac) or Ctrl+Shift+I (Windows/Linux) to open manually
+  // if (process.env.NODE_ENV !== 'production') {
+  //   mainWindow.webContents.openDevTools();
+  // }
   
   // Forward renderer console logs to main process terminal
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
