@@ -1309,9 +1309,16 @@ if (window.electronAPI) {
         }
     });
     
-    // Select All: Select all non-empty cells
+    // Select All: If formula bar/input has focus, select its text; else select all cells
     window.electronAPI.onMenuSelectAll(async () => {
         console.log('[App] Menu Select All triggered');
+        
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            // Native text selection in input - don't intercept
+            active.select();
+            return;
+        }
         
         try {
             // Get all cells from the server
