@@ -2,6 +2,7 @@
 // Comprehensive tests for all keyboard shortcuts
 
 const { test, expect } = require('./fixtures');
+const { clickMenuItemById } = require('electron-playwright-helpers');
 
 test.describe('Keyboard Shortcuts Tests', () => {
   test('All menu items have correct accelerators', async ({ electronApp, window }) => {
@@ -203,12 +204,11 @@ test.describe('Keyboard Shortcuts Tests', () => {
     const formulaText = await formulaBar.inputValue();
     expect(formulaText).toBe('=SUM(A1:A10)');
     
-    // Cmd+A in formula bar should work for text selection (native browser behavior)
-    // We can't easily test the selection, but we can verify the formula bar is focused
-    // and shortcuts don't interfere with normal editing
-    await window.keyboard.press('Meta+A');
+    // Trigger Select All via menu (platform-independent: Cmd+A on macOS, Ctrl+A on Linux)
+    await clickMenuItemById(electronApp, 'select-all');
+    await window.waitForTimeout(100); // Let select() complete
     
-    // Type to replace (if text was selected, this will replace it)
+    // Type to replace (text should be selected, so this replaces it)
     await window.keyboard.type('=A1+A2');
     
     const newFormulaText = await formulaBar.inputValue();
