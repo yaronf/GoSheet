@@ -3,7 +3,7 @@
 **Epic:** 7 - macOS Integration & Polish  
 **Story:** 7.9  
 **Estimated Effort:** 3-4 hours  
-**Status:** ready-for-dev  
+**Status:** done  
 **Created:** 2026-02-16
 
 ---
