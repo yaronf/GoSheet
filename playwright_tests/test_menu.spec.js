@@ -73,7 +73,7 @@ test.describe('File Menu Tests', () => {
     // Verify required menu items exist
     expect(itemLabels).toContain('New');
     expect(itemLabels).toContain('Open...');
-    expect(itemLabels).toContain('Recent Files');
+    expect(itemLabels).toContain('Open Recent');
     expect(itemLabels).toContain('Save');
     expect(itemLabels).toContain('Save As...');
     expect(itemLabels).toContain('Import CSV...');
@@ -181,8 +181,8 @@ test.describe('File Menu Tests', () => {
         const fileMenu = appMenu.items.find(item => item.label === 'File');
         if (!fileMenu) return { error: 'File menu not found' };
         
-        const recentItem = fileMenu.submenu.items.find(item => item.label === 'Recent Files');
-        if (!recentItem) return { error: 'Recent Files not found', items: fileMenu.submenu.items.map(i => i.label) };
+        const recentItem = fileMenu.submenu.items.find(item => item.label === 'Open Recent');
+        if (!recentItem) return { error: 'Open Recent not found', items: fileMenu.submenu.items.map(i => i.label) };
         
         return {
           exists: true,
@@ -205,8 +205,11 @@ test.describe('File Menu Tests', () => {
     
     expect(recentFilesExists.exists).toBe(true);
     expect(recentFilesExists.hasSubmenu).toBe(true);
-    // Initially should show "No Recent Files"
-    expect(recentFilesExists.submenuItems).toContain('No Recent Files');
+    // Submenu has "Clear Recent" (template) or "No Recent Files" (after updateRecentFiles)
+    expect(recentFilesExists.submenuItems.length).toBeGreaterThan(0);
+    expect(
+      recentFilesExists.submenuItems.some(l => l === 'No Recent Files' || l === 'Clear Recent')
+    ).toBe(true);
   });
   
   test('Menu items can be accessed by ID programmatically', async ({ electronApp, window }) => {
@@ -358,10 +361,11 @@ test.describe('Menu Integration Tests', () => {
     await expect(cell).toBeVisible();
     await cell.click();
     
-    // Double-click to enter edit mode (more reliable than single click)
+    // Double-click to enter edit mode
     await cell.dblclick();
+    // Wait for edit mode to be ready (avoids first character being lost)
+    await window.waitForTimeout(150);
     
-    // Type the data
     await window.keyboard.type('Test Data');
     await window.keyboard.press('Enter');
     

@@ -2,10 +2,22 @@
 // Tests CSV import → export → import to verify data integrity
 
 const { test, expect } = require('./fixtures');
-const { stubDialog } = require('electron-playwright-helpers');
+const { stubDialog, clickMenuItemById } = require('electron-playwright-helpers');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+
+// Story 7.12: Use menu click + stubDialog instead of window.evaluate (avoids Electron 27+ flakiness)
+async function triggerImportCSV(electronApp, stubValue) {
+  await stubDialog(electronApp, 'showOpenDialog', stubValue);
+  await clickMenuItemById(electronApp, 'import-csv');
+}
+
+// Use menu click + stubDialog instead of window.evaluate (avoids Electron 27+ flakiness)
+async function triggerExportCSV(electronApp, stubValue) {
+  await stubDialog(electronApp, 'showSaveDialog', stubValue);
+  await clickMenuItemById(electronApp, 'export-csv');
+}
 
 // Helper to clear spreadsheet and ensure no modals are open
 async function clearSpreadsheet(window) {
@@ -13,17 +25,15 @@ async function clearSpreadsheet(window) {
   await window.waitForTimeout(300);
   
   // Dismiss any unsaved changes modal
-  const modal = window.locator('#modal-overlay');
-  if (await modal.isVisible()) {
+  const modal = window.locator('#modal-overlay.active');
+  const isVisible = await modal.isVisible();
+  if (isVisible) {
     await window.locator('#modal-ok').click();
-    await window.waitForTimeout(300);
     await expect(modal).not.toBeVisible();
   }
 }
 
-// TODO: These tests use old #import-csv-btn and #export-csv-btn buttons that were removed in Story 7.12
-// Need to update to use menu handlers like test_csv_import.spec.js
-test.describe.skip('CSV Round-Trip Verification', () => {
+test.describe('CSV Round-Trip Verification', () => {
   test('Simple data round-trip preserves values', async ({ window, electronApp }) => {
     // Create test CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
@@ -34,8 +44,9 @@ test.describe.skip('CSV Round-Trip Verification', () => {
     fs.writeFileSync(importPath, originalData);
 
     // Import CSV
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [importPath] });
-    await window.locator('#import-csv-btn').click();
+    await triggerImportCSV(electronApp, { filePaths: [importPath] });
+    const modal = window.locator('#csv-preview-modal.active');
+    await expect(modal).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
     await window.waitForTimeout(500);
 
@@ -47,19 +58,21 @@ test.describe.skip('CSV Round-Trip Verification', () => {
     await expect(window.locator('#cell-3-2')).toHaveText('SF');
 
     // Export CSV
-    await stubDialog(electronApp, 'showSaveDialog', { filePath: exportPath });
-    await window.locator('#export-csv-btn').click();
-    await window.waitForTimeout(500);
+    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
+    
+    // Wait for success alert
+    const alertModal = window.locator('#modal-overlay.active');
+    await expect(alertModal).toBeVisible({ timeout: 5000 });
     await window.locator('#modal-ok').click();
 
     // Re-import exported CSV
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [exportPath] });
-    await window.locator('#import-csv-btn').click();
-    await window.waitForTimeout(300);
+    await triggerImportCSV(electronApp, { filePaths: [exportPath] });
+    const modal2 = window.locator('#csv-preview-modal.active');
+    await expect(modal2).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
     
     // Confirm unsaved changes if modal appears
-    const confirmModal = window.locator('#modal-overlay');
+    const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(300);
     if (await confirmModal.isVisible()) {
       await window.locator('#modal-ok').click();
@@ -104,9 +117,11 @@ test.describe.skip('CSV Round-Trip Verification', () => {
     // Export CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const exportPath = path.join(testDir, 'formulas.csv');
-    await stubDialog(electronApp, 'showSaveDialog', { filePath: exportPath });
-    await window.locator('#export-csv-btn').click();
-    await window.waitForTimeout(500);
+    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
+    
+    // Wait for success alert
+    const alertModal = window.locator('#modal-overlay.active');
+    await expect(alertModal).toBeVisible({ timeout: 5000 });
     await window.locator('#modal-ok').click();
 
     // Verify exported CSV has computed value, not formula
@@ -117,13 +132,13 @@ test.describe.skip('CSV Round-Trip Verification', () => {
     expect(exportContent).not.toContain('=A1+A2');
 
     // Re-import exported CSV
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [exportPath] });
-    await window.locator('#import-csv-btn').click();
-    await window.waitForTimeout(300);
+    await triggerImportCSV(electronApp, { filePaths: [exportPath] });
+    const modal3 = window.locator('#csv-preview-modal.active');
+    await expect(modal3).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
     
     // Confirm unsaved changes
-    const confirmModal = window.locator('#modal-overlay');
+    const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(300);
     if (await confirmModal.isVisible()) {
       await window.locator('#modal-ok').click();
@@ -159,19 +174,21 @@ test.describe.skip('CSV Round-Trip Verification', () => {
     // Export CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const exportPath = path.join(testDir, 'special.csv');
-    await stubDialog(electronApp, 'showSaveDialog', { filePath: exportPath });
-    await window.locator('#export-csv-btn').click();
-    await window.waitForTimeout(500);
+    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
+    
+    // Wait for success alert
+    const alertModal2 = window.locator('#modal-overlay.active');
+    await expect(alertModal2).toBeVisible({ timeout: 5000 });
     await window.locator('#modal-ok').click();
 
     // Re-import exported CSV
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [exportPath] });
-    await window.locator('#import-csv-btn').click();
-    await window.waitForTimeout(300);
+    await triggerImportCSV(electronApp, { filePaths: [exportPath] });
+    const modal4 = window.locator('#csv-preview-modal.active');
+    await expect(modal4).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
     
     // Confirm unsaved changes
-    const confirmModal = window.locator('#modal-overlay');
+    const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(300);
     if (await confirmModal.isVisible()) {
       await window.locator('#modal-ok').click();
@@ -206,8 +223,9 @@ test.describe.skip('CSV Round-Trip Verification', () => {
     fs.writeFileSync(importPath, csvContent);
 
     // Import CSV
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [importPath] });
-    await window.locator('#import-csv-btn').click();
+    await triggerImportCSV(electronApp, { filePaths: [importPath] });
+    const modal5 = window.locator('#csv-preview-modal.active');
+    await expect(modal5).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
     await window.waitForTimeout(1000);
 
@@ -218,9 +236,11 @@ test.describe.skip('CSV Round-Trip Verification', () => {
     await expect(window.locator('#cell-50-2')).toHaveText('500');
 
     // Export CSV
-    await stubDialog(electronApp, 'showSaveDialog', { filePath: exportPath });
-    await window.locator('#export-csv-btn').click();
-    await window.waitForTimeout(500);
+    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
+    
+    // Wait for success alert
+    const alertModal3 = window.locator('#modal-overlay.active');
+    await expect(alertModal3).toBeVisible({ timeout: 5000 });
     await window.locator('#modal-ok').click();
 
     // Verify exported file size
@@ -228,12 +248,13 @@ test.describe.skip('CSV Round-Trip Verification', () => {
     expect(stats.size).toBeGreaterThan(1000); // Should have substantial content
 
     // Re-import and verify
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [exportPath] });
-    await window.locator('#import-csv-btn').click();
+    await triggerImportCSV(electronApp, { filePaths: [exportPath] });
+    const modal6 = window.locator('#csv-preview-modal.active');
+    await expect(modal6).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
     
     // Confirm unsaved changes
-    const confirmModal = window.locator('#modal-overlay');
+    const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(200);
     if (await confirmModal.isVisible()) {
       await window.locator('#modal-ok').click();
@@ -268,18 +289,21 @@ test.describe.skip('CSV Round-Trip Verification', () => {
     // Export CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const exportPath = path.join(testDir, 'sparse.csv');
-    await stubDialog(electronApp, 'showSaveDialog', { filePath: exportPath });
-    await window.locator('#export-csv-btn').click();
-    await window.waitForTimeout(500);
+    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
+    
+    // Wait for success alert
+    const alertModal4 = window.locator('#modal-overlay.active');
+    await expect(alertModal4).toBeVisible({ timeout: 5000 });
     await window.locator('#modal-ok').click();
 
     // Re-import
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [exportPath] });
-    await window.locator('#import-csv-btn').click();
+    await triggerImportCSV(electronApp, { filePaths: [exportPath] });
+    const modal7 = window.locator('#csv-preview-modal.active');
+    await expect(modal7).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
     
     // Confirm unsaved changes
-    const confirmModal = window.locator('#modal-overlay');
+    const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(200);
     if (await confirmModal.isVisible()) {
       await window.locator('#modal-ok').click();

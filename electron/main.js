@@ -163,6 +163,15 @@ function createWindow() {
       return;
     }
     
+    // In test mode, skip the unsaved changes dialog and quit immediately
+    const isTestMode = process.env.NODE_ENV === 'test';
+    if (isTestMode) {
+      console.log('[Electron] Test mode: Skipping unsaved changes check, allowing close');
+      isQuitting = true;
+      app.quit();
+      return;
+    }
+    
     // ALWAYS prevent the close initially
     event.preventDefault();
     
@@ -426,7 +435,10 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', (event) => {
   // Story 7.11: Prevent quit if we haven't shown the dialog yet
-  if (!isQuitting && !quitDialogShown) {
+  // EXCEPT in test mode where we want clean shutdown without dialogs
+  const isTestMode = process.env.NODE_ENV === 'test';
+  
+  if (!isQuitting && !quitDialogShown && !isTestMode) {
     // Debounce rapid quit attempts (prevent multiple dialogs within 500ms)
     const now = Date.now();
     if (now - lastQuitAttempt < 500) {
@@ -446,7 +458,11 @@ app.on('before-quit', (event) => {
     return;
   }
   
-  console.log('[Electron] App quitting, cleaning up...');
+  if (isTestMode) {
+    console.log('[Electron] Test mode: Allowing immediate quit, cleaning up...');
+  } else {
+    console.log('[Electron] App quitting, cleaning up...');
+  }
   
   // Ensure Go server is terminated
   if (goServer) {

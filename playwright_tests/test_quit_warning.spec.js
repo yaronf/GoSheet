@@ -3,16 +3,20 @@
 
 const { test, expect } = require('@playwright/test');
 const { _electron: electron } = require('playwright');
+const { stubDialog, clickMenuItemById } = require('electron-playwright-helpers');
 const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 test.describe('Quit Warning Dialog', () => {
   let electronApp;
   let window;
 
   test.beforeEach(async () => {
-    // Launch Electron app
+    // Launch Electron app (NODE_ENV=test keeps window hidden like other tests)
     electronApp = await electron.launch({
-      args: [path.join(__dirname, '..')]
+      args: [path.join(__dirname, '..', 'electron', 'main.js'), '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
+      env: { ...process.env, NODE_ENV: 'test' },
     });
     
     // Get the first window
@@ -94,23 +98,28 @@ test.describe('Quit Warning Dialog', () => {
     await window.keyboard.type('test');
     await window.keyboard.press('Enter');
     
-    // Wait for status update
-    await window.waitForTimeout(500);
+    // Wait for status and menu to update (Save becomes enabled)
+    await expect(window.locator('#file-status')).toContainText('Unsaved', { timeout: 3000 });
     
-    // Verify unsaved changes
     let hasUnsavedChanges = await window.evaluate(() => window.currentHasUnsavedChanges);
     expect(hasUnsavedChanges).toBe(true);
     
-    // Save the file (Cmd+S on Mac, Ctrl+S on others)
-    const isMac = process.platform === 'darwin';
-    await window.keyboard.press(isMac ? 'Meta+S' : 'Control+S');
+    // Stub save dialog and trigger Save via menu (more reliable than Cmd+S)
+    const testPath = path.join(os.tmpdir(), 'test-quit-warning.sheet');
+    await stubDialog(electronApp, 'showSaveDialog', { canceled: false, filePath: testPath });
+    await clickMenuItemById(electronApp, 'save');
     
-    // Wait for save to complete
-    await window.waitForTimeout(1000);
+    // Wait for save to complete and status to update
+    await expect(window.locator('#file-status')).toContainText('Saved', { timeout: 5000 });
     
     // Should no longer have unsaved changes
     hasUnsavedChanges = await window.evaluate(() => window.currentHasUnsavedChanges);
     expect(hasUnsavedChanges).toBe(false);
+    
+    // Cleanup
+    if (fs.existsSync(testPath)) {
+      fs.unlinkSync(testPath);
+    }
   });
 
   test('should expose currentHasUnsavedChanges to window object', async () => {

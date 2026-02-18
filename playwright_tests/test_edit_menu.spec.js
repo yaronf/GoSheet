@@ -119,6 +119,7 @@ test.describe('Edit Menu Tests', () => {
     await expect(cell).toBeVisible();
     await cell.click();
     await cell.dblclick();
+    await window.waitForTimeout(150); // Let edit mode be ready (avoids first char lost)
     await window.keyboard.type('Test Value');
     await window.keyboard.press('Enter');
     
@@ -172,6 +173,7 @@ test.describe('Edit Menu Tests', () => {
     await expect(cell).toBeVisible();
     await cell.click();
     await cell.dblclick();
+    await window.waitForTimeout(150); // Let edit mode be ready (avoids first char lost)
     await window.keyboard.type('Cut Me');
     await window.keyboard.press('Enter');
     
@@ -225,6 +227,7 @@ test.describe('Edit Menu Tests', () => {
     await expect(cellA1).toBeVisible();
     await cellA1.click();
     await cellA1.dblclick();
+    await window.waitForTimeout(150); // Let edit mode be ready (avoids first char lost)
     await window.keyboard.type('Original');
     await window.keyboard.press('Enter');
     

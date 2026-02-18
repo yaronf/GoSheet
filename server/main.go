@@ -451,11 +451,13 @@ func handleCSVImport(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCSVExport(w http.ResponseWriter, r *http.Request) {
+	log.Println("[handleCSVExport] Starting CSV export...")
 	w.Header().Set("Content-Type", "application/json")
 	
 	// Parse request
 	var req api.CSVExportRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[handleCSVExport] Failed to parse request: %v\n", err)
 		json.NewEncoder(w).Encode(api.CSVExportResponse{
 			Success: false,
 			Error:   "Invalid request format",
@@ -464,7 +466,10 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	log.Printf("[handleCSVExport] Export path: %s\n", req.Path)
+	
 	if req.Path == "" {
+		log.Println("[handleCSVExport] No path provided")
 		json.NewEncoder(w).Encode(api.CSVExportResponse{
 			Success: false,
 			Error:   "File path is required",
@@ -474,6 +479,7 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Collect all non-empty cells
+	log.Println("[handleCSVExport] Scanning cells...")
 	type cellData struct {
 		row      int
 		col      int
@@ -498,10 +504,14 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
+	log.Printf("[handleCSVExport] Found %d non-empty cells, maxRow=%d, maxCol=%d\n", len(cells), maxRow, maxCol)
+	
 	// If no cells, export empty CSV
 	if len(cells) == 0 {
+		log.Println("[handleCSVExport] No cells found, exporting empty file")
 		// Write empty file
 		if err := os.WriteFile(req.Path, []byte(""), 0644); err != nil {
+			log.Printf("[handleCSVExport] Failed to write empty file: %v\n", err)
 			json.NewEncoder(w).Encode(api.CSVExportResponse{
 				Success: false,
 				Error:   fmt.Sprintf("Failed to write file: %v", err),
@@ -510,6 +520,7 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		
+		log.Println("[handleCSVExport] Empty file written successfully")
 		json.NewEncoder(w).Encode(api.CSVExportResponse{
 			Success: true,
 			Rows:    0,
@@ -520,6 +531,7 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Build 2D array for CSV export
+	log.Println("[handleCSVExport] Building 2D array...")
 	records := make([][]string, maxRow+1)
 	for i := range records {
 		records[i] = make([]string, maxCol+1)
@@ -530,9 +542,11 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		records[cell.row][cell.col] = cell.computed
 	}
 	
+	log.Println("[handleCSVExport] Generating CSV content...")
 	// Generate CSV
 	csvContent, err := api.GenerateCSV(records)
 	if err != nil {
+		log.Printf("[handleCSVExport] CSV generation failed: %v\n", err)
 		json.NewEncoder(w).Encode(api.CSVExportResponse{
 			Success: false,
 			Error:   err.Error(),
@@ -541,8 +555,10 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	log.Printf("[handleCSVExport] Writing %d bytes to file: %s\n", len(csvContent), req.Path)
 	// Write to file
 	if err := os.WriteFile(req.Path, []byte(csvContent), 0644); err != nil {
+		log.Printf("[handleCSVExport] File write failed: %v\n", err)
 		json.NewEncoder(w).Encode(api.CSVExportResponse{
 			Success: false,
 			Error:   fmt.Sprintf("Failed to write file: %v", err),
@@ -551,11 +567,15 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	log.Println("[handleCSVExport] File written successfully")
+	
 	// Return success
+	log.Printf("[handleCSVExport] Sending success response: %d rows, %d cols\n", maxRow+1, maxCol+1)
 	json.NewEncoder(w).Encode(api.CSVExportResponse{
 		Success: true,
 		Rows:    maxRow + 1,
 		Cols:    maxCol + 1,
 		Message: fmt.Sprintf("Exported %d rows, %d columns to %s", maxRow+1, maxCol+1, req.Path),
 	})
+	log.Println("[handleCSVExport] Complete")
 }

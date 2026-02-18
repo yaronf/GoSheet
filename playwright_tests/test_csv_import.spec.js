@@ -2,34 +2,21 @@
 // Tests CSV file selection, preview display, and user interaction
 
 const { test, expect } = require('./fixtures');
-const { stubDialog } = require('electron-playwright-helpers');
+const { stubDialog, clickMenuItemById } = require('electron-playwright-helpers');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// Story 7.12: CSV buttons removed from toolbar, trigger via exposed window functions
-async function triggerImportCSV(window) {
-  // Call handleImportCSV directly (exposed on window for testing)
-  // Note: evaluate doesn't wait for async functions, so we need to handle timing in tests
-  await window.evaluate(async () => {
-    if (typeof window.handleImportCSV === 'function') {
-      await window.handleImportCSV();
-    } else {
-      throw new Error('handleImportCSV not found on window');
-    }
-  });
+// Story 7.12: Use menu click + stubDialog instead of window.evaluate (avoids Electron 27+ flakiness)
+async function triggerImportCSV(electronApp, stubValue) {
+  await stubDialog(electronApp, 'showOpenDialog', stubValue);
+  await clickMenuItemById(electronApp, 'import-csv');
 }
 
-async function triggerExportCSV(window) {
-  // Call handleExportCSV directly (exposed on window for testing)
-  // Note: evaluate doesn't wait for async functions, so we need to handle timing in tests
-  await window.evaluate(async () => {
-    if (typeof window.handleExportCSV === 'function') {
-      await window.handleExportCSV();
-    } else {
-      throw new Error('handleExportCSV not found on window');
-    }
-  });
+// Use menu click + stubDialog instead of window.evaluate (avoids Electron 27+ flakiness)
+async function triggerExportCSV(electronApp, stubValue) {
+  await stubDialog(electronApp, 'showSaveDialog', stubValue);
+  await clickMenuItemById(electronApp, 'export-csv');
 }
 
 test.describe('CSV Import Dialog', () => {
@@ -57,11 +44,8 @@ test.describe('CSV Import Dialog', () => {
     const csvContent = 'Name,Age,City\nAlice,30,NYC\nBob,25,LA\nCharlie,35,SF';
     fs.writeFileSync(csvPath, csvContent);
 
-    // Stub the file dialog to return our test CSV
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [csvPath] });
-
-    // Trigger Import CSV (Story 7.12: via menu handler)
-    await triggerImportCSV(window);
+    // Trigger Import CSV via menu
+    await triggerImportCSV(electronApp, { filePaths: [csvPath] });
 
     // Wait for preview modal to appear (check for active class)
     const modal = window.locator('#csv-preview-modal.active');
@@ -113,11 +97,8 @@ test.describe('CSV Import Dialog', () => {
     }
     fs.writeFileSync(csvPath, csvContent);
 
-    // Stub the file dialog
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [csvPath] });
-
-    // Click Import CSV button
-    await triggerImportCSV(window);
+    // Trigger Import CSV via menu
+    await triggerImportCSV(electronApp, { filePaths: [csvPath] });
 
     // Wait for preview modal
     const modal = window.locator('#csv-preview-modal.active');
@@ -147,11 +128,8 @@ test.describe('CSV Import Dialog', () => {
     const csvPath = path.join(testDir, 'test.csv');
     fs.writeFileSync(csvPath, 'A,B\n1,2');
 
-    // Stub the file dialog
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [csvPath] });
-
-    // Open preview (Story 7.12: via menu handler)
-    await triggerImportCSV(window);
+    // Trigger Import CSV via menu
+    await triggerImportCSV(electronApp, { filePaths: [csvPath] });
     const modal = window.locator('#csv-preview-modal.active');
     await expect(modal).toBeVisible({ timeout: 5000 });
 
@@ -164,8 +142,7 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  // TODO: This test causes Electron teardown timeout - needs investigation
-  test.skip('CSV import loads data into spreadsheet', async ({ window, electronApp }) => {
+  test('CSV import loads data into spreadsheet', async ({ window, electronApp }) => {
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'test.csv');
     
@@ -173,11 +150,8 @@ test.describe('CSV Import Dialog', () => {
       // Create test CSV
       fs.writeFileSync(csvPath, 'Name,Age,City\nAlice,30,NYC\nBob,25,LA');
 
-      // Stub the file dialog
-      await stubDialog(electronApp, 'showOpenDialog', { filePaths: [csvPath] });
-
-    // Open preview
-    await triggerImportCSV(window);
+    // Trigger Import CSV via menu
+    await triggerImportCSV(electronApp, { filePaths: [csvPath] });
     const modal = window.locator('#csv-preview-modal.active');
     await expect(modal).toBeVisible({ timeout: 5000 });
 
@@ -219,8 +193,7 @@ test.describe('CSV Import Dialog', () => {
     }
   });
 
-  // TODO: This test causes Electron teardown timeout - needs investigation
-  test.skip('CSV import warns on unsaved changes', async ({ window, electronApp }) => {
+  test('CSV import warns on unsaved changes', async ({ window, electronApp }) => {
     // First, create some data
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('Test');
@@ -236,11 +209,8 @@ test.describe('CSV Import Dialog', () => {
     const csvPath = path.join(testDir, 'test.csv');
     fs.writeFileSync(csvPath, 'A,B\n1,2');
 
-    // Stub the file dialog
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [csvPath] });
-
-    // Open preview
-    await triggerImportCSV(window);
+    // Trigger Import CSV via menu
+    await triggerImportCSV(electronApp, { filePaths: [csvPath] });
     const previewModal = window.locator('#csv-preview-modal.active');
     await expect(previewModal).toBeVisible({ timeout: 5000 });
 
@@ -248,8 +218,8 @@ test.describe('CSV Import Dialog', () => {
     await window.locator('#csv-preview-import').click();
 
     // Confirmation modal should appear
-    const confirmModal = window.locator('#modal-overlay');
-    await expect(confirmModal).toBeVisible();
+    const confirmModal = window.locator('#modal-overlay.active');
+    await expect(confirmModal).toBeVisible({ timeout: 5000 });
     await expect(window.locator('#modal-message')).toContainText('unsaved changes');
 
     // Click OK to confirm
@@ -267,8 +237,7 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  // TODO: This test causes Electron teardown timeout - needs investigation
-  test.skip('CSV import clears existing data', async ({ window, electronApp }) => {
+  test('CSV import clears existing data', async ({ window, electronApp }) => {
     // First, create some data
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('Old Data');
@@ -276,31 +245,29 @@ test.describe('CSV Import Dialog', () => {
     await window.locator('#cell-1-0').click();
     await window.keyboard.type('More Old Data');
     await window.keyboard.press('Enter');
-    await window.waitForTimeout(200);
+    // Wait for backend to register unsaved changes before triggering import
+    await expect(window.locator('#file-status')).toContainText('Unsaved', { timeout: 5000 });
 
     // Create test CSV with different data
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'test.csv');
     fs.writeFileSync(csvPath, 'New,Data\n1,2');
 
-    // Stub the file dialog
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [csvPath] });
-
-    // Import CSV
-    await triggerImportCSV(window);
+    // Trigger Import CSV via menu
+    await triggerImportCSV(electronApp, { filePaths: [csvPath] });
     // Wait for preview modal to appear before clicking import
     const modal = window.locator('#csv-preview-modal.active');
     await expect(modal).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
 
-    // Confirm unsaved changes warning
-    const confirmModal = window.locator('#modal-overlay');
-    if (await confirmModal.isVisible()) {
-      await window.locator('#modal-ok').click();
-    }
+    // Wait for and confirm unsaved changes warning (appears async after Import click)
+    const confirmModal = window.locator('#modal-overlay.active');
+    await expect(confirmModal).toBeVisible({ timeout: 5000 });
+    await window.locator('#modal-ok').click();
+    await expect(confirmModal).not.toBeVisible();
 
-    // Wait for import
-    await window.waitForTimeout(500);
+    // Wait for import and grid reload
+    await window.waitForTimeout(800);
 
     // Verify old data is gone and new data is present
     await expect(window.locator('#cell-0-0')).toHaveText('New');
@@ -314,11 +281,8 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('Cancelled file dialog does not show preview', async ({ window, electronApp }) => {
-    // Stub the file dialog to return cancelled
-    await stubDialog(electronApp, 'showOpenDialog', { canceled: true });
-
-    // Click Import CSV button
-    await triggerImportCSV(window);
+    // Trigger Import CSV via menu (stub returns cancelled)
+    await triggerImportCSV(electronApp, { canceled: true });
 
     // Modal should NOT appear (dialog was cancelled)
     const modal = window.locator('#csv-preview-modal.active');
@@ -327,22 +291,18 @@ test.describe('CSV Import Dialog', () => {
     await expect(modal).not.toBeVisible();
   });
 
-  // TODO: This test causes Electron app crash - needs investigation
-  test.skip('Invalid CSV file shows error', async ({ window, electronApp }) => {
+  test('Invalid CSV file shows error', async ({ window, electronApp }) => {
     // Create CSV with unclosed quote (parse error)
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'invalid.csv');
     // Unclosed quote will cause CSV parser to fail
     fs.writeFileSync(csvPath, 'Name,Age\n"John,30\nJane,25');
 
-    // Stub the file dialog
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [csvPath] });
-
-    // Click Import CSV button
-    await triggerImportCSV(window);
+    // Trigger Import CSV via menu
+    await triggerImportCSV(electronApp, { filePaths: [csvPath] });
 
     // Wait for error alert to appear
-    const alertModal = window.locator('#modal-overlay');
+    const alertModal = window.locator('#modal-overlay.active');
     await expect(alertModal).toBeVisible({ timeout: 5000 });
     await expect(window.locator('#modal-message')).toContainText('Error previewing CSV');
 
@@ -354,21 +314,17 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  // TODO: This test causes Electron app crash - needs investigation
-  test.skip('Empty CSV file shows error', async ({ window, electronApp }) => {
+  test('Empty CSV file shows error', async ({ window, electronApp }) => {
     // Create empty CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'empty.csv');
     fs.writeFileSync(csvPath, '');
 
-    // Stub the file dialog
-    await stubDialog(electronApp, 'showOpenDialog', { filePaths: [csvPath] });
-
-    // Click Import CSV button
-    await triggerImportCSV(window);
+    // Trigger Import CSV via menu
+    await triggerImportCSV(electronApp, { filePaths: [csvPath] });
 
     // Wait for error alert to appear
-    const alertModal = window.locator('#modal-overlay');
+    const alertModal = window.locator('#modal-overlay.active');
     await expect(alertModal).toBeVisible({ timeout: 5000 });
     await expect(window.locator('#modal-message')).toContainText('Error previewing CSV');
 
@@ -399,8 +355,7 @@ test.describe('CSV Export', () => {
     expect(hasExportCSV).toBe(true);
   });
 
-  // TODO: This test causes timeout - needs investigation
-  test.skip('Export CSV creates file with data', async ({ window, electronApp }) => {
+  test('Export CSV creates file with data', async ({ window, electronApp }) => {
     // Create some data
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('Name');
@@ -420,16 +375,12 @@ test.describe('CSV Export', () => {
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'export.csv');
 
-    // Stub the save dialog
-    await stubDialog(electronApp, 'showSaveDialog', { filePath: csvPath });
-
-    // Click Export CSV
-    await triggerExportCSV(window);
+    // Export CSV via menu (stubDialog + clickMenuItemById - avoids flaky window.evaluate)
+    await triggerExportCSV(electronApp, { canceled: false, filePath: csvPath });
 
     // Wait for success alert
-    await window.waitForTimeout(500);
-    const alertModal = window.locator('#modal-overlay');
-    await expect(alertModal).toBeVisible();
+    const alertModal = window.locator('#modal-overlay.active');
+    await expect(alertModal).toBeVisible({ timeout: 5000 });
     await expect(window.locator('#modal-message')).toContainText('Exported to');
 
     // Close alert
@@ -450,8 +401,7 @@ test.describe('CSV Export', () => {
     fs.rmdirSync(testDir);
   });
 
-  // TODO: This test causes timeout - needs investigation
-  test.skip('Export CSV with formulas exports computed values', async ({ window, electronApp }) => {
+  test('Export CSV with formulas exports computed values', async ({ window, electronApp }) => {
     // Create data with formula
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('10');
@@ -471,12 +421,12 @@ test.describe('CSV Export', () => {
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'export.csv');
 
-    // Stub the save dialog
-    await stubDialog(electronApp, 'showSaveDialog', { filePath: csvPath });
-
-    // Export CSV
-    await triggerExportCSV(window);
-    await window.waitForTimeout(500);
+    // Export CSV via menu
+    await triggerExportCSV(electronApp, { canceled: false, filePath: csvPath });
+    
+    // Wait for success alert
+    const alertModal = window.locator('#modal-overlay.active');
+    await expect(alertModal).toBeVisible({ timeout: 5000 });
     await window.locator('#modal-ok').click();
 
     // Verify file contents (should have computed value, not formula)
@@ -491,29 +441,29 @@ test.describe('CSV Export', () => {
     fs.rmdirSync(testDir);
   });
 
-  // TODO: This test causes timeout - needs investigation
-  test.skip('Export empty spreadsheet creates empty file', async ({ window, electronApp }) => {
+  test('Export empty spreadsheet creates empty file', async ({ window, electronApp }) => {
     // Clear any existing data - New button might show unsaved changes modal
     await window.locator('#new-btn').click();
     
     // Check if unsaved changes modal appeared and dismiss it
-    const confirmModal = window.locator('#modal-overlay');
+    const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(200);
-    if (await confirmModal.isVisible()) {
+    const isConfirmVisible = await confirmModal.isVisible();
+    if (isConfirmVisible) {
       await window.locator('#modal-ok').click();
-      await window.waitForTimeout(200);
+      await expect(confirmModal).not.toBeVisible();
     }
 
     // Create export path
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'empty.csv');
 
-    // Stub the save dialog
-    await stubDialog(electronApp, 'showSaveDialog', { filePath: csvPath });
-
-    // Export CSV
-    await triggerExportCSV(window);
-    await window.waitForTimeout(500);
+    // Export CSV via menu
+    await triggerExportCSV(electronApp, { canceled: false, filePath: csvPath });
+    
+    // Wait for success alert
+    const alertModal = window.locator('#modal-overlay.active');
+    await expect(alertModal).toBeVisible({ timeout: 5000 });
     await window.locator('#modal-ok').click();
 
     // Verify file was created and is empty
@@ -526,13 +476,9 @@ test.describe('CSV Export', () => {
     fs.rmdirSync(testDir);
   });
 
-  // TODO: This test causes timeout - needs investigation  
-  test.skip('Export CSV cancelled does not create file', async ({ window, electronApp }) => {
-    // Stub the save dialog to return cancelled
-    await stubDialog(electronApp, 'showSaveDialog', { canceled: true });
-
-    // Click Export CSV
-    await triggerExportCSV(window);
+  test('Export CSV cancelled does not create file', async ({ window, electronApp }) => {
+    // Export CSV via menu (stub returns cancelled)
+    await triggerExportCSV(electronApp, { canceled: true });
 
     // Wait a moment
     await window.waitForTimeout(500);

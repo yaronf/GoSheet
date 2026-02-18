@@ -1067,26 +1067,31 @@ function showCSVPreviewModal(preview) {
 }
 
 // Story 7.12: Extract CSV export logic into function (CSV buttons removed from toolbar)
-async function handleExportCSV() {
+async function handleExportCSV(testPath = '') {
+    console.log('[handleExportCSV] Starting export, testPath:', testPath);
     try {
-        // Export CSV
-        const result = await ExportCSV('');
+        console.log('[handleExportCSV] Calling ExportCSV...');
+        const result = await ExportCSV(testPath);
+        console.log('[handleExportCSV] ExportCSV returned:', result);
         
         if (!result) {
-            // User cancelled file dialog
+            console.log('[handleExportCSV] User cancelled file dialog');
             return;
         }
         
-        // Show success message
+        console.log('[handleExportCSV] Showing success alert...');
         await showAlert(`Exported to ${result.path}`);
-        console.log(`CSV exported: ${result.message}`);
+        console.log('[handleExportCSV] Export complete:', result.message);
     } catch (error) {
+        console.error('[handleExportCSV] Error caught:', error);
         await showAlert('Error exporting CSV: ' + error.message);
     }
 }
 
 // Expose for testing
 window.handleExportCSV = handleExportCSV;
+window.showAlert = showAlert;
+window.ExportCSV = ExportCSV;
 
 // Update file status display
 /**

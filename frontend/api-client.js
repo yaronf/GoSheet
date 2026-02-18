@@ -168,22 +168,29 @@ const ImportCSV = async (path) => {
 };
 
 const ExportCSV = async (path) => {
+    console.log('[ExportCSV] Starting, path:', path);
     // Story 6.3: Export spreadsheet to CSV
     if (isElectronMode && !path) {
+        console.log('[ExportCSV] Electron mode, showing save dialog...');
         // Show Electron save dialog
         const status = await GetFileStatus();
+        console.log('[ExportCSV] File status:', status);
         const defaultName = status.filename ? status.filename.replace(/\.sheet$/, '.csv') : 'Untitled.csv';
+        console.log('[ExportCSV] Default name:', defaultName);
         path = await window.electronAPI.exportCSVDialog(defaultName);
+        console.log('[ExportCSV] Dialog returned path:', path);
         
         if (!path) {
             // User cancelled dialog
-            console.log('[api-client] Export CSV cancelled by user');
+            console.log('[ExportCSV] Export CSV cancelled by user');
             return null;
         }
     }
     
+    console.log('[ExportCSV] Calling backend API with path:', path);
     // Export via HTTP API
     const json = await fetchUnified('POST', '/api/csv/export', { path });
+    console.log('[ExportCSV] Backend returned:', json);
     return {
         path,
         rows: json.rows,
