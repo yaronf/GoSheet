@@ -1,0 +1,10 @@
+---
+description: User acronyms and shorthand - AI should interpret these as the user's intended meaning
+globs: ["**/*"]
+---
+
+# Rule: User Acronyms
+
+When the user uses these shorthand terms, interpret them as follows:
+
+- **cl** = check logs (user wants to see or inspect logs)
