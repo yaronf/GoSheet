@@ -79,6 +79,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     console.log('[Preload] addRecentFile called:', filePath);
     return ipcRenderer.invoke('file:addRecent', filePath);
   },
+
+  // Story 8.2: Get recent files for welcome screen
+  getRecentFiles: () => ipcRenderer.invoke('file:getRecent'),
+
+  // Story 8.2: Sync menu when welcome screen is shown
+  syncRecentFilesMenu: () => ipcRenderer.send('menu:syncRecentFiles'),
   
   // Story 7.10: Theme change listener
   onThemeChanged: (callback) => {

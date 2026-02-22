@@ -1,17 +1,182 @@
 // Story 3.1: Electron Main Process
 // Handles app lifecycle, Go server spawning, and window creation
 
-const { app, BrowserWindow, ipcMain, dialog, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeTheme, Menu } = require('electron');
+
+// Story 7.6: Single instance lock - when user "Keeps in Dock" and clicks, macOS may launch
+// raw Electron (no app path) which shows the default splash. We quit that instance and focus ours.
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+  return;
+}
+app.on('second-instance', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
 const { spawn } = require('child_process');
 const path = require('node:path');
-const { initializeMenu, updateMenuState } = require('./menu');
+const fs = require('fs');
+const os = require('os');
+const { initializeMenu, updateMenuState, updateRecentFiles } = require('./menu');
+
+// Story 8.2: Custom recent files storage (app.getRecentDocuments can return empty on macOS)
+const RECENT_FILES_PATH = path.join(app.getPath('userData'), 'recent-files.json');
+const MAX_RECENT_FILES = 10;
+console.log('[Electron] Recent files path:', RECENT_FILES_PATH);
+
+function loadRecentFiles() {
+  try {
+    if (fs.existsSync(RECENT_FILES_PATH)) {
+      const data = JSON.parse(fs.readFileSync(RECENT_FILES_PATH, 'utf8'));
+      const files = Array.isArray(data) ? data : [];
+      console.log('[Electron] loadRecentFiles from JSON:', files.length, files);
+      return files;
+    }
+    console.log('[Electron] loadRecentFiles: no JSON at', RECENT_FILES_PATH);
+  } catch (err) {
+    console.error('[Electron] Error loading recent files:', err);
+  }
+  return [];
+}
+
+function saveRecentFiles(files) {
+  try {
+    fs.writeFileSync(RECENT_FILES_PATH, JSON.stringify(files.slice(0, MAX_RECENT_FILES)));
+  } catch (err) {
+    console.error('[Electron] Error saving recent files:', err);
+  }
+}
+
+function addToRecentFiles(filePath) {
+  let files = loadRecentFiles();
+  files = files.filter(p => p !== filePath);
+  files.unshift(filePath);
+  saveRecentFiles(files);
+  syncRecentFilesMenu();
+}
+
+function clearRecentFiles() {
+  saveRecentFiles([]);
+  syncRecentFilesMenu();
+}
+
+function syncRecentFilesMenu() {
+  const files = loadRecentFiles();
+  console.log('[Electron] syncRecentFilesMenu: mainWindow=', !!mainWindow, 'files=', files.length);
+  if (mainWindow) {
+    updateRecentFiles(files, { onClear: clearRecentFiles });
+  }
+  updateDockMenu(files);
+}
+
+// Story 8.3: Ensure recent files are saved to disk before quit (defensive; normally saved on each add/remove)
+function ensureRecentFilesSaved() {
+  try {
+    const files = loadRecentFiles();
+    saveRecentFiles(files);
+    console.log('[Electron] ensureRecentFilesSaved: persisted', files.length, 'files');
+  } catch (err) {
+    console.error('[Electron] Error saving recent files on quit:', err);
+  }
+}
+
+// Story 8.3: Clean up temp files created by Go server (download/upload)
+// Go server uses /tmp on Unix (server/main.go)
+function cleanupTempFiles() {
+  const tempPaths = process.platform === 'win32'
+    ? [path.join(os.tmpdir(), 'gosheet_download.gosheet'), path.join(os.tmpdir(), 'gosheet_upload.gosheet')]
+    : ['/tmp/gosheet_download.gosheet', '/tmp/gosheet_upload.gosheet'];
+  for (const p of tempPaths) {
+    try {
+      if (fs.existsSync(p)) {
+        fs.unlinkSync(p);
+        console.log('[Electron] Cleaned up temp file:', p);
+      }
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.warn('[Electron] Could not remove temp file:', p, err.message);
+    }
+  }
+}
+
+/**
+ * Updates the macOS dock menu with New Spreadsheet, Open..., and up to 5 recent files.
+ * Called on app ready and when recent files change via syncRecentFilesMenu.
+ * @param {string[]} [recentFiles] - Optional list of recent file paths; if omitted, loads from storage.
+ */
+function updateDockMenu(recentFiles) {
+  if (process.platform !== 'darwin') return;
+  if (!app.dock) return;
+
+  const files = Array.isArray(recentFiles) ? recentFiles : loadRecentFiles();
+  const recentFilesList = files.slice(0, 5);
+  const template = [
+    {
+      label: 'New Spreadsheet',
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show();
+          mainWindow.webContents.send('menu-new');
+        } else {
+          pendingDockAction = 'new';
+          if (initialWindowCreated) createWindow();
+        }
+      }
+    },
+    {
+      label: 'Open...',
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show();
+          mainWindow.webContents.send('menu-open');
+        } else {
+          pendingDockAction = 'open';
+          if (initialWindowCreated) createWindow();
+        }
+      }
+    },
+    { type: 'separator' }
+  ];
+
+  if (recentFilesList.length === 0) {
+    template.push({ label: '(No recent files)', enabled: false });
+  } else {
+    recentFilesList.forEach((filePath) => {
+      template.push({
+        label: path.basename(filePath),
+        click: () => {
+          if (!fs.existsSync(filePath)) {
+            console.warn('[Electron] Dock: recent file no longer exists:', filePath);
+            return;
+          }
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show();
+            mainWindow.webContents.send('menu-open-recent', filePath);
+          } else {
+            pendingDockAction = { type: 'open', path: filePath };
+            if (initialWindowCreated) createWindow();
+          }
+        }
+      });
+    });
+  }
+
+  app.dock.setMenu(Menu.buildFromTemplate(template));
+  console.log('[Electron] Dock menu updated with', recentFilesList.length, 'recent files');
+}
 
 let mainWindow;
 let goServer;
+let initialWindowCreated = false; // Story 7.6: Avoid double-create when dock clicked during startup
 const GO_SERVER_PORT = 3000;
 
 // Story 7.7: Store file path to open when app is launched by double-clicking a file
 let pendingFileToOpen = null;
+
+// Story 7.6: Store dock menu action when app has no window (macOS)
+let pendingDockAction = null;
 
 // Story 7.11: Track whether we've decided to quit (for quit warning dialog)
 let isQuitting = false;
@@ -81,6 +246,7 @@ function startGoServer() {
 
 // Story 3.1: Create main window
 function createWindow() {
+  initialWindowCreated = true;
   console.log('[Electron] Creating main window...');
   
   const isTest = process.env.NODE_ENV === 'test';
@@ -133,13 +299,30 @@ function createWindow() {
     console.log(`[Renderer Console] ${message}`);
   });
   
-  // Story 7.7: Handle pending file to open after window is ready
+  // Story 7.7 & 7.6: Handle pending file/dock action after window is ready
   mainWindow.webContents.on('did-finish-load', () => {
     if (pendingFileToOpen) {
       console.log('[Electron] Window ready, opening pending file:', pendingFileToOpen);
       mainWindow.webContents.send('menu-open-recent', pendingFileToOpen);
       pendingFileToOpen = null;
+    } else if (pendingDockAction) {
+      console.log('[Electron] Window ready, processing pending dock action:', pendingDockAction);
+      if (typeof pendingDockAction === 'object' && pendingDockAction.type === 'open') {
+        if (fs.existsSync(pendingDockAction.path)) {
+          mainWindow.webContents.send('menu-open-recent', pendingDockAction.path);
+        } else {
+          console.warn('[Electron] Pending dock open: file no longer exists:', pendingDockAction.path);
+        }
+      } else if (pendingDockAction === 'new') {
+        mainWindow.webContents.send('menu-new');
+      } else if (pendingDockAction === 'open') {
+        mainWindow.webContents.send('menu-open');
+      }
+      pendingDockAction = null;
     }
+    
+    // Story 8.2: Sync menu again when window is ready (ensures menu matches welcome screen)
+    syncRecentFilesMenu();
     
     // Story 7.10: Send initial theme to renderer
     const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
@@ -256,8 +439,8 @@ function createWindow() {
     mainWindow = null;
   });
   
-  // Story 7.1: Initialize menu system
-  initializeMenu(mainWindow);
+  // Story 7.1: Initialize menu system with recent files
+  initializeMenu(mainWindow, loadRecentFiles());
   
   console.log('[Electron] Main window created');
 }
@@ -362,11 +545,22 @@ function setupIpcHandlers() {
     updateMenuState(state);
   });
 
-  // Story 7.5: IPC handler to add file to recent documents
+  // Story 7.5 & 8.2: Add file to recent documents (custom storage + menu only)
+  // Skip app.addRecentDocument - it duplicates recent files in dock menu (macOS adds its own section)
   ipcMain.handle('file:addRecent', async (event, filePath) => {
     console.log('[Electron] Adding to recent documents:', filePath);
-    app.addRecentDocument(filePath);
+    addToRecentFiles(filePath);
     return true;
+  });
+
+  // Story 8.2: Get recent files for welcome screen (from custom storage)
+  ipcMain.handle('file:getRecent', async () => {
+    return loadRecentFiles().slice(0, 5);
+  });
+
+  // Story 8.2: Sync menu when renderer shows welcome screen (keeps menu and welcome in sync)
+  ipcMain.on('menu:syncRecentFiles', () => {
+    syncRecentFilesMenu();
   });
 }
 
@@ -388,6 +582,9 @@ app.whenReady().then(() => {
   
   // Story 3.3: Start Go server first
   startGoServer();
+  
+  // Story 7.6: Set dock menu on startup (macOS) so it's available before window loads
+  updateDockMenu();
   
   // Wait for server to be ready before creating window
   setTimeout(() => {
@@ -463,7 +660,11 @@ app.on('before-quit', (event) => {
   } else {
     console.log('[Electron] App quitting, cleaning up...');
   }
-  
+
+  // Story 8.3: Graceful shutdown - save state and cleanup
+  ensureRecentFilesSaved();
+  cleanupTempFiles();
+
   // Ensure Go server is terminated
   if (goServer) {
     goServer.kill('SIGTERM');

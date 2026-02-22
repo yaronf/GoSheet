@@ -141,8 +141,26 @@ function forceCleanupEditing() {
     });
 }
 
-// Initialize the spreadsheet
+// Story 8.1: Welcome screen + spreadsheet view container
+// data-view="welcome" | "spreadsheet" - Story 8.2 will implement switching logic
 document.querySelector('#app').innerHTML = `
+    <section class="welcome-screen" id="welcome-screen" aria-label="Welcome to GoSheet">
+        <h1 class="welcome-title">GoSheet</h1>
+        <p class="welcome-subtitle">Lightweight, fast spreadsheet for macOS</p>
+        <div class="welcome-actions">
+            <button type="button" class="welcome-btn welcome-btn-primary" id="welcome-btn-new" aria-label="Create new spreadsheet">Create New Spreadsheet</button>
+            <button type="button" class="welcome-btn" id="welcome-btn-open" aria-label="Open existing file">Open Existing File</button>
+            <button type="button" class="welcome-btn" id="welcome-btn-import" aria-label="Import from CSV">Import from CSV</button>
+        </div>
+        <div class="welcome-recent-files">
+            <h3 class="welcome-recent-title">Recent Files</h3>
+            <ul class="welcome-recent-list" id="welcome-recent-list">
+                <li class="welcome-recent-empty">No recent files</li>
+            </ul>
+        </div>
+        <p class="welcome-tip">Tip: Use Cmd+N for new spreadsheet</p>
+    </section>
+    <div class="spreadsheet-view" id="spreadsheet-view">
     <div class="toolbar">
         <button id="new-btn" class="toolbar-btn" title="Create a new spreadsheet (⌘N)" aria-label="New Spreadsheet">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -202,7 +220,98 @@ document.querySelector('#app').innerHTML = `
             </div>
         </div>
     </div>
+    </div>
 `;
+
+// Story 8.2: View switching helpers
+function showWelcome() {
+    document.querySelector('#app').setAttribute('data-view', 'welcome');
+    populateWelcomeRecentFiles();
+    if (window.electronAPI?.syncRecentFilesMenu) {
+        window.electronAPI.syncRecentFilesMenu();
+    }
+}
+function showSpreadsheet() {
+    document.querySelector('#app').setAttribute('data-view', 'spreadsheet');
+}
+
+// Story 8.2: Populate recent files in welcome screen (up to 5)
+async function populateWelcomeRecentFiles() {
+    const listEl = document.getElementById('welcome-recent-list');
+    if (!listEl) return;
+    try {
+        const paths = window.electronAPI?.getRecentFiles ? await window.electronAPI.getRecentFiles() : [];
+        if (!paths || paths.length === 0) {
+            listEl.innerHTML = '<li class="welcome-recent-empty">No recent files</li>';
+            return;
+        }
+        listEl.innerHTML = paths.map(filePath => {
+            const parts = filePath.split('/');
+            const filename = parts.pop() || filePath;
+            const parentDir = parts.length ? parts.slice(-1)[0] : '';
+            const display = parentDir ? `${filename} — ${parentDir}` : filename;
+            return `<li class="welcome-recent-item" data-path="${filePath.replace(/"/g, '&quot;')}">${display}</li>`;
+        }).join('');
+        listEl.querySelectorAll('.welcome-recent-item').forEach(li => {
+            li.addEventListener('click', () => loadFileByPath(li.dataset.path));
+        });
+    } catch (err) {
+        console.error('[App] Error loading recent files:', err);
+        listEl.innerHTML = '<li class="welcome-recent-empty">No recent files</li>';
+    }
+}
+
+// Story 8.2: Load file by path (shared by menu-open-recent and welcome recent files)
+async function loadFileByPath(filePath) {
+    const status = await GetFileStatus();
+    if (status.hasUnsavedChanges) {
+        const confirmed = await showConfirmDialog('You have unsaved changes! Open a different file anyway? All unsaved changes will be lost.');
+        if (!confirmed) return;
+    }
+    try {
+        showSpreadsheet();
+        const loadedPath = await LoadFile(filePath);
+        if (loadedPath && window.electronAPI?.addRecentFile) {
+            await window.electronAPI.addRecentFile(loadedPath);
+        }
+        ROWS = 100;
+        COLS = 26;
+        buildSpreadsheet();
+        await loadCells();
+        selectCell(0, 0);
+        updateFileStatus();
+    } catch (error) {
+        console.error('[App] Error loading file:', error);
+        await showAlert('Error loading file: ' + error.message);
+    }
+}
+
+// Story 8.2: Setup welcome screen - show welcome on launch, wire button handlers
+async function setupWelcomeScreen() {
+    const status = await GetFileStatus();
+    const hasFile = status.path && status.path !== '';
+    if (hasFile) {
+        showSpreadsheet();
+    } else {
+        showWelcome();
+    }
+
+    document.getElementById('welcome-btn-new')?.addEventListener('click', async () => {
+        showSpreadsheet();
+        document.getElementById('new-btn').click();
+    });
+    document.getElementById('welcome-btn-open')?.addEventListener('click', async () => {
+        showSpreadsheet();
+        document.getElementById('load-btn').click();
+    });
+    document.getElementById('welcome-btn-import')?.addEventListener('click', async () => {
+        showSpreadsheet();
+        await handleImportCSV();
+    });
+}
+
+// Story 8.2: Determine initial view (welcome vs spreadsheet) and wire welcome buttons
+setupWelcomeScreen();
 
 // Add scroll listener for infinite scrolling
 const container = document.querySelector('.spreadsheet-container');
@@ -720,16 +829,19 @@ document.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey) {
         if (e.key === 'o') {
             e.preventDefault();
+            if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome') showSpreadsheet();
             document.getElementById('load-btn').click();
             return;
         }
         if (e.key === 's') {
             e.preventDefault();
+            if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome') showSpreadsheet();
             document.getElementById('save-btn').click();
             return;
         }
         if (e.key === 'n') {
             e.preventDefault();
+            if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome') showSpreadsheet();
             document.getElementById('new-btn').click();
             return;
         }
@@ -1108,6 +1220,10 @@ function displayFileStatus(hasUnsavedChanges) {
         statusEl.style.color = 'var(--color-success)'; // Green
     }
     
+    // Keep toolbar Save button in sync with menu (both disabled when nothing to save)
+    const saveBtn = document.getElementById('save-btn');
+    if (saveBtn) saveBtn.disabled = !hasUnsavedChanges;
+    
     // Story 7.11: Expose unsaved changes status to Electron main process
     // This allows the quit warning dialog to check for unsaved changes
     window.currentHasUnsavedChanges = hasUnsavedChanges;
@@ -1134,7 +1250,7 @@ async function updateFileStatus() {
         if (window.electronAPI && window.electronAPI.updateMenuState) {
             window.electronAPI.updateMenuState({
                 hasUnsavedChanges: status.hasUnsavedChanges,
-                hasFilePath: status.currentFile !== ''
+                hasFilePath: status.path !== ''
             });
         }
     } catch (error) {
@@ -1146,15 +1262,17 @@ async function updateFileStatus() {
 if (window.electronAPI) {
     console.log('[App] Setting up Electron menu event listeners');
     
-    // New file from menu
+    // New file from menu (Story 8.2: show spreadsheet first when on welcome screen)
     window.electronAPI.onMenuNew(async () => {
         console.log('[App] Menu New triggered');
+        if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome') showSpreadsheet();
         document.getElementById('new-btn').click();
     });
     
     // Open file from menu
     window.electronAPI.onMenuOpen(async () => {
         console.log('[App] Menu Open triggered');
+        if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome') showSpreadsheet();
         document.getElementById('load-btn').click();
     });
     
@@ -1196,41 +1314,10 @@ if (window.electronAPI) {
         await handleExportCSV();
     });
     
-    // Story 7.5: Open recent file from menu
+    // Story 7.5: Open recent file from menu (Story 8.2: uses loadFileByPath)
     window.electronAPI.onMenuOpenRecent(async (event, filePath) => {
         console.log('[App] Menu Open Recent triggered:', filePath);
-        
-        // Check if there are unsaved changes
-        const status = await GetFileStatus();
-        if (status.hasUnsavedChanges) {
-            const confirmed = await showConfirmDialog('You have unsaved changes! Open a different file anyway? All unsaved changes will be lost.');
-            if (!confirmed) {
-                return; // User cancelled
-            }
-        }
-        
-        try {
-            // Load the file directly using the provided path
-            const loadedPath = await LoadFile(filePath);
-            
-            // Add to recent files after successful load
-            if (loadedPath && window.electronAPI && window.electronAPI.addRecentFile) {
-                await window.electronAPI.addRecentFile(loadedPath);
-            }
-            
-            // Reload all cells from server
-            ROWS = 100;
-            COLS = 26;
-            buildSpreadsheet();
-            await loadCells();
-            selectCell(0, 0);
-            updateFileStatus();
-            
-            console.log('Recent file loaded successfully:', filePath);
-        } catch (error) {
-            console.error('[App] Error loading recent file:', error);
-            await showAlert('Error loading file: ' + error.message);
-        }
+        await loadFileByPath(filePath);
     });
     
     // Story 7.2: Edit menu handlers

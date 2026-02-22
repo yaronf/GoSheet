@@ -15,6 +15,7 @@
  */
 
 const { Menu, app } = require('electron');
+const path = require('path');
 
 /**
  * Reference to the main application window
@@ -36,21 +37,50 @@ let menuState = {
 /**
  * Initialize menu system
  * @param {BrowserWindow} window - Main application window
+ * @param {Array<string>} [recentFiles] - Recent file paths for Open Recent submenu
  */
-function initializeMenu(window) {
+function initializeMenu(window, recentFiles = []) {
   mainWindow = window;
-  buildMenu();
+  buildMenu(recentFiles);
   console.log('[Menu] Menu system initialized');
 }
 
 /**
- * Build and set application menu
- * Creates the menu structure with File menu items, keyboard shortcuts,
- * and click handlers. Automatically includes macOS app menu on macOS.
- * @private
+ * Build recent files submenu items
+ * @param {Array<string>} recentFiles - File paths
+ * @param {Function} [onClear] - Callback when Clear Recent is clicked
  */
-function buildMenu() {
-  console.log('[Menu] Building menu, platform:', process.platform);
+function buildRecentFilesSubmenu(recentFiles, onClear) {
+  const items = recentFiles.length > 0
+    ? recentFiles.map(filePath => {
+        const filename = path.basename(filePath);
+        const parentDir = path.basename(path.dirname(filePath));
+        const label = parentDir && parentDir !== '.' ? `${filename} — ${parentDir}` : filename;
+        return {
+          label,
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-open-recent', filePath);
+            }
+          }
+        };
+      })
+    : [{ label: 'No Recent Files', enabled: false }];
+  items.push({ type: 'separator' });
+  items.push({ label: 'Clear Recent', click: () => onClear && onClear() });
+  return items;
+}
+
+/**
+ * Build and set application menu
+ * On macOS, the menu must be rebuilt and set again for changes to appear.
+ * @param {Array<string>} [recentFiles] - Recent file paths for Open Recent submenu
+ * @param {Function} [onClearRecent] - Callback when Clear Recent is clicked
+ */
+function buildMenu(recentFiles = [], onClearRecent) {
+  console.log('[Menu] Building menu, platform:', process.platform, 'recentFiles:', recentFiles?.length);
+  
+  const recentSubmenu = buildRecentFilesSubmenu(recentFiles || [], onClearRecent);
   
   const template = [
     // macOS app menu (automatically added by Electron on macOS)
@@ -103,13 +133,7 @@ function buildMenu() {
         {
           id: 'recent-files',
           label: 'Open Recent',
-          role: 'recentdocuments',
-          submenu: [
-            {
-              label: 'Clear Recent',
-              role: 'clearrecentdocuments'
-            }
-          ]
+          submenu: recentSubmenu
         },
         { type: 'separator' },
         {
@@ -312,46 +336,16 @@ function updateMenuState(state) {
 }
 
 /**
- * Update Recent Files submenu
- * Replaces the Recent Files submenu with a list of recently opened files.
- * If no recent files exist, shows "No Recent Files" (disabled).
- * Each recent file item triggers 'menu-open-recent' IPC event with the file path.
- * 
- * @param {Array<string>} recentFiles - Array of recent file paths (max 10 recommended)
- * @example
- * updateRecentFiles(['/path/to/file1.gsheet', '/path/to/file2.gsheet']);
+ * Update Recent Files - rebuilds entire menu and sets it again.
+ * Required on macOS: modifying menu in place has no effect; must call setApplicationMenu.
+ * @param {Array<string>} recentFiles - Array of recent file paths
+ * @param {Object} [options] - Optional callbacks
+ * @param {Function} [options.onClear] - Called when user clicks Clear Recent
  */
-function updateRecentFiles(recentFiles) {
-  const menu = Menu.getApplicationMenu();
-  if (!menu) {
-    console.warn('[Menu] No application menu found');
-    return;
-  }
-  
-  const recentFilesItem = menu.getMenuItemById('recent-files');
-  if (!recentFilesItem) {
-    console.warn('[Menu] Recent Files menu item not found');
-    return;
-  }
-  
-  // Build recent files submenu
-  const submenu = recentFiles.length > 0
-    ? recentFiles.map(filePath => ({
-        label: filePath,
-        click: () => {
-          console.log(`[Menu] Open recent file: ${filePath}`);
-          if (mainWindow) {
-            mainWindow.webContents.send('menu-open-recent', filePath);
-          }
-        }
-      }))
-    : [{
-        label: 'No Recent Files',
-        enabled: false
-      }];
-  
-  recentFilesItem.submenu = Menu.buildFromTemplate(submenu);
-  console.log(`[Menu] Recent files updated (${recentFiles.length} items)`);
+function updateRecentFiles(recentFiles, options = {}) {
+  console.log('[Menu] updateRecentFiles: rebuilding menu with', recentFiles?.length, 'files');
+  buildMenu(recentFiles || [], options.onClear);
+  updateMenuState(menuState);
 }
 
 module.exports = {

@@ -140,7 +140,7 @@ development_status:
   7-3-implement-help-menu: done
   7-4-implement-keyboard-shortcuts: done
   7-5-implement-recent-files-list: done
-  7-6-implement-dock-integration: blocked
+  7-6-implement-dock-integration: done
   7-7-implement-file-associations: done
   7-8-add-app-and-file-icons: done
   7-9-implement-ux-design-system: done
@@ -150,12 +150,12 @@ development_status:
   epic-7-retrospective: optional
   
   # Epic 8: Welcome Screen & Lifecycle (SHIFTED from Epic 7)
-  epic-8: backlog
-  8-1-design-welcome-screen-layout: backlog
-  8-2-implement-welcome-screen-display: backlog
-  8-3-implement-graceful-shutdown: backlog
-  8-4-fix-macos-window-close-behavior: backlog
-  8-5-verify-complete-user-experience: backlog
+  epic-8: in-progress
+  8-1-design-welcome-screen-layout: done
+  8-2-implement-welcome-screen-display: done
+  8-3-implement-graceful-shutdown: done
+  8-4-fix-macos-window-close-behavior: ready-for-dev
+  8-5-verify-complete-user-experience: ready-for-dev
   epic-8-retrospective: optional
   
   # Epic 9: Documentation & Project Cleanup
