@@ -4,16 +4,17 @@ A modern spreadsheet application with a Go backend and web frontend, designed fo
 
 ## Architecture
 
-**Native macOS Application**:
+**Native macOS Application (Electron)**:
 - **Backend**: Go HTTP server with REST API  
 - **Frontend**: Pure HTML/CSS/JavaScript (ES6 modules)  
 - **Native Wrapper**: Electron with IPC for file dialogs
 - **Testing**: Playwright with native Electron API support
 
 **Deployment**: Native macOS application (.app bundle)
-- Built with Electron for native file operations and dialogs
-- Go backend runs as HTTP server (localhost)
+- Built with electron-builder for packaging
+- Go backend runs as HTTP server (localhost:3000)
 - Frontend communicates via HTTP API and Electron IPC
+- Single-window architecture
 
 ## Features
 
@@ -22,8 +23,15 @@ A modern spreadsheet application with a Go backend and web frontend, designed fo
 - ✅ **Cell References**: Formulas can reference other cells (e.g., =A1+B2)
 - ✅ **Keyboard Navigation**: Arrow keys, Enter, Tab, Escape
 - ✅ **Grid Display**: Row/column headers with unlimited dimensions
-- ✅ **File Operations**: New, Open, Save with native dialogs
-- ✅ **Comprehensive Testing**: 38 Playwright tests + 42 Go unit tests
+- ✅ **File Operations**: New, Open, Save, Save As with native dialogs
+- ✅ **CSV Import/Export**: Data-only import/export with preview
+- ✅ **Dark Mode**: Automatic system preference detection
+- ✅ **Accessibility**: Screen reader support, keyboard navigation, ARIA labels
+- ✅ **Comprehensive Testing**: Over 100 Playwright tests + over 50 Go unit tests
+
+## User Documentation
+
+See [USER_GUIDE.md](USER_GUIDE.md) for end-user documentation: getting started, formulas, keyboard shortcuts, CSV import/export, and troubleshooting.
 
 ## Development Methodology
 
@@ -33,64 +41,80 @@ This project is built using the **BMAD (Breakthrough Method for Agile AI Driven 
 
 ```
 spreadsheet/
-├── BMAD.md                 # BMAD methodology documentation
-├── README.md               # This file
-├── go.mod                  # Go module definition
-├── server/                 # HTTP backend
-│   └── main.go            # REST API server
-├── frontend/               # Web frontend
-│   ├── index.html         # Main HTML
-│   ├── app.js             # Spreadsheet logic
-│   ├── style.css          # Base styles
-│   └── spreadsheet.css    # Grid styles
-├── specs/                  # Design specifications
-│   ├── PRODUCT_BRIEF.md
-│   ├── TECH_SPEC.md
-│   └── FORMULA_GRAMMAR.md
-├── model/                  # Core data model
-│   ├── spreadsheet.go
-│   ├── formula.go
-│   ├── formula_ast.go
-│   ├── cell.go
-│   └── coords.go
-├── controller/             # Application logic
-│   └── app.go
-├── tests/                  # Go unit tests
-│   ├── model_test.go
-│   ├── formula_test.go
-│   └── coords_test.go
-└── playwright_tests/       # UI tests
-    ├── test_spreadsheet.py
-    ├── conftest.py
-    └── run_tests.sh
+├── server/           # Go HTTP backend
+├── electron/         # Electron main process
+├── frontend/         # Web UI (HTML/CSS/JS)
+├── model/            # Core data model
+├── controller/       # Application logic
+├── api/              # REST API layer
+├── tests/            # Go unit tests
+├── playwright_tests/ # Playwright Electron UI tests
+├── assets/           # App icons
+└── _bmad-output/     # BMAD planning and implementation artifacts
 ```
 
 ## Quick Start
 
-### 1. Start the Backend Server
+### Development Mode
 
 ```bash
-cd server
-go run main.go
+# Install dependencies
+make install
+# or: npm install
+
+# Build Go server
+make build
+
+# Run in development mode (Electron app)
+make run-electron
+# or: npm start
 ```
 
-Server runs at `http://localhost:3000`
+The app launches as a native macOS window. Server runs at `http://localhost:3000`.
 
-### 2. Open in Browser
+### Web Mode (Backend Only)
 
-Navigate to `http://localhost:3000` in your web browser.
+```bash
+# Build and run Go server only (for debugging)
+make run
+# Opens http://localhost:3000 - use browser to access
+```
 
-The frontend is served directly by the Go server - no separate build step needed!
+## Building the Application
+
+### Development Build
+
+```bash
+# Build Go server
+make build
+
+# Run in development mode
+npm start
+```
+
+### Production Build
+
+```bash
+# Build for macOS (arm64)
+npm run build
+
+# Output: dist/mac-arm64/GoSheet.app
+```
+
+### Universal Build (Intel + Apple Silicon)
+
+See [TECHNICAL-DEBT.md](_bmad-output/implementation-artifacts/TECHNICAL-DEBT.md) for current limitations.
 
 ## Testing
 
 ### Playwright Electron Tests
 
-**All 38 tests passing!** ✅
+**Over 100 tests** covering:
 
 ```bash
 # Run all Playwright tests (Electron)
 npm test
+# or: make test-electron
 
 # Run specific test file
 npx playwright test test_spreadsheet.spec.js
@@ -102,31 +126,17 @@ npx playwright test --last-failed
 npx playwright show-report
 ```
 
-**Test Coverage (38 tests):**
-
-1. **Smoke Tests** (2 tests)
-   - App launches and shows grid
-   - Window title is correct
-
-2. **Core Spreadsheet Tests** (30 tests)
-   - Cell selection and navigation (arrow keys, click)
-   - Cell editing (click, double-click, keyboard)
-   - Formula evaluation (arithmetic, references, dependencies)
-   - Modal dialogs (unsaved changes warnings)
-   - Keyboard shortcuts (Delete, Escape, Enter, Tab)
-   - Formula bar functionality
-
-3. **Dialog Stubbing Tests** (3 tests)
-   - Stub open dialog
-   - Stub save dialog
-   - Test dialog cancellation
-
-4. **File Operation Tests** (5 tests)
-   - New spreadsheet workflow
-   - Open file workflow (with unsaved changes check)
-   - Save file workflow
-   - File status tracking (saved/unsaved)
-   - Dialog cancellation handling
+1. **Smoke Tests** – App launches, window title
+2. **Core Spreadsheet Tests** – Cell selection, editing, formulas, keyboard navigation
+3. **Dialog Stubbing Tests** – Open/save dialog stubbing
+4. **File Operation Tests** – New, Open, Save, file status tracking
+5. **CSV Tests** – Import dialog, round-trip verification
+6. **Menu Tests** – File, Edit, Help menus
+7. **Keyboard Shortcuts** – Cmd+N, Cmd+O, Cmd+S, etc.
+8. **Dark Mode** – System preference detection
+9. **Dock Menu** – Recent files
+10. **Quit Warning** – Unsaved changes dialog
+11. **Window Close** – Graceful shutdown behavior
 
 **Test Features:**
 - ✅ Runs headless (no visible windows) with `NODE_ENV=test`
@@ -136,45 +146,44 @@ npx playwright show-report
 
 ### Go Unit Tests
 
-**All 42 tests passing!** ✅
+**Over 50 tests** covering:
 
 ```bash
 # Run all Go tests
 go test ./tests/...
+# or: make test-unit
 
 # Run with verbose output
 go test -v ./tests/...
-
-# Run specific test file
-go test ./tests/formula_test.go -v
 
 # Run with coverage
 go test -cover ./tests/...
 ```
 
-**Test Coverage:**
 - Cell model and coordinate conversion
 - Formula parser and evaluator
 - Dependency graph and formula updates
 - File I/O (gob encoding/decoding)
 - Spreadsheet operations
+- Formula normalization
 
 ### Run All Tests
 
 ```bash
 # Run both test suites (Go first, then Playwright)
 npm run test:all
+# or: make test
 
 # Or run separately
-npm run test:unit  # Go tests only
-npm test           # Playwright tests only
+make test-unit   # Go tests only
+npm test        # Playwright tests only
 ```
 
 ### Test Execution Times
 
-- **Playwright tests**: ~2 minutes (38 tests)
-- **Go unit tests**: <1 second (42 tests)
-- **Total**: ~2 minutes for complete test suite
+- **Playwright tests**: ~2–3 minutes
+- **Go unit tests**: <1 second
+- **Total**: ~3 minutes for complete test suite
 
 ### CI/CD Integration
 
@@ -183,8 +192,8 @@ Tests run automatically on every push and pull request via GitHub Actions.
 **Workflow:** `.github/workflows/test.yml`
 
 **What runs:**
-1. Go unit tests (42 tests)
-2. Playwright Electron tests (38 tests)
+1. Go unit tests
+2. Playwright Electron tests
 3. Test results uploaded as artifacts
 
 **View results:**
@@ -193,7 +202,6 @@ Tests run automatically on every push and pull request via GitHub Actions.
 
 **Local CI simulation:**
 ```bash
-# Run the same tests as CI
 npm run test:all
 ```
 
@@ -207,10 +215,14 @@ npm run test:all
 - Modern web browser (Chrome, Firefox, Safari)
 - No build tools required (pure HTML/CSS/JS)
 
-### Testing
+### Native App
 - Node.js 18+
-- Playwright 1.59.0-alpha (Electron support)
-- Electron 30.5.1
+- Electron (see [package.json](package.json) for version)
+- electron-builder (for packaging)
+
+### Testing
+- Playwright (Electron support)
+- electron-playwright-helpers (dialog stubbing)
 
 ## Dependencies
 
@@ -227,28 +239,13 @@ npm run test:all
 
 ## Status
 
-✅ **Native App Complete** - Following BMAD methodology
-
-**Completed Epics:**
-- ✅ Epic 1: Core Spreadsheet Engine (Go backend)
-- ✅ Epic 2: Web Frontend (HTML/CSS/JS)
-- ✅ Epic 3: Electron Implementation (IPC, file dialogs)
-- ✅ Epic 4: Native File Operations (New, Open, Save)
-- ✅ Epic 5: Playwright Electron Testing (38 tests)
-
-**Current Sprint:**
-- ⏳ Epic 5: Test verification and CI/CD integration
-
-**Next Milestones:**
-- Epic 6: CSV Import/Export
-- Epic 7: macOS Integration & Polish (menus, shortcuts, dock)
-- Epic 8: Welcome Screen & Lifecycle
+✅ **Native App Complete** – Electron-based spreadsheet with file operations, CSV import/export, macOS integration, and comprehensive automated testing.
 
 See [BMAD.md](BMAD.md) for detailed development history and decisions.
 
 ## License
 
-MIT License (to be added)
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 

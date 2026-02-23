@@ -3,7 +3,7 @@
 **Epic:** 9 - Documentation & Project Cleanup  
 **Story:** 9.2  
 **Estimated Effort:** 1-2 hours  
-**Status:** ready-for-dev  
+**Status:** done  
 **Created:** 2026-02-16
 
 ---
@@ -315,12 +315,50 @@ Use this format:
 ## Change Log
 
 - 2026-02-16: Story created to provide user-facing documentation
+- 2026-02-23: USER_GUIDE.md created with all sections; README updated with link
+- 2026-02-23: Code review fixes – comparison operators, welcome screen options, menu ellipsis, MID clarification, removed FORMULA_GRAMMAR link
 
 ---
 
 ## Status
 
-**Current Status:** ready-for-dev  
-**Last Updated:** 2026-02-16
+**Current Status:** done  
+**Last Updated:** 2026-02-23
 
 User documentation for end users.
+
+---
+
+## Senior Developer Review (AI)
+
+**Review Date:** 2026-02-23  
+**Outcome:** Approve (after fixes applied)
+
+**Findings Addressed:**
+1. **HIGH** – Comparison operators (=, !=, <, >, <=, >=) not documented → Added "Comparison Operations" subsection to Formulas
+2. **MEDIUM** – Welcome screen missing "Import from CSV" option → Updated to match app.js (Create New Spreadsheet, Open Existing File, Import from CSV, Recent Files)
+3. **MEDIUM** – Menu labels should include ellipsis (Open..., Save As..., Import CSV..., Export CSV...) → Updated throughout
+4. **LOW** – MID 1-based indexing clarification → Added "(1-based: first character is position 1)"
+5. **LOW** – specs/FORMULA_GRAMMAR.md link confusing for end users → Removed; kept README.md link only
+
+---
+
+## Dev Agent Record
+
+### Implementation Plan
+- Created USER_GUIDE.md with Table of Contents and anchor links
+- Sections: Getting Started, Basic Operations, Working with Cells, Using Formulas, Keyboard Shortcuts, CSV Import/Export, File Formats, Troubleshooting
+- Task-oriented writing style; step-by-step instructions; examples for all formula functions
+- Documented all keyboard shortcuts from menu.js and app behavior
+- Documented all formula functions from model/formula.go (SUM, AVG, MIN, MAX, COUNT, CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID)
+- Added README link to USER_GUIDE.md
+
+### Completion Notes
+- All acceptance criteria satisfied
+- Documentation written for non-technical users
+- Formula examples use correct syntax per FORMULA_GRAMMAR.md
+- Troubleshooting section covers common issues (launch, file open, formulas, save, performance)
+
+### File List
+- USER_GUIDE.md (new)
+- README.md (modified - added User Documentation section with link)

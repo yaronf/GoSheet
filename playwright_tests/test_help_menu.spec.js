@@ -52,22 +52,21 @@ test.describe('Help Menu Tests', () => {
     console.log('[Help Menu Test] Help menu structure verified');
   });
 
-  test('Help menu has correct role', async ({ electronApp, window }) => {
+  test('Help menu exists', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
     const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
-    // Check that Help menu has role: 'help'
-    const hasHelpRole = await electronApp.evaluate(({ Menu }) => {
+    // Check that Help menu exists (role: 'help' removed to allow custom submenu items to receive clicks)
+    const hasHelpMenu = await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
       const helpMenu = menu.items.find(item => item.label === 'Help');
-      
-      return helpMenu ? helpMenu.role === 'help' : false;
+      return !!helpMenu;
     });
     
-    expect(hasHelpRole).toBe(true);
-    console.log('[Help Menu Test] Help menu has correct role');
+    expect(hasHelpMenu).toBe(true);
+    console.log('[Help Menu Test] Help menu exists');
   });
 
   test('About item has correct ID', async ({ electronApp, window }) => {

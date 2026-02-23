@@ -1968,6 +1968,27 @@ So that new contributors can easily navigate the codebase.
   - Build/test directories (dist/, build/, playwright_tests/, tests/)
 **And** a CONTRIBUTING.md file is created with development setup instructions
 
+### Story 9.6: Add In-App Formula Reference
+
+As an end user,
+I want to access formula syntax and function reference from within the app,
+So that I can write formulas without leaving the spreadsheet or opening external documentation.
+
+**Acceptance Criteria:**
+
+**Given** I am using GoSheet
+**When** I choose Help → Formula Reference (or equivalent)
+**Then** a modal or panel opens showing:
+- Formula basics (= prefix, cell references, range references)
+- Arithmetic operators (+, -, *, /, %) with examples
+- Comparison operators (=, !=, <, >, <=, >=) with examples
+- All supported functions with syntax and one example each:
+  - Numeric: SUM, AVG, MIN, MAX, COUNT
+  - String: CONCAT, UPPER, LOWER, LEN, LEFT, RIGHT, MID
+**And** the content is scrollable and readable
+**And** I can close the help and return to the spreadsheet
+**And** the Help menu item is clearly labeled (e.g., "Formula Reference" or "Formula Help")
+
 ## Epic 11: Cell Merging
 
 Users can merge adjacent cells horizontally or vertically to create combined cells (e.g., for headers or labels). Only the anchor (top-left) cell holds the value; covered cells are hidden. Merge regions persist in the file format.

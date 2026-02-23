@@ -1,5 +1,5 @@
-# generated: 2026-02-14
-# last_updated: 2026-02-15 (Electron migration)
+# generated: 2026-02-23
+# last_updated: 2026-02-23 (sprint status refresh)
 # project: spreadsheet
 # project_key: NOKEY
 # tracking_system: file-system
@@ -43,7 +43,7 @@
 # - SM typically creates next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
-generated: 2026-02-14
+generated: 2026-02-23
 project: spreadsheet
 project_key: NOKEY
 tracking_system: file-system
@@ -150,7 +150,7 @@ development_status:
   epic-7-retrospective: optional
   
   # Epic 8: Welcome Screen & Lifecycle (SHIFTED from Epic 7)
-  epic-8: in-progress
+  epic-8: done
   8-1-design-welcome-screen-layout: done
   8-2-implement-welcome-screen-display: done
   8-3-implement-graceful-shutdown: done
@@ -159,12 +159,13 @@ development_status:
   epic-8-retrospective: optional
   
   # Epic 9: Documentation & Project Cleanup
-  epic-9: ready-for-dev
-  9-1-update-readme-for-electron: ready-for-dev
-  9-2-create-user-documentation: ready-for-dev
+  epic-9: in-progress
+  9-1-update-readme-for-electron: review
+  9-2-create-user-documentation: done
   9-3-remove-obsolete-wails-files: ready-for-dev
   9-4-clean-up-debug-and-test-artifacts: ready-for-dev
   9-5-organize-project-structure: ready-for-dev
+  9-6-add-in-app-formula-reference: done
   epic-9-retrospective: optional  # Epic 10: Code Quality & Technical Debt (DEFERRED)
   epic-10: in-progress
   10-1-rename-wails-references: ready-for-dev
