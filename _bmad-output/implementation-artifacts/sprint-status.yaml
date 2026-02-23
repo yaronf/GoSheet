@@ -159,16 +159,16 @@ development_status:
   epic-8-retrospective: optional
   
   # Epic 9: Documentation & Project Cleanup
-  epic-9: in-progress
+  epic-9: done
   9-1-update-readme-for-electron: done
   9-2-create-user-documentation: done
-  9-3-remove-obsolete-wails-files: ready-for-dev
+  9-3-remove-obsolete-wails-files: done
   9-4-clean-up-debug-and-test-artifacts: done
   9-5-organize-project-structure: done
   9-6-add-in-app-formula-reference: done
   epic-9-retrospective: optional  # Epic 10: Code Quality & Technical Debt (DEFERRED)
   epic-10: in-progress
-  10-1-rename-wails-references: ready-for-dev
+  10-1-rename-wails-references: done
   10-2-setup-linting-and-formatting: ready-for-dev
   10-3-add-code-complexity-analysis: backlog
   10-4-measure-test-coverage: backlog
@@ -177,6 +177,7 @@ development_status:
   10-7-enhance-accessibility: ready-for-dev
   10-8-implement-proper-logging: backlog
   10-9-implement-universal-macos-build: ready-for-dev
+  10-10-openapi-schema-and-code-generation: backlog
   epic-10-retrospective: optional
   
   # Epic 11: Cell Merging (from technical research 2026-02-23)

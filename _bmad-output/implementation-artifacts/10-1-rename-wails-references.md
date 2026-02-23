@@ -3,7 +3,7 @@
 **Epic:** 10 - Code Quality & Technical Debt  
 **Story:** 10.1  
 **Estimated Effort:** 2-3 hours  
-**Status:** ready-for-dev  
+**Status:** done  
 **Created:** 2026-02-17
 
 ---
@@ -98,14 +98,18 @@ The project migrated from Wails to Electron. Obsolete Wails files are removed in
 
 ## Dev Agent Record
 
-### Agent Model Used
-
-(To be filled by dev agent)
-
-### Completion Notes List
-
-(To be filled by dev agent)
-
 ### File List
+- Modified: `api/fileservice.go` (Wails → Electron in comments)
+- Modified: `api/spreadsheet.go` (Wails IPC → HTTP; updated impl notes)
+- Modified: `frontend/app.js` (Wails IPC → Electron IPC; Wails runtime → Electron preload)
+- Note: `frontend/index.html` had no Wails refs; obsolete files (runtime.js, etc.) already removed in Epic 9
 
-(To be filled by dev agent)
+### Change Log
+- 2026-02-24: Wails references updated to Electron in api/ and frontend/app.js. Verification: user tests manually.
+
+---
+
+## Change Log
+
+- 2026-02-24: Story completed; Wails → Electron in active code
+- 2026-02-17: Story created

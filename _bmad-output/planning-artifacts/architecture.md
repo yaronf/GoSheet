@@ -1730,6 +1730,7 @@ This section captures architectural improvements and technical debt items identi
 
 **Priority:** Medium  
 **Identified:** Epic 3 Retrospective (2026-02-15)  
+**Story:** [10.10 OpenAPI Schema & Code Generation](../implementation-artifacts/10-10-openapi-schema-and-code-generation.md)  
 **Context:** Epic 3 and Epic 4 both experienced API contract mismatches between frontend and backend, resulting in 100% failure rate on first test.
 
 **Problem:**

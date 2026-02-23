@@ -1,7 +1,7 @@
 package api
 
 // SpreadsheetAPI defines the unified interface for all spreadsheet operations.
-// Both native mode (Wails IPC) and web mode (HTTP) implement this interface,
+// Both Electron (native app) and web mode use HTTP API to the Go server,
 // ensuring consistent behavior and testability across deployment modes.
 //
 // All methods return Response struct with:
@@ -11,8 +11,7 @@ package api
 //   - Code: machine-readable error code for testing
 //
 // Implementation notes:
-//   - Native mode: cmd/native/api_wails.go (Story 3.4)
-//   - Web mode: cmd/web/api_http.go (Story 2.2)
+//   - server/ + api/: HTTP handlers; Electron embeds the server
 type SpreadsheetAPI interface {
 	// SetCellValue sets a cell's value or formula.
 	//

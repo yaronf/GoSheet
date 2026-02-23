@@ -2,12 +2,12 @@ package api
 
 // FileService defines the unified interface for file operations.
 // This interface abstracts file dialogs and I/O to support both:
-//   - Native mode: Wails dialogs with direct disk access
+//   - Native mode: Electron dialogs with direct disk access
 //   - Web mode: Browser File API with temp files for testing
 //
 // Implementation notes:
-//   - Native mode: cmd/native/fileservice_wails.go (Story 4.1-4.2)
-//   - Web mode: cmd/web/fileservice_http.go (Story 2.3)
+//   - Native mode: electron/main.js + preload (IPC for file dialogs)
+//   - Web mode: Browser file input for testing
 //
 // Design rationale:
 // This interface does NOT return Response struct (unlike SpreadsheetAPI)
@@ -25,7 +25,7 @@ type FileService interface {
 	//   - err: Error if dialog fails (nil if cancelled by user)
 	//
 	// Mode-specific behavior:
-	//   - Native mode: Uses Wails OpenFileDialog with native macOS UI
+	//   - Native mode: Uses Electron dialog with native macOS UI
 	//     Returns real file path like "/Users/name/Documents/Budget.sheet"
 	//   - Web mode: Uses browser file input element
 	//     Returns temp path like "/tmp/upload-12345.sheet"
@@ -52,7 +52,7 @@ type FileService interface {
 	//   - err: Error if dialog fails (nil if cancelled by user)
 	//
 	// Mode-specific behavior:
-	//   - Native mode: Uses Wails SaveFileDialog with native macOS UI
+	//   - Native mode: Uses Electron dialog with native macOS UI
 	//     Returns real file path like "/Users/name/Documents/Budget.sheet"
 	//     Automatically appends .sheet extension if missing
 	//   - Web mode: Uses browser download mechanism

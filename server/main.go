@@ -22,7 +22,10 @@ func main() {
 	// Parse command line flags
 	port := flag.String("port", "3000", "Port to run the server on")
 	flag.Parse()
-	
+
+	// Log to stdout so Electron shows [Go Server] not [Go Server Error] for info messages
+	log.SetOutput(os.Stdout)
+
 	// Create controller with empty spreadsheet
 	ctrl = controller.NewAppController()
 	

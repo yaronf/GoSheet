@@ -1,5 +1,5 @@
 // GoSheet Frontend - ES6 Module
-// API functions imported from api-client.js (mode-aware: web fetch or Wails IPC)
+// API functions imported from api-client.js (mode-aware: web fetch or Electron IPC)
 
 import { GetCellValue, GetCellRawValue, SetCellValue, GetCellRef, GetAllCells, GetFileStatus, NewFile, SaveFile, LoadFile, PreviewCSV, ImportCSV, ExportCSV } from './api-client.js';
 
@@ -960,7 +960,7 @@ function startEditingWithChar(row, col, initialChar) {
 console.log('[app.js] Starting initialization...');
 buildSpreadsheet();
 
-// Load cells after a short delay to ensure Wails runtime is ready
+// Load cells after a short delay to ensure Electron preload is ready
 setTimeout(async () => {
     console.log('[app.js] Loading cells...');
     try {
