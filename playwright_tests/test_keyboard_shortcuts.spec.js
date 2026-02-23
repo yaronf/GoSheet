@@ -1,14 +1,20 @@
 // Story 7.4: Keyboard Shortcuts Tests
 // Comprehensive tests for all keyboard shortcuts
+// Story 8.2: Navigate from welcome screen before testing shortcuts
 
 const { test, expect } = require('./fixtures');
 const { clickMenuItemById } = require('electron-playwright-helpers');
+const { ensureSpreadsheetView } = require('./helpers');
 
 test.describe('Keyboard Shortcuts Tests', () => {
+  test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
+  });
+
   test('All menu items have correct accelerators', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Get all accelerators from menus
@@ -51,7 +57,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
   test('File menu shortcuts are properly formatted', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     const fileShortcuts = await electronApp.evaluate(({ Menu }) => {
@@ -87,7 +93,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
   test('Edit menu shortcuts are properly formatted', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     const editShortcuts = await electronApp.evaluate(({ Menu }) => {
@@ -121,7 +127,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
   test('Cmd+N shortcut is registered', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Verify Cmd+N is registered in the menu
@@ -139,7 +145,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
   test('Cmd+S is disabled when no changes', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Check Save menu item is disabled initially
@@ -157,7 +163,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
   test('Cmd+S becomes enabled after changes', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Make a change
@@ -192,7 +198,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
   test('Formula bar allows text editing shortcuts', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Focus formula bar and type
@@ -220,7 +226,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
   test('All shortcuts use CmdOrCtrl for cross-platform compatibility', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Get all accelerators and verify they use CmdOrCtrl (not just Cmd or Ctrl)

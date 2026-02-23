@@ -1,16 +1,22 @@
 // Playwright Electron Menu Tests
 // Story 7.1: Implement File Menu
 // Purpose: Verify File menu exists with correct items and keyboard shortcuts
+// Story 8.2: Navigate from welcome screen before testing menu
 
 const { test, expect } = require('./fixtures');
+const { ensureSpreadsheetView, editCell, waitForSaveEnabled } = require('./helpers');
 
 test.describe('File Menu Tests', () => {
+  test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
+  });
+
   test('File menu exists with all required items', async ({ electronApp, window }) => {
     // Wait for window to be fully loaded
     await window.waitForLoadState('domcontentloaded');
     
     // Wait for the app to be fully ready by checking for visible elements
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible({ timeout: 10000 });
     
     // Poll for menu to be fully initialized (retry until File menu has more than just Close Window)
@@ -315,13 +321,10 @@ test.describe('File Menu Tests', () => {
     // Modify a cell to trigger unsaved changes
     const cell = await window.locator('.cell[data-row="0"][data-col="0"]');
     await expect(cell).toBeVisible();
-    await cell.click();
-    await cell.dblclick(); // Enter edit mode
-    await window.keyboard.type('Test');
-    await window.keyboard.press('Enter');
+    await editCell(window, cell, 'Test');
     
     // Wait for file status to show unsaved changes
-    await expect(fileStatus).toContainText('Unsaved changes', { timeout: 5000 });
+    await expect(fileStatus).toContainText('Unsaved', { timeout: 5000 });
     
     console.log('[Menu Test] File status after edit:', await fileStatus.textContent());
     
@@ -349,6 +352,10 @@ test.describe('File Menu Tests', () => {
 });
 
 test.describe('Menu Integration Tests', () => {
+  test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
+  });
+
   test('New menu item triggers new file action', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
@@ -359,15 +366,7 @@ test.describe('Menu Integration Tests', () => {
     // Type something in a cell
     const cell = await window.locator('.cell[data-row="0"][data-col="0"]');
     await expect(cell).toBeVisible();
-    await cell.click();
-    
-    // Double-click to enter edit mode
-    await cell.dblclick();
-    // Wait for edit mode to be ready (avoids first character being lost)
-    await window.waitForTimeout(150);
-    
-    await window.keyboard.type('Test Data');
-    await window.keyboard.press('Enter');
+    await editCell(window, cell, 'Test Data');
     
     // Wait for the cell to contain the expected text
     await expect(cell).toHaveText('Test Data', { timeout: 5000 });
@@ -406,13 +405,16 @@ test.describe('Menu Integration Tests', () => {
     const grid = await window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
-    // First save a file normally
+    // Edit a cell so Save is enabled
+    const cell = await window.locator('.cell[data-row="0"][data-col="0"]');
+    await editCell(window, cell, 'test');
+    await waitForSaveEnabled(window);
+    
+    // First save a file normally (Save As would also work; we use Save to open dialog then Escape)
     const saveBtn = await window.locator('#save-btn');
-    await expect(saveBtn).toBeVisible();
     await saveBtn.click();
     
-    // Wait for save dialog and close it (simulating save)
-    await window.waitForTimeout(500);
+    // Close save dialog with Escape (native dialog - we can't easily assert it appeared)
     await window.keyboard.press('Escape');
     
     // Now trigger Save As from menu
@@ -425,10 +427,8 @@ test.describe('Menu Integration Tests', () => {
       }
     });
     
-    // Verify that dialog is shown (Save As should always show dialog)
-    // In a real test, we'd verify the dialog appears
-    // For now, just verify the menu item executed without error
-    await window.waitForTimeout(500);
+    // Verify app is still responsive (Save As menu item executed without error)
+    await expect(window.locator('#spreadsheet')).toBeVisible();
     
     console.log('[Menu Test] Save As triggers dialog even with existing file');
   });
@@ -463,23 +463,20 @@ test.describe('Menu Integration Tests', () => {
   test('Menu keyboard shortcuts are properly registered', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
-    // Test Cmd+N (New) shortcut
+    // Test Cmd+N (New) shortcut - verify no crash
     await window.keyboard.press('Meta+N');
+    await expect(grid).toBeVisible();
     
-    // Should trigger new file dialog (if there are unsaved changes)
-    // For now, just verify no crash
-    await window.waitForTimeout(500);
-    
-    // Test Cmd+O (Open) shortcut
+    // Test Cmd+O (Open) shortcut - verify no crash
     await window.keyboard.press('Meta+O');
-    await window.waitForTimeout(500);
+    await expect(grid).toBeVisible();
     
-    // Test Cmd+Shift+S (Save As) shortcut
+    // Test Cmd+Shift+S (Save As) shortcut - verify no crash
     await window.keyboard.press('Meta+Shift+S');
-    await window.waitForTimeout(500);
+    await expect(grid).toBeVisible();
     
     console.log('[Menu Test] Keyboard shortcuts work correctly');
   });

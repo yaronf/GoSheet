@@ -1,11 +1,16 @@
 // Playwright Electron Tests for GoSheet
 // Ported from test_spreadsheet.py (Python browser tests)
 // Tests the Electron app with native Playwright Electron API
+// Story 8.2: Navigate from welcome screen before testing
 
 const { test, expect } = require('./fixtures');
+const { ensureSpreadsheetView } = require('./helpers');
 
 test.describe('GoSheet Spreadsheet Tests', () => {
-  
+  test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
+  });
+
   test('page loads with correct title', async ({ window }) => {
     // Verify window title
     const title = await window.title();
@@ -581,10 +586,8 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('SUM with empty cells shows error', async ({ window, electronApp }) => {
-    await window.waitForTimeout(500);
-    
     // Create new file to get clean state
-    await electronApp.evaluate(async ({ app }) => {
+    await electronApp.evaluate(async () => {
       const response = await fetch('http://localhost:3000/api/file/new', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
@@ -593,7 +596,8 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     });
     
     await window.reload();
-    await window.waitForTimeout(500);
+    await window.waitForLoadState('domcontentloaded');
+    await ensureSpreadsheetView(window);
     
     // Create a range with an empty cell: E1=5, E2=empty, E3=10
     const cellE1 = window.locator('#cell-0-4');
@@ -630,7 +634,8 @@ test.describe('GoSheet Spreadsheet Tests', () => {
       await fetch('http://localhost:3000/api/file/new', { method: 'POST' });
     });
     await window.reload();
-    await window.waitForTimeout(500);
+    await window.waitForLoadState('domcontentloaded');
+    await ensureSpreadsheetView(window);
     
     // Create a simple circular reference: A1=B1, B1=A1
     // First set B1 to a value
@@ -672,7 +677,8 @@ test.describe('GoSheet Spreadsheet Tests', () => {
       await fetch('http://localhost:3000/api/file/new', { method: 'POST' });
     });
     await window.reload();
-    await window.waitForTimeout(500);
+    await window.waitForLoadState('domcontentloaded');
+    await ensureSpreadsheetView(window);
     
     // Set A1=B1
     await cellA1.click();

@@ -1,15 +1,20 @@
 // Playwright Electron File Operation Tests
 // Story 5.4: Create File Operation Tests
 // End-to-end tests for New, Open, Save workflows
+// Story 8.2: Navigate from welcome screen before testing
 
 const { test, expect } = require('./fixtures');
+const { ensureSpreadsheetView, editCell, waitForSaveEnabled } = require('./helpers');
 const eph = require('electron-playwright-helpers');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
 test.describe('File Operation Tests', () => {
-  
+  test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
+  });
+
   // Helper: Clean up test file
   function cleanupTestFile(filePath) {
     if (fs.existsSync(filePath)) {
@@ -18,33 +23,27 @@ test.describe('File Operation Tests', () => {
   }
 
   test('New spreadsheet workflow', async ({ electronApp, window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#spreadsheet')).toBeVisible();
     
     // Enter data in a cell to trigger unsaved state
     const cell = window.locator('#cell-5-5');
-    await cell.click();
-    await window.waitForTimeout(200);
-    await window.keyboard.type('999');
-    await window.keyboard.press('Enter');
+    await editCell(window, cell, '999');
     
-    // Wait for status to show "Unsaved"
     const status = window.locator('#file-status');
     await expect(status).toContainText('Unsaved', { timeout: 5000 });
     
     // Click New button
     await window.locator('#new-btn').click();
-    await window.waitForTimeout(300);
     
     // Modal should appear asking about unsaved changes
     const modal = window.locator('#modal-overlay');
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: 3000 });
     
     // Click OK in modal
     await window.locator('#modal-ok').click();
-    await window.waitForTimeout(500);
     
     // Modal should close
-    await expect(modal).not.toBeVisible();
+    await expect(modal).not.toBeVisible({ timeout: 3000 });
     
     // Verify grid is cleared (cell should be empty)
     await expect(window.locator('#cell-5-5')).toHaveText('');
@@ -54,53 +53,41 @@ test.describe('File Operation Tests', () => {
   });
 
   test('Open file workflow', async ({ electronApp, window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#spreadsheet')).toBeVisible();
     
     const testFilePath = path.join(os.tmpdir(), 'test-open.sheet');
     
     try {
       // First, create a test file by entering data and saving it
-      // Enter data in cells A1, B1, C1
       const cellA1 = window.locator('#cell-0-0');
-      await cellA1.click();
-      await window.waitForTimeout(200);
-      await window.keyboard.type('100');
-      await window.keyboard.press('Enter');
-      await window.waitForTimeout(300);
-      
-      // Click B1 (row 0, col 1)
       const cellB1 = window.locator('#cell-0-1');
-      await cellB1.click();
-      await window.waitForTimeout(200);
-      await window.keyboard.type('200');
-      await window.keyboard.press('Enter');
-      await window.waitForTimeout(300);
-      
-      // Click C1 (row 0, col 2)
       const cellC1 = window.locator('#cell-0-2');
-      await cellC1.click();
-      await window.waitForTimeout(200);
-      await window.keyboard.type('=A1+B1');
-      await window.keyboard.press('Enter');
-      await window.waitForTimeout(500);
+      await editCell(window, cellA1, '100');
+      await editCell(window, cellB1, '200');
+      await editCell(window, cellC1, '=A1+B1');
       
       // Save the file
       await eph.stubDialog(electronApp, 'showSaveDialog', { 
         filePath: testFilePath 
       });
+      await waitForSaveEnabled(window);
       await window.locator('#save-btn').click();
-      await window.waitForTimeout(1000);
       
-      // Ensure no modal is visible
+      // Wait for save to complete (status shows Saved)
+      await expect(window.locator('#file-status')).toContainText('Saved', { timeout: 5000 });
+      
       const modal = window.locator('#modal-overlay');
       await expect(modal).not.toBeVisible({ timeout: 2000 });
       
       // Now create a new spreadsheet to clear the data
       await window.locator('#new-btn').click();
-      await window.waitForTimeout(300);
+      const confirmModal = window.locator('#modal-overlay.active');
+      if (await confirmModal.isVisible()) {
+        await window.locator('#modal-ok').click();
+      }
       
       // Verify cells are empty
-      await expect(window.locator('#cell-0-0')).toHaveText('');
+      await expect(window.locator('#cell-0-0')).toHaveText('', { timeout: 3000 });
       
       // Now test loading the file
       await eph.stubDialog(electronApp, 'showOpenDialog', { 
@@ -108,16 +95,11 @@ test.describe('File Operation Tests', () => {
       });
       
       await window.locator('#load-btn').click();
-      await window.waitForTimeout(300);
       
       // Handle unsaved changes modal if it appears
-      const isModalVisible = await modal.isVisible();
-      if (isModalVisible) {
+      if (await modal.isVisible()) {
         await window.locator('#modal-ok').click();
-        await window.waitForTimeout(300);
       }
-      
-      await window.waitForTimeout(500);
       
       // Verify file was loaded (check cell values)
       await expect(window.locator('#cell-0-0')).toHaveText('100'); // A1
@@ -134,33 +116,25 @@ test.describe('File Operation Tests', () => {
   });
 
   test('Save file workflow', async ({ electronApp, window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#spreadsheet')).toBeVisible();
     
     const testFilePath = path.join(os.tmpdir(), 'test-save.sheet');
     
     try {
-      // Enter data in cells
       const cellA1 = window.locator('#cell-0-0');
-      await cellA1.click();
-      await window.waitForTimeout(200);
-      await window.keyboard.type('42');
-      await window.keyboard.press('Enter');
-      await window.waitForTimeout(500);
+      await editCell(window, cellA1, '42');
       
-      // Verify status shows "Unsaved"
       const status = window.locator('#file-status');
       await expect(status).toContainText('Unsaved', { timeout: 5000 });
       
-      // Stub save dialog to return test file path
       await eph.stubDialog(electronApp, 'showSaveDialog', { 
         filePath: testFilePath 
       });
-      
-      // Click Save button
+      await waitForSaveEnabled(window);
       await window.locator('#save-btn').click();
-      await window.waitForTimeout(1000);
       
-      // Ensure no modal is visible
+      // Wait for save to complete
+      await expect(status).toContainText('Saved', { timeout: 5000 });
       const modal = window.locator('#modal-overlay');
       await expect(modal).not.toBeVisible({ timeout: 2000 });
       
@@ -180,51 +154,36 @@ test.describe('File Operation Tests', () => {
   });
 
   test('file status tracking', async ({ electronApp, window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#spreadsheet')).toBeVisible();
     
     const testFilePath = path.join(os.tmpdir(), 'test-status.sheet');
+    const status = window.locator('#file-status');
     
     try {
-      // Create a test file by entering data and saving
       const cellA1 = window.locator('#cell-0-0');
-      await cellA1.click();
-      await window.waitForTimeout(200);
-      await window.keyboard.type('50');
-      await window.keyboard.press('Enter');
-      await window.waitForTimeout(500);
+      await editCell(window, cellA1, '50');
       
-      // Save the file
       await eph.stubDialog(electronApp, 'showSaveDialog', { 
         filePath: testFilePath 
       });
+      await waitForSaveEnabled(window);
       await window.locator('#save-btn').click();
-      await window.waitForTimeout(1000);
       
+      await expect(status).toContainText('Saved', { timeout: 5000 });
       const modal = window.locator('#modal-overlay');
       await expect(modal).not.toBeVisible({ timeout: 2000 });
       
-      // Verify status shows "Saved"
-      const status = window.locator('#file-status');
-      await expect(status).toContainText('Saved');
-      
       // Edit a cell
       const cell = window.locator('#cell-1-1');
-      await cell.click();
-      await window.waitForTimeout(200);
-      await window.keyboard.type('75');
-      await window.keyboard.press('Enter');
-      await window.waitForTimeout(500);
+      await editCell(window, cell, '75');
       
-      // Verify status shows "Unsaved changes"
       await expect(status).toContainText('Unsaved', { timeout: 5000 });
       
       // Save again - should NOT show dialog since file already has a path
-      // No need to stub dialog for second save
+      await waitForSaveEnabled(window);
       await window.locator('#save-btn').click();
-      await window.waitForTimeout(1000);
       
-      // Verify status shows "Saved" again
-      await expect(status).toContainText('Saved');
+      await expect(status).toContainText('Saved', { timeout: 5000 });
     } finally {
       // Cleanup test file
       cleanupTestFile(testFilePath);
@@ -232,7 +191,7 @@ test.describe('File Operation Tests', () => {
   });
 
   test('dialog cancellation handling', async ({ electronApp, window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#spreadsheet')).toBeVisible();
     
     // Stub open dialog to return cancellation
     await eph.stubDialog(electronApp, 'showOpenDialog', { 
@@ -241,25 +200,25 @@ test.describe('File Operation Tests', () => {
     
     // Click Load button
     await window.locator('#load-btn').click();
-    await window.waitForTimeout(500);
     
     // Verify app returns to normal state (no error, no crash)
-    // Check that the spreadsheet is still visible and functional
     const table = window.locator('#spreadsheet');
-    await expect(table).toBeVisible();
+    await expect(table).toBeVisible({ timeout: 3000 });
     
     // Verify we can still interact with cells
     const cell = window.locator('#cell-0-0');
     await cell.click();
     await expect(cell).toHaveClass(/selected/);
     
-    // Now test save dialog cancellation
+    // Make an edit so Save is enabled, then test save dialog cancellation
+    await editCell(window, cell, 'test');
+    await waitForSaveEnabled(window);
+
     await eph.stubDialog(electronApp, 'showSaveDialog', { 
       canceled: true 
     });
     
     await window.locator('#save-btn').click();
-    await window.waitForTimeout(500);
     
     // Verify app is still functional
     await expect(table).toBeVisible();

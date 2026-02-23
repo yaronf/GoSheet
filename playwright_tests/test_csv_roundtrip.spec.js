@@ -19,8 +19,11 @@ async function triggerExportCSV(electronApp, stubValue) {
   await clickMenuItemById(electronApp, 'export-csv');
 }
 
+const { ensureSpreadsheetView } = require('./helpers');
+
 // Helper to clear spreadsheet and ensure no modals are open
 async function clearSpreadsheet(window) {
+  await ensureSpreadsheetView(window);
   await window.locator('#new-btn').click();
   await window.waitForTimeout(300);
   
@@ -35,6 +38,7 @@ async function clearSpreadsheet(window) {
 
 test.describe('CSV Round-Trip Verification', () => {
   test('Simple data round-trip preserves values', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Create test CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const importPath = path.join(testDir, 'import.csv');

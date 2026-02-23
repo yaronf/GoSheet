@@ -1,11 +1,13 @@
 // Story 7.10: Dark Mode Support Tests
 // Test system preference detection and automatic theme switching
+// Story 8.2: Navigate from welcome screen before checking theme (spreadsheet view)
 
 const { test, expect } = require('./fixtures');
+const { ensureSpreadsheetView } = require('./helpers');
 
 test.describe('Dark Mode Support', () => {
   test('Dark mode is applied when system preference is dark', async ({ electronApp, window }) => {
-    await window.waitForSelector('.spreadsheet', { timeout: 10000 });
+    await ensureSpreadsheetView(window);
 
     // Set system to dark mode
     await electronApp.evaluate(({ nativeTheme }) => {
@@ -32,7 +34,7 @@ test.describe('Dark Mode Support', () => {
   });
 
   test('Light mode is applied when system preference is light', async ({ electronApp, window }) => {
-    await window.waitForSelector('.spreadsheet', { timeout: 10000 });
+    await ensureSpreadsheetView(window);
 
     // Set system to light mode
     await electronApp.evaluate(({ nativeTheme }) => {
@@ -59,7 +61,7 @@ test.describe('Dark Mode Support', () => {
   });
 
   test('App switches theme when system preference changes', async ({ electronApp, window }) => {
-    await window.waitForSelector('.spreadsheet', { timeout: 10000 });
+    await ensureSpreadsheetView(window);
 
     // Start in light mode
     await electronApp.evaluate(({ nativeTheme }) => {
@@ -99,7 +101,7 @@ test.describe('Dark Mode Support', () => {
   });
 
   test('Dark mode colors are applied to UI elements', async ({ electronApp, window }) => {
-    await window.waitForSelector('.spreadsheet', { timeout: 10000 });
+    await ensureSpreadsheetView(window);
 
     // Set to dark mode
     await electronApp.evaluate(({ nativeTheme }) => {
@@ -126,7 +128,7 @@ test.describe('Dark Mode Support', () => {
   });
 
   test('Light mode colors are applied to UI elements', async ({ electronApp, window }) => {
-    await window.waitForSelector('.spreadsheet', { timeout: 10000 });
+    await ensureSpreadsheetView(window);
 
     // Set to light mode
     await electronApp.evaluate(({ nativeTheme }) => {

@@ -1,14 +1,20 @@
 // Story 7.3: Help Menu Tests
 // Tests for Help menu and About dialog functionality
+// Story 8.2: Navigate from welcome screen before testing
 
 const { test, expect } = require('./fixtures');
+const { ensureSpreadsheetView } = require('./helpers');
 
 test.describe('Help Menu Tests', () => {
+  test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
+  });
+
   test('Help menu exists with About item', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
     // Wait for grid to be visible
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Poll for Help menu to be fully populated
@@ -49,7 +55,7 @@ test.describe('Help Menu Tests', () => {
   test('Help menu has correct role', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Check that Help menu has role: 'help'
@@ -67,7 +73,7 @@ test.describe('Help Menu Tests', () => {
   test('About item has correct ID', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Poll for menu to be ready
@@ -92,7 +98,7 @@ test.describe('Help Menu Tests', () => {
   test('App version is available', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Get app version
@@ -109,7 +115,7 @@ test.describe('Help Menu Tests', () => {
   test('About panel options are configured', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
     
-    const grid = await window.locator('#spreadsheet');
+    const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
     
     // Verify About panel can be shown (we can't easily test the actual panel appearance)

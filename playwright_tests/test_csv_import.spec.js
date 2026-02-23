@@ -13,6 +13,8 @@ async function triggerImportCSV(electronApp, stubValue) {
   await clickMenuItemById(electronApp, 'import-csv');
 }
 
+const { ensureSpreadsheetView } = require('./helpers');
+
 // Use menu click + stubDialog instead of window.evaluate (avoids Electron 27+ flakiness)
 async function triggerExportCSV(electronApp, stubValue) {
   await stubDialog(electronApp, 'showSaveDialog', stubValue);
@@ -38,6 +40,7 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('CSV preview modal opens and displays file info', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Create test CSV file
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'test.csv');
@@ -88,6 +91,7 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('CSV preview handles large files (shows first 10 rows)', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Create test CSV with 20 rows
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'large.csv');
@@ -123,6 +127,7 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('CSV preview Cancel button closes modal', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Create test CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'test.csv');
@@ -143,6 +148,7 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('CSV import loads data into spreadsheet', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'test.csv');
     
@@ -194,6 +200,7 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('CSV import warns on unsaved changes', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // First, create some data
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('Test');
@@ -238,6 +245,7 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('CSV import clears existing data', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // First, create some data
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('Old Data');
@@ -281,6 +289,7 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('Cancelled file dialog does not show preview', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Trigger Import CSV via menu (stub returns cancelled)
     await triggerImportCSV(electronApp, { canceled: true });
 
@@ -292,6 +301,7 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('Invalid CSV file shows error', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Create CSV with unclosed quote (parse error)
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'invalid.csv');
@@ -315,6 +325,7 @@ test.describe('CSV Import Dialog', () => {
   });
 
   test('Empty CSV file shows error', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Create empty CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'empty.csv');
@@ -356,6 +367,7 @@ test.describe('CSV Export', () => {
   });
 
   test('Export CSV creates file with data', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Create some data
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('Name');
@@ -402,6 +414,7 @@ test.describe('CSV Export', () => {
   });
 
   test('Export CSV with formulas exports computed values', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Create data with formula
     await window.locator('#cell-0-0').click();
     await window.keyboard.type('10');
@@ -442,6 +455,7 @@ test.describe('CSV Export', () => {
   });
 
   test('Export empty spreadsheet creates empty file', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Clear any existing data - New button might show unsaved changes modal
     await window.locator('#new-btn').click();
     
@@ -477,6 +491,7 @@ test.describe('CSV Export', () => {
   });
 
   test('Export CSV cancelled does not create file', async ({ window, electronApp }) => {
+    await ensureSpreadsheetView(window);
     // Export CSV via menu (stub returns cancelled)
     await triggerExportCSV(electronApp, { canceled: true });
 

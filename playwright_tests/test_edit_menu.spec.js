@@ -1,17 +1,18 @@
 // Story 7.2: Edit Menu Tests
 // Tests for Cut, Copy, Paste, and Select All menu functionality
+// Story 8.2: Navigate from welcome screen; #new-btn is in spreadsheet view
 
 const { test, expect } = require('./fixtures');
+const { ensureSpreadsheetView } = require('./helpers');
 
 test.describe('Edit Menu Tests', () => {
   // Create new file before each test to ensure isolation
   test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
     // Click New button to start with fresh spreadsheet
-    const newBtn = await window.locator('#new-btn');
-    if (await newBtn.isVisible()) {
-      await newBtn.click();
-      await window.waitForTimeout(300);
-    }
+    const newBtn = window.locator('#new-btn');
+    await newBtn.click();
+    await window.waitForTimeout(300);
   });
 
   test('Edit menu exists with all required items', async ({ electronApp, window }) => {

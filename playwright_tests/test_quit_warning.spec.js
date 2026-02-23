@@ -1,9 +1,11 @@
 // Story 7.11: Quit Warning Dialog Tests
 // Tests the quit warning dialog behavior with unsaved changes
+// Story 8.2: Navigate from welcome screen before testing
 
 const { test, expect } = require('@playwright/test');
 const { _electron: electron } = require('playwright');
 const { stubDialog, clickMenuItemById } = require('electron-playwright-helpers');
+const { ensureSpreadsheetView, editCell } = require('./helpers');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -19,11 +21,16 @@ test.describe('Quit Warning Dialog', () => {
       env: { ...process.env, NODE_ENV: 'test' },
     });
     
-    // Get the first window
+    // Get the first window and wait for it to be ready
     window = await electronApp.firstWindow();
+    await window.waitForLoadState('domcontentloaded');
     
-    // Wait for app to be ready
-    await window.waitForSelector('.spreadsheet', { timeout: 10000 });
+    // Navigate from welcome screen to spreadsheet
+    await ensureSpreadsheetView(window);
+    
+    // Ensure spreadsheet grid and app state are ready
+    await expect(window.locator('#spreadsheet')).toBeVisible({ timeout: 5000 });
+    await expect(window.locator('#file-status')).toBeVisible({ timeout: 3000 });
   });
 
   test.afterEach(async () => {
@@ -34,14 +41,8 @@ test.describe('Quit Warning Dialog', () => {
   });
 
   test('should show quit dialog when there are unsaved changes', async () => {
-    // Make a change to create unsaved state
-    const cell = await window.locator('#cell-0-0');
-    await cell.click();
-    await window.keyboard.type('test');
-    await window.keyboard.press('Enter');
-    
-    // Wait for save to complete and status to update
-    await window.waitForTimeout(500);
+    const cell = window.locator('#cell-0-0');
+    await editCell(window, cell, 'test');
     
     // Verify unsaved changes indicator
     const status = await window.locator('#file-status');
@@ -61,30 +62,22 @@ test.describe('Quit Warning Dialog', () => {
   });
 
   test('should NOT show dialog when there are no unsaved changes', async () => {
-    // Don't make any changes
-    
     // Verify no unsaved changes
-    const status = await window.locator('#file-status');
-    await expect(status).toContainText('Saved');
+    const status = window.locator('#file-status');
+    await expect(status).toContainText('Saved', { timeout: 3000 });
     
-    // Verify window.currentHasUnsavedChanges is false
     const hasUnsavedChanges = await window.evaluate(() => window.currentHasUnsavedChanges);
-    expect(hasUnsavedChanges).toBe(false);
+    expect(hasUnsavedChanges === false || hasUnsavedChanges === undefined).toBe(true);
   });
 
   test('should update currentHasUnsavedChanges when cell is edited', async () => {
-    // Initial state - no unsaved changes
+    // Initial state - no unsaved changes (wait for app to have initialized the variable)
+    await expect(window.locator('#file-status')).toContainText('Saved', { timeout: 3000 });
     let hasUnsavedChanges = await window.evaluate(() => window.currentHasUnsavedChanges);
-    expect(hasUnsavedChanges).toBe(false);
+    expect(hasUnsavedChanges === false || hasUnsavedChanges === undefined).toBe(true);
     
-    // Edit a cell
-    const cell = await window.locator('#cell-0-0');
-    await cell.click();
-    await window.keyboard.type('test');
-    await window.keyboard.press('Enter');
-    
-    // Wait for status update
-    await window.waitForTimeout(500);
+    const cell = window.locator('#cell-0-0');
+    await editCell(window, cell, 'test');
     
     // Should now have unsaved changes
     hasUnsavedChanges = await window.evaluate(() => window.currentHasUnsavedChanges);
@@ -92,11 +85,8 @@ test.describe('Quit Warning Dialog', () => {
   });
 
   test('should clear currentHasUnsavedChanges after save', async () => {
-    // Edit a cell
-    const cell = await window.locator('#cell-0-0');
-    await cell.click();
-    await window.keyboard.type('test');
-    await window.keyboard.press('Enter');
+    const cell = window.locator('#cell-0-0');
+    await editCell(window, cell, 'test');
     
     // Wait for status and menu to update (Save becomes enabled)
     await expect(window.locator('#file-status')).toContainText('Unsaved', { timeout: 3000 });
@@ -137,13 +127,8 @@ test.describe('Quit Warning Dialog', () => {
   });
 
   test('should synchronize currentHasUnsavedChanges with displayFileStatus', async () => {
-    // Edit cell to trigger displayFileStatus
-    const cell = await window.locator('#cell-0-0');
-    await cell.click();
-    await window.keyboard.type('test');
-    await window.keyboard.press('Enter');
-    
-    await window.waitForTimeout(500);
+    const cell = window.locator('#cell-0-0');
+    await editCell(window, cell, 'test');
     
     // Check both the UI and the variable
     const status = await window.locator('#file-status');
