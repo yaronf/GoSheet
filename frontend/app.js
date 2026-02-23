@@ -221,6 +221,28 @@ document.querySelector('#app').innerHTML = `
         </div>
     </div>
     </div>
+    <div class="modal-overlay" id="formula-help-modal">
+        <div class="modal-dialog modal-dialog-large modal-dialog-scrollable">
+            <div class="modal-header">
+                <h2>Formula Reference</h2>
+            </div>
+            <div class="modal-body formula-help-content" id="formula-help-content"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-primary" id="formula-help-close">Close</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="user-guide-modal">
+        <div class="modal-dialog modal-dialog-large modal-dialog-scrollable">
+            <div class="modal-header">
+                <h2>User Guide</h2>
+            </div>
+            <div class="modal-body user-guide-content" id="user-guide-content"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-primary" id="user-guide-close">Close</button>
+            </div>
+        </div>
+    </div>
 `;
 
 // Story 8.2: View switching helpers
@@ -1178,6 +1200,151 @@ function showCSVPreviewModal(preview) {
     });
 }
 
+// Story 9.6: In-app Formula Reference
+const FORMULA_HELP_HTML = `
+<p>Formulas start with <code>=</code>. The cell shows the result; the formula bar shows the formula.</p>
+
+<h3>Arithmetic Operators</h3>
+<table class="formula-help-table">
+<thead><tr><th>Operator</th><th>Meaning</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td>+</td><td>Add</td><td><code>=A1+B1</code></td></tr>
+<tr><td>-</td><td>Subtract</td><td><code>=A1-B1</code></td></tr>
+<tr><td>*</td><td>Multiply</td><td><code>=A1*B1</code></td></tr>
+<tr><td>/</td><td>Divide</td><td><code>=A1/B1</code></td></tr>
+<tr><td>%</td><td>Modulo</td><td><code>=A1%B1</code></td></tr>
+</tbody>
+</table>
+
+<h3>Comparison Operators</h3>
+<p>Result is 1 (true) or 0 (false).</p>
+<table class="formula-help-table">
+<thead><tr><th>Operator</th><th>Meaning</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td>=</td><td>Equal</td><td><code>=A1=10</code></td></tr>
+<tr><td>!=</td><td>Not equal</td><td><code>=A1!=0</code></td></tr>
+<tr><td>&lt;</td><td>Less than</td><td><code>=A1&lt;100</code></td></tr>
+<tr><td>&lt;=</td><td>Less than or equal</td><td><code>=A1&lt;=50</code></td></tr>
+<tr><td>&gt;</td><td>Greater than</td><td><code>=A1&gt;0</code></td></tr>
+<tr><td>&gt;=</td><td>Greater than or equal</td><td><code>=A1&gt;=10</code></td></tr>
+</tbody>
+</table>
+
+<h3>Cell &amp; Range References</h3>
+<p><strong>Cell:</strong> <code>A1</code>, <code>B5</code>, <code>AA10</code></p>
+<p><strong>Range:</strong> <code>A1:A10</code>, <code>A1:C3</code> (colon between start and end)</p>
+
+<h3>Numeric Functions</h3>
+<table class="formula-help-table">
+<thead><tr><th>Function</th><th>Syntax</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td>SUM</td><td>SUM(range)</td><td><code>=SUM(A1:A10)</code></td></tr>
+<tr><td>AVG</td><td>AVG(range)</td><td><code>=AVG(B1:B5)</code></td></tr>
+<tr><td>MIN</td><td>MIN(range)</td><td><code>=MIN(A1:A20)</code></td></tr>
+<tr><td>MAX</td><td>MAX(range)</td><td><code>=MAX(A1:A20)</code></td></tr>
+<tr><td>COUNT</td><td>COUNT(range)</td><td><code>=COUNT(A1:A10)</code></td></tr>
+</tbody>
+</table>
+
+<h3>String Functions</h3>
+<table class="formula-help-table">
+<thead><tr><th>Function</th><th>Syntax</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td>CONCAT</td><td>CONCAT(text1, text2, ...)</td><td><code>=CONCAT(A1, " ", B1)</code></td></tr>
+<tr><td>UPPER</td><td>UPPER(text)</td><td><code>=UPPER(A1)</code></td></tr>
+<tr><td>LOWER</td><td>LOWER(text)</td><td><code>=LOWER("HELLO")</code></td></tr>
+<tr><td>LEN</td><td>LEN(text)</td><td><code>=LEN(A1)</code></td></tr>
+<tr><td>LEFT</td><td>LEFT(text, count)</td><td><code>=LEFT("Hello", 2)</code> → "He"</td></tr>
+<tr><td>RIGHT</td><td>RIGHT(text, count)</td><td><code>=RIGHT("Hello", 2)</code> → "lo"</td></tr>
+<tr><td>MID</td><td>MID(text, start, count)</td><td><code>=MID("Hello", 2, 3)</code> → "ell" (start is 1-based)</td></tr>
+</tbody>
+</table>
+`;
+
+function showFormulaHelpModal() {
+    const modal = document.getElementById('formula-help-modal');
+    const contentEl = document.getElementById('formula-help-content');
+    const closeBtn = document.getElementById('formula-help-close');
+    if (!modal || !contentEl || !closeBtn) return;
+
+    contentEl.innerHTML = FORMULA_HELP_HTML;
+    modal.classList.add('active');
+    closeBtn.focus();
+
+    const handleClose = () => {
+        modal.classList.remove('active');
+        closeBtn.removeEventListener('click', handleClose);
+        document.removeEventListener('keydown', handleKeyDown);
+        modal.removeEventListener('click', handleOverlayClick);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape') handleClose();
+    };
+
+    const handleOverlayClick = (e) => {
+        if (e.target === modal) handleClose();
+    };
+
+    closeBtn.addEventListener('click', handleClose);
+    document.addEventListener('keydown', handleKeyDown);
+    modal.addEventListener('click', handleOverlayClick);
+}
+
+async function showUserGuideModal() {
+    const modal = document.getElementById('user-guide-modal');
+    const contentEl = document.getElementById('user-guide-content');
+    const closeBtn = document.getElementById('user-guide-close');
+    if (!modal || !contentEl || !closeBtn) return;
+
+    contentEl.innerHTML = '<p>Loading...</p>';
+    modal.classList.add('active');
+    closeBtn.focus();
+
+    let handleAnchorClick = null;
+    const handleClose = () => {
+        modal.classList.remove('active');
+        closeBtn.removeEventListener('click', handleClose);
+        document.removeEventListener('keydown', handleKeyDown);
+        modal.removeEventListener('click', handleOverlayClick);
+        if (handleAnchorClick) contentEl.removeEventListener('click', handleAnchorClick);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape') handleClose();
+    };
+
+    const handleOverlayClick = (e) => {
+        if (e.target === modal) handleClose();
+    };
+
+    closeBtn.addEventListener('click', handleClose);
+    document.addEventListener('keydown', handleKeyDown);
+    modal.addEventListener('click', handleOverlayClick);
+
+    try {
+        const html = window.electronAPI?.getUserGuideContent ? await window.electronAPI.getUserGuideContent() : null;
+        contentEl.innerHTML = html || '<p>User guide not available.</p>';
+
+        // Handle internal anchor links (TOC) - scroll to section within modal
+        handleAnchorClick = (e) => {
+            const a = e.target.closest('a[href^="#"]');
+            if (!a) return;
+            const id = a.getAttribute('href').slice(1);
+            if (!id) return;
+            const target = contentEl.querySelector(`#${CSS.escape(id)}`);
+            if (target) {
+                e.preventDefault();
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+        contentEl.addEventListener('click', handleAnchorClick);
+    } catch (err) {
+        console.error('[App] Failed to load User Guide:', err);
+        contentEl.innerHTML = '<p>Failed to load user guide.</p>';
+    }
+}
+
 // Story 7.12: Extract CSV export logic into function (CSV buttons removed from toolbar)
 async function handleExportCSV(testPath = '') {
     console.log('[handleExportCSV] Starting export, testPath:', testPath);
@@ -1319,6 +1486,22 @@ if (window.electronAPI) {
         console.log('[App] Menu Open Recent triggered:', filePath);
         await loadFileByPath(filePath);
     });
+    
+    // Story 9.6: Formula Reference from Help menu
+    if (window.electronAPI.onMenuFormulaReference) {
+        window.electronAPI.onMenuFormulaReference(() => {
+            console.log('[App] Menu Formula Reference triggered');
+            showFormulaHelpModal();
+        });
+    }
+    
+    // User Guide from Help menu (in-app markdown viewer)
+    if (window.electronAPI.onMenuUserGuide) {
+        window.electronAPI.onMenuUserGuide(() => {
+            console.log('[App] Menu User Guide triggered');
+            showUserGuideModal();
+        });
+    }
     
     // Story 7.2: Edit menu handlers
     

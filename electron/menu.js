@@ -258,11 +258,32 @@ function buildMenu(recentFiles = [], onClearRecent) {
       ]
     },
     
-    // Story 7.3: Help menu
+    // Story 7.3: Help menu | Story 9.6: Formula Reference
+    // Note: Don't use role: 'help' - it can prevent custom submenu items from receiving clicks on macOS
     {
       label: 'Help',
-      role: 'help', // macOS places Help in standard location
       submenu: [
+        {
+          id: 'formula-reference',
+          label: 'Formula Reference',
+          click: () => {
+            console.log('[Menu] Formula Reference triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-formula-reference');
+            }
+          }
+        },
+        {
+          id: 'user-guide',
+          label: 'User Guide',
+          click: () => {
+            console.log('[Menu] User Guide triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-user-guide');
+            }
+          }
+        },
+        { type: 'separator' },
         {
           id: 'about',
           label: 'About GoSheet',

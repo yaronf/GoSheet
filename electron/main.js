@@ -558,6 +558,26 @@ function setupIpcHandlers() {
     return loadRecentFiles().slice(0, 5);
   });
 
+  // User Guide: Read USER_GUIDE.md, render with showdown, return HTML
+  ipcMain.handle('get-user-guide', async () => {
+    const userGuidePath = app.isPackaged
+      ? path.join(process.resourcesPath, 'USER_GUIDE.md')
+      : path.join(app.getAppPath(), 'USER_GUIDE.md');
+    try {
+      const md = fs.readFileSync(userGuidePath, 'utf8');
+      const showdown = require('showdown');
+      const converter = new showdown.Converter({
+        tables: true,
+        strikethrough: true,
+        ghCompatibleHeaderId: true
+      });
+      return converter.makeHtml(md);
+    } catch (err) {
+      console.error('[Electron] Failed to read/render User Guide:', err);
+      return null;
+    }
+  });
+
   // Story 8.2: Sync menu when renderer shows welcome screen (keeps menu and welcome in sync)
   ipcMain.on('menu:syncRecentFiles', () => {
     syncRecentFilesMenu();
@@ -569,12 +589,30 @@ app.whenReady().then(() => {
   console.log('[Electron] App ready, initializing...');
   
   // Story 7.3: Configure About panel for macOS
-  app.setAboutPanelOptions({
+  const appPath = app.getAppPath();
+  const iconPaths = [
+    path.join(appPath, 'assets', 'icon.icns'),
+    path.join(appPath, 'assets', 'Icon.png'),
+    path.join(process.resourcesPath, 'assets', 'icon.icns'),
+    path.join(process.resourcesPath, 'assets', 'Icon.png')
+  ];
+  let iconPath = null;
+  for (const p of iconPaths) {
+    if (fs.existsSync(p)) {
+      iconPath = p;
+      break;
+    }
+  }
+  const aboutOptions = {
     applicationName: app.getName(), // Uses productName from package.json
     applicationVersion: app.getVersion(),
     copyright: `© ${new Date().getFullYear()} All rights reserved`,
     credits: 'Lightweight, fast spreadsheet for macOS'
-  });
+  };
+  if (iconPath) {
+    aboutOptions.iconPath = iconPath;
+  }
+  app.setAboutPanelOptions(aboutOptions);
   console.log(`[Electron] About panel configured for ${app.getName()} v${app.getVersion()}`);
   
   // Story 3.4: Setup IPC handlers

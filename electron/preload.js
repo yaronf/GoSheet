@@ -60,6 +60,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('menu-open-recent', callback);
   },
   
+  // Story 9.6: Formula Reference
+  onMenuFormulaReference: (callback) => {
+    ipcRenderer.on('menu-formula-reference', callback);
+  },
+  
+  // User Guide: IPC and markdown rendering
+  onMenuUserGuide: (callback) => {
+    ipcRenderer.on('menu-user-guide', callback);
+  },
+  getUserGuideContent: () => ipcRenderer.invoke('get-user-guide'),
+  
   // Story 7.2: Edit menu event listeners
   onMenuCut: (callback) => {
     ipcRenderer.on('menu-cut', callback);

@@ -41,7 +41,7 @@
           ]
         }
       ],
-      "icon": "assets/icon.icns",
+      "icon": "assets/Icon.png",
       "extendInfo": {
         "CFBundleDocumentTypes": [
           {
@@ -77,6 +77,10 @@
         {
           "from": "frontend",
           "to": "frontend"
+        },
+        {
+          "from": "USER_GUIDE.md",
+          "to": "USER_GUIDE.md"
         }
       ]
     },
@@ -99,5 +103,8 @@
       "output": "dist",
       "buildResources": "assets"
     }
+  },
+  "dependencies": {
+    "showdown": "^2.1.0"
   }
 }
