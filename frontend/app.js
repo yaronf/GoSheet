@@ -1412,7 +1412,10 @@ async function updateFileStatus() {
     try {
         const status = await GetFileStatus();
         displayFileStatus(status.hasUnsavedChanges);
-        
+
+        // Update window title with filename
+        document.title = `GoSheet - ${status.filename || 'Untitled'}`;
+
         // Story 7.1: Update menu state in Electron
         if (window.electronAPI && window.electronAPI.updateMenuState) {
             window.electronAPI.updateMenuState({
