@@ -1,20 +1,21 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update', 'epic-9-added']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update', 'epic-9-added', 'epic-11-added']
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/architecture.md'
   - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-02-15.md'
   - '_bmad-output/planning-artifacts/electron-migration-analysis.md'
-epicCount: 9
+  - '_bmad-output/planning-artifacts/research/technical-cell-merging-research-2026-02-23.md'
+epicCount: 11
 totalFRs: 51
 totalNFRs: 23
-totalStories: 42
+totalStories: 48
 status: 'updated'
 validationStatus: 'passed'
 readyForDevelopment: true
 completedDate: '2026-02-14'
-lastUpdated: '2026-02-16'
-updateReason: 'Added Epic 9 (Documentation & Project Cleanup) with 5 stories to finalize project for release'
+lastUpdated: '2026-02-23'
+updateReason: 'Added Epic 11 (Cell Merging) with 6 stories from technical research'
 ---
 
 # spreadsheet - Epic Breakdown
@@ -1966,3 +1967,115 @@ So that new contributors can easily navigate the codebase.
   - Source directories (electron/, frontend/, server/, model/, etc.)
   - Build/test directories (dist/, build/, playwright_tests/, tests/)
 **And** a CONTRIBUTING.md file is created with development setup instructions
+
+## Epic 11: Cell Merging
+
+Users can merge adjacent cells horizontally or vertically to create combined cells (e.g., for headers or labels). Only the anchor (top-left) cell holds the value; covered cells are hidden. Merge regions persist in the file format.
+
+**Source:** Technical research `research/technical-cell-merging-research-2026-02-23.md`
+
+### Story 11.1: Add Merge Regions to Backend Model and File Format
+
+As a developer,
+I want the backend to store merge regions separately from cell values,
+So that merged cells can persist across save/load and the file format supports the feature.
+
+**Acceptance Criteria:**
+
+**Given** the spreadsheet model
+**When** I add merge region support
+**Then** a `MergeRegion` struct exists with `StartRow`, `StartCol`, `RowSpan`, `ColSpan`
+**And** `Spreadsheet` has a `Merges []MergeRegion` field
+**And** the file format (gob) includes `Merges` in serialization
+**And** file version is bumped to `1.1` for backward compatibility
+**And** existing `.sheet` files (v1.0) load with empty Merges
+**And** Go unit tests pass
+
+### Story 11.2: Add Merge API Endpoints
+
+As a frontend developer,
+I want API endpoints to get, create, and remove merge regions,
+So that the UI can sync merge state with the backend.
+
+**Acceptance Criteria:**
+
+**Given** the backend has merge region support
+**When** I call the API
+**Then** `GET /api/merges` returns all merge regions (or equivalent)
+**And** `POST /api/merge` accepts `{startRow, startCol, rowSpan, colSpan}` and creates a merge
+**And** `POST /api/unmerge` accepts `{startRow, startCol}` and removes the merge containing that anchor
+**And** merge creation validates no overlapping regions
+**And** merge creation validates range is within grid bounds
+**And** API is documented or follows existing patterns
+
+### Story 11.3: Implement Merge-Aware Grid Rendering
+
+As a user,
+I want merged cells to render with colspan/rowspan,
+So that I see a single combined cell instead of multiple separate cells.
+
+**Acceptance Criteria:**
+
+**Given** the frontend has merge region data from the API
+**When** `buildSpreadsheet()` runs
+**Then** anchor cells use `td.colSpan` and `td.rowSpan` for merged regions
+**And** covered cells are not rendered (no td in DOM for them)
+**And** row rendering correctly handles rowspan (fewer td elements in rows below a rowspan)
+**And** a `getCellElement(row, col)` helper returns the anchor's td when (row,col) is covered
+**And** the grid displays correctly for horizontal merges (e.g., A1:C1)
+**And** the grid displays correctly for vertical merges (e.g., A1:A3)
+**And** the grid displays correctly for 2D merges (e.g., A1:B2)
+
+### Story 11.4: Update Cell Logic for Merge-Aware Behavior
+
+As a user,
+I want selection, loading, and refresh to work correctly with merged cells,
+So that I can interact with merged cells without errors.
+
+**Acceptance Criteria:**
+
+**Given** the grid has merged cells
+**When** I click a merged cell (anchor or covered area)
+**Then** `selectCell` maps covered (row,col) to the anchor and selects the anchor
+**And** `loadCells()` and `refreshAllCells()` only update anchor cells (covered cells don't exist in DOM)
+**And** formula bar shows the anchor cell's value when a merged cell is selected
+**And** editing a merged cell updates the anchor
+**And** no console errors or broken behavior when interacting with merged cells
+
+### Story 11.5: Add Merge and Unmerge UI
+
+As a user,
+I want to merge and unmerge cells from the UI,
+So that I can create headers or combined labels without editing files.
+
+**Acceptance Criteria:**
+
+**Given** I have selected a range of cells
+**When** I choose "Merge cells" from Format menu or context menu
+**Then** the selected range becomes one merged cell (anchor = top-left)
+**And** the value from the anchor is preserved; other cells' values are discarded (or user is warned)
+**And** the grid rebuilds to show the merged cell
+**Given** I have selected a merged cell
+**When** I choose "Unmerge"
+**Then** the merge is removed and the anchor cell remains with its value
+**And** the grid rebuilds to show individual cells
+**And** Format menu (or equivalent) includes Merge cells and Unmerge items
+**And** Merge is disabled if selection is invalid (e.g., single cell, overlapping merge)
+**And** Unmerge is disabled if selection is not a merged cell
+
+### Story 11.6: Keyboard Navigation and Edge Cases for Merged Cells
+
+As a user,
+I want keyboard navigation and edge cases to work correctly with merged cells,
+So that I can use the spreadsheet normally when merges are present.
+
+**Acceptance Criteria:**
+
+**Given** the grid has merged cells
+**When** I use arrow keys to navigate
+**Then** arrow keys skip covered cells and land on the anchor or next unmerged cell
+**And** Tab/Enter navigation respects merged regions
+**And** formula references to merged ranges resolve to the anchor (e.g., `A1` for A1:C1)
+**And** CSV export outputs the anchor value only for merged cells
+**And** CSV import does not create merges (data goes to individual cells)
+**And** existing Playwright tests pass (or are updated for merge-aware behavior)
