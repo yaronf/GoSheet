@@ -1,6 +1,0 @@
-# Native macOS UI testing dependencies (pyax + pytest)
-# Install: pip install -r requirements-native-tests.txt
-# Requires: macOS, Python 3.10+, accessibility permissions enabled
-
-pyax[highlight]>=0.1.0
-pytest>=7.0.0

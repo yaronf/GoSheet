@@ -558,11 +558,11 @@ function setupIpcHandlers() {
     return loadRecentFiles().slice(0, 5);
   });
 
-  // User Guide: Read USER_GUIDE.md, render with showdown, return HTML
+  // User Guide: Read docs/USER_GUIDE.md, render with showdown, return HTML
   ipcMain.handle('get-user-guide', async () => {
     const userGuidePath = app.isPackaged
-      ? path.join(process.resourcesPath, 'USER_GUIDE.md')
-      : path.join(app.getAppPath(), 'USER_GUIDE.md');
+      ? path.join(process.resourcesPath, 'docs', 'USER_GUIDE.md')
+      : path.join(app.getAppPath(), 'docs', 'USER_GUIDE.md');
     try {
       const md = fs.readFileSync(userGuidePath, 'utf8');
       const showdown = require('showdown');

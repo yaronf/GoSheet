@@ -387,6 +387,24 @@ npm run test:all
 
 ---
 
+## Dev Agent Record
+
+### File List
+- Moved: `specs/` → `_bmad-output/planning-artifacts/specs/`
+- Moved: `USER_GUIDE.md` → `docs/USER_GUIDE.md`
+- Moved: `BMAD.md` → `_bmad/BMAD.md`
+- Consolidated: `_bmad-output/csv-export-test-debug-analysis.md`, `icon-preview.html`, `test-fixes-summary-2026-02-18.md`, `bmb-creations/` → `_bmad-output/misc/`
+- Deleted: `ELECTRON_SETUP.md`
+- Modified: `README.md` (project structure, links to docs/, _bmad/)
+- Modified: `electron/main.js` (docs/USER_GUIDE.md path)
+- Modified: `package.json` (extraResources docs/USER_GUIDE.md)
+- Modified: `_bmad/BMAD.md`, `_bmad-output/planning-artifacts/architecture.md`, `_bmad-output/planning-artifacts/specs/TECH_SPEC.md`, `_bmad-output/planning-artifacts/prd.md`, `_bmad-output/implementation-artifacts/9-2-create-user-documentation.md` (specs path references)
+
+### Change Log
+- 2026-02-24: specs moved; USER_GUIDE to docs/; BMAD to _bmad/; _bmad-output misc consolidated; ELECTRON_SETUP removed; references updated
+
+---
+
 ## Change Log
 
 - 2026-02-16: Story created to organize project structure

@@ -218,6 +218,19 @@ npm run test:all
 
 ---
 
+## Dev Agent Record
+
+### File List
+- Deleted: `api_wails.go`, `fileservice_wails.go`, `main.go`, `wails.json`, `cmd/`, `gosheet`, `web`
+- Modified: `.gitignore` (removed Wails patterns, added dist/, build/)
+- Modified: `go.mod`, `go.sum` (go mod tidy to remove Wails deps)
+- Modified: `frontend/index.html` (removed Wails bindings comment)
+
+### Change Log
+- 2026-02-24: Wails files removed; go mod tidy; .gitignore updated
+
+---
+
 ## Change Log
 
 - 2026-02-16: Story created to remove obsolete Wails files

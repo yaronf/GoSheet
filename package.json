@@ -79,8 +79,8 @@
           "to": "frontend"
         },
         {
-          "from": "USER_GUIDE.md",
-          "to": "USER_GUIDE.md"
+          "from": "docs/USER_GUIDE.md",
+          "to": "docs/USER_GUIDE.md"
         }
       ]
     },

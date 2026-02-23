@@ -163,13 +163,13 @@ development_status:
   9-1-update-readme-for-electron: done
   9-2-create-user-documentation: done
   9-3-remove-obsolete-wails-files: ready-for-dev
-  9-4-clean-up-debug-and-test-artifacts: ready-for-dev
+  9-4-clean-up-debug-and-test-artifacts: done
   9-5-organize-project-structure: ready-for-dev
   9-6-add-in-app-formula-reference: done
   epic-9-retrospective: optional  # Epic 10: Code Quality & Technical Debt (DEFERRED)
   epic-10: in-progress
   10-1-rename-wails-references: ready-for-dev
-  10-2-setup-linting-and-formatting: backlog
+  10-2-setup-linting-and-formatting: ready-for-dev
   10-3-add-code-complexity-analysis: backlog
   10-4-measure-test-coverage: backlog
   10-5-refactor-high-complexity-code: backlog

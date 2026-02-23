@@ -30,7 +30,7 @@ build:
 	go build -o server/gosheet-server ./server
 
 # Build Electron app (.app bundle)
-build-electron: build
+build-electron: install build
 	@echo "Building Electron app..."
 	npm run build
 
@@ -40,7 +40,7 @@ run: build
 	./server/gosheet-server --port 3000
 
 # Run Electron app in development mode
-run-electron: build
+run-electron: install build
 	@echo "Starting Electron app..."
 	npm start
 

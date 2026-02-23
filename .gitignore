@@ -1,22 +1,27 @@
 # Build artifacts
 build/
-build/bin/
-build/darwin/
+dist/
 *.app
+playwright-report/
+test-results/
 
 # Temporary files
 *.tmp
-.wails-build/
 
 # Archive
 archive/
 
 # Python
 venv/
+.venv/
 .venv-native-tests/
+venv-native-tests/
 __pycache__/
 *.pyc
 .pytest_cache/
+debug_*.py
+test_*_manual.py
+test_data.csv
 
 # Logs
 *.log
@@ -37,5 +42,7 @@ server/server
 gosheet
 web
 
-# BMAD framework
-_bmad/
+# BMAD framework (ignore framework subdirs, keep project BMAD.md)
+_bmad/*
+!_bmad/BMAD.md
+

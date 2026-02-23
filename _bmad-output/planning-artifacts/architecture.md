@@ -1323,12 +1323,10 @@ spreadsheet/
 │   └── icons/                         # Custom file icons
 │       └── sheet-icon.icns            # .sheet file icon
 │
-├── specs/                             # EXISTING: Specifications
-│   ├── PRODUCT_BRIEF.md               # Product brief (existing)
-│   ├── TECH_SPEC.md                   # Technical spec (existing)
-│   └── FORMULA_GRAMMAR.md             # Formula grammar (existing)
-│
-├── test.sh                            # EXISTING: Test runner (updated for Electron)
+├── _bmad-output/planning-artifacts/specs/  # Specifications
+│   ├── PRODUCT_BRIEF.md
+│   ├── TECH_SPEC.md
+│   └── FORMULA_GRAMMAR.md
 └── .cursor/                           # Cursor IDE configuration (existing)
 ```
 

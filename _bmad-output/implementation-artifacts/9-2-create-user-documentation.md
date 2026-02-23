@@ -308,7 +308,7 @@ Use this format:
 - [README.md](../../README.md) - Technical documentation
 - [Epic 7 Stories](7-1-implement-file-menu.md) - Keyboard shortcuts and menu items
 - [Epic 6 Stories](6-1-implement-csv-import-dialog.md) - CSV features
-- [FORMULA_GRAMMAR.md](../../specs/FORMULA_GRAMMAR.md) - Formula syntax reference
+- [FORMULA_GRAMMAR.md](../planning-artifacts/specs/FORMULA_GRAMMAR.md) - Formula syntax reference
 
 ---
 

@@ -31,11 +31,11 @@ A modern spreadsheet application with a Go backend and web frontend, designed fo
 
 ## User Documentation
 
-See [USER_GUIDE.md](USER_GUIDE.md) for end-user documentation: getting started, formulas, keyboard shortcuts, CSV import/export, and troubleshooting.
+See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for end-user documentation: getting started, formulas, keyboard shortcuts, CSV import/export, and troubleshooting.
 
 ## Development Methodology
 
-This project is built using the **BMAD (Breakthrough Method for Agile AI Driven Development)** methodology. See [BMAD.md](BMAD.md) for details on how BMAD principles are applied.
+This project is built using the **BMAD (Breakthrough Method for Agile AI Driven Development)** methodology. See [_bmad/BMAD.md](_bmad/BMAD.md) for details on how BMAD principles are applied.
 
 ## Project Structure
 
@@ -44,12 +44,14 @@ spreadsheet/
 ├── server/           # Go HTTP backend
 ├── electron/         # Electron main process
 ├── frontend/         # Web UI (HTML/CSS/JS)
+├── docs/             # User documentation (USER_GUIDE.md)
 ├── model/            # Core data model
 ├── controller/       # Application logic
 ├── api/              # REST API layer
 ├── tests/            # Go unit tests
 ├── playwright_tests/ # Playwright Electron UI tests
 ├── assets/           # App icons
+├── _bmad/            # BMAD methodology (BMAD.md)
 └── _bmad-output/     # BMAD planning and implementation artifacts
 ```
 
@@ -241,7 +243,7 @@ npm run test:all
 
 ✅ **Native App Complete** – Electron-based spreadsheet with file operations, CSV import/export, macOS integration, and comprehensive automated testing.
 
-See [BMAD.md](BMAD.md) for detailed development history and decisions.
+See [_bmad/BMAD.md](_bmad/BMAD.md) for detailed development history and decisions.
 
 ## License
 

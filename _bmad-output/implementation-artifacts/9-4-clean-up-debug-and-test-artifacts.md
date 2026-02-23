@@ -3,7 +3,7 @@
 **Epic:** 9 - Documentation & Project Cleanup  
 **Story:** 9.4  
 **Estimated Effort:** 30 minutes  
-**Status:** ready-for-dev  
+**Status:** done  
 **Created:** 2026-02-16
 
 ---
@@ -255,15 +255,29 @@ git push
 
 ---
 
+## Dev Agent Record
+
+### File List
+- Deleted: `debug_app_ui.py`, `debug_app_ui2.py`, `debug_app_ui3.py`, `debug_pyax.py`, `debug_pyax2.py`, `test_file_dialog_manual.py`, `test.sh`, `test-electron-launch.sh`, `run_native_tests.sh`, `requirements-native.txt`, `requirements-native-tests.txt`, `test_data.csv`, `tests/native/` (pyax tests)
+- Deleted: `venv/`, `.venv/`, `venv-native-tests/`, `.venv-native-tests/`, `build/`, `.pytest_cache/`
+- Modified: `.gitignore` (added playwright-report/, test-results/, venvs, debug_*.py, test_*_manual.py, test_data.csv; partial _bmad/ ignore)
+- Modified: `Makefile` (run-electron: install build; build-electron: install build)
+
+### Change Log
+- 2026-02-24: Debug scripts, pyax tests, venvs, test artifacts removed; .gitignore updated; Makefile deps fixed. Verification: manual testing.
+
+---
+
 ## Change Log
 
+- 2026-02-24: Story completed; all acceptance criteria met
 - 2026-02-16: Story created to clean up debug scripts and test artifacts
 
 ---
 
 ## Status
 
-**Current Status:** ready-for-dev  
-**Last Updated:** 2026-02-16
+**Current Status:** done  
+**Last Updated:** 2026-02-24
 
 Cleanup task to remove debug scripts and test artifacts.
