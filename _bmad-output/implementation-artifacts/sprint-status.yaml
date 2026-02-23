@@ -164,7 +164,7 @@ development_status:
   9-2-create-user-documentation: done
   9-3-remove-obsolete-wails-files: ready-for-dev
   9-4-clean-up-debug-and-test-artifacts: done
-  9-5-organize-project-structure: ready-for-dev
+  9-5-organize-project-structure: done
   9-6-add-in-app-formula-reference: done
   epic-9-retrospective: optional  # Epic 10: Code Quality & Technical Debt (DEFERRED)
   epic-10: in-progress

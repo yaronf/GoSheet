@@ -41,18 +41,27 @@ This project is built using the **BMAD (Breakthrough Method for Agile AI Driven 
 
 ```
 spreadsheet/
-├── server/           # Go HTTP backend
-├── electron/         # Electron main process
-├── frontend/         # Web UI (HTML/CSS/JS)
-├── docs/             # User documentation (USER_GUIDE.md)
-├── model/            # Core data model
-├── controller/       # Application logic
-├── api/              # REST API layer
-├── tests/            # Go unit tests
-├── playwright_tests/ # Playwright Electron UI tests
-├── assets/           # App icons
-├── _bmad/            # BMAD methodology (BMAD.md)
-└── _bmad-output/     # BMAD planning and implementation artifacts
+├── .github/              # GitHub Actions workflows
+│   └── workflows/
+│       └── test.yml
+├── api/                  # REST API handlers (Go)
+├── assets/               # App icons and resources
+├── controller/           # Application logic
+├── docs/                 # User documentation (USER_GUIDE.md)
+├── electron/             # Electron main process
+├── frontend/             # Web UI (HTML/CSS/JS)
+├── model/                # Core data model
+├── playwright_tests/     # Playwright Electron UI tests
+├── server/               # Go HTTP backend
+├── tests/                # Go unit tests
+├── _bmad/                # BMAD methodology (_bmad/BMAD.md)
+├── _bmad-output/         # BMAD planning and implementation artifacts
+├── CONTRIBUTING.md       # Contributor guide
+├── Makefile              # Build automation
+├── README.md             # Main documentation
+├── go.mod, go.sum        # Go dependencies
+├── package.json          # Node dependencies
+└── playwright.config.js  # Playwright configuration
 ```
 
 ## Quick Start
@@ -251,4 +260,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-This is a personal project following BMAD methodology. Contributions welcome after initial release.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and pull request guidelines.
