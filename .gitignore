@@ -1,6 +1,8 @@
 # Build artifacts
 build/
 dist/
+node_modules/
+
 *.app
 playwright-report/
 test-results/
@@ -41,6 +43,7 @@ test_data.csv
 coverage.out
 coverage.html
 server/server
+server/gosheet-server
 gosheet
 web
 
