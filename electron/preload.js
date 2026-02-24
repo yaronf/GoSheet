@@ -1,7 +1,8 @@
 // Story 3.2: Electron Preload Script
 // Secure IPC bridge between renderer and main process
-// Story 10.8: Debug logs only when DEBUG=1
-const DEBUG = process.env.DEBUG === '1';
+// Story 10.8: Debug logs when NODE_ENV=development or DEBUG=1 (matches AC)
+const DEBUG =
+  process.env.NODE_ENV === 'development' || process.env.DEBUG === '1';
 
 const { contextBridge, ipcRenderer } = require('electron');
 

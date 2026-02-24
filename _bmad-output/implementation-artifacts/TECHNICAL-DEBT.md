@@ -132,7 +132,7 @@ The codebase contains many functions, files, and identifiers that include "Wails
 
 ## 3. Build Universal macOS Executable
 
-**Status:** Not Started  
+**Status:** Resolved (Story 10.9)  
 **Priority:** Medium  
 **Discovered:** 2026-02-16 (Post Epic 6)
 

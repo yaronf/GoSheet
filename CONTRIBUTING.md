@@ -87,11 +87,12 @@ npx playwright test test_spreadsheet.spec.js
 # Build Go server
 make build
 
-# Package Electron app
+# Package Electron app (universal: arm64 + x64)
 npm run build
 # or: make build-electron
 
-# Output: dist/GoSheet.app (or dist/mac-arm64/GoSheet.app depending on electron-builder)
+# Output: dist/mac-arm64/GoSheet.app (Apple Silicon), dist/mac/GoSheet.app (Intel), plus .zip and .dmg
+# Verify arch: file dist/mac-arm64/.../gosheet-server → arm64; file dist/mac/.../gosheet-server → x86_64
 ```
 
 ## Project Structure

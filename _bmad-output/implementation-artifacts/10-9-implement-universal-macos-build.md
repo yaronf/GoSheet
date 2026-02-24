@@ -3,7 +3,7 @@
 **Epic:** 10 - Code Quality & Technical Debt  
 **Story:** 10.9  
 **Estimated Effort:** 2-3 hours  
-**Status:** ready-for-dev  
+**Status:** done  
 **Created:** 2026-02-17
 
 ---
@@ -36,33 +36,33 @@ electron-builder expects different Go binaries for each architecture when buildi
 ## Acceptance Criteria
 
 1. **Cross-compiled Go binaries**
-   - [ ] `server/gosheet-server-arm64` built for darwin/arm64
-   - [ ] `server/gosheet-server-x64` built for darwin/amd64
-   - [ ] Both binaries produced by Makefile or npm build script
+   - [x] `server/gosheet-server-arm64` built for darwin/arm64
+   - [x] `server/gosheet-server-x64` built for darwin/amd64
+   - [x] Both binaries produced by Makefile or npm build script
 
 2. **electron-builder configuration**
-   - [ ] `package.json` mac.target includes both architectures: `arch: ["arm64", "x64"]` or `"universal"`
-   - [ ] `extraResources` has arch-specific entries for gosheet-server (arm64 → gosheet-server-arm64, x64 → gosheet-server-x64)
-   - [ ] electron-builder outputs a single universal .app or separate .app per arch
+   - [x] `package.json` mac.target includes both architectures: `arch: ["arm64", "x64"]` or `"universal"`
+   - [x] `extraResources` has arch-specific entries for gosheet-server (arm64 → gosheet-server-arm64, x64 → gosheet-server-x64)
+   - [x] electron-builder outputs a single universal .app or separate .app per arch
 
 3. **Verification**
-   - [ ] `npm run build` completes without electron-builder error
-   - [ ] Built app runs on Apple Silicon (arm64)
-   - [ ] Built app runs on Intel Mac (x64) if testable, or document verification steps
+   - [x] `npm run build` completes without electron-builder error
+   - [x] Built app runs on Apple Silicon (arm64)
+   - [x] Built app runs on Intel Mac (x64) if testable, or document verification steps
 
 ---
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add Go cross-compilation (AC: #1)
-  - [ ] Add Makefile targets or npm script to build both architectures:
+- [x] Task 1: Add Go cross-compilation (AC: #1)
+  - [x] Add Makefile targets or npm script to build both architectures:
     ```bash
     GOOS=darwin GOARCH=arm64 go build -o server/gosheet-server-arm64 ./server
     GOOS=darwin GOARCH=amd64 go build -o server/gosheet-server-x64 ./server
     ```
-  - [ ] Ensure `npm run build` (or prebuild script) invokes both before electron-builder runs
-- [ ] Task 2: Update package.json extraResources (AC: #2)
-  - [ ] Replace single gosheet-server entry with arch-specific entries:
+  - [x] Ensure `npm run build` (or prebuild script) invokes both before electron-builder runs
+- [x] Task 2: Update package.json extraResources (AC: #2)
+  - [x] Replace single gosheet-server entry with arch-specific entries:
     ```json
     {
       "from": "server/gosheet-server-arm64",
@@ -77,11 +77,11 @@ electron-builder expects different Go binaries for each architecture when buildi
       "arch": ["x64"]
     }
     ```
-  - [ ] Update mac.target arch to `["arm64", "x64"]` for universal build
-- [ ] Task 3: Verify build and document (AC: #3)
-  - [ ] Run `npm run build` and confirm success
-  - [ ] Test arm64 build on Apple Silicon
-  - [ ] Document x64 verification (e.g. "Test on Intel Mac or Rosetta" if no Intel hardware)
+  - [x] Update mac.target arch to `["arm64", "x64"]` for universal build
+- [x] Task 3: Verify build and document (AC: #3)
+  - [x] Run `npm run build` and confirm success
+  - [x] Test arm64 build on Apple Silicon
+  - [x] Document x64 verification (e.g. "Test on Intel Mac or Rosetta" if no Intel hardware)
 
 ---
 
@@ -114,8 +114,17 @@ electron-builder expects different Go binaries for each architecture when buildi
 
 ### Completion Notes List
 
-(To be filled by dev agent)
+- Makefile: build-server-arm64, build-server-x64, build-server-universal; prebuild invokes before electron-builder
+- package.json: prebuild script, mac.target arch ["arm64","x64"], extraResources uses `${arch}` macro (server/gosheet-server-${arch} → server/gosheet-server)
+- electron-builder 26.x does not support `arch` property in extraResources; `${arch}` macro expands per build (arm64 or x64)
+- Verified: dist/mac-arm64 has arm64 binary, dist/mac has x86_64 binary
+- CR fixes: TECHNICAL-DEBT #3 → Resolved; README/CONTRIBUTING build docs updated; removed duplicate mac.extraResources
 
 ### File List
 
-(To be filled by dev agent)
+- Makefile
+- package.json
+- .gitignore
+- README.md
+- CONTRIBUTING.md
+- _bmad-output/implementation-artifacts/TECHNICAL-DEBT.md

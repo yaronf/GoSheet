@@ -17,7 +17,8 @@
     "lint": "eslint frontend/ electron/ playwright_tests/",
     "format": "prettier --write 'frontend/**/*.{js,css}' 'electron/**/*.js' 'playwright_tests/**/*.js'",
     "format:check": "prettier --check 'frontend/**/*.{js,css}' 'electron/**/*.js' 'playwright_tests/**/*.js'",
-    "prepare": "husky"
+    "prepare": "husky",
+    "prebuild": "make build-server-universal"
   },
   "keywords": [
     "spreadsheet",
@@ -41,8 +42,13 @@
     "prettier": "^3.8.1"
   },
   "lint-staged": {
-    "*.{js,css}": ["eslint --fix", "prettier --write"],
-    "*.go": ["gofmt -w"]
+    "*.{js,css}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.go": [
+      "gofmt -w"
+    ]
   },
   "build": {
     "appId": "com.gosheet.app",
@@ -53,7 +59,8 @@
         {
           "target": "default",
           "arch": [
-            "arm64"
+            "arm64",
+            "x64"
           ]
         }
       ],
@@ -84,21 +91,7 @@
             }
           }
         ]
-      },
-      "extraResources": [
-        {
-          "from": "server/gosheet-server",
-          "to": "server/gosheet-server"
-        },
-        {
-          "from": "frontend",
-          "to": "frontend"
-        },
-        {
-          "from": "docs/USER_GUIDE.md",
-          "to": "docs/USER_GUIDE.md"
-        }
-      ]
+      }
     },
     "fileAssociations": [
       {
@@ -118,7 +111,21 @@
     "directories": {
       "output": "dist",
       "buildResources": "assets"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "server/gosheet-server-${arch}",
+        "to": "server/gosheet-server"
+      },
+      {
+        "from": "frontend",
+        "to": "frontend"
+      },
+      {
+        "from": "docs/USER_GUIDE.md",
+        "to": "docs/USER_GUIDE.md"
+      }
+    ]
   },
   "dependencies": {
     "showdown": "^2.1.0"

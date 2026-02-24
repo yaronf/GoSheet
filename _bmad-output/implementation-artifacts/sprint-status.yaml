@@ -169,14 +169,14 @@ development_status:
   epic-9-retrospective: optional  # Epic 10: Code Quality & Technical Debt (DEFERRED)
   epic-10: in-progress
   10-1-rename-wails-references: done
-  10-2-setup-linting-and-formatting: ready-for-dev
+  10-2-setup-linting-and-formatting: done
   10-3-add-code-complexity-analysis: done
   10-4-measure-test-coverage: done
   10-5-refactor-high-complexity-code: done
   10-6-document-code-quality-standards: done
   10-7-enhance-accessibility: done
-  10-8-implement-proper-logging: in-progress
-  10-9-implement-universal-macos-build: ready-for-dev
+  10-8-implement-proper-logging: done
+  10-9-implement-universal-macos-build: done
   10-10-openapi-schema-and-code-generation: ready-for-dev
   10-11-add-unit-tests-for-coverage-gaps: ready-for-dev
   epic-10-retrospective: optional

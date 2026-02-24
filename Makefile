@@ -1,7 +1,7 @@
 # GoSheet - Makefile for Electron Development
 # See README.md for "When to Run Which Tests" guidance
 
-.PHONY: install test test-unit test-electron test-all build build-electron run run-electron lint complexity coverage clean
+.PHONY: install test test-unit test-electron test-all build build-server-arm64 build-server-x64 build-server-universal build-electron run run-electron lint complexity coverage clean
 
 # Install Node.js dependencies
 install:
@@ -24,10 +24,22 @@ test-electron:
 # All tests: unit + Electron (run before PR)
 test-all: test-unit test-electron
 
-# Build Go HTTP server
+# Build Go HTTP server (host architecture)
 build:
 	@echo "Building Go HTTP server..."
 	go build -o server/gosheet-server ./server
+
+# Story 10.9: Cross-compile Go server for universal macOS (arm64 + x64)
+build-server-arm64:
+	@echo "Building Go server for darwin/arm64..."
+	GOOS=darwin GOARCH=arm64 go build -o server/gosheet-server-arm64 ./server
+
+build-server-x64:
+	@echo "Building Go server for darwin/amd64..."
+	GOOS=darwin GOARCH=amd64 go build -o server/gosheet-server-x64 ./server
+
+build-server-universal: build-server-arm64 build-server-x64
+	@echo "Universal Go server binaries ready."
 
 # Build Electron app (.app bundle)
 build-electron: install build
@@ -68,5 +80,5 @@ complexity:
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	rm -f server/gosheet-server
+	rm -f server/gosheet-server server/gosheet-server-arm64 server/gosheet-server-x64
 	rm -rf dist/ node_modules/

@@ -110,15 +110,12 @@ npm start
 ### Production Build
 
 ```bash
-# Build for macOS (arm64)
+# Build for macOS (universal: arm64 + x64)
 npm run build
 
-# Output: dist/mac-arm64/GoSheet.app
+# Output: dist/mac-arm64/GoSheet.app, dist/mac/GoSheet.app, .zip and .dmg for each arch
+# Verify: file dist/mac-arm64/.../gosheet-server → arm64; dist/mac/.../gosheet-server → x86_64
 ```
-
-### Universal Build (Intel + Apple Silicon)
-
-See [TECHNICAL-DEBT.md](_bmad-output/implementation-artifacts/TECHNICAL-DEBT.md) for current limitations.
 
 ## Testing
 

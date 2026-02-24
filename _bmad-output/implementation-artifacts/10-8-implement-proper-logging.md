@@ -3,7 +3,7 @@
 **Epic:** 10 - Code Quality & Technical Debt  
 **Story:** 10.8  
 **Estimated Effort:** 3-4 hours  
-**Status:** in-progress  
+**Status:** done  
 **Created:** 2026-02-24
 
 ---
@@ -138,9 +138,13 @@ Bare prints and unconditional console.log clutter output, make debugging harder,
 - frontend/index.html
 - frontend/api-client.js
 - frontend/app.js
+- package.json
+- CONTRIBUTING.md
+- README.md
 
 ### Change Log
 - 2026-02-24: Implemented logutil with Verbose flag; Go server --verbose, Electron DEBUG, frontend __DEBUG__
+- 2026-02-24: CR: preload DEBUG now includes NODE_ENV; File List updated with package.json, CONTRIBUTING.md, README.md
 
 ---
 
@@ -152,7 +156,7 @@ Bare prints and unconditional console.log clutter output, make debugging harder,
 
 ## Status
 
-**Current Status:** in-progress (pending full test pass)  
+**Current Status:** done  
 **Last Updated:** 2026-02-24
 
-Implement structured logging with configurable verbosity.
+Implement structured logging with configurable verbosity. Code review complete.
