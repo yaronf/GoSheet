@@ -106,6 +106,64 @@ See [README.md](README.md) for detailed project structure.
 - Follow existing code style
 - Avoid external dependencies (keep frontend vanilla)
 
+## Code Quality
+
+Quality checks run in CI and via pre-commit hooks. Run them before submitting a PR.
+
+### Linting
+
+| Tool | Command | Config |
+|------|---------|--------|
+| ESLint (JS) | `npm run lint` | [eslint.config.js](eslint.config.js) |
+| golangci-lint (Go) | `make lint` | [.golangci.yml](.golangci.yml) |
+
+**ESLint rules:** Recommended + Prettier compatibility. Complexity warning at 15 (extract helpers if exceeded).
+
+**golangci-lint:** errcheck, govet, gofmt, ineffassign, staticcheck. Test files may ignore errcheck for intentional error paths.
+
+### Formatting
+
+| Tool | Format | Check |
+|------|--------|-------|
+| Prettier (JS/CSS) | `npm run format` | `npm run format:check` |
+| Go | `gofmt -w .` | `make lint` (gofmt included) |
+
+**Prettier config:** [.prettierrc](.prettierrc) — semicolons, single quotes, 2-space indent, trailing commas (ES5).
+
+### Complexity
+
+Cyclomatic complexity is tracked per [complexity-baseline.md](_bmad-output/implementation-artifacts/complexity-baseline.md):
+
+- **Warn:** >15 — Refactor when possible
+- **Fail:** >20 — Must refactor before merge
+
+**Commands:** `make complexity` (Go), `npm run lint` (JS complexity rule)
+
+### Test Coverage
+
+Coverage targets and baseline: [coverage-baseline.md](_bmad-output/implementation-artifacts/coverage-baseline.md)
+
+| Package | Target |
+|---------|--------|
+| model/ | 80% |
+| controller/ | 80% |
+| api/ | 80% |
+
+**Command:** `make coverage` — Go coverage for model, controller, api via tests package.
+
+### Good Practices
+
+**Do:**
+- Extract helper functions when complexity exceeds 15
+- Use early returns and guard clauses to reduce nesting
+- Add unit tests for new model/controller/api logic
+- Run `npm run lint`, `npm run format:check`, `make lint` before committing
+
+**Don't:**
+- Leave functions with complexity >20
+- Ignore lint errors (fix or document with `//nolint` sparingly)
+- Commit without running quality checks locally
+
 ### Commit Messages
 
 Follow conventional commits:
@@ -141,8 +199,13 @@ npm run test:all
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Make your changes
-4. Run tests: `npm run test:all`
-5. Commit with clear messages
+4. **Before submitting**, run:
+   - `npm run test:all` — All tests must pass
+   - `npm run lint` — ESLint
+   - `npm run format:check` — Prettier
+   - `make lint` — golangci-lint
+   - `make complexity` — Optional; no new functions >20
+5. Commit with clear messages (pre-commit hooks will run lint/format on staged files)
 6. Push to your fork
 7. Open a Pull Request
 

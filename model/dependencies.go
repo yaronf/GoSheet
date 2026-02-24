@@ -41,136 +41,129 @@ func NewDependencyGraph() *DependencyGraph {
 	}
 }
 
+// refCollector walks the formula AST and collects unique cell references
+type refCollector struct {
+	seen map[string]bool
+	refs []string
+}
+
+// addRef records a cell reference if not already seen.
+func (c *refCollector) addRef(ref string) {
+	if !c.seen[ref] {
+		c.seen[ref] = true
+		c.refs = append(c.refs, ref)
+	}
+}
+
+// walkPrimary extracts refs from a Primary node (cell, range, func, or subexpr).
+func (c *refCollector) walkPrimary(prim *Primary) {
+	if prim == nil {
+		return
+	}
+	if prim.CellRef != nil {
+		c.addRef(prim.CellRef.Ref)
+	}
+	if prim.Range != nil {
+		rangeStr := prim.Range.Start + ":" + prim.Range.End
+		expanded, err := ExpandRange(rangeStr)
+		if err == nil {
+			for _, cell := range expanded {
+				c.addRef(cell)
+			}
+		}
+	}
+	if prim.FuncCall != nil {
+		for _, arg := range prim.FuncCall.Args {
+			c.walk(arg)
+		}
+	}
+	if prim.SubExpr != nil {
+		c.walk(prim.SubExpr)
+	}
+}
+
+// walkUnary recurses through unary operators.
+func (c *refCollector) walkUnary(u *Unary) {
+	if u == nil {
+		return
+	}
+	if u.Unary != nil {
+		c.walkUnary(u.Unary)
+	}
+	if u.Primary != nil {
+		c.walkPrimary(u.Primary)
+	}
+}
+
+// walkMultiplication recurses through multiplication/division terms.
+func (c *refCollector) walkMultiplication(m *Multiplication) {
+	if m == nil {
+		return
+	}
+	c.walkUnary(m.Left)
+	if m.Right != nil {
+		c.walkMultiplication(m.Right)
+	}
+}
+
+// walkAddition recurses through addition/subtraction terms.
+func (c *refCollector) walkAddition(a *Addition) {
+	if a == nil {
+		return
+	}
+	c.walkMultiplication(a.Left)
+	if a.Right != nil {
+		c.walkAddition(a.Right)
+	}
+}
+
+// walkComparison recurses through comparison operators.
+func (c *refCollector) walkComparison(comp *Comparison) {
+	if comp == nil {
+		return
+	}
+	c.walkAddition(comp.Left)
+	if comp.Right != nil {
+		c.walkComparison(comp.Right)
+	}
+}
+
+// walk starts the AST traversal from an Expression.
+func (c *refCollector) walk(expr *Expression) {
+	if expr == nil {
+		return
+	}
+	c.walkComparison(expr.Comparison)
+}
+
 // ExtractCellReferences extracts all cell references from a formula
 // Expands ranges (A1:B2) into individual cells and returns all unique references
 // Uses AST parsing for accuracy instead of regex
 func ExtractCellReferences(formula string) []string {
-	seen := make(map[string]bool)
-	var refs []string
-	
-	// Try to parse the formula using AST
 	ast, err := ParseFormula(formula)
 	if err != nil {
-		// Fallback to regex if parsing fails
 		log.Printf("ExtractCellReferences: Failed to parse formula %q, using regex fallback: %v", formula, err)
 		return extractCellReferencesRegex(formula)
 	}
-	
-	// Walk the AST and extract cell references
-	var walk func(*Expression)
-	var walkPrimary func(*Primary)
-	var walkComparison func(*Comparison)
-	var walkAddition func(*Addition)
-	var walkMultiplication func(*Multiplication)
-	var walkUnary func(*Unary)
-	
-	walkPrimary = func(prim *Primary) {
-		if prim == nil {
-			return
-		}
-		
-		if prim.CellRef != nil {
-			ref := prim.CellRef.Ref
-			if !seen[ref] {
-				seen[ref] = true
-				refs = append(refs, ref)
-			}
-		}
-		
-		if prim.Range != nil {
-			// Expand range into individual cells
-			rangeStr := prim.Range.Start + ":" + prim.Range.End
-			expanded, err := ExpandRange(rangeStr)
-			if err == nil {
-				for _, cell := range expanded {
-					if !seen[cell] {
-						seen[cell] = true
-						refs = append(refs, cell)
-					}
-				}
-			}
-		}
-		
-		if prim.FuncCall != nil {
-			for _, arg := range prim.FuncCall.Args {
-				walk(arg)
-			}
-		}
-		
-		if prim.SubExpr != nil {
-			walk(prim.SubExpr)
-		}
-	}
-	
-	walkUnary = func(u *Unary) {
-		if u == nil {
-			return
-		}
-		if u.Unary != nil {
-			walkUnary(u.Unary)
-		}
-		if u.Primary != nil {
-			walkPrimary(u.Primary)
-		}
-	}
-	
-	walkMultiplication = func(m *Multiplication) {
-		if m == nil {
-			return
-		}
-		walkUnary(m.Left)
-		if m.Right != nil {
-			walkMultiplication(m.Right)
-		}
-	}
-	
-	walkAddition = func(a *Addition) {
-		if a == nil {
-			return
-		}
-		walkMultiplication(a.Left)
-		if a.Right != nil {
-			walkAddition(a.Right)
-		}
-	}
-	
-	walkComparison = func(c *Comparison) {
-		if c == nil {
-			return
-		}
-		walkAddition(c.Left)
-		if c.Right != nil {
-			walkComparison(c.Right)
-		}
-	}
-	
-	walk = func(expr *Expression) {
-		if expr == nil {
-			return
-		}
-		walkComparison(expr.Comparison)
-	}
-	
-	// Start walking from the root
-	walk(ast.Expr)
-	
-	return refs
+	c := &refCollector{seen: make(map[string]bool)}
+	c.walk(ast.Expr)
+	return c.refs
 }
 
 // extractCellReferencesRegex is a fallback regex-based implementation
 func extractCellReferencesRegex(formula string) []string {
 	// Remove leading = if present
 	formula = strings.TrimPrefix(formula, "=")
-	
+
 	// Pattern matches ranges like A1:B2
 	rangePattern := regexp.MustCompile(`\b([A-Z]+\d+):([A-Z]+\d+)\b`)
-	
+
 	// Pattern matches individual cell references like A1, AA100, etc.
 	cellPattern := regexp.MustCompile(`\b([A-Z]+\d+)\b`)
-	
+
 	seen := make(map[string]bool)
 	var refs []string
-	
+
 	// First, find and expand all ranges
 	rangeMatches := rangePattern.FindAllString(formula, -1)
 	for _, rangeRef := range rangeMatches {
@@ -184,7 +177,7 @@ func extractCellReferencesRegex(formula string) []string {
 			}
 		}
 	}
-	
+
 	// Then find individual cell references (that aren't part of ranges)
 	// Remove ranges from formula first to avoid double-counting
 	formulaWithoutRanges := rangePattern.ReplaceAllString(formula, "")
@@ -195,7 +188,7 @@ func extractCellReferencesRegex(formula string) []string {
 			refs = append(refs, match)
 		}
 	}
-	
+
 	return refs
 }
 
@@ -205,21 +198,21 @@ func ExpandRange(rangeRef string) ([]string, error) {
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid range: %s", rangeRef)
 	}
-	
+
 	startRow, startCol, err := RefToCoords(parts[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid start reference: %w", err)
 	}
-	
+
 	endRow, endCol, err := RefToCoords(parts[1])
 	if err != nil {
 		return nil, fmt.Errorf("invalid end reference: %w", err)
 	}
-	
+
 	if startRow < 0 || startCol < 0 || endRow < 0 || endCol < 0 {
 		return nil, fmt.Errorf("invalid range coordinates: %s", rangeRef)
 	}
-	
+
 	// Ensure start <= end
 	if startRow > endRow {
 		startRow, endRow = endRow, startRow
@@ -227,14 +220,14 @@ func ExpandRange(rangeRef string) ([]string, error) {
 	if startCol > endCol {
 		startCol, endCol = endCol, startCol
 	}
-	
+
 	var cells []string
 	for row := startRow; row <= endRow; row++ {
 		for col := startCol; col <= endCol; col++ {
 			cells = append(cells, CoordsToRef(row, col))
 		}
 	}
-	
+
 	return cells, nil
 }
 
@@ -242,15 +235,15 @@ func ExpandRange(rangeRef string) ([]string, error) {
 func (dg *DependencyGraph) AddDependency(targetCell, sourceCell string) {
 	dg.mu.Lock()
 	defer dg.mu.Unlock()
-	
+
 	log.Printf("DependencyGraph: Adding %s -> %s", targetCell, sourceCell)
-	
+
 	// targetCell depends on sourceCell
 	if dg.dependencies[targetCell] == nil {
 		dg.dependencies[targetCell] = make(map[string]bool)
 	}
 	dg.dependencies[targetCell][sourceCell] = true
-	
+
 	// sourceCell has targetCell as a dependent
 	if dg.dependents[sourceCell] == nil {
 		dg.dependents[sourceCell] = make(map[string]bool)
@@ -262,9 +255,9 @@ func (dg *DependencyGraph) AddDependency(targetCell, sourceCell string) {
 func (dg *DependencyGraph) RemoveDependencies(cell string) {
 	dg.mu.Lock()
 	defer dg.mu.Unlock()
-	
+
 	log.Printf("DependencyGraph: Removing dependencies for %s", cell)
-	
+
 	// Remove from dependencies map and update dependents
 	if deps, exists := dg.dependencies[cell]; exists {
 		for dep := range deps {
@@ -283,11 +276,11 @@ func (dg *DependencyGraph) RemoveDependencies(cell string) {
 func (dg *DependencyGraph) GetDependents(cell string) []string {
 	dg.mu.RLock()
 	defer dg.mu.RUnlock()
-	
+
 	if dg.dependents[cell] == nil {
 		return nil
 	}
-	
+
 	var result []string
 	for dep := range dg.dependents[cell] {
 		result = append(result, dep)
@@ -299,11 +292,11 @@ func (dg *DependencyGraph) GetDependents(cell string) []string {
 func (dg *DependencyGraph) GetDependencies(cell string) []string {
 	dg.mu.RLock()
 	defer dg.mu.RUnlock()
-	
+
 	if dg.dependencies[cell] == nil {
 		return nil
 	}
-	
+
 	var result []string
 	for dep := range dg.dependencies[cell] {
 		result = append(result, dep)
@@ -316,12 +309,12 @@ func (dg *DependencyGraph) GetDependencies(cell string) []string {
 func (dg *DependencyGraph) DetectCircularReference(targetCell, sourceCell string) (bool, []string) {
 	dg.mu.RLock()
 	defer dg.mu.RUnlock()
-	
+
 	// Check if sourceCell transitively depends on targetCell
 	// If so, adding targetCell -> sourceCell would create a cycle
 	visited := make(map[string]bool)
 	path := []string{targetCell}
-	
+
 	hasCycle, cyclePath := dg.hasCycleDFS(targetCell, sourceCell, visited, path)
 	if hasCycle {
 		log.Printf("DependencyGraph: Circular reference detected: %v", cyclePath)
@@ -335,22 +328,22 @@ func (dg *DependencyGraph) hasCycleDFS(target, current string, visited map[strin
 		// Found a cycle back to the target
 		return true, append(path, current)
 	}
-	
+
 	if visited[current] {
 		// Already visited this node in this path
 		return false, nil
 	}
-	
+
 	visited[current] = true
 	path = append(path, current)
-	
+
 	// Check all cells that current depends on
 	for dep := range dg.dependencies[current] {
 		if hasCycle, cyclePath := dg.hasCycleDFS(target, dep, visited, path); hasCycle {
 			return true, cyclePath
 		}
 	}
-	
+
 	return false, nil
 }
 
@@ -359,25 +352,23 @@ func (dg *DependencyGraph) hasCycleDFS(target, current string, visited map[strin
 func (dg *DependencyGraph) GetCalculationOrder(changedCells []string) ([]string, error) {
 	dg.mu.RLock()
 	defer dg.mu.RUnlock()
-	
+
 	// Find all cells that need recalculation (transitive dependents)
 	toRecalc := make(map[string]bool)
 	var queue []string
-	
-	for _, cell := range changedCells {
-		queue = append(queue, cell)
-	}
-	
+
+	queue = append(queue, changedCells...)
+
 	// BFS to find all affected cells
 	for len(queue) > 0 {
 		cell := queue[0]
 		queue = queue[1:]
-		
+
 		if toRecalc[cell] {
 			continue
 		}
 		toRecalc[cell] = true
-		
+
 		// Add all dependents to queue
 		for dep := range dg.dependents[cell] {
 			if !toRecalc[dep] {
@@ -385,12 +376,12 @@ func (dg *DependencyGraph) GetCalculationOrder(changedCells []string) ([]string,
 			}
 		}
 	}
-	
+
 	// Topological sort using DFS
 	var result []string
 	visited := make(map[string]bool)
 	tempMark := make(map[string]bool)
-	
+
 	var visit func(string) error
 	visit = func(cell string) error {
 		if tempMark[cell] {
@@ -399,9 +390,9 @@ func (dg *DependencyGraph) GetCalculationOrder(changedCells []string) ([]string,
 		if visited[cell] {
 			return nil
 		}
-		
+
 		tempMark[cell] = true
-		
+
 		// Visit dependencies first
 		for dep := range dg.dependencies[cell] {
 			if toRecalc[dep] {
@@ -410,14 +401,14 @@ func (dg *DependencyGraph) GetCalculationOrder(changedCells []string) ([]string,
 				}
 			}
 		}
-		
+
 		tempMark[cell] = false
 		visited[cell] = true
 		result = append(result, cell)
-		
+
 		return nil
 	}
-	
+
 	// Visit all cells that need recalculation
 	for cell := range toRecalc {
 		if !visited[cell] {
@@ -426,6 +417,6 @@ func (dg *DependencyGraph) GetCalculationOrder(changedCells []string) ([]string,
 			}
 		}
 	}
-	
+
 	return result, nil
 }

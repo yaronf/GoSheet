@@ -1,5 +1,7 @@
 # GoSheet - Lightweight Spreadsheet for macOS
 
+[![Build](https://github.com/yaronf/GoSheet/actions/workflows/test.yml/badge.svg)](https://github.com/yaronf/GoSheet/actions/workflows/test.yml)
+
 A modern spreadsheet application with a Go backend and web frontend, designed for packaging as a native macOS app. Features true in-cell editing and comprehensive automated testing.
 
 ## Architecture
@@ -260,4 +262,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and pull request guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, code quality standards, and pull request guidelines.
