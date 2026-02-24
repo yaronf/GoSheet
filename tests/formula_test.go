@@ -68,8 +68,8 @@ func TestEvaluateComparison(t *testing.T) {
 		formula  string
 		expected string
 	}{
-		{"=5>3", "1"},   // true = 1
-		{"=3>5", "0"},   // false = 0
+		{"=5>3", "1"}, // true = 1
+		{"=3>5", "0"}, // false = 0
 		{"=5>=5", "1"},
 		{"=5<10", "1"},
 		{"=10<=10", "1"},
@@ -288,8 +288,8 @@ func TestEvaluateErrors(t *testing.T) {
 		formula string
 		hasErr  bool
 	}{
-		{"=1/0", true},     // Division by zero
-		{"=10%0", true},    // Modulo by zero
+		{"=1/0", true},       // Division by zero
+		{"=10%0", true},      // Modulo by zero
 		{"=UNKNOWN()", true}, // Unknown function
 	}
 
@@ -348,17 +348,17 @@ func TestStringFunctions(t *testing.T) {
 
 func TestRangeWithEmptyCells(t *testing.T) {
 	sheet := model.NewSpreadsheet()
-	
+
 	// Set up a range with some empty cells
 	sheet.SetCell(0, 0, "10") // A1 = 10
 	sheet.SetCell(1, 0, "20") // A2 = 20
 	// A3 is empty
 	sheet.SetCell(3, 0, "30") // A4 = 30
-	
+
 	sheet.GetCell(0, 0).SetComputed("10")
 	sheet.GetCell(1, 0).SetComputed("20")
 	sheet.GetCell(3, 0).SetComputed("30")
-	
+
 	tests := []struct {
 		name    string
 		formula string
@@ -369,7 +369,7 @@ func TestRangeWithEmptyCells(t *testing.T) {
 		{"=MAX(A1:A4)", "=MAX(A1:A4)"},
 		{"=COUNT(A1:A4)", "=COUNT(A1:A4)"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := model.EvaluateFormula(tt.formula, sheet)

@@ -67,11 +67,11 @@ func TestRefToCoords(t *testing.T) {
 		{"Z10", 9, 25, false},
 		{"AA1", 0, 26, false},
 		{"AB100", 99, 27, false},
-		{"", 0, 0, true},      // Empty
-		{"A", 0, 0, true},     // No row
-		{"1", 0, 0, true},     // No column
-		{"A0", 0, 0, true},    // Row < 1
-		{"A-1", 0, 0, true},   // Negative row
+		{"", 0, 0, true},    // Empty
+		{"A", 0, 0, true},   // No row
+		{"1", 0, 0, true},   // No column
+		{"A0", 0, 0, true},  // Row < 1
+		{"A-1", 0, 0, true}, // Negative row
 	}
 
 	for _, tt := range tests {
@@ -117,7 +117,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Run(ref, func(t *testing.T) {
 			row, col, err := model.RefToCoords(ref)
 			assert.NoError(t, err)
-			
+
 			result := model.CoordsToRef(row, col)
 			assert.Equal(t, ref, result, "Round trip for %s failed", ref)
 		})

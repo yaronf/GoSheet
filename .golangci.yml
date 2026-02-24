@@ -1,0 +1,26 @@
+# golangci-lint configuration for GoSheet
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - gofmt
+    - ineffassign
+    - staticcheck
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # often too strict for small structs
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck  # test helpers may intentionally ignore errors
