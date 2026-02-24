@@ -1,5 +1,10 @@
 // Story 3.1: Electron Main Process
 // Handles app lifecycle, Go server spawning, and window creation
+// Story 10.8: Debug logs - --verbose flag, NODE_ENV=development, or DEBUG=1 (not in test)
+const DEBUG =
+  process.argv.includes('--verbose') ||
+  process.env.NODE_ENV === 'development' ||
+  process.env.DEBUG === '1';
 
 const {
   app,
@@ -39,17 +44,19 @@ const RECENT_FILES_PATH = path.join(
   'recent-files.json'
 );
 const MAX_RECENT_FILES = 10;
-console.log('[Electron] Recent files path:', RECENT_FILES_PATH);
+if (DEBUG) console.log('[Electron] Recent files path:', RECENT_FILES_PATH);
 
 function loadRecentFiles() {
   try {
     if (fs.existsSync(RECENT_FILES_PATH)) {
       const data = JSON.parse(fs.readFileSync(RECENT_FILES_PATH, 'utf8'));
       const files = Array.isArray(data) ? data : [];
-      console.log('[Electron] loadRecentFiles from JSON:', files.length, files);
+      if (DEBUG)
+        console.log('[Electron] loadRecentFiles from JSON:', files.length, files);
       return files;
     }
-    console.log('[Electron] loadRecentFiles: no JSON at', RECENT_FILES_PATH);
+    if (DEBUG)
+      console.log('[Electron] loadRecentFiles: no JSON at', RECENT_FILES_PATH);
   } catch (err) {
     console.error('[Electron] Error loading recent files:', err);
   }
@@ -82,12 +89,13 @@ function clearRecentFiles() {
 
 function syncRecentFilesMenu() {
   const files = loadRecentFiles();
-  console.log(
-    '[Electron] syncRecentFilesMenu: mainWindow=',
-    !!mainWindow,
-    'files=',
-    files.length
-  );
+  if (DEBUG)
+    console.log(
+      '[Electron] syncRecentFilesMenu: mainWindow=',
+      !!mainWindow,
+      'files=',
+      files.length
+    );
   if (mainWindow) {
     updateRecentFiles(files, { onClear: clearRecentFiles });
   }
@@ -99,11 +107,12 @@ function ensureRecentFilesSaved() {
   try {
     const files = loadRecentFiles();
     saveRecentFiles(files);
-    console.log(
-      '[Electron] ensureRecentFilesSaved: persisted',
-      files.length,
-      'files'
-    );
+    if (DEBUG)
+      console.log(
+        '[Electron] ensureRecentFilesSaved: persisted',
+        files.length,
+        'files'
+      );
   } catch (err) {
     console.error('[Electron] Error saving recent files on quit:', err);
   }
@@ -123,7 +132,7 @@ function cleanupTempFiles() {
     try {
       if (fs.existsSync(p)) {
         fs.unlinkSync(p);
-        console.log('[Electron] Cleaned up temp file:', p);
+        if (DEBUG) console.log('[Electron] Cleaned up temp file:', p);
       }
     } catch (err) {
       if (err.code !== 'ENOENT')
@@ -198,11 +207,12 @@ function updateDockMenu(recentFiles) {
   }
 
   app.dock.setMenu(Menu.buildFromTemplate(template));
-  console.log(
-    '[Electron] Dock menu updated with',
-    recentFilesList.length,
-    'recent files'
-  );
+  if (DEBUG)
+    console.log(
+      '[Electron] Dock menu updated with',
+      recentFilesList.length,
+      'recent files'
+    );
 }
 
 let mainWindow;
@@ -233,8 +243,10 @@ function startGoServer() {
     ? path.join(__dirname, '..', 'server', 'gosheet-server')
     : path.join(process.resourcesPath, 'server', 'gosheet-server');
 
-  console.log(`[Electron] Mode: ${isDev ? 'development' : 'production'}`);
-  console.log(`[Electron] Server path: ${serverPath}`);
+  if (DEBUG) {
+    console.log(`[Electron] Mode: ${isDev ? 'development' : 'production'}`);
+    console.log(`[Electron] Server path: ${serverPath}`);
+  }
 
   // Check if server binary exists
   const fs = require('fs');
@@ -257,14 +269,17 @@ function startGoServer() {
     ? path.join(__dirname, '..') // Project root in dev mode
     : process.resourcesPath; // Resources directory in packaged app
 
-  console.log(`[Electron] Server working directory: ${serverCwd}`);
+  if (DEBUG)
+    console.log(`[Electron] Server working directory: ${serverCwd}`);
 
-  goServer = spawn(serverPath, ['--port', GO_SERVER_PORT.toString()], {
+  const spawnArgs = ['--port', GO_SERVER_PORT.toString()];
+  if (DEBUG) spawnArgs.push('--verbose');
+  goServer = spawn(serverPath, spawnArgs, {
     cwd: serverCwd,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  // Log server output
+  // Log server output (always - server controls verbosity via --verbose)
   goServer.stdout.on('data', (data) => {
     console.log(`[Go Server] ${data.toString().trim()}`);
   });
@@ -287,7 +302,7 @@ function startGoServer() {
 // Story 3.1: Create main window
 function createWindow() {
   initialWindowCreated = true;
-  console.log('[Electron] Creating main window...');
+  if (DEBUG) console.log('[Electron] Creating main window...');
 
   const isTest = process.env.NODE_ENV === 'test';
 
@@ -304,14 +319,14 @@ function createWindow() {
     },
   });
 
-  // Load frontend from Go HTTP server
-  const serverUrl = `http://localhost:${GO_SERVER_PORT}`;
-  console.log(`[Electron] Loading frontend from: ${serverUrl}`);
+  // Load frontend from Go HTTP server (append ?debug=1 for verbose frontend logs)
+  const serverUrl = `http://localhost:${GO_SERVER_PORT}${DEBUG ? '?debug=1' : ''}`;
+  if (DEBUG) console.log(`[Electron] Loading frontend from: ${serverUrl}`);
 
   // Clear cache in development mode to ensure latest code is loaded
   if (process.env.NODE_ENV !== 'production') {
     mainWindow.webContents.session.clearCache().then(() => {
-      console.log('[Electron] Cache cleared');
+      if (DEBUG) console.log('[Electron] Cache cleared');
       loadURL();
     });
   } else {
@@ -336,23 +351,25 @@ function createWindow() {
 
   // Forward renderer console logs to main process terminal
   mainWindow.webContents.on('console-message', (_event, _level, message) => {
-    console.log(`[Renderer Console] ${message}`);
+    if (DEBUG) console.log(`[Renderer Console] ${message}`);
   });
 
   // Story 7.7 & 7.6: Handle pending file/dock action after window is ready
   mainWindow.webContents.on('did-finish-load', () => {
     if (pendingFileToOpen) {
-      console.log(
-        '[Electron] Window ready, opening pending file:',
-        pendingFileToOpen
-      );
+      if (DEBUG)
+        console.log(
+          '[Electron] Window ready, opening pending file:',
+          pendingFileToOpen
+        );
       mainWindow.webContents.send('menu-open-recent', pendingFileToOpen);
       pendingFileToOpen = null;
     } else if (pendingDockAction) {
-      console.log(
-        '[Electron] Window ready, processing pending dock action:',
-        pendingDockAction
-      );
+      if (DEBUG)
+        console.log(
+          '[Electron] Window ready, processing pending dock action:',
+          pendingDockAction
+        );
       if (
         typeof pendingDockAction === 'object' &&
         pendingDockAction.type === 'open'
@@ -381,14 +398,15 @@ function createWindow() {
 
     // Story 7.10: Send initial theme to renderer
     const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
-    console.log('[Electron] Sending initial theme to renderer:', theme);
+    if (DEBUG)
+      console.log('[Electron] Sending initial theme to renderer:', theme);
     mainWindow.webContents.send('theme-changed', theme);
   });
 
   // Story 7.10: Listen for system theme changes
   nativeTheme.on('updated', () => {
     const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
-    console.log('[Electron] System theme changed to:', theme);
+    if (DEBUG) console.log('[Electron] System theme changed to:', theme);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('theme-changed', theme);
     }
@@ -404,9 +422,10 @@ function createWindow() {
     // In test mode, skip the unsaved changes dialog and quit immediately
     const isTestMode = process.env.NODE_ENV === 'test';
     if (isTestMode) {
-      console.log(
-        '[Electron] Test mode: Skipping unsaved changes check, allowing close'
-      );
+      if (DEBUG)
+        console.log(
+          '[Electron] Test mode: Skipping unsaved changes check, allowing close'
+        );
       isQuitting = true;
       app.quit();
       return;
@@ -450,7 +469,7 @@ function createWindow() {
             ? 'Cancel'
             : 'Quit Without Saving'
           : 'null';
-        console.log('[Electron] Quit dialog choice:', choiceStr);
+        if (DEBUG) console.log('[Electron] Quit dialog choice:', choiceStr);
 
         if (choice && choice.response === 1) {
           // User chose "Quit Without Saving"
@@ -489,12 +508,14 @@ function createWindow() {
           .then((errorChoice) => {
             if (errorChoice.response === 1) {
               // User chose "Quit Anyway"
-              console.log('[Electron] User chose to quit despite error');
+              if (DEBUG)
+                console.log('[Electron] User chose to quit despite error');
               isQuitting = true;
               app.quit();
             } else {
               // User chose "Stay Open"
-              console.log('[Electron] User chose to stay open after error');
+              if (DEBUG)
+                console.log('[Electron] User chose to stay open after error');
               quitDialogShown = false;
             }
           })
@@ -516,14 +537,14 @@ function createWindow() {
   // Story 7.1: Initialize menu system with recent files
   initializeMenu(mainWindow, loadRecentFiles());
 
-  console.log('[Electron] Main window created');
+  if (DEBUG) console.log('[Electron] Main window created');
 }
 
 // Story 3.4: Setup IPC handlers
 function setupIpcHandlers() {
   // IPC handler for file dialogs - Open File
   ipcMain.handle('dialog:openFile', async () => {
-    console.log('[Electron] Open file dialog requested');
+    if (DEBUG) console.log('[Electron] Open file dialog requested');
 
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Open Spreadsheet',
@@ -535,12 +556,12 @@ function setupIpcHandlers() {
     });
 
     if (result.canceled) {
-      console.log('[Electron] Open dialog cancelled');
+      if (DEBUG) console.log('[Electron] Open dialog cancelled');
       return null;
     }
 
     const filePath = result.filePaths[0];
-    console.log(`[Electron] File selected: ${filePath}`);
+    if (DEBUG) console.log(`[Electron] File selected: ${filePath}`);
     return filePath;
   });
 
@@ -548,9 +569,10 @@ function setupIpcHandlers() {
   ipcMain.handle(
     'dialog:saveFile',
     async (event, defaultName = 'Untitled.sheet') => {
-      console.log(
-        `[Electron] Save file dialog requested (default: ${defaultName})`
-      );
+      if (DEBUG)
+        console.log(
+          `[Electron] Save file dialog requested (default: ${defaultName})`
+        );
 
       const result = await dialog.showSaveDialog(mainWindow, {
         title: 'Save Spreadsheet',
@@ -562,19 +584,19 @@ function setupIpcHandlers() {
       });
 
       if (result.canceled) {
-        console.log('[Electron] Save dialog cancelled');
+        if (DEBUG) console.log('[Electron] Save dialog cancelled');
         return null;
       }
 
       const filePath = result.filePath;
-      console.log(`[Electron] Save path selected: ${filePath}`);
+      if (DEBUG) console.log(`[Electron] Save path selected: ${filePath}`);
       return filePath;
     }
   );
 
   // IPC handler for CSV file dialogs - Import CSV
   ipcMain.handle('dialog:importCSV', async () => {
-    console.log('[Electron] Import CSV dialog requested');
+    if (DEBUG) console.log('[Electron] Import CSV dialog requested');
 
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Import CSV File',
@@ -586,12 +608,12 @@ function setupIpcHandlers() {
     });
 
     if (result.canceled) {
-      console.log('[Electron] Import CSV dialog cancelled');
+      if (DEBUG) console.log('[Electron] Import CSV dialog cancelled');
       return null;
     }
 
     const filePath = result.filePaths[0];
-    console.log(`[Electron] CSV file selected: ${filePath}`);
+    if (DEBUG) console.log(`[Electron] CSV file selected: ${filePath}`);
     return filePath;
   });
 
@@ -599,9 +621,10 @@ function setupIpcHandlers() {
   ipcMain.handle(
     'dialog:exportCSV',
     async (event, defaultName = 'Untitled.csv') => {
-      console.log(
-        `[Electron] Export CSV dialog requested (default: ${defaultName})`
-      );
+      if (DEBUG)
+        console.log(
+          `[Electron] Export CSV dialog requested (default: ${defaultName})`
+        );
 
       const result = await dialog.showSaveDialog(mainWindow, {
         title: 'Export to CSV',
@@ -613,26 +636,26 @@ function setupIpcHandlers() {
       });
 
       if (result.canceled) {
-        console.log('[Electron] Export CSV dialog cancelled');
+        if (DEBUG) console.log('[Electron] Export CSV dialog cancelled');
         return null;
       }
 
       const filePath = result.filePath;
-      console.log(`[Electron] CSV export path selected: ${filePath}`);
+      if (DEBUG) console.log(`[Electron] CSV export path selected: ${filePath}`);
       return filePath;
     }
   );
 
   // Story 7.1: IPC handler for menu state updates
   ipcMain.on('menu:updateState', (event, state) => {
-    console.log('[Electron] Menu state update received:', state);
+    if (DEBUG) console.log('[Electron] Menu state update received:', state);
     updateMenuState(state);
   });
 
   // Story 7.5 & 8.2: Add file to recent documents (custom storage + menu only)
   // Skip app.addRecentDocument - it duplicates recent files in dock menu (macOS adds its own section)
   ipcMain.handle('file:addRecent', async (event, filePath) => {
-    console.log('[Electron] Adding to recent documents:', filePath);
+    if (DEBUG) console.log('[Electron] Adding to recent documents:', filePath);
     addToRecentFiles(filePath);
     return true;
   });
@@ -697,9 +720,10 @@ app.whenReady().then(() => {
     aboutOptions.iconPath = iconPath;
   }
   app.setAboutPanelOptions(aboutOptions);
-  console.log(
-    `[Electron] About panel configured for ${app.getName()} v${app.getVersion()}`
-  );
+  if (DEBUG)
+    console.log(
+      `[Electron] About panel configured for ${app.getName()} v${app.getVersion()}`
+    );
 
   // Story 3.4: Setup IPC handlers
   setupIpcHandlers();
@@ -725,10 +749,11 @@ app.whenReady().then(() => {
 // Story 7.5: Handle opening files from recent documents menu
 app.on('open-file', (event, path) => {
   event.preventDefault();
-  console.log(
-    '[Electron] Open file from recent documents or file association:',
-    path
-  );
+  if (DEBUG)
+    console.log(
+      '[Electron] Open file from recent documents or file association:',
+      path
+    );
 
   // If window exists, send the file path to renderer to load it
   if (mainWindow && mainWindow.webContents) {
@@ -736,9 +761,10 @@ app.on('open-file', (event, path) => {
   } else {
     // Window not ready yet, store the path to open after window is created
     // This can happen if app is launched by double-clicking a file
-    console.log(
-      '[Electron] Window not ready, storing file to open after window creation'
-    );
+    if (DEBUG)
+      console.log(
+        '[Electron] Window not ready, storing file to open after window creation'
+      );
     pendingFileToOpen = path;
   }
 });
@@ -768,7 +794,8 @@ app.on('before-quit', (event) => {
     // Debounce rapid quit attempts (prevent multiple dialogs within 500ms)
     const now = Date.now();
     if (now - lastQuitAttempt < 500) {
-      console.log('[Electron] Ignoring rapid quit attempt (debounced)');
+      if (DEBUG)
+        console.log('[Electron] Ignoring rapid quit attempt (debounced)');
       event.preventDefault();
       return;
     }
@@ -784,11 +811,12 @@ app.on('before-quit', (event) => {
     return;
   }
 
-  if (isTestMode) {
+  if (isTestMode && DEBUG) {
     console.log(
       '[Electron] Test mode: Allowing immediate quit, cleaning up...'
     );
-  } else {
+  }
+  if (!isTestMode) {
     console.log('[Electron] App quitting, cleaning up...');
   }
 

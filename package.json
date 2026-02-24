@@ -5,6 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
+    "start:verbose": "electron . --verbose",
     "build": "electron-builder",
     "test": "NODE_ENV=test playwright test",
     "test:unit": "go test ./tests/...",

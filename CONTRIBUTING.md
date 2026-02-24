@@ -45,6 +45,23 @@ make run-electron
 
 Electron launches the app and spawns the Go server automatically. No separate terminals needed.
 
+### Debug Logging (Verbose Output)
+
+By default, the app logs only startup messages and errors. To enable verbose debug logs:
+
+| Component | How to Enable | What You Get |
+|-----------|---------------|--------------|
+| **Go server** | `./server/gosheet-server -verbose` or `DEBUG=1 ./server/gosheet-server` | Request tracing, CSV steps, formula eval |
+| **Electron app** | `npm run start:verbose` or `electron . --verbose` | Full verbose: Go server, Electron, and frontend |
+| **Electron (env)** | `DEBUG=1 npm start` or `NODE_ENV=development npm start` | Same as `--verbose` |
+| **Frontend (web)** | Open `http://localhost:3000?debug=1` | Cell edits, init, theme changes |
+
+**Recommended — full verbose mode:**
+```bash
+npm run start:verbose
+```
+This passes `--verbose` to Electron, which enables verbose logs in the Go server, Electron main/preload/menu, and frontend (via `?debug=1`).
+
 ### Running Tests
 
 ```bash

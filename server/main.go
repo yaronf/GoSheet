@@ -14,6 +14,7 @@ import (
 
 	"gosheet/api"
 	"gosheet/controller"
+	"gosheet/logutil"
 )
 
 var ctrl *controller.AppController
@@ -21,7 +22,11 @@ var ctrl *controller.AppController
 func main() {
 	// Parse command line flags
 	port := flag.String("port", "3000", "Port to run the server on")
+	verbose := flag.Bool("verbose", false, "Enable verbose (debug) logging")
 	flag.Parse()
+
+	// Enable verbose logging from flag or DEBUG=1 env
+	logutil.Verbose = *verbose || os.Getenv("DEBUG") == "1"
 
 	// Log to stdout so Electron shows [Go Server] not [Go Server Error] for info messages
 	log.SetOutput(os.Stdout)
@@ -47,7 +52,7 @@ func main() {
 	http.HandleFunc("/api/csv/export", corsMiddleware(handleCSVExport))
 
 	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
-	fmt.Printf("Open http://localhost:%s in your browser\n", *port)
+	logutil.Debugf("Open http://localhost:%s in your browser\n", *port)
 
 	if err := http.ListenAndServe(":"+*port, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)
@@ -93,30 +98,30 @@ func serveStatic(w http.ResponseWriter, r *http.Request) {
 func getFrontendDir() string {
 	// Log current working directory for debugging
 	if cwd, err := os.Getwd(); err == nil {
-		log.Printf("Current working directory: %s", cwd)
+		logutil.Debugf("Current working directory: %s", cwd)
 	}
 
 	// Try current directory first (Electron dev mode: cwd is project root)
 	if _, err := os.Stat("frontend/index.html"); err == nil {
-		log.Println("Found frontend at: frontend/")
+		logutil.Debugln("Found frontend at: frontend/")
 		return "frontend"
 	}
 
 	// Try Resources/frontend (Electron packaged app: cwd is Resources/)
 	if _, err := os.Stat("Resources/frontend/index.html"); err == nil {
-		log.Println("Found frontend at: Resources/frontend/")
+		logutil.Debugln("Found frontend at: Resources/frontend/")
 		return "Resources/frontend"
 	}
 
 	// Try ../Resources/frontend (if cwd is Resources/server/)
 	if _, err := os.Stat("../Resources/frontend/index.html"); err == nil {
-		log.Println("Found frontend at: ../Resources/frontend/")
+		logutil.Debugln("Found frontend at: ../Resources/frontend/")
 		return "../Resources/frontend"
 	}
 
 	// Try parent directory (standalone mode: cwd is server/)
 	if _, err := os.Stat("../frontend/index.html"); err == nil {
-		log.Println("Found frontend at: ../frontend/")
+		logutil.Debugln("Found frontend at: ../frontend/")
 		return "../frontend"
 	}
 
@@ -173,7 +178,7 @@ func handleSetCellValue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("SetCellValue: row=%d, col=%d, value=%q", req.Row, req.Col, req.Value)
+	logutil.Debugf("SetCellValue: row=%d, col=%d, value=%q", req.Row, req.Col, req.Value)
 	err := ctrl.SetCellValue(req.Row, req.Col, req.Value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -258,7 +263,7 @@ func handleSaveFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Saving file: %s", req.Path)
+	logutil.Debugf("Saving file: %s", req.Path)
 	if err := ctrl.SaveFile(req.Path); err != nil {
 		log.Printf("Save error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -287,7 +292,7 @@ func handleLoadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Loading file: %s", req.Path)
+	logutil.Debugf("Loading file: %s", req.Path)
 	if err := ctrl.LoadFile(req.Path); err != nil {
 		log.Printf("Load error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -302,7 +307,7 @@ func handleLoadFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleNewFile(w http.ResponseWriter, r *http.Request) {
-	log.Println("Creating new file")
+	logutil.Debugln("Creating new file")
 	ctrl.NewFile()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -336,7 +341,7 @@ func handleFileStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDownloadFile(w http.ResponseWriter, r *http.Request) {
-	log.Println("Downloading file")
+	logutil.Debugln("Downloading file")
 
 	// Save to temporary file - this writes the data to disk
 	tmpFile := "/tmp/gosheet_download.gosheet"
@@ -356,7 +361,7 @@ func handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleUploadFile(w http.ResponseWriter, r *http.Request) {
-	log.Println("Uploading file")
+	logutil.Debugln("Uploading file")
 
 	// Read the uploaded file data
 	data, err := io.ReadAll(r.Body)
@@ -457,7 +462,7 @@ func handleCSVImport(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCSVExport(w http.ResponseWriter, r *http.Request) {
-	log.Println("[handleCSVExport] Starting CSV export...")
+	logutil.Debugln("[handleCSVExport] Starting CSV export...")
 	w.Header().Set("Content-Type", "application/json")
 
 	// Parse request
@@ -472,10 +477,10 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[handleCSVExport] Export path: %s\n", req.Path)
+	logutil.Debugf("[handleCSVExport] Export path: %s\n", req.Path)
 
 	if req.Path == "" {
-		log.Println("[handleCSVExport] No path provided")
+		logutil.Debugln("[handleCSVExport] No path provided")
 		_ = json.NewEncoder(w).Encode(api.CSVExportResponse{
 			Success: false,
 			Error:   "File path is required",
@@ -485,7 +490,7 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Collect all non-empty cells
-	log.Println("[handleCSVExport] Scanning cells...")
+	logutil.Debugln("[handleCSVExport] Scanning cells...")
 	type cellData struct {
 		row      int
 		col      int
@@ -510,11 +515,11 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Printf("[handleCSVExport] Found %d non-empty cells, maxRow=%d, maxCol=%d\n", len(cells), maxRow, maxCol)
+	logutil.Debugf("[handleCSVExport] Found %d non-empty cells, maxRow=%d, maxCol=%d\n", len(cells), maxRow, maxCol)
 
 	// If no cells, export empty CSV
 	if len(cells) == 0 {
-		log.Println("[handleCSVExport] No cells found, exporting empty file")
+		logutil.Debugln("[handleCSVExport] No cells found, exporting empty file")
 		// Write empty file
 		if err := os.WriteFile(req.Path, []byte(""), 0644); err != nil {
 			log.Printf("[handleCSVExport] Failed to write empty file: %v\n", err)
@@ -526,7 +531,7 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Println("[handleCSVExport] Empty file written successfully")
+		logutil.Debugln("[handleCSVExport] Empty file written successfully")
 		_ = json.NewEncoder(w).Encode(api.CSVExportResponse{
 			Success: true,
 			Rows:    0,
@@ -537,7 +542,7 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build 2D array for CSV export
-	log.Println("[handleCSVExport] Building 2D array...")
+	logutil.Debugln("[handleCSVExport] Building 2D array...")
 	records := make([][]string, maxRow+1)
 	for i := range records {
 		records[i] = make([]string, maxCol+1)
@@ -548,7 +553,7 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		records[cell.row][cell.col] = cell.computed
 	}
 
-	log.Println("[handleCSVExport] Generating CSV content...")
+	logutil.Debugln("[handleCSVExport] Generating CSV content...")
 	// Generate CSV
 	csvContent, err := api.GenerateCSV(records)
 	if err != nil {
@@ -561,7 +566,7 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[handleCSVExport] Writing %d bytes to file: %s\n", len(csvContent), req.Path)
+	logutil.Debugf("[handleCSVExport] Writing %d bytes to file: %s\n", len(csvContent), req.Path)
 	// Write to file
 	if err := os.WriteFile(req.Path, []byte(csvContent), 0644); err != nil {
 		log.Printf("[handleCSVExport] File write failed: %v\n", err)
@@ -573,15 +578,15 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("[handleCSVExport] File written successfully")
+	logutil.Debugln("[handleCSVExport] File written successfully")
 
 	// Return success
-	log.Printf("[handleCSVExport] Sending success response: %d rows, %d cols\n", maxRow+1, maxCol+1)
+	logutil.Debugf("[handleCSVExport] Sending success response: %d rows, %d cols\n", maxRow+1, maxCol+1)
 	_ = json.NewEncoder(w).Encode(api.CSVExportResponse{
 		Success: true,
 		Rows:    maxRow + 1,
 		Cols:    maxCol + 1,
 		Message: fmt.Sprintf("Exported %d rows, %d columns to %s", maxRow+1, maxCol+1, req.Path),
 	})
-	log.Println("[handleCSVExport] Complete")
+	logutil.Debugln("[handleCSVExport] Complete")
 }

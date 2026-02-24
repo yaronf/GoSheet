@@ -18,6 +18,12 @@ const { Menu, app } = require('electron');
 const path = require('path');
 
 /**
+ * Story 10.8: Debug logs only when NODE_ENV=development or DEBUG=1
+ */
+const DEBUG =
+  process.env.NODE_ENV === 'development' || process.env.DEBUG === '1';
+
+/**
  * Reference to the main application window
  * @type {BrowserWindow|null}
  */
@@ -42,7 +48,7 @@ let menuState = {
 function initializeMenu(window, recentFiles = []) {
   mainWindow = window;
   buildMenu(recentFiles);
-  console.log('[Menu] Menu system initialized');
+  if (DEBUG) console.log('[Menu] Menu system initialized');
 }
 
 /**
@@ -82,12 +88,13 @@ function buildRecentFilesSubmenu(recentFiles, onClear) {
  * @param {Function} [onClearRecent] - Callback when Clear Recent is clicked
  */
 function buildMenu(recentFiles = [], onClearRecent) {
-  console.log(
-    '[Menu] Building menu, platform:',
-    process.platform,
-    'recentFiles:',
-    recentFiles?.length
-  );
+  if (DEBUG)
+    console.log(
+      '[Menu] Building menu, platform:',
+      process.platform,
+      'recentFiles:',
+      recentFiles?.length
+    );
 
   const recentSubmenu = buildRecentFilesSubmenu(
     recentFiles || [],
@@ -124,7 +131,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           label: 'New',
           accelerator: 'CmdOrCtrl+N',
           click: () => {
-            console.log('[Menu] New file triggered');
+            if (DEBUG) console.log('[Menu] New file triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-new');
             } else {
@@ -137,7 +144,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           label: 'Open...',
           accelerator: 'CmdOrCtrl+O',
           click: () => {
-            console.log('[Menu] Open file triggered');
+            if (DEBUG) console.log('[Menu] Open file triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-open');
             } else {
@@ -158,7 +165,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           accelerator: 'CmdOrCtrl+S',
           enabled: false, // Dynamically updated based on state
           click: () => {
-            console.log('[Menu] Save file triggered');
+            if (DEBUG) console.log('[Menu] Save file triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-save');
             } else {
@@ -171,7 +178,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           label: 'Save As...',
           accelerator: 'CmdOrCtrl+Shift+S',
           click: () => {
-            console.log('[Menu] Save As triggered');
+            if (DEBUG) console.log('[Menu] Save As triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-save-as');
             } else {
@@ -186,7 +193,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           id: 'import-csv',
           label: 'Import CSV...',
           click: () => {
-            console.log('[Menu] Import CSV triggered');
+            if (DEBUG) console.log('[Menu] Import CSV triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-import-csv');
             } else {
@@ -200,7 +207,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           id: 'export-csv',
           label: 'Export CSV...',
           click: () => {
-            console.log('[Menu] Export CSV triggered');
+            if (DEBUG) console.log('[Menu] Export CSV triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-export-csv');
             } else {
@@ -229,7 +236,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           label: 'Cut',
           accelerator: 'CmdOrCtrl+X',
           click: () => {
-            console.log('[Menu] Cut triggered');
+            if (DEBUG) console.log('[Menu] Cut triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-cut');
             } else {
@@ -242,7 +249,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           label: 'Copy',
           accelerator: 'CmdOrCtrl+C',
           click: () => {
-            console.log('[Menu] Copy triggered');
+            if (DEBUG) console.log('[Menu] Copy triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-copy');
             } else {
@@ -255,7 +262,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           label: 'Paste',
           accelerator: 'CmdOrCtrl+V',
           click: () => {
-            console.log('[Menu] Paste triggered');
+            if (DEBUG) console.log('[Menu] Paste triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-paste');
             } else {
@@ -269,7 +276,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           label: 'Select All',
           accelerator: 'CmdOrCtrl+A',
           click: () => {
-            console.log('[Menu] Select All triggered');
+            if (DEBUG) console.log('[Menu] Select All triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-select-all');
             } else {
@@ -291,7 +298,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           id: 'formula-reference',
           label: 'Formula Reference',
           click: () => {
-            console.log('[Menu] Formula Reference triggered');
+            if (DEBUG) console.log('[Menu] Formula Reference triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-formula-reference');
             }
@@ -301,7 +308,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           id: 'user-guide',
           label: 'User Guide',
           click: () => {
-            console.log('[Menu] User Guide triggered');
+            if (DEBUG) console.log('[Menu] User Guide triggered');
             if (mainWindow) {
               mainWindow.webContents.send('menu-user-guide');
             }
@@ -312,7 +319,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           id: 'about',
           label: 'About GoSheet',
           click: () => {
-            console.log('[Menu] About GoSheet triggered');
+            if (DEBUG) console.log('[Menu] About GoSheet triggered');
             // Use Electron's native About panel (macOS)
             app.showAboutPanel();
           },
@@ -334,30 +341,33 @@ function buildMenu(recentFiles = [], onClearRecent) {
     );
   }
 
-  console.log('[Menu] Template has', template.length, 'top-level menus');
+  if (DEBUG) console.log('[Menu] Template has', template.length, 'top-level menus');
   const fileMenuIndex = process.platform === 'darwin' ? 1 : 0;
   const editMenuIndex = process.platform === 'darwin' ? 2 : 1;
   const helpMenuIndex = process.platform === 'darwin' ? 3 : 2;
-  console.log(
-    '[Menu] File menu has',
-    template[fileMenuIndex].submenu.length,
-    'items'
-  );
-  console.log(
-    '[Menu] Edit menu has',
-    template[editMenuIndex].submenu.length,
-    'items'
-  );
-  console.log(
-    '[Menu] Help menu has',
-    template[helpMenuIndex].submenu.length,
-    'items'
-  );
+  if (DEBUG)
+    console.log(
+      '[Menu] File menu has',
+      template[fileMenuIndex].submenu.length,
+      'items'
+    );
+  if (DEBUG)
+    console.log(
+      '[Menu] Edit menu has',
+      template[editMenuIndex].submenu.length,
+      'items'
+    );
+  if (DEBUG)
+    console.log(
+      '[Menu] Help menu has',
+      template[helpMenuIndex].submenu.length,
+      'items'
+    );
 
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 
-  console.log('[Menu] Application menu built and set');
+  if (DEBUG) console.log('[Menu] Application menu built and set');
 }
 
 /**
@@ -385,9 +395,10 @@ function updateMenuState(state) {
   const saveItem = menu.getMenuItemById('save');
   if (saveItem) {
     saveItem.enabled = menuState.hasUnsavedChanges;
-    console.log(
-      `[Menu] Save menu item ${menuState.hasUnsavedChanges ? 'enabled' : 'disabled'}`
-    );
+    if (DEBUG)
+      console.log(
+        `[Menu] Save menu item ${menuState.hasUnsavedChanges ? 'enabled' : 'disabled'}`
+      );
   }
 
   // Save As is always enabled (no state dependency)
@@ -402,11 +413,12 @@ function updateMenuState(state) {
  * @param {Function} [options.onClear] - Called when user clicks Clear Recent
  */
 function updateRecentFiles(recentFiles, options = {}) {
-  console.log(
-    '[Menu] updateRecentFiles: rebuilding menu with',
-    recentFiles?.length,
-    'files'
-  );
+  if (DEBUG)
+    console.log(
+      '[Menu] updateRecentFiles: rebuilding menu with',
+      recentFiles?.length,
+      'files'
+    );
   buildMenu(recentFiles || [], options.onClear);
   updateMenuState(menuState);
 }

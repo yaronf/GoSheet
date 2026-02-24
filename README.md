@@ -85,6 +85,8 @@ make run-electron
 
 The app launches as a native macOS window. Server runs at `http://localhost:3000`.
 
+For verbose debug logging, run `npm run start:verbose` or see [CONTRIBUTING.md](CONTRIBUTING.md#debug-logging-verbose-output).
+
 ### Web Mode (Backend Only)
 
 ```bash

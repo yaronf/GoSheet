@@ -3,6 +3,7 @@ package controller
 import (
 	"log"
 
+	"gosheet/logutil"
 	"gosheet/model"
 )
 
@@ -20,7 +21,7 @@ func NewAppController() *AppController {
 
 // SetCellValue sets a cell value and triggers recalculation if needed
 func (c *AppController) SetCellValue(row, col int, value string) error {
-	log.Printf("SetCellValue: row=%d, col=%d, value=%q", row, col, value)
+	logutil.Debugf("SetCellValue: row=%d, col=%d, value=%q", row, col, value)
 
 	cellRef := model.CoordsToRef(row, col)
 
@@ -47,7 +48,7 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 					cycleStr += c
 				}
 				errorMsg := "#ERROR: Circular reference: " + cycleStr
-				log.Printf("Circular reference detected: %s", cycleStr)
+				logutil.Debugf("Circular reference detected: %s", cycleStr)
 
 				// Set cell to show error without modifying Modified flag or dependencies
 				c.Sheet.SetCell(row, col, value)
@@ -77,13 +78,13 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 		}
 
 		// Evaluate the formula
-		log.Printf("Evaluating formula: %s", cell.Value)
+		logutil.Debugf("Evaluating formula: %s", cell.Value)
 		result, err := model.EvaluateFormula(cell.Value, c.Sheet)
 		if err != nil {
 			log.Printf("Formula error: %v", err)
 			cell.SetComputed("#ERROR: " + err.Error())
 		} else {
-			log.Printf("Formula result: %s", result)
+			logutil.Debugf("Formula result: %s", result)
 			cell.SetComputed(result)
 		}
 	}
@@ -111,7 +112,7 @@ func (c *AppController) recalculateDependents(changedCells []string) {
 		return
 	}
 
-	log.Printf("Recalculating %d dependent cells in order: %v", len(order), order)
+	logutil.Debugf("Recalculating %d dependent cells in order: %v", len(order), order)
 
 	// Recalculate in topological order
 	for _, cellRef := range order {
@@ -136,7 +137,7 @@ func (c *AppController) recalculateDependents(changedCells []string) {
 // recalculateAllFormulas recalculates all formula cells in the spreadsheet
 // Used when loading files or when dependency graph is unavailable
 func (c *AppController) recalculateAllFormulas() {
-	log.Println("Recalculating all formulas...")
+	logutil.Debugln("Recalculating all formulas...")
 
 	// Iterate through all cells
 	for _, rowMap := range c.Sheet.Cells {
@@ -183,13 +184,13 @@ func (c *AppController) NewFile() {
 
 // SaveFile saves the spreadsheet to a file
 func (c *AppController) SaveFile(path string) error {
-	log.Printf("Saving spreadsheet to: %s", path)
+	logutil.Debugf("Saving spreadsheet to: %s", path)
 	return c.Sheet.SaveToFile(path)
 }
 
 // LoadFile loads a spreadsheet from a file
 func (c *AppController) LoadFile(path string) error {
-	log.Printf("Loading spreadsheet from: %s", path)
+	logutil.Debugf("Loading spreadsheet from: %s", path)
 	sheet, err := model.LoadFromFile(path)
 	if err != nil {
 		return err
@@ -199,7 +200,7 @@ func (c *AppController) LoadFile(path string) error {
 
 // LoadFromBytes loads a spreadsheet from gob-encoded bytes (e.g., from FileService.ReadFile).
 func (c *AppController) LoadFromBytes(data []byte, path string) error {
-	log.Printf("Loading spreadsheet from bytes, path: %s", path)
+	logutil.Debugf("Loading spreadsheet from bytes, path: %s", path)
 	sheet, err := model.LoadFromBytes(data, path)
 	if err != nil {
 		return err
@@ -218,7 +219,7 @@ func (c *AppController) loadSheet(sheet *model.Spreadsheet) error {
 // rebuildDependencyGraph rebuilds the dependency graph from all formula cells
 // Used after loading a file or when the graph needs to be reconstructed
 func (c *AppController) rebuildDependencyGraph() {
-	log.Println("Rebuilding dependency graph...")
+	logutil.Debugln("Rebuilding dependency graph...")
 	c.Sheet.Dependencies = model.NewDependencyGraph()
 
 	// Scan all cells for formulas and extract their dependencies

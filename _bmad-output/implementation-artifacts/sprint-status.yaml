@@ -174,8 +174,8 @@ development_status:
   10-4-measure-test-coverage: done
   10-5-refactor-high-complexity-code: done
   10-6-document-code-quality-standards: done
-  10-7-enhance-accessibility: ready-for-dev
-  10-8-implement-proper-logging: ready-for-dev
+  10-7-enhance-accessibility: done
+  10-8-implement-proper-logging: in-progress
   10-9-implement-universal-macos-build: ready-for-dev
   10-10-openapi-schema-and-code-generation: ready-for-dev
   10-11-add-unit-tests-for-coverage-gaps: ready-for-dev

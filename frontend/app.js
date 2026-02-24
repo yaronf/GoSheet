@@ -32,6 +32,32 @@ let isEditing = false;
 // Exposed to window so Electron main process can check it via executeJavaScript()
 window.currentHasUnsavedChanges = false;
 
+// Story 10.7: Focus trap for dialogs - Tab cycles within dialog, Escape closes
+function setupDialogFocusTrap(overlay, onClose) {
+  const focusable = overlay.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (first) first.focus();
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    } else if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+  overlay.addEventListener('keydown', handleKeyDown);
+  return () => overlay.removeEventListener('keydown', handleKeyDown);
+}
+
 // Custom modal dialog (replaces native confirm/alert for Cursor browser compatibility)
 function showConfirmDialog(message) {
   return new Promise((resolve) => {
@@ -52,6 +78,7 @@ function showConfirmDialog(message) {
       okBtn.removeEventListener('click', handleOk);
       cancelBtn.removeEventListener('click', handleCancel);
       document.removeEventListener('keydown', handleKeyDown);
+      removeFocusTrap?.();
       resolve(true);
     };
 
@@ -61,6 +88,7 @@ function showConfirmDialog(message) {
       okBtn.removeEventListener('click', handleOk);
       cancelBtn.removeEventListener('click', handleCancel);
       document.removeEventListener('keydown', handleKeyDown);
+      removeFocusTrap?.();
       resolve(false);
     };
 
@@ -70,6 +98,8 @@ function showConfirmDialog(message) {
         handleCancel();
       }
     };
+
+    const removeFocusTrap = setupDialogFocusTrap(overlay, handleCancel);
 
     okBtn.addEventListener('click', handleOk);
     cancelBtn.addEventListener('click', handleCancel);
@@ -115,6 +145,7 @@ function showAlert(message) {
       okBtn.removeEventListener('click', handleOk);
       document.removeEventListener('keydown', handleKeyDown);
       overlay.removeEventListener('click', handleOverlayClick);
+      removeFocusTrap?.();
       resolve();
     };
 
@@ -124,6 +155,8 @@ function showAlert(message) {
         handleOk();
       }
     };
+
+    const removeFocusTrap = setupDialogFocusTrap(overlay, handleOk);
 
     okBtn.addEventListener('click', handleOk);
     document.addEventListener('keydown', handleKeyDown);
@@ -143,14 +176,36 @@ function showAlert(message) {
 
 // Force cleanup of any editing state
 function forceCleanupEditing() {
-  console.log('Force cleanup editing state');
+  if (window.__DEBUG__) console.log('Force cleanup editing state');
   isEditing = false;
 
   // Remove any leftover input elements
   document.querySelectorAll('.cell-editor').forEach((input) => {
-    console.log('Removing leftover input element');
+    if (window.__DEBUG__) console.log('Removing leftover input element');
     input.remove();
   });
+}
+
+// Story 10.7: Screen reader announcements (visually hidden, aria-live)
+const srAnnouncer = document.createElement('div');
+srAnnouncer.setAttribute('role', 'status');
+srAnnouncer.setAttribute('aria-live', 'polite');
+srAnnouncer.setAttribute('aria-atomic', 'true');
+srAnnouncer.className = 'sr-only';
+Object.assign(srAnnouncer.style, {
+  position: 'absolute',
+  left: '-10000px',
+  width: '1px',
+  height: '1px',
+  overflow: 'hidden',
+});
+document.body.appendChild(srAnnouncer);
+
+function announceToScreenReader(message) {
+  srAnnouncer.textContent = message;
+  setTimeout(() => {
+    srAnnouncer.textContent = '';
+  }, 1000);
 }
 
 // Story 8.1: Welcome screen + spreadsheet view container
@@ -173,7 +228,7 @@ document.querySelector('#app').innerHTML = `
         <p class="welcome-tip">Tip: Use Cmd+N for new spreadsheet</p>
     </section>
     <div class="spreadsheet-view" id="spreadsheet-view">
-    <div class="toolbar">
+    <header role="banner" class="toolbar" aria-label="Application toolbar">
         <button id="new-btn" class="toolbar-btn" title="Create a new spreadsheet (⌘N)" aria-label="New Spreadsheet">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
@@ -194,19 +249,23 @@ document.querySelector('#app').innerHTML = `
                 <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
             </svg>
         </button>
-        <input type="file" id="file-input" accept=".gosheet" style="display: none;" />
-        <span id="file-status" class="file-status"></span>
+        <input type="file" id="file-input" accept=".gosheet" style="display: none;" aria-hidden="true" />
+        <div role="status" aria-live="polite" aria-atomic="true" class="file-status-wrapper" aria-label="File status">
+            <span id="file-status" class="file-status"></span>
+        </div>
+    </header>
+    <div role="complementary" class="formula-bar-container" aria-label="Formula bar">
+        <span class="cell-ref" id="cell-ref" title="Current cell reference" aria-label="Selected cell">A1</span>
+        <input type="text" class="formula-bar" id="formula-bar" placeholder="Enter value or formula..." title="Enter cell value or formula (start with = for formulas)" aria-label="Formula input" />
     </div>
-    <div class="formula-bar-container">
-        <span class="cell-ref" id="cell-ref" title="Current cell reference">A1</span>
-        <input type="text" class="formula-bar" id="formula-bar" placeholder="Enter value or formula..." title="Enter cell value or formula (start with = for formulas)" />
-    </div>
-    <div class="spreadsheet-container" id="container">
+    <main role="main">
+    <div role="grid" class="spreadsheet-container" id="container" aria-label="Spreadsheet" aria-rowcount="1000" aria-colcount="26">
         <table class="spreadsheet" id="spreadsheet">
             <!-- Will be populated by JavaScript -->
         </table>
     </div>
-    <div class="modal-overlay" id="modal-overlay">
+    </main>
+    <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-message">
         <div class="modal-dialog">
             <div class="modal-message" id="modal-message"></div>
             <div class="modal-buttons">
@@ -215,10 +274,10 @@ document.querySelector('#app').innerHTML = `
             </div>
         </div>
     </div>
-    <div class="modal-overlay" id="csv-preview-modal">
+    <div class="modal-overlay" id="csv-preview-modal" role="dialog" aria-modal="true" aria-labelledby="csv-preview-header">
         <div class="modal-dialog modal-dialog-large">
             <div class="modal-header">
-                <h2>Import CSV Preview</h2>
+                <h2 id="csv-preview-header">Import CSV Preview</h2>
             </div>
             <div class="modal-body">
                 <div id="csv-preview-info"></div>
@@ -233,10 +292,10 @@ document.querySelector('#app').innerHTML = `
         </div>
     </div>
     </div>
-    <div class="modal-overlay" id="formula-help-modal">
+    <div class="modal-overlay" id="formula-help-modal" role="dialog" aria-modal="true" aria-labelledby="formula-help-header">
         <div class="modal-dialog modal-dialog-large modal-dialog-scrollable">
             <div class="modal-header">
-                <h2>Formula Reference</h2>
+                <h2 id="formula-help-header">Formula Reference</h2>
             </div>
             <div class="modal-body formula-help-content" id="formula-help-content"></div>
             <div class="modal-buttons">
@@ -244,10 +303,10 @@ document.querySelector('#app').innerHTML = `
             </div>
         </div>
     </div>
-    <div class="modal-overlay" id="user-guide-modal">
+    <div class="modal-overlay" id="user-guide-modal" role="dialog" aria-modal="true" aria-labelledby="user-guide-header">
         <div class="modal-dialog modal-dialog-large modal-dialog-scrollable">
             <div class="modal-header">
-                <h2>User Guide</h2>
+                <h2 id="user-guide-header">User Guide</h2>
             </div>
             <div class="modal-body user-guide-content" id="user-guide-content"></div>
             <div class="modal-buttons">
@@ -389,7 +448,7 @@ function checkScrollPosition() {
   // Check if scrolled near right edge (within 20% of total width)
   if (scrollLeft + containerWidth > tableWidth * 0.8) {
     const newCols = COLS + EXPAND_COLS;
-    console.log(`Scroll: Expanding columns from ${COLS} to ${newCols}`);
+    if (window.__DEBUG__) console.log(`Scroll: Expanding columns from ${COLS} to ${newCols}`);
     COLS = newCols;
     needsRebuild = true;
   }
@@ -397,7 +456,7 @@ function checkScrollPosition() {
   // Check if scrolled near bottom edge (within 20% of total height)
   if (scrollTop + containerHeight > tableHeight * 0.8) {
     const newRows = ROWS + EXPAND_ROWS;
-    console.log(`Scroll: Expanding rows from ${ROWS} to ${newRows}`);
+    if (window.__DEBUG__) console.log(`Scroll: Expanding rows from ${ROWS} to ${newRows}`);
     ROWS = newRows;
     needsRebuild = true;
   }
@@ -420,17 +479,28 @@ function checkScrollPosition() {
 // Build the spreadsheet table
 function buildSpreadsheet() {
   const table = document.getElementById('spreadsheet');
+  const container = document.getElementById('container');
   table.innerHTML = '';
+
+  // Update grid ARIA dimensions
+  if (container) {
+    container.setAttribute('aria-rowcount', String(ROWS));
+    container.setAttribute('aria-colcount', String(COLS));
+  }
 
   // Header row
   const headerRow = document.createElement('tr');
+  headerRow.setAttribute('role', 'row');
   const cornerCell = document.createElement('th');
   cornerCell.className = 'corner-header';
+  cornerCell.setAttribute('scope', 'col');
   headerRow.appendChild(cornerCell);
 
   for (let col = 0; col < COLS; col++) {
     const th = document.createElement('th');
     th.className = 'column-header';
+    th.setAttribute('role', 'columnheader');
+    th.setAttribute('aria-colindex', String(col + 1));
     th.textContent = colToLetter(col);
     headerRow.appendChild(th);
   }
@@ -439,10 +509,14 @@ function buildSpreadsheet() {
   // Data rows
   for (let row = 0; row < ROWS; row++) {
     const tr = document.createElement('tr');
+    tr.setAttribute('role', 'row');
+    tr.setAttribute('aria-rowindex', String(row + 1));
 
     // Row header
     const th = document.createElement('th');
     th.className = 'row-header';
+    th.setAttribute('role', 'rowheader');
+    th.setAttribute('aria-rowindex', String(row + 1));
     th.textContent = row + 1;
     tr.appendChild(th);
 
@@ -453,6 +527,10 @@ function buildSpreadsheet() {
       td.id = `cell-${row}-${col}`;
       td.dataset.row = row;
       td.dataset.col = col;
+      td.setAttribute('role', 'gridcell');
+      td.setAttribute('aria-colindex', String(col + 1));
+      td.setAttribute('aria-rowindex', String(row + 1));
+      td.setAttribute('tabindex', '-1');
 
       // Click to select/edit
       td.addEventListener('click', (e) => {
@@ -487,7 +565,7 @@ function colToLetter(col) {
 function selectCell(row, col) {
   // If we're currently editing, SAVE the current edit first
   if (isEditing) {
-    console.log('Selecting new cell while editing - saving current edit first');
+    if (window.__DEBUG__) console.log('Selecting new cell while editing - saving current edit first');
 
     // Find the input element and save its value
     const input = document.querySelector('.cell-editor');
@@ -497,9 +575,10 @@ function selectCell(row, col) {
       const editCol = parseInt(editingCell.dataset.col);
       const value = input.value;
 
-      console.log(
-        `Saving edit: row=${editRow}, col=${editCol}, value="${value}"`
-      );
+      if (window.__DEBUG__)
+        console.log(
+          `Saving edit: row=${editRow}, col=${editCol}, value="${value}"`
+        );
 
       // Remove input and reset state
       input.remove();
@@ -529,7 +608,7 @@ function selectCell(row, col) {
   // Expand rows if near bottom edge
   if (row >= ROWS - EXPAND_THRESHOLD) {
     const newRows = Math.max(row + EXPAND_ROWS, ROWS + EXPAND_ROWS);
-    console.log(`Expanding rows from ${ROWS} to ${newRows}`);
+    if (window.__DEBUG__) console.log(`Expanding rows from ${ROWS} to ${newRows}`);
     ROWS = newRows;
     needsRebuild = true;
   }
@@ -537,7 +616,7 @@ function selectCell(row, col) {
   // Expand columns if near right edge
   if (col >= COLS - EXPAND_THRESHOLD) {
     const newCols = Math.max(col + EXPAND_COLS, COLS + EXPAND_COLS);
-    console.log(`Expanding columns from ${COLS} to ${newCols}`);
+    if (window.__DEBUG__) console.log(`Expanding columns from ${COLS} to ${newCols}`);
     COLS = newCols;
     needsRebuild = true;
   }
@@ -548,19 +627,35 @@ function selectCell(row, col) {
     refreshAllCells();
   }
 
-  // Remove previous selection
+  // Remove previous selection and tabindex
   document.querySelectorAll('.cell.selected').forEach((el) => {
     el.classList.remove('selected');
+    el.setAttribute('tabindex', '-1');
   });
 
-  // Highlight selected cell
+  // Highlight selected cell and make it focusable
   const cell = document.getElementById(`cell-${row}-${col}`);
   if (cell) {
     cell.classList.add('selected');
+    cell.setAttribute('tabindex', '0');
     selectedCell = { row, col };
 
     // Update formula bar
     updateFormulaBar(row, col);
+
+    // Story 10.7: Announce cell selection to screen reader
+    const cellRef = colToLetter(col) + (row + 1);
+    const displayValue = cell.textContent?.trim() || '';
+    const formula = cell.dataset.formula || '';
+    let announcement = `Cell ${cellRef} selected`;
+    if (formula) {
+      announcement += `, formula: ${formula}, value: ${displayValue || 'empty'}`;
+    } else if (displayValue) {
+      announcement += `, value: ${displayValue}`;
+    } else {
+      announcement += ', empty';
+    }
+    announceToScreenReader(announcement);
   }
 }
 
@@ -614,9 +709,10 @@ function startEditing(row, col) {
         return;
       }
 
-      console.log(
-        `Editing cell (${row},${col}): rawValue="${rawValue}", isFormula=${cell.classList.contains('formula-cell')}`
-      );
+      if (window.__DEBUG__)
+        console.log(
+          `Editing cell (${row},${col}): rawValue="${rawValue}", isFormula=${cell.classList.contains('formula-cell')}`
+        );
 
       // Replace cell content with input
       const input = document.createElement('input');
@@ -705,7 +801,7 @@ function finishEditing(row, col, value, cell) {
     return;
   }
 
-  console.log(`Finishing edit: row=${row}, col=${col}, value="${value}"`);
+  if (window.__DEBUG__) console.log(`Finishing edit: row=${row}, col=${col}, value="${value}"`);
 
   // Remove the input element first
   const input = cell.querySelector('.cell-editor');
@@ -716,11 +812,11 @@ function finishEditing(row, col, value, cell) {
   // CRITICAL: Reset isEditing AFTER removing input but BEFORE async operations
   isEditing = false;
   isSaving = true;
-  console.log(`isEditing set to false, isSaving set to true`);
+  if (window.__DEBUG__) console.log(`isEditing set to false, isSaving set to true`);
 
   SetCellValue(row, col, value)
     .then((result) => {
-      console.log(`SetCellValue completed for row=${row}, col=${col}`);
+      if (window.__DEBUG__) console.log(`SetCellValue completed for row=${row}, col=${col}`);
       // Update file status from the response
       if (result.hasUnsavedChanges !== undefined) {
         displayFileStatus(result.hasUnsavedChanges);
@@ -729,7 +825,7 @@ function finishEditing(row, col, value, cell) {
       return refreshAllCells();
     })
     .then(() => {
-      console.log(`All cells refreshed after edit at row=${row}, col=${col}`);
+      if (window.__DEBUG__) console.log(`All cells refreshed after edit at row=${row}, col=${col}`);
       isSaving = false;
 
       // Update formula bar to show the new value
@@ -784,12 +880,14 @@ async function refreshAllCells() {
             cell.classList.remove('error-cell');
           }
 
-          // Check if it's a formula cell
+          // Check if it's a formula cell (store for screen reader announcements)
           const rawValue = await GetCellRawValue(row, col);
           if (rawValue && rawValue.startsWith('=')) {
             cell.classList.add('formula-cell');
+            cell.dataset.formula = rawValue;
           } else {
             cell.classList.remove('formula-cell');
+            delete cell.dataset.formula;
           }
 
           // Add number-cell class for right alignment
@@ -808,7 +906,7 @@ async function refreshAllCells() {
 
 // Cancel editing
 function cancelEditing(cell, originalContent) {
-  console.log('Cancelling edit');
+  if (window.__DEBUG__) console.log('Cancelling edit');
 
   // Remove the input element
   const input = cell.querySelector('.cell-editor');
@@ -818,7 +916,7 @@ function cancelEditing(cell, originalContent) {
 
   // Reset state immediately
   isEditing = false;
-  console.log('isEditing set to false (cancelled)');
+  if (window.__DEBUG__) console.log('isEditing set to false (cancelled)');
 
   cell.textContent = originalContent;
 }
@@ -844,12 +942,14 @@ async function loadCells() {
             cell.classList.remove('error-cell');
           }
 
-          // Check if it's a formula cell
+          // Check if it's a formula cell (store for screen reader announcements)
           const rawValue = await GetCellRawValue(row, col);
           if (rawValue && rawValue.startsWith('=')) {
             cell.classList.add('formula-cell');
+            cell.dataset.formula = rawValue;
           } else {
             cell.classList.remove('formula-cell');
+            delete cell.dataset.formula;
           }
 
           // Add number-cell class for right alignment
@@ -938,6 +1038,7 @@ function handleKeydownCellNavigation(e, row, col) {
       if (cell) {
         cell.textContent = '';
         cell.classList.remove('formula-cell');
+        delete cell.dataset.formula;
       }
       if (result.hasUnsavedChanges !== undefined) {
         displayFileStatus(result.hasUnsavedChanges);
@@ -980,9 +1081,10 @@ function startEditingWithChar(row, col, initialChar) {
   }
 
   isEditing = true;
-  console.log(
-    `Starting edit with char "${initialChar}" at row=${row}, col=${col}`
-  );
+  if (window.__DEBUG__)
+    console.log(
+      `Starting edit with char "${initialChar}" at row=${row}, col=${col}`
+    );
 
   // Select the cell WITHOUT triggering cleanup (since we're about to edit)
   document.querySelectorAll('.cell.selected').forEach((el) => {
@@ -1005,22 +1107,22 @@ function startEditingWithChar(row, col, initialChar) {
   input.focus();
   // Move cursor to end
   input.setSelectionRange(1, 1);
-  console.log(`Input focused, value="${input.value}"`);
+  if (window.__DEBUG__) console.log(`Input focused, value="${input.value}"`);
 
   // Set up event handlers
   setupEditorHandlers(input, row, col, cell, originalContent);
 }
 
 // Initialize - wait for DOM and modules to be ready
-console.log('[app.js] Starting initialization...');
+if (window.__DEBUG__) console.log('[app.js] Starting initialization...');
 buildSpreadsheet();
 
 // Load cells after a short delay to ensure Electron preload is ready
 setTimeout(async () => {
-  console.log('[app.js] Loading cells...');
+  if (window.__DEBUG__) console.log('[app.js] Loading cells...');
   try {
     await loadCells();
-    console.log('[app.js] Cells loaded successfully');
+    if (window.__DEBUG__) console.log('[app.js] Cells loaded successfully');
     // Select A1 by default
     selectCell(0, 0);
   } catch (err) {
@@ -1062,7 +1164,7 @@ if (formulaBar) {
 document.getElementById('new-btn').addEventListener('click', async () => {
   // Check if there are unsaved changes
   const status = await GetFileStatus();
-  console.log('New button clicked, status:', status);
+  if (window.__DEBUG__) console.log('New button clicked, status:', status);
 
   // Only confirm if there are unsaved changes
   if (status.hasUnsavedChanges) {
@@ -1103,7 +1205,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     }
 
     updateFileStatus();
-    console.log('File saved');
+    if (window.__DEBUG__) console.log('File saved');
   } catch (error) {
     await showAlert('Error saving file: ' + error.message);
   }
@@ -1112,7 +1214,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 document.getElementById('load-btn').addEventListener('click', async () => {
   // Check if there are unsaved changes
   const status = await GetFileStatus();
-  console.log('Load button clicked, status:', status);
+  if (window.__DEBUG__) console.log('Load button clicked, status:', status);
 
   // Only confirm if there are unsaved changes
   if (status.hasUnsavedChanges) {
@@ -1141,7 +1243,7 @@ document.getElementById('load-btn').addEventListener('click', async () => {
     selectCell(0, 0);
     updateFileStatus();
 
-    console.log('File loaded successfully');
+    if (window.__DEBUG__) console.log('File loaded successfully');
   } catch (error) {
     await showAlert('Error loading file: ' + error.message);
   }
@@ -1205,12 +1307,18 @@ function showCSVPreviewModal(preview) {
 
   tableEl.innerHTML = tableHTML;
 
-  // Show modal
-  modal.classList.add('active');
+  // Handle Cancel button (defined first for focus trap)
+  const handleCancel = () => {
+    modal.classList.remove('active');
+    removeFocusTrap?.();
+    importBtn.removeEventListener('click', handleImport);
+    cancelBtn.removeEventListener('click', handleCancel);
+  };
 
   // Handle Import button
   const handleImport = async () => {
     modal.classList.remove('active');
+    removeFocusTrap?.();
     importBtn.removeEventListener('click', handleImport);
     cancelBtn.removeEventListener('click', handleCancel);
 
@@ -1237,18 +1345,16 @@ function showCSVPreviewModal(preview) {
       selectCell(0, 0);
       updateFileStatus();
 
-      console.log(`CSV imported: ${result.message}`);
+      if (window.__DEBUG__) console.log(`CSV imported: ${result.message}`);
     } catch (error) {
       await showAlert('Error importing CSV: ' + error.message);
     }
   };
 
-  // Handle Cancel button
-  const handleCancel = () => {
-    modal.classList.remove('active');
-    importBtn.removeEventListener('click', handleImport);
-    cancelBtn.removeEventListener('click', handleCancel);
-  };
+  // Show modal
+  modal.classList.add('active');
+  const removeFocusTrap = setupDialogFocusTrap(modal, handleCancel);
+  cancelBtn.focus();
 
   importBtn.addEventListener('click', handleImport);
   cancelBtn.addEventListener('click', handleCancel);
@@ -1330,14 +1436,17 @@ function showFormulaHelpModal() {
 
   contentEl.innerHTML = FORMULA_HELP_HTML;
   modal.classList.add('active');
-  closeBtn.focus();
 
   const handleClose = () => {
     modal.classList.remove('active');
+    removeFocusTrap?.();
     closeBtn.removeEventListener('click', handleClose);
     document.removeEventListener('keydown', handleKeyDown);
     modal.removeEventListener('click', handleOverlayClick);
   };
+
+  const removeFocusTrap = setupDialogFocusTrap(modal, handleClose);
+  closeBtn.focus();
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') handleClose();
@@ -1360,17 +1469,20 @@ async function showUserGuideModal() {
 
   contentEl.innerHTML = '<p>Loading...</p>';
   modal.classList.add('active');
-  closeBtn.focus();
 
   let handleAnchorClick = null;
   const handleClose = () => {
     modal.classList.remove('active');
+    removeFocusTrap?.();
     closeBtn.removeEventListener('click', handleClose);
     document.removeEventListener('keydown', handleKeyDown);
     modal.removeEventListener('click', handleOverlayClick);
     if (handleAnchorClick)
       contentEl.removeEventListener('click', handleAnchorClick);
   };
+
+  const removeFocusTrap = setupDialogFocusTrap(modal, handleClose);
+  closeBtn.focus();
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') handleClose();
@@ -1411,20 +1523,20 @@ async function showUserGuideModal() {
 
 // Story 7.12: Extract CSV export logic into function (CSV buttons removed from toolbar)
 async function handleExportCSV(testPath = '') {
-  console.log('[handleExportCSV] Starting export, testPath:', testPath);
+  if (window.__DEBUG__) console.log('[handleExportCSV] Starting export, testPath:', testPath);
   try {
-    console.log('[handleExportCSV] Calling ExportCSV...');
+    if (window.__DEBUG__) console.log('[handleExportCSV] Calling ExportCSV...');
     const result = await ExportCSV(testPath);
-    console.log('[handleExportCSV] ExportCSV returned:', result);
+    if (window.__DEBUG__) console.log('[handleExportCSV] ExportCSV returned:', result);
 
     if (!result) {
-      console.log('[handleExportCSV] User cancelled file dialog');
+      if (window.__DEBUG__) console.log('[handleExportCSV] User cancelled file dialog');
       return;
     }
 
-    console.log('[handleExportCSV] Showing success alert...');
+    if (window.__DEBUG__) console.log('[handleExportCSV] Showing success alert...');
     await showAlert(`Exported to ${result.path}`);
-    console.log('[handleExportCSV] Export complete:', result.message);
+    if (window.__DEBUG__) console.log('[handleExportCSV] Export complete:', result.message);
   } catch (error) {
     console.error('[handleExportCSV] Error caught:', error);
     await showAlert('Error exporting CSV: ' + error.message);
@@ -1446,9 +1558,11 @@ function displayFileStatus(hasUnsavedChanges) {
   if (hasUnsavedChanges) {
     statusEl.textContent = '● Unsaved changes';
     statusEl.style.color = 'var(--color-warning)'; // Amber
+    announceToScreenReader('Unsaved changes');
   } else {
     statusEl.textContent = '✓ Saved';
     statusEl.style.color = 'var(--color-success)'; // Green
+    announceToScreenReader('File saved');
   }
 
   // Keep toolbar Save button in sync with menu (both disabled when nothing to save)
@@ -1494,11 +1608,11 @@ async function updateFileStatus() {
 
 // Story 7.1: Setup menu event listeners for Electron
 if (window.electronAPI) {
-  console.log('[App] Setting up Electron menu event listeners');
+  if (window.__DEBUG__) console.log('[App] Setting up Electron menu event listeners');
 
   // New file from menu (Story 8.2: show spreadsheet first when on welcome screen)
   window.electronAPI.onMenuNew(async () => {
-    console.log('[App] Menu New triggered');
+    if (window.__DEBUG__) console.log('[App] Menu New triggered');
     if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
       showSpreadsheet();
     document.getElementById('new-btn').click();
@@ -1506,7 +1620,7 @@ if (window.electronAPI) {
 
   // Open file from menu
   window.electronAPI.onMenuOpen(async () => {
-    console.log('[App] Menu Open triggered');
+    if (window.__DEBUG__) console.log('[App] Menu Open triggered');
     if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
       showSpreadsheet();
     document.getElementById('load-btn').click();
@@ -1514,13 +1628,13 @@ if (window.electronAPI) {
 
   // Save file from menu
   window.electronAPI.onMenuSave(async () => {
-    console.log('[App] Menu Save triggered');
+    if (window.__DEBUG__) console.log('[App] Menu Save triggered');
     document.getElementById('save-btn').click();
   });
 
   // Save As from menu - always show dialog even if file has path
   window.electronAPI.onMenuSaveAs(async () => {
-    console.log('[App] Menu Save As triggered');
+    if (window.__DEBUG__) console.log('[App] Menu Save As triggered');
     try {
       // Call SaveFile with empty string to force dialog
       const path = await SaveFile('');
@@ -1531,7 +1645,7 @@ if (window.electronAPI) {
       }
 
       updateFileStatus();
-      console.log('File saved via Save As');
+      if (window.__DEBUG__) console.log('File saved via Save As');
     } catch (error) {
       await showAlert('Error saving file: ' + error.message);
     }
@@ -1540,26 +1654,26 @@ if (window.electronAPI) {
   // Import CSV from menu
   // Story 7.12: CSV buttons removed from toolbar, call functions directly
   window.electronAPI.onMenuImportCSV(async () => {
-    console.log('[App] Menu Import CSV triggered');
+    if (window.__DEBUG__) console.log('[App] Menu Import CSV triggered');
     await handleImportCSV();
   });
 
   // Export CSV from menu
   window.electronAPI.onMenuExportCSV(async () => {
-    console.log('[App] Menu Export CSV triggered');
+    if (window.__DEBUG__) console.log('[App] Menu Export CSV triggered');
     await handleExportCSV();
   });
 
   // Story 7.5: Open recent file from menu (Story 8.2: uses loadFileByPath)
   window.electronAPI.onMenuOpenRecent(async (event, filePath) => {
-    console.log('[App] Menu Open Recent triggered:', filePath);
+    if (window.__DEBUG__) console.log('[App] Menu Open Recent triggered:', filePath);
     await loadFileByPath(filePath);
   });
 
   // Story 9.6: Formula Reference from Help menu
   if (window.electronAPI.onMenuFormulaReference) {
     window.electronAPI.onMenuFormulaReference(() => {
-      console.log('[App] Menu Formula Reference triggered');
+      if (window.__DEBUG__) console.log('[App] Menu Formula Reference triggered');
       showFormulaHelpModal();
     });
   }
@@ -1567,7 +1681,7 @@ if (window.electronAPI) {
   // User Guide from Help menu (in-app markdown viewer)
   if (window.electronAPI.onMenuUserGuide) {
     window.electronAPI.onMenuUserGuide(() => {
-      console.log('[App] Menu User Guide triggered');
+      if (window.__DEBUG__) console.log('[App] Menu User Guide triggered');
       showUserGuideModal();
     });
   }
@@ -1576,9 +1690,9 @@ if (window.electronAPI) {
 
   // Cut: Copy cell value to clipboard and clear cell
   window.electronAPI.onMenuCut(async () => {
-    console.log('[App] Menu Cut triggered');
+    if (window.__DEBUG__) console.log('[App] Menu Cut triggered');
     if (!selectedCell) {
-      console.log('[App] No cell selected for Cut');
+      if (window.__DEBUG__) console.log('[App] No cell selected for Cut');
       return;
     }
 
@@ -1589,7 +1703,7 @@ if (window.electronAPI) {
 
       // Copy to clipboard
       await navigator.clipboard.writeText(value);
-      console.log('[App] Cut: Copied to clipboard:', value);
+      if (window.__DEBUG__) console.log('[App] Cut: Copied to clipboard:', value);
 
       // Clear the cell
       await SetCellValue(row, col, '');
@@ -1603,9 +1717,9 @@ if (window.electronAPI) {
 
   // Copy: Copy cell value to clipboard
   window.electronAPI.onMenuCopy(async () => {
-    console.log('[App] Menu Copy triggered');
+    if (window.__DEBUG__) console.log('[App] Menu Copy triggered');
     if (!selectedCell) {
-      console.log('[App] No cell selected for Copy');
+      if (window.__DEBUG__) console.log('[App] No cell selected for Copy');
       return;
     }
 
@@ -1616,7 +1730,7 @@ if (window.electronAPI) {
 
       // Copy to clipboard
       await navigator.clipboard.writeText(value);
-      console.log('[App] Copy: Copied to clipboard:', value);
+      if (window.__DEBUG__) console.log('[App] Copy: Copied to clipboard:', value);
     } catch (error) {
       console.error('[App] Error during Copy:', error);
       await showAlert('Error during Copy operation: ' + error.message);
@@ -1625,9 +1739,9 @@ if (window.electronAPI) {
 
   // Paste: Paste clipboard content into selected cell
   window.electronAPI.onMenuPaste(async () => {
-    console.log('[App] Menu Paste triggered');
+    if (window.__DEBUG__) console.log('[App] Menu Paste triggered');
     if (!selectedCell) {
-      console.log('[App] No cell selected for Paste');
+      if (window.__DEBUG__) console.log('[App] No cell selected for Paste');
       return;
     }
 
@@ -1636,7 +1750,7 @@ if (window.electronAPI) {
 
       // Read from clipboard
       const text = await navigator.clipboard.readText();
-      console.log('[App] Paste: Read from clipboard:', text);
+      if (window.__DEBUG__) console.log('[App] Paste: Read from clipboard:', text);
 
       // Set cell value
       await SetCellValue(row, col, text);
@@ -1650,7 +1764,7 @@ if (window.electronAPI) {
 
   // Select All: If formula bar/input has focus, select its text; else select all cells
   window.electronAPI.onMenuSelectAll(async () => {
-    console.log('[App] Menu Select All triggered');
+    if (window.__DEBUG__) console.log('[App] Menu Select All triggered');
 
     const active = document.activeElement;
     if (
@@ -1695,15 +1809,16 @@ if (window.electronAPI) {
         // (Full range selection would require extending the selection model)
         if (minRow !== Infinity) {
           selectCell(minRow, minCol);
-          console.log(
-            `[App] Select All: Selected range from (${minRow},${minCol}) to (${maxRow},${maxCol})`
-          );
+          if (window.__DEBUG__)
+            console.log(
+              `[App] Select All: Selected range from (${minRow},${minCol}) to (${maxRow},${maxCol})`
+            );
           await showAlert(
             `Selected range: ${colToLetter(minCol)}${minRow + 1} to ${colToLetter(maxCol)}${maxRow + 1}\n(Note: Full range selection coming in future update)`
           );
         }
       } else {
-        console.log('[App] Select All: No non-empty cells found');
+        if (window.__DEBUG__) console.log('[App] Select All: No non-empty cells found');
         await showAlert('No cells to select');
       }
     } catch (error) {
@@ -1712,17 +1827,17 @@ if (window.electronAPI) {
     }
   });
 
-  console.log('[App] Electron menu event listeners registered (File + Edit)');
+  if (window.__DEBUG__) console.log('[App] Electron menu event listeners registered (File + Edit)');
 }
 
 // Story 7.10: Dark mode support
 // Listen for theme changes from Electron main process
 if (window.electronAPI && window.electronAPI.onThemeChanged) {
   window.electronAPI.onThemeChanged((theme) => {
-    console.log('[App] Theme changed to:', theme);
+    if (window.__DEBUG__) console.log('[App] Theme changed to:', theme);
     document.documentElement.setAttribute('data-theme', theme);
   });
-  console.log('[App] Theme change listener registered');
+  if (window.__DEBUG__) console.log('[App] Theme change listener registered');
 }
 
 // Fallback: Detect system preference directly (for web mode or if Electron API not available)
@@ -1730,10 +1845,10 @@ if (window.matchMedia) {
   // Initial detection
   if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
     document.documentElement.setAttribute('data-theme', 'dark');
-    console.log('[App] Initial theme: dark (from media query)');
+    if (window.__DEBUG__) console.log('[App] Initial theme: dark (from media query)');
   } else {
     document.documentElement.setAttribute('data-theme', 'light');
-    console.log('[App] Initial theme: light (from media query)');
+    if (window.__DEBUG__) console.log('[App] Initial theme: light (from media query)');
   }
 
   // Listen for changes
@@ -1741,7 +1856,7 @@ if (window.matchMedia) {
     .matchMedia('(prefers-color-scheme: dark)')
     .addEventListener('change', (e) => {
       const theme = e.matches ? 'dark' : 'light';
-      console.log('[App] System theme changed to:', theme);
+      if (window.__DEBUG__) console.log('[App] System theme changed to:', theme);
       document.documentElement.setAttribute('data-theme', theme);
     });
 }
@@ -1749,4 +1864,4 @@ if (window.matchMedia) {
 // Update file status on load
 updateFileStatus();
 
-console.log('GoSheet initialized');
+if (window.__DEBUG__) console.log('GoSheet initialized');

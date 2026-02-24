@@ -36,7 +36,7 @@ test.describe('Dark Mode Support', () => {
         .trim();
     });
 
-    expect(bgColor).toBe('#111827');
+    expect(bgColor.toLowerCase()).toBe('#111827');
   });
 
   test('Light mode is applied when system preference is light', async ({
@@ -69,7 +69,7 @@ test.describe('Dark Mode Support', () => {
         .trim();
     });
 
-    expect(bgColor).toBe('#FFFFFF');
+    expect(bgColor.toLowerCase()).toBe('#ffffff');
   });
 
   test('App switches theme when system preference changes', async ({
@@ -151,10 +151,10 @@ test.describe('Dark Mode Support', () => {
       };
     });
 
-    expect(colors.bgPrimary).toBe('#111827');
-    expect(colors.bgSurface).toBe('#1F2937');
-    expect(colors.textPrimary).toBe('#F9FAFB');
-    expect(colors.primary).toBe('#14B8A6');
+    expect(colors.bgPrimary.toLowerCase()).toBe('#111827');
+    expect(colors.bgSurface.toLowerCase()).toBe('#1f2937');
+    expect(colors.textPrimary.toLowerCase()).toBe('#f9fafb');
+    expect(colors.primary.toLowerCase()).toBe('#14b8a6');
   });
 
   test('Light mode colors are applied to UI elements', async ({
@@ -193,9 +193,9 @@ test.describe('Dark Mode Support', () => {
       };
     });
 
-    expect(colors.bgPrimary).toBe('#FFFFFF');
-    expect(colors.bgSurface).toBe('#F8F9FA');
-    expect(colors.textPrimary).toBe('#1A1A1A');
-    expect(colors.primary).toBe('#00A896');
+    expect(colors.bgPrimary.toLowerCase()).toBe('#ffffff');
+    expect(colors.bgSurface.toLowerCase()).toBe('#f8f9fa');
+    expect(colors.textPrimary.toLowerCase()).toBe('#1a1a1a');
+    expect(colors.primary.toLowerCase()).toBe('#00a896');
   });
 });

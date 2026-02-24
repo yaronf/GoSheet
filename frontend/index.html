@@ -12,6 +12,10 @@
 </head>
 <body>
     <div id="app"></div>
+    <!-- Story 10.8: Set __DEBUG__ before modules load (web: ?debug=1, Electron: from preload) -->
+    <script>
+      window.__DEBUG__ = window.__DEBUG__ || (typeof location !== 'undefined' && location.search.includes('debug=1'));
+    </script>
     <!-- ES6 modules -->
     <script type="module" src="api-client.js"></script>
     <script type="module" src="app.js"></script>

@@ -26,19 +26,23 @@ async function triggerExportCSV(electronApp, stubValue) {
 
 test.describe('CSV Import Dialog', () => {
   // Story 7.12: CSV buttons removed from toolbar, now accessible via File menu
-  test('Import CSV menu item exists', async ({ electronApp }) => {
-    // Verify Import CSV menu item exists in File menu
-    const hasImportCSV = await electronApp.evaluate(({ Menu }) => {
-      const menu = Menu.getApplicationMenu();
-      const fileMenu = menu.items.find((item) => item.label === 'File');
-      if (!fileMenu) return false;
+  test('Import CSV menu item exists', async ({ electronApp, window }) => {
+    // Poll for menu to be ready (same pattern as test_menu.spec.js - menu may not be built yet)
+    let hasImportCSV = false;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      hasImportCSV = await electronApp.evaluate(({ Menu }) => {
+        const menu = Menu.getApplicationMenu();
+        const fileMenu = menu?.items?.find((item) => item.label === 'File');
+        if (!fileMenu?.submenu) return false;
 
-      const importItem = fileMenu.submenu.items.find(
-        (item) => item.label && item.label.includes('Import CSV')
-      );
-      return importItem !== undefined;
-    });
-
+        const importItem = fileMenu.submenu.items.find(
+          (item) => item.label && item.label.includes('Import CSV')
+        );
+        return importItem !== undefined;
+      });
+      if (hasImportCSV) break;
+      await window.waitForTimeout(100);
+    }
     expect(hasImportCSV).toBe(true);
   });
 
@@ -379,19 +383,23 @@ test.describe('CSV Import Dialog', () => {
 
 test.describe('CSV Export', () => {
   // Story 7.12: CSV buttons removed from toolbar, now accessible via File menu
-  test('Export CSV menu item exists', async ({ electronApp }) => {
-    // Verify Export CSV menu item exists in File menu
-    const hasExportCSV = await electronApp.evaluate(({ Menu }) => {
-      const menu = Menu.getApplicationMenu();
-      const fileMenu = menu.items.find((item) => item.label === 'File');
-      if (!fileMenu) return false;
+  test('Export CSV menu item exists', async ({ electronApp, window }) => {
+    // Poll for menu to be ready (same pattern as test_menu.spec.js - menu may not be built yet)
+    let hasExportCSV = false;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      hasExportCSV = await electronApp.evaluate(({ Menu }) => {
+        const menu = Menu.getApplicationMenu();
+        const fileMenu = menu?.items?.find((item) => item.label === 'File');
+        if (!fileMenu?.submenu) return false;
 
-      const exportItem = fileMenu.submenu.items.find(
-        (item) => item.label && item.label.includes('Export CSV')
-      );
-      return exportItem !== undefined;
-    });
-
+        const exportItem = fileMenu.submenu.items.find(
+          (item) => item.label && item.label.includes('Export CSV')
+        );
+        return exportItem !== undefined;
+      });
+      if (hasExportCSV) break;
+      await window.waitForTimeout(100);
+    }
     expect(hasExportCSV).toBe(true);
   });
 

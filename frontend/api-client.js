@@ -6,12 +6,14 @@
 const isElectronMode =
   typeof window !== 'undefined' && window.electronAPI !== undefined;
 
-if (isElectronMode) {
-  console.log(
-    '[api-client] Electron mode - using HTTP API + Electron IPC for dialogs'
-  );
-} else {
-  console.log('[api-client] Web mode - using HTTP fetch');
+if (window.__DEBUG__) {
+  if (isElectronMode) {
+    console.log(
+      '[api-client] Electron mode - using HTTP API + Electron IPC for dialogs'
+    );
+  } else {
+    console.log('[api-client] Web mode - using HTTP fetch');
+  }
 }
 
 const API_BASE = '';
@@ -110,7 +112,7 @@ const SaveFile = async (path) => {
 
     if (!path) {
       // User cancelled dialog
-      console.log('[api-client] Save cancelled by user');
+      if (window.__DEBUG__) console.log('[api-client] Save cancelled by user');
       return null;
     }
   }
@@ -130,7 +132,7 @@ const LoadFile = async (path) => {
 
     if (!path) {
       // User cancelled dialog
-      console.log('[api-client] Load cancelled by user');
+      if (window.__DEBUG__) console.log('[api-client] Load cancelled by user');
       return null;
     }
   }
@@ -155,7 +157,7 @@ const PreviewCSV = async (path) => {
 
     if (!path) {
       // User cancelled dialog
-      console.log('[api-client] Import CSV cancelled by user');
+      if (window.__DEBUG__) console.log('[api-client] Import CSV cancelled by user');
       return null;
     }
   }
@@ -181,31 +183,31 @@ const ImportCSV = async (path) => {
 };
 
 const ExportCSV = async (path) => {
-  console.log('[ExportCSV] Starting, path:', path);
+  if (window.__DEBUG__) console.log('[ExportCSV] Starting, path:', path);
   // Story 6.3: Export spreadsheet to CSV
   if (isElectronMode && !path) {
-    console.log('[ExportCSV] Electron mode, showing save dialog...');
+    if (window.__DEBUG__) console.log('[ExportCSV] Electron mode, showing save dialog...');
     // Show Electron save dialog
     const status = await GetFileStatus();
-    console.log('[ExportCSV] File status:', status);
+    if (window.__DEBUG__) console.log('[ExportCSV] File status:', status);
     const defaultName = status.filename
       ? status.filename.replace(/\.sheet$/, '.csv')
       : 'Untitled.csv';
-    console.log('[ExportCSV] Default name:', defaultName);
+    if (window.__DEBUG__) console.log('[ExportCSV] Default name:', defaultName);
     path = await window.electronAPI.exportCSVDialog(defaultName);
-    console.log('[ExportCSV] Dialog returned path:', path);
+    if (window.__DEBUG__) console.log('[ExportCSV] Dialog returned path:', path);
 
     if (!path) {
       // User cancelled dialog
-      console.log('[ExportCSV] Export CSV cancelled by user');
+      if (window.__DEBUG__) console.log('[ExportCSV] Export CSV cancelled by user');
       return null;
     }
   }
 
-  console.log('[ExportCSV] Calling backend API with path:', path);
+  if (window.__DEBUG__) console.log('[ExportCSV] Calling backend API with path:', path);
   // Export via HTTP API
   const json = await fetchUnified('POST', '/api/csv/export', { path });
-  console.log('[ExportCSV] Backend returned:', json);
+  if (window.__DEBUG__) console.log('[ExportCSV] Backend returned:', json);
   return {
     path,
     rows: json.rows,

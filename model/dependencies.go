@@ -16,10 +16,11 @@ package model
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 	"sync"
+
+	"gosheet/logutil"
 )
 
 // DependencyGraph tracks cell dependencies for efficient recalculation
@@ -142,7 +143,7 @@ func (c *refCollector) walk(expr *Expression) {
 func ExtractCellReferences(formula string) []string {
 	ast, err := ParseFormula(formula)
 	if err != nil {
-		log.Printf("ExtractCellReferences: Failed to parse formula %q, using regex fallback: %v", formula, err)
+		logutil.Debugf("ExtractCellReferences: Failed to parse formula %q, using regex fallback: %v", formula, err)
 		return extractCellReferencesRegex(formula)
 	}
 	c := &refCollector{seen: make(map[string]bool)}
@@ -236,7 +237,7 @@ func (dg *DependencyGraph) AddDependency(targetCell, sourceCell string) {
 	dg.mu.Lock()
 	defer dg.mu.Unlock()
 
-	log.Printf("DependencyGraph: Adding %s -> %s", targetCell, sourceCell)
+	logutil.Debugf("DependencyGraph: Adding %s -> %s", targetCell, sourceCell)
 
 	// targetCell depends on sourceCell
 	if dg.dependencies[targetCell] == nil {
@@ -256,7 +257,7 @@ func (dg *DependencyGraph) RemoveDependencies(cell string) {
 	dg.mu.Lock()
 	defer dg.mu.Unlock()
 
-	log.Printf("DependencyGraph: Removing dependencies for %s", cell)
+	logutil.Debugf("DependencyGraph: Removing dependencies for %s", cell)
 
 	// Remove from dependencies map and update dependents
 	if deps, exists := dg.dependencies[cell]; exists {
@@ -317,7 +318,7 @@ func (dg *DependencyGraph) DetectCircularReference(targetCell, sourceCell string
 
 	hasCycle, cyclePath := dg.hasCycleDFS(targetCell, sourceCell, visited, path)
 	if hasCycle {
-		log.Printf("DependencyGraph: Circular reference detected: %v", cyclePath)
+		logutil.Debugf("DependencyGraph: Circular reference detected: %v", cyclePath)
 	}
 	return hasCycle, cyclePath
 }

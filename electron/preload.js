@@ -1,39 +1,46 @@
 // Story 3.2: Electron Preload Script
 // Secure IPC bridge between renderer and main process
+// Story 10.8: Debug logs only when DEBUG=1
+const DEBUG = process.env.DEBUG === '1';
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-console.log('[Preload] Initializing secure IPC bridge...');
+if (DEBUG) console.log('[Preload] Initializing secure IPC bridge...');
+
+// Story 10.8: Expose debug flag to frontend for gating console.log
+contextBridge.exposeInMainWorld('__DEBUG__', DEBUG);
 
 // Story 3.2: Expose file dialog APIs to renderer via contextBridge
 contextBridge.exposeInMainWorld('electronAPI', {
   // Story 3.4: Open file dialog
   openFileDialog: () => {
-    console.log('[Preload] openFileDialog called');
+    if (DEBUG) console.log('[Preload] openFileDialog called');
     return ipcRenderer.invoke('dialog:openFile');
   },
 
   // Story 3.4: Save file dialog
   saveFileDialog: (defaultName) => {
-    console.log(`[Preload] saveFileDialog called (default: ${defaultName})`);
+    if (DEBUG)
+      console.log(`[Preload] saveFileDialog called (default: ${defaultName})`);
     return ipcRenderer.invoke('dialog:saveFile', defaultName);
   },
 
   // Story 6.1: Import CSV dialog
   importCSVDialog: () => {
-    console.log('[Preload] importCSVDialog called');
+    if (DEBUG) console.log('[Preload] importCSVDialog called');
     return ipcRenderer.invoke('dialog:importCSV');
   },
 
   // Story 6.3: Export CSV dialog
   exportCSVDialog: (defaultName) => {
-    console.log(`[Preload] exportCSVDialog called (default: ${defaultName})`);
+    if (DEBUG)
+      console.log(`[Preload] exportCSVDialog called (default: ${defaultName})`);
     return ipcRenderer.invoke('dialog:exportCSV', defaultName);
   },
 
   // Story 7.1: Menu state management
   updateMenuState: (state) => {
-    console.log('[Preload] updateMenuState called:', state);
+    if (DEBUG) console.log('[Preload] updateMenuState called:', state);
     ipcRenderer.send('menu:updateState', state);
   },
 
@@ -87,7 +94,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Story 7.5: Recent files management
   addRecentFile: (filePath) => {
-    console.log('[Preload] addRecentFile called:', filePath);
+    if (DEBUG) console.log('[Preload] addRecentFile called:', filePath);
     return ipcRenderer.invoke('file:addRecent', filePath);
   },
 
@@ -103,7 +110,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 });
 
-console.log('[Preload] electronAPI exposed to renderer');
-console.log(
-  '[Preload] Context isolation maintained - renderer has no direct Node.js access'
-);
+if (DEBUG) console.log('[Preload] electronAPI exposed to renderer');
+if (DEBUG)
+  console.log(
+    '[Preload] Context isolation maintained - renderer has no direct Node.js access'
+  );
