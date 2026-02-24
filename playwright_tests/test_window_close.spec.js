@@ -43,7 +43,10 @@ test.describe('Window Close Behavior (Story 8.4)', () => {
     expect(electronApp.windows().length).toBe(0);
   });
 
-  test('app.quit from main process exits cleanly', async ({ electronApp, window }) => {
+  test('app.quit from main process exits cleanly', async ({
+    electronApp,
+    window,
+  }) => {
     await window.waitForLoadState('domcontentloaded');
     await expect(window.locator('#app')).toBeVisible({ timeout: 10000 });
 

@@ -6,7 +6,10 @@ const { test, expect } = require('./fixtures');
 const { ensureSpreadsheetView } = require('./helpers');
 
 test.describe('Dark Mode Support', () => {
-  test('Dark mode is applied when system preference is dark', async ({ electronApp, window }) => {
+  test('Dark mode is applied when system preference is dark', async ({
+    electronApp,
+    window,
+  }) => {
     await ensureSpreadsheetView(window);
 
     // Set system to dark mode
@@ -27,13 +30,19 @@ test.describe('Dark Mode Support', () => {
 
     // Verify dark mode background color is applied
     const bgColor = await window.evaluate(() => {
-      return window.getComputedStyle(document.documentElement).getPropertyValue('--color-bg-primary').trim();
+      return window
+        .getComputedStyle(document.documentElement)
+        .getPropertyValue('--color-bg-primary')
+        .trim();
     });
 
     expect(bgColor).toBe('#111827');
   });
 
-  test('Light mode is applied when system preference is light', async ({ electronApp, window }) => {
+  test('Light mode is applied when system preference is light', async ({
+    electronApp,
+    window,
+  }) => {
     await ensureSpreadsheetView(window);
 
     // Set system to light mode
@@ -54,13 +63,19 @@ test.describe('Dark Mode Support', () => {
 
     // Verify light mode background color is applied
     const bgColor = await window.evaluate(() => {
-      return window.getComputedStyle(document.documentElement).getPropertyValue('--color-bg-primary').trim();
+      return window
+        .getComputedStyle(document.documentElement)
+        .getPropertyValue('--color-bg-primary')
+        .trim();
     });
 
     expect(bgColor).toBe('#FFFFFF');
   });
 
-  test('App switches theme when system preference changes', async ({ electronApp, window }) => {
+  test('App switches theme when system preference changes', async ({
+    electronApp,
+    window,
+  }) => {
     await ensureSpreadsheetView(window);
 
     // Start in light mode
@@ -100,7 +115,10 @@ test.describe('Dark Mode Support', () => {
     expect(theme).toBe('light');
   });
 
-  test('Dark mode colors are applied to UI elements', async ({ electronApp, window }) => {
+  test('Dark mode colors are applied to UI elements', async ({
+    electronApp,
+    window,
+  }) => {
     await ensureSpreadsheetView(window);
 
     // Set to dark mode
@@ -114,10 +132,22 @@ test.describe('Dark Mode Support', () => {
     const colors = await window.evaluate(() => {
       const root = document.documentElement;
       return {
-        bgPrimary: window.getComputedStyle(root).getPropertyValue('--color-bg-primary').trim(),
-        bgSurface: window.getComputedStyle(root).getPropertyValue('--color-bg-surface').trim(),
-        textPrimary: window.getComputedStyle(root).getPropertyValue('--color-text-primary').trim(),
-        primary: window.getComputedStyle(root).getPropertyValue('--color-primary').trim()
+        bgPrimary: window
+          .getComputedStyle(root)
+          .getPropertyValue('--color-bg-primary')
+          .trim(),
+        bgSurface: window
+          .getComputedStyle(root)
+          .getPropertyValue('--color-bg-surface')
+          .trim(),
+        textPrimary: window
+          .getComputedStyle(root)
+          .getPropertyValue('--color-text-primary')
+          .trim(),
+        primary: window
+          .getComputedStyle(root)
+          .getPropertyValue('--color-primary')
+          .trim(),
       };
     });
 
@@ -127,7 +157,10 @@ test.describe('Dark Mode Support', () => {
     expect(colors.primary).toBe('#14B8A6');
   });
 
-  test('Light mode colors are applied to UI elements', async ({ electronApp, window }) => {
+  test('Light mode colors are applied to UI elements', async ({
+    electronApp,
+    window,
+  }) => {
     await ensureSpreadsheetView(window);
 
     // Set to light mode
@@ -141,10 +174,22 @@ test.describe('Dark Mode Support', () => {
     const colors = await window.evaluate(() => {
       const root = document.documentElement;
       return {
-        bgPrimary: window.getComputedStyle(root).getPropertyValue('--color-bg-primary').trim(),
-        bgSurface: window.getComputedStyle(root).getPropertyValue('--color-bg-surface').trim(),
-        textPrimary: window.getComputedStyle(root).getPropertyValue('--color-text-primary').trim(),
-        primary: window.getComputedStyle(root).getPropertyValue('--color-primary').trim()
+        bgPrimary: window
+          .getComputedStyle(root)
+          .getPropertyValue('--color-bg-primary')
+          .trim(),
+        bgSurface: window
+          .getComputedStyle(root)
+          .getPropertyValue('--color-bg-surface')
+          .trim(),
+        textPrimary: window
+          .getComputedStyle(root)
+          .getPropertyValue('--color-text-primary')
+          .trim(),
+        primary: window
+          .getComputedStyle(root)
+          .getPropertyValue('--color-primary')
+          .trim(),
       };
     });
 

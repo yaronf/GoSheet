@@ -46,7 +46,10 @@ test.describe('Dock Menu (Story 7.6)', () => {
     expect(labels).toContain('Open...');
   });
 
-  test('Dock menu shows (No recent files) when empty', async ({ electronApp, window }) => {
+  test('Dock menu shows (No recent files) when empty', async ({
+    electronApp,
+    window,
+  }) => {
     test.skip(process.platform !== 'darwin', 'Dock menu is macOS-only');
     await window.waitForLoadState('domcontentloaded');
     await expect(window.locator('#app')).toBeVisible({ timeout: 10000 });

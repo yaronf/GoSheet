@@ -2,7 +2,10 @@
 // Tests CSV import → export → import to verify data integrity
 
 const { test, expect } = require('./fixtures');
-const { stubDialog, clickMenuItemById } = require('electron-playwright-helpers');
+const {
+  stubDialog,
+  clickMenuItemById,
+} = require('electron-playwright-helpers');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -26,7 +29,7 @@ async function clearSpreadsheet(window) {
   await ensureSpreadsheetView(window);
   await window.locator('#new-btn').click();
   await window.waitForTimeout(300);
-  
+
   // Dismiss any unsaved changes modal
   const modal = window.locator('#modal-overlay.active');
   const isVisible = await modal.isVisible();
@@ -37,14 +40,18 @@ async function clearSpreadsheet(window) {
 }
 
 test.describe('CSV Round-Trip Verification', () => {
-  test('Simple data round-trip preserves values', async ({ window, electronApp }) => {
+  test('Simple data round-trip preserves values', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     // Create test CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const importPath = path.join(testDir, 'import.csv');
     const exportPath = path.join(testDir, 'export.csv');
-    
-    const originalData = 'Name,Age,City\nAlice,30,NYC\nBob,25,LA\nCharlie,35,SF';
+
+    const originalData =
+      'Name,Age,City\nAlice,30,NYC\nBob,25,LA\nCharlie,35,SF';
     fs.writeFileSync(importPath, originalData);
 
     // Import CSV
@@ -62,8 +69,11 @@ test.describe('CSV Round-Trip Verification', () => {
     await expect(window.locator('#cell-3-2')).toHaveText('SF');
 
     // Export CSV
-    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
-    
+    await triggerExportCSV(electronApp, {
+      canceled: false,
+      filePath: exportPath,
+    });
+
     // Wait for success alert
     const alertModal = window.locator('#modal-overlay.active');
     await expect(alertModal).toBeVisible({ timeout: 5000 });
@@ -74,7 +84,7 @@ test.describe('CSV Round-Trip Verification', () => {
     const modal2 = window.locator('#csv-preview-modal.active');
     await expect(modal2).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
-    
+
     // Confirm unsaved changes if modal appears
     const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(300);
@@ -99,7 +109,10 @@ test.describe('CSV Round-Trip Verification', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Formula round-trip exports computed values', async ({ window, electronApp }) => {
+  test('Formula round-trip exports computed values', async ({
+    window,
+    electronApp,
+  }) => {
     // Clear spreadsheet
     await clearSpreadsheet(window);
 
@@ -121,8 +134,11 @@ test.describe('CSV Round-Trip Verification', () => {
     // Export CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const exportPath = path.join(testDir, 'formulas.csv');
-    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
-    
+    await triggerExportCSV(electronApp, {
+      canceled: false,
+      filePath: exportPath,
+    });
+
     // Wait for success alert
     const alertModal = window.locator('#modal-overlay.active');
     await expect(alertModal).toBeVisible({ timeout: 5000 });
@@ -140,7 +156,7 @@ test.describe('CSV Round-Trip Verification', () => {
     const modal3 = window.locator('#csv-preview-modal.active');
     await expect(modal3).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
-    
+
     // Confirm unsaved changes
     const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(300);
@@ -162,24 +178,30 @@ test.describe('CSV Round-Trip Verification', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Special characters round-trip (commas, quotes)', async ({ window, electronApp }) => {
+  test('Special characters round-trip (commas, quotes)', async ({
+    window,
+    electronApp,
+  }) => {
     // Clear spreadsheet
     await clearSpreadsheet(window);
 
     // Create data with special characters
     await window.locator('#cell-0-0').click();
-    await window.keyboard.type('Smith, John');  // Comma in value
+    await window.keyboard.type('Smith, John'); // Comma in value
     await window.keyboard.press('Enter');
     await window.locator('#cell-0-1').click();
-    await window.keyboard.type('He said "hello"');  // Quotes in value
+    await window.keyboard.type('He said "hello"'); // Quotes in value
     await window.keyboard.press('Enter');
     await window.waitForTimeout(200);
 
     // Export CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const exportPath = path.join(testDir, 'special.csv');
-    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
-    
+    await triggerExportCSV(electronApp, {
+      canceled: false,
+      filePath: exportPath,
+    });
+
     // Wait for success alert
     const alertModal2 = window.locator('#modal-overlay.active');
     await expect(alertModal2).toBeVisible({ timeout: 5000 });
@@ -190,7 +212,7 @@ test.describe('CSV Round-Trip Verification', () => {
     const modal4 = window.locator('#csv-preview-modal.active');
     await expect(modal4).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
-    
+
     // Confirm unsaved changes
     const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(300);
@@ -211,15 +233,18 @@ test.describe('CSV Round-Trip Verification', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Large dataset round-trip (100 rows)', async ({ window, electronApp }) => {
+  test('Large dataset round-trip (100 rows)', async ({
+    window,
+    electronApp,
+  }) => {
     // Clear spreadsheet first
     await clearSpreadsheet(window);
-    
+
     // Create large CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const importPath = path.join(testDir, 'large.csv');
     const exportPath = path.join(testDir, 'large-export.csv');
-    
+
     let csvContent = 'ID,Name,Value\n';
     for (let i = 1; i <= 100; i++) {
       csvContent += `${i},Row${i},${i * 10}\n`;
@@ -240,8 +265,11 @@ test.describe('CSV Round-Trip Verification', () => {
     await expect(window.locator('#cell-50-2')).toHaveText('500');
 
     // Export CSV
-    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
-    
+    await triggerExportCSV(electronApp, {
+      canceled: false,
+      filePath: exportPath,
+    });
+
     // Wait for success alert
     const alertModal3 = window.locator('#modal-overlay.active');
     await expect(alertModal3).toBeVisible({ timeout: 5000 });
@@ -256,7 +284,7 @@ test.describe('CSV Round-Trip Verification', () => {
     const modal6 = window.locator('#csv-preview-modal.active');
     await expect(modal6).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
-    
+
     // Confirm unsaved changes
     const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(200);
@@ -276,7 +304,10 @@ test.describe('CSV Round-Trip Verification', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Empty cells preserved in round-trip', async ({ window, electronApp }) => {
+  test('Empty cells preserved in round-trip', async ({
+    window,
+    electronApp,
+  }) => {
     // Clear spreadsheet
     await clearSpreadsheet(window);
 
@@ -293,8 +324,11 @@ test.describe('CSV Round-Trip Verification', () => {
     // Export CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const exportPath = path.join(testDir, 'sparse.csv');
-    await triggerExportCSV(electronApp, { canceled: false, filePath: exportPath });
-    
+    await triggerExportCSV(electronApp, {
+      canceled: false,
+      filePath: exportPath,
+    });
+
     // Wait for success alert
     const alertModal4 = window.locator('#modal-overlay.active');
     await expect(alertModal4).toBeVisible({ timeout: 5000 });
@@ -305,7 +339,7 @@ test.describe('CSV Round-Trip Verification', () => {
     const modal7 = window.locator('#csv-preview-modal.active');
     await expect(modal7).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
-    
+
     // Confirm unsaved changes
     const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(200);

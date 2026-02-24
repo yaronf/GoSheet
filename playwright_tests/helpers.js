@@ -33,4 +33,9 @@ async function waitForSaveEnabled(window) {
   await expect(window.locator('#save-btn')).toBeEnabled({ timeout: 5000 });
 }
 
-module.exports = { ensureSpreadsheetView, waitForEditModeReady, editCell, waitForSaveEnabled };
+module.exports = {
+  ensureSpreadsheetView,
+  waitForEditModeReady,
+  editCell,
+  waitForSaveEnabled,
+};

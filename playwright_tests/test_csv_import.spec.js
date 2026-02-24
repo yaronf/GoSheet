@@ -2,7 +2,10 @@
 // Tests CSV file selection, preview display, and user interaction
 
 const { test, expect } = require('./fixtures');
-const { stubDialog, clickMenuItemById } = require('electron-playwright-helpers');
+const {
+  stubDialog,
+  clickMenuItemById,
+} = require('electron-playwright-helpers');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -23,23 +26,26 @@ async function triggerExportCSV(electronApp, stubValue) {
 
 test.describe('CSV Import Dialog', () => {
   // Story 7.12: CSV buttons removed from toolbar, now accessible via File menu
-  test('Import CSV menu item exists', async ({ electronApp, window }) => {
+  test('Import CSV menu item exists', async ({ electronApp }) => {
     // Verify Import CSV menu item exists in File menu
     const hasImportCSV = await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
-      const fileMenu = menu.items.find(item => item.label === 'File');
+      const fileMenu = menu.items.find((item) => item.label === 'File');
       if (!fileMenu) return false;
-      
-      const importItem = fileMenu.submenu.items.find(item => 
-        item.label && item.label.includes('Import CSV')
+
+      const importItem = fileMenu.submenu.items.find(
+        (item) => item.label && item.label.includes('Import CSV')
       );
       return importItem !== undefined;
     });
-    
+
     expect(hasImportCSV).toBe(true);
   });
 
-  test('CSV preview modal opens and displays file info', async ({ window, electronApp }) => {
+  test('CSV preview modal opens and displays file info', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     // Create test CSV file
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
@@ -90,7 +96,10 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('CSV preview handles large files (shows first 10 rows)', async ({ window, electronApp }) => {
+  test('CSV preview handles large files (shows first 10 rows)', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     // Create test CSV with 20 rows
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
@@ -126,7 +135,10 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('CSV preview Cancel button closes modal', async ({ window, electronApp }) => {
+  test('CSV preview Cancel button closes modal', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     // Create test CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
@@ -147,47 +159,50 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('CSV import loads data into spreadsheet', async ({ window, electronApp }) => {
+  test('CSV import loads data into spreadsheet', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
     const csvPath = path.join(testDir, 'test.csv');
-    
+
     try {
       // Create test CSV
       fs.writeFileSync(csvPath, 'Name,Age,City\nAlice,30,NYC\nBob,25,LA');
 
-    // Trigger Import CSV via menu
-    await triggerImportCSV(electronApp, { filePaths: [csvPath] });
-    const modal = window.locator('#csv-preview-modal.active');
-    await expect(modal).toBeVisible({ timeout: 5000 });
+      // Trigger Import CSV via menu
+      await triggerImportCSV(electronApp, { filePaths: [csvPath] });
+      const modal = window.locator('#csv-preview-modal.active');
+      await expect(modal).toBeVisible({ timeout: 5000 });
 
-    // Click Import
-    await window.locator('#csv-preview-import').click();
+      // Click Import
+      await window.locator('#csv-preview-import').click();
 
-    // Modal should close (active class removed)
-    await expect(modal).not.toBeVisible({ timeout: 5000 });
+      // Modal should close (active class removed)
+      await expect(modal).not.toBeVisible({ timeout: 5000 });
 
-    // Check if unsaved changes confirmation modal appeared (shouldn't on fresh start, but handle it)
-    const confirmModal = window.locator('#modal-overlay.active');
-    const isConfirmVisible = await confirmModal.isVisible();
-    if (isConfirmVisible) {
-      await window.locator('#modal-ok').click();
-      await expect(confirmModal).not.toBeVisible();
-    }
+      // Check if unsaved changes confirmation modal appeared (shouldn't on fresh start, but handle it)
+      const confirmModal = window.locator('#modal-overlay.active');
+      const isConfirmVisible = await confirmModal.isVisible();
+      if (isConfirmVisible) {
+        await window.locator('#modal-ok').click();
+        await expect(confirmModal).not.toBeVisible();
+      }
 
-    // Wait for data to load
-    await window.waitForTimeout(1000);
+      // Wait for data to load
+      await window.waitForTimeout(1000);
 
-    // Verify data is in spreadsheet
-    await expect(window.locator('#cell-0-0')).toHaveText('Name');
-    await expect(window.locator('#cell-0-1')).toHaveText('Age');
-    await expect(window.locator('#cell-0-2')).toHaveText('City');
-    await expect(window.locator('#cell-1-0')).toHaveText('Alice');
-    await expect(window.locator('#cell-1-1')).toHaveText('30');
-    await expect(window.locator('#cell-1-2')).toHaveText('NYC');
-    await expect(window.locator('#cell-2-0')).toHaveText('Bob');
-    await expect(window.locator('#cell-2-1')).toHaveText('25');
-    await expect(window.locator('#cell-2-2')).toHaveText('LA');
+      // Verify data is in spreadsheet
+      await expect(window.locator('#cell-0-0')).toHaveText('Name');
+      await expect(window.locator('#cell-0-1')).toHaveText('Age');
+      await expect(window.locator('#cell-0-2')).toHaveText('City');
+      await expect(window.locator('#cell-1-0')).toHaveText('Alice');
+      await expect(window.locator('#cell-1-1')).toHaveText('30');
+      await expect(window.locator('#cell-1-2')).toHaveText('NYC');
+      await expect(window.locator('#cell-2-0')).toHaveText('Bob');
+      await expect(window.locator('#cell-2-1')).toHaveText('25');
+      await expect(window.locator('#cell-2-2')).toHaveText('LA');
 
       // Verify file status shows unsaved
       const fileStatus = window.locator('#file-status');
@@ -199,7 +214,10 @@ test.describe('CSV Import Dialog', () => {
     }
   });
 
-  test('CSV import warns on unsaved changes', async ({ window, electronApp }) => {
+  test('CSV import warns on unsaved changes', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     // First, create some data
     await window.locator('#cell-0-0').click();
@@ -227,7 +245,9 @@ test.describe('CSV Import Dialog', () => {
     // Confirmation modal should appear
     const confirmModal = window.locator('#modal-overlay.active');
     await expect(confirmModal).toBeVisible({ timeout: 5000 });
-    await expect(window.locator('#modal-message')).toContainText('unsaved changes');
+    await expect(window.locator('#modal-message')).toContainText(
+      'unsaved changes'
+    );
 
     // Click OK to confirm
     await window.locator('#modal-ok').click();
@@ -254,7 +274,9 @@ test.describe('CSV Import Dialog', () => {
     await window.keyboard.type('More Old Data');
     await window.keyboard.press('Enter');
     // Wait for backend to register unsaved changes before triggering import
-    await expect(window.locator('#file-status')).toContainText('Unsaved', { timeout: 5000 });
+    await expect(window.locator('#file-status')).toContainText('Unsaved', {
+      timeout: 5000,
+    });
 
     // Create test CSV with different data
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
@@ -288,7 +310,10 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Cancelled file dialog does not show preview', async ({ window, electronApp }) => {
+  test('Cancelled file dialog does not show preview', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     // Trigger Import CSV via menu (stub returns cancelled)
     await triggerImportCSV(electronApp, { canceled: true });
@@ -314,7 +339,9 @@ test.describe('CSV Import Dialog', () => {
     // Wait for error alert to appear
     const alertModal = window.locator('#modal-overlay.active');
     await expect(alertModal).toBeVisible({ timeout: 5000 });
-    await expect(window.locator('#modal-message')).toContainText('Error previewing CSV');
+    await expect(window.locator('#modal-message')).toContainText(
+      'Error previewing CSV'
+    );
 
     // Close alert
     await window.locator('#modal-ok').click();
@@ -337,7 +364,9 @@ test.describe('CSV Import Dialog', () => {
     // Wait for error alert to appear
     const alertModal = window.locator('#modal-overlay.active');
     await expect(alertModal).toBeVisible({ timeout: 5000 });
-    await expect(window.locator('#modal-message')).toContainText('Error previewing CSV');
+    await expect(window.locator('#modal-message')).toContainText(
+      'Error previewing CSV'
+    );
 
     // Close alert
     await window.locator('#modal-ok').click();
@@ -350,19 +379,19 @@ test.describe('CSV Import Dialog', () => {
 
 test.describe('CSV Export', () => {
   // Story 7.12: CSV buttons removed from toolbar, now accessible via File menu
-  test('Export CSV menu item exists', async ({ electronApp, window }) => {
+  test('Export CSV menu item exists', async ({ electronApp }) => {
     // Verify Export CSV menu item exists in File menu
     const hasExportCSV = await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
-      const fileMenu = menu.items.find(item => item.label === 'File');
+      const fileMenu = menu.items.find((item) => item.label === 'File');
       if (!fileMenu) return false;
-      
-      const exportItem = fileMenu.submenu.items.find(item => 
-        item.label && item.label.includes('Export CSV')
+
+      const exportItem = fileMenu.submenu.items.find(
+        (item) => item.label && item.label.includes('Export CSV')
       );
       return exportItem !== undefined;
     });
-    
+
     expect(hasExportCSV).toBe(true);
   });
 
@@ -413,7 +442,10 @@ test.describe('CSV Export', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Export CSV with formulas exports computed values', async ({ window, electronApp }) => {
+  test('Export CSV with formulas exports computed values', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     // Create data with formula
     await window.locator('#cell-0-0').click();
@@ -436,7 +468,7 @@ test.describe('CSV Export', () => {
 
     // Export CSV via menu
     await triggerExportCSV(electronApp, { canceled: false, filePath: csvPath });
-    
+
     // Wait for success alert
     const alertModal = window.locator('#modal-overlay.active');
     await expect(alertModal).toBeVisible({ timeout: 5000 });
@@ -454,11 +486,14 @@ test.describe('CSV Export', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Export empty spreadsheet creates empty file', async ({ window, electronApp }) => {
+  test('Export empty spreadsheet creates empty file', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     // Clear any existing data - New button might show unsaved changes modal
     await window.locator('#new-btn').click();
-    
+
     // Check if unsaved changes modal appeared and dismiss it
     const confirmModal = window.locator('#modal-overlay.active');
     await window.waitForTimeout(200);
@@ -474,7 +509,7 @@ test.describe('CSV Export', () => {
 
     // Export CSV via menu
     await triggerExportCSV(electronApp, { canceled: false, filePath: csvPath });
-    
+
     // Wait for success alert
     const alertModal = window.locator('#modal-overlay.active');
     await expect(alertModal).toBeVisible({ timeout: 5000 });
@@ -490,7 +525,10 @@ test.describe('CSV Export', () => {
     fs.rmdirSync(testDir);
   });
 
-  test('Export CSV cancelled does not create file', async ({ window, electronApp }) => {
+  test('Export CSV cancelled does not create file', async ({
+    window,
+    electronApp,
+  }) => {
     await ensureSpreadsheetView(window);
     // Export CSV via menu (stub returns cancelled)
     await triggerExportCSV(electronApp, { canceled: true });

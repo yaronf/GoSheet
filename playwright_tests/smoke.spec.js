@@ -6,7 +6,10 @@
 const { test, expect } = require('./fixtures');
 
 test.describe('Electron App Smoke Tests', () => {
-  test('Electron app launches successfully', async ({ electronApp, window }) => {
+  test('Electron app launches successfully', async ({
+    electronApp,
+    window,
+  }) => {
     // Verify app launched
     expect(electronApp).toBeTruthy();
     console.log('[Smoke Test] Electron app launched');

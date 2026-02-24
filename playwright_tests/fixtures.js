@@ -11,7 +11,7 @@ exports.test = base.test.extend({
   electronApp: async ({}, use) => {
     // Get Electron executable path
     const electronPath = require('electron');
-    
+
     // Launch Electron app
     const electronApp = await playwright._electron.launch({
       executablePath: electronPath,
@@ -29,22 +29,22 @@ exports.test = base.test.extend({
       },
       timeout: 30000,
     });
-    
+
     // Provide app to test
     await use(electronApp);
-    
+
     // Cleanup: close app after test
     await electronApp.close();
   },
-  
+
   // Window fixture - gets the first window
   window: async ({ electronApp }, use) => {
     // Wait for first window to open
     const window = await electronApp.firstWindow();
-    
+
     // Wait for window to be fully loaded
     await window.waitForLoadState('domcontentloaded');
-    
+
     // Provide window to test
     await use(window);
   },

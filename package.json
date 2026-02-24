@@ -12,7 +12,11 @@
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:report": "playwright show-report",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "lint": "eslint frontend/ electron/ playwright_tests/",
+    "format": "prettier --write 'frontend/**/*.{js,css}' 'electron/**/*.js' 'playwright_tests/**/*.js'",
+    "format:check": "prettier --check 'frontend/**/*.{js,css}' 'electron/**/*.js' 'playwright_tests/**/*.js'",
+    "prepare": "husky"
   },
   "keywords": [
     "spreadsheet",
@@ -22,11 +26,22 @@
   "author": "Yaron",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.48.2",
     "electron": "^30.5.1",
     "electron-builder": "^26.7.0",
     "electron-playwright-helpers": "^1.7.1",
-    "playwright": "^1.48.2"
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.3.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "playwright": "^1.48.2",
+    "prettier": "^3.8.1"
+  },
+  "lint-staged": {
+    "*.{js,css}": ["eslint --fix", "prettier --write"],
+    "*.go": ["gofmt -w"]
   },
   "build": {
     "appId": "com.gosheet.app",
