@@ -47,7 +47,16 @@ jobs:
     
     - name: Install Node dependencies
       run: npm ci
-    
+
+    - name: Lint
+      run: |
+        npm run lint
+        npm run format:check
+        make lint
+
+    - name: Complexity (report only, does not fail)
+      run: make complexity || true
+
     - name: Install Playwright browsers with system dependencies
       run: npx playwright install --with-deps chromium
     
@@ -59,7 +68,18 @@ jobs:
     
     - name: Run Go unit tests
       run: go test -v ./tests/...
-    
+
+    - name: Coverage (report only)
+      run: make coverage || true
+
+    - name: Upload coverage report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.out
+        retention-days: 7
+
     - name: Run Playwright Electron tests
       run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npm test
       env:

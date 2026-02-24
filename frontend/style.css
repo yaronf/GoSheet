@@ -1,17 +1,17 @@
 html {
-    background-color: var(--color-bg-surface);
-    text-align: center;
-    color: var(--color-text-primary);
+  background-color: var(--color-bg-surface);
+  text-align: center;
+  color: var(--color-text-primary);
 }
 
 body {
-    margin: 0;
-    color: var(--color-text-primary);
-    font-family: var(--font-family-base);
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
 }
 
 #app {
-    height: 100vh;
-    text-align: center;
-    background: var(--color-bg-surface);
+  height: 100vh;
+  text-align: center;
+  background: var(--color-bg-surface);
 }

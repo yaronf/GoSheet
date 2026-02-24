@@ -17,7 +17,7 @@ func NewCell(value string) *Cell {
 // SetValue updates the cell's value and determines if it's a formula
 func (c *Cell) SetValue(value string) {
 	startsWithEquals := len(value) > 0 && value[0] == '='
-	
+
 	// Try to normalize formulas (uppercase refs, remove spaces)
 	if startsWithEquals {
 		normalized, err := NormalizeFormula(value)
@@ -36,7 +36,7 @@ func (c *Cell) SetValue(value string) {
 		c.Value = value
 		c.Computed = value
 	}
-	
+
 	// If not a formula, computed value is the same as raw value
 	if !c.IsFormula {
 		c.Computed = value

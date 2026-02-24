@@ -38,6 +38,8 @@ test_data.csv
 # Go
 *.test
 *.out
+coverage.out
+coverage.html
 server/server
 gosheet
 web

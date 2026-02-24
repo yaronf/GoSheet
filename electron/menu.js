@@ -1,7 +1,7 @@
 /**
  * Story 7.1, 7.2 & 7.3: Electron Menu System
  * Native macOS menu bar with File, Edit, and Help menu integration
- * 
+ *
  * This module manages the application's native menu system, including:
  * - File menu with New, Open, Save, Save As, Import/Export CSV
  * - Edit menu with Cut, Copy, Paste, Select All
@@ -10,7 +10,7 @@
  * - Dynamic menu state management (enable/disable based on app state)
  * - Keyboard shortcuts (Cmd+N, Cmd+O, Cmd+S, Cmd+X, Cmd+C, Cmd+V, Cmd+A, etc.)
  * - IPC communication with renderer process
- * 
+ *
  * @module electron/menu
  */
 
@@ -31,7 +31,7 @@ let mainWindow = null;
  */
 let menuState = {
   hasUnsavedChanges: false,
-  hasFilePath: false
+  hasFilePath: false,
 };
 
 /**
@@ -51,21 +51,25 @@ function initializeMenu(window, recentFiles = []) {
  * @param {Function} [onClear] - Callback when Clear Recent is clicked
  */
 function buildRecentFilesSubmenu(recentFiles, onClear) {
-  const items = recentFiles.length > 0
-    ? recentFiles.map(filePath => {
-        const filename = path.basename(filePath);
-        const parentDir = path.basename(path.dirname(filePath));
-        const label = parentDir && parentDir !== '.' ? `${filename} — ${parentDir}` : filename;
-        return {
-          label,
-          click: () => {
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-open-recent', filePath);
-            }
-          }
-        };
-      })
-    : [{ label: 'No Recent Files', enabled: false }];
+  const items =
+    recentFiles.length > 0
+      ? recentFiles.map((filePath) => {
+          const filename = path.basename(filePath);
+          const parentDir = path.basename(path.dirname(filePath));
+          const label =
+            parentDir && parentDir !== '.'
+              ? `${filename} — ${parentDir}`
+              : filename;
+          return {
+            label,
+            click: () => {
+              if (mainWindow) {
+                mainWindow.webContents.send('menu-open-recent', filePath);
+              }
+            },
+          };
+        })
+      : [{ label: 'No Recent Files', enabled: false }];
   items.push({ type: 'separator' });
   items.push({ label: 'Clear Recent', click: () => onClear && onClear() });
   return items;
@@ -78,27 +82,39 @@ function buildRecentFilesSubmenu(recentFiles, onClear) {
  * @param {Function} [onClearRecent] - Callback when Clear Recent is clicked
  */
 function buildMenu(recentFiles = [], onClearRecent) {
-  console.log('[Menu] Building menu, platform:', process.platform, 'recentFiles:', recentFiles?.length);
-  
-  const recentSubmenu = buildRecentFilesSubmenu(recentFiles || [], onClearRecent);
-  
+  console.log(
+    '[Menu] Building menu, platform:',
+    process.platform,
+    'recentFiles:',
+    recentFiles?.length
+  );
+
+  const recentSubmenu = buildRecentFilesSubmenu(
+    recentFiles || [],
+    onClearRecent
+  );
+
   const template = [
     // macOS app menu (automatically added by Electron on macOS)
-    ...(process.platform === 'darwin' ? [{
-      label: app.name,
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { role: 'services' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
-        { type: 'separator' },
-        { role: 'quit' }
-      ]
-    }] : []),
-    
+    ...(process.platform === 'darwin'
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ]
+      : []),
+
     // File menu
     {
       label: 'File',
@@ -114,7 +130,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
             } else {
               console.error('[Menu] Cannot trigger New - mainWindow is null');
             }
-          }
+          },
         },
         {
           id: 'open',
@@ -127,13 +143,13 @@ function buildMenu(recentFiles = [], onClearRecent) {
             } else {
               console.error('[Menu] Cannot trigger Open - mainWindow is null');
             }
-          }
+          },
         },
         { type: 'separator' },
         {
           id: 'recent-files',
           label: 'Open Recent',
-          submenu: recentSubmenu
+          submenu: recentSubmenu,
         },
         { type: 'separator' },
         {
@@ -148,7 +164,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
             } else {
               console.error('[Menu] Cannot trigger Save - mainWindow is null');
             }
-          }
+          },
         },
         {
           id: 'save-as',
@@ -159,9 +175,11 @@ function buildMenu(recentFiles = [], onClearRecent) {
             if (mainWindow) {
               mainWindow.webContents.send('menu-save-as');
             } else {
-              console.error('[Menu] Cannot trigger Save As - mainWindow is null');
+              console.error(
+                '[Menu] Cannot trigger Save As - mainWindow is null'
+              );
             }
-          }
+          },
         },
         { type: 'separator' },
         {
@@ -172,9 +190,11 @@ function buildMenu(recentFiles = [], onClearRecent) {
             if (mainWindow) {
               mainWindow.webContents.send('menu-import-csv');
             } else {
-              console.error('[Menu] Cannot trigger Import CSV - mainWindow is null');
+              console.error(
+                '[Menu] Cannot trigger Import CSV - mainWindow is null'
+              );
             }
-          }
+          },
         },
         {
           id: 'export-csv',
@@ -184,20 +204,22 @@ function buildMenu(recentFiles = [], onClearRecent) {
             if (mainWindow) {
               mainWindow.webContents.send('menu-export-csv');
             } else {
-              console.error('[Menu] Cannot trigger Export CSV - mainWindow is null');
+              console.error(
+                '[Menu] Cannot trigger Export CSV - mainWindow is null'
+              );
             }
-          }
+          },
         },
         { type: 'separator' },
         {
           id: 'close',
           label: 'Close Window',
           accelerator: 'CmdOrCtrl+W',
-          role: 'close'
-        }
-      ]
+          role: 'close',
+        },
+      ],
     },
-    
+
     // Story 7.2: Edit menu
     {
       label: 'Edit',
@@ -213,7 +235,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
             } else {
               console.error('[Menu] Cannot trigger Cut - mainWindow is null');
             }
-          }
+          },
         },
         {
           id: 'copy',
@@ -226,7 +248,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
             } else {
               console.error('[Menu] Cannot trigger Copy - mainWindow is null');
             }
-          }
+          },
         },
         {
           id: 'paste',
@@ -239,7 +261,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
             } else {
               console.error('[Menu] Cannot trigger Paste - mainWindow is null');
             }
-          }
+          },
         },
         { type: 'separator' },
         {
@@ -251,13 +273,15 @@ function buildMenu(recentFiles = [], onClearRecent) {
             if (mainWindow) {
               mainWindow.webContents.send('menu-select-all');
             } else {
-              console.error('[Menu] Cannot trigger Select All - mainWindow is null');
+              console.error(
+                '[Menu] Cannot trigger Select All - mainWindow is null'
+              );
             }
-          }
-        }
-      ]
+          },
+        },
+      ],
     },
-    
+
     // Story 7.3: Help menu | Story 9.6: Formula Reference
     // Note: Don't use role: 'help' - it can prevent custom submenu items from receiving clicks on macOS
     {
@@ -271,7 +295,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
             if (mainWindow) {
               mainWindow.webContents.send('menu-formula-reference');
             }
-          }
+          },
         },
         {
           id: 'user-guide',
@@ -281,7 +305,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
             if (mainWindow) {
               mainWindow.webContents.send('menu-user-guide');
             }
-          }
+          },
         },
         { type: 'separator' },
         {
@@ -291,12 +315,12 @@ function buildMenu(recentFiles = [], onClearRecent) {
             console.log('[Menu] About GoSheet triggered');
             // Use Electron's native About panel (macOS)
             app.showAboutPanel();
-          }
-        }
-      ]
-    }
+          },
+        },
+      ],
+    },
   ];
-  
+
   // Add Quit to File menu on non-macOS platforms
   if (process.platform !== 'darwin') {
     // On non-macOS, File menu is at index 0 (no app menu)
@@ -305,22 +329,34 @@ function buildMenu(recentFiles = [], onClearRecent) {
       {
         label: 'Quit',
         accelerator: 'CmdOrCtrl+Q',
-        role: 'quit'
+        role: 'quit',
       }
     );
   }
-  
+
   console.log('[Menu] Template has', template.length, 'top-level menus');
   const fileMenuIndex = process.platform === 'darwin' ? 1 : 0;
   const editMenuIndex = process.platform === 'darwin' ? 2 : 1;
   const helpMenuIndex = process.platform === 'darwin' ? 3 : 2;
-  console.log('[Menu] File menu has', template[fileMenuIndex].submenu.length, 'items');
-  console.log('[Menu] Edit menu has', template[editMenuIndex].submenu.length, 'items');
-  console.log('[Menu] Help menu has', template[helpMenuIndex].submenu.length, 'items');
-  
+  console.log(
+    '[Menu] File menu has',
+    template[fileMenuIndex].submenu.length,
+    'items'
+  );
+  console.log(
+    '[Menu] Edit menu has',
+    template[editMenuIndex].submenu.length,
+    'items'
+  );
+  console.log(
+    '[Menu] Help menu has',
+    template[helpMenuIndex].submenu.length,
+    'items'
+  );
+
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
-  
+
   console.log('[Menu] Application menu built and set');
 }
 
@@ -336,22 +372,24 @@ function updateMenuState(state) {
     console.error('[Menu] Invalid state object:', state);
     return;
   }
-  
+
   menuState = { ...menuState, ...state };
-  
+
   const menu = Menu.getApplicationMenu();
   if (!menu) {
     console.warn('[Menu] No application menu found');
     return;
   }
-  
+
   // Update Save menu item based on unsaved changes
   const saveItem = menu.getMenuItemById('save');
   if (saveItem) {
     saveItem.enabled = menuState.hasUnsavedChanges;
-    console.log(`[Menu] Save menu item ${menuState.hasUnsavedChanges ? 'enabled' : 'disabled'}`);
+    console.log(
+      `[Menu] Save menu item ${menuState.hasUnsavedChanges ? 'enabled' : 'disabled'}`
+    );
   }
-  
+
   // Save As is always enabled (no state dependency)
   // Import/Export CSV are always enabled
 }
@@ -364,7 +402,11 @@ function updateMenuState(state) {
  * @param {Function} [options.onClear] - Called when user clicks Clear Recent
  */
 function updateRecentFiles(recentFiles, options = {}) {
-  console.log('[Menu] updateRecentFiles: rebuilding menu with', recentFiles?.length, 'files');
+  console.log(
+    '[Menu] updateRecentFiles: rebuilding menu with',
+    recentFiles?.length,
+    'files'
+  );
   buildMenu(recentFiles || [], options.onClear);
   updateMenuState(menuState);
 }
@@ -372,5 +414,5 @@ function updateRecentFiles(recentFiles, options = {}) {
 module.exports = {
   initializeMenu,
   updateMenuState,
-  updateRecentFiles
+  updateRecentFiles,
 };

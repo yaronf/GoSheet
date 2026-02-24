@@ -93,6 +93,11 @@ electron-builder expects different Go binaries for each architecture when buildi
 - **Electron main.js:** Already uses `process.resourcesPath + '/server/gosheet-server'`—no change needed; electron-builder places the right binary per arch.
 - **Go cross-compilation:** `GOOS=darwin GOARCH=arm64` and `GOOS=darwin GOARCH=amd64` produce native macOS binaries. No CGO required for current server.
 
+### Previous Story Intelligence
+- **Makefile**: Add `build-server-arm64` and `build-server-x64` or single target that builds both
+- **package.json**: electron-builder `extraResources` with `arch` filter (see TECHNICAL-DEBT.md)
+- **Electron main.js**: Uses `process.resourcesPath + '/server/gosheet-server'` — no change; electron-builder places correct binary per arch
+
 ### References
 
 - [Source: _bmad-output/implementation-artifacts/TECHNICAL-DEBT.md#3] - Build Universal macOS Executable

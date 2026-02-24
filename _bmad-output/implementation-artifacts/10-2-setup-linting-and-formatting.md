@@ -3,7 +3,7 @@
 **Epic:** 10 - Code Quality & Technical Debt  
 **Story:** 10.2  
 **Estimated Effort:** 2-3 hours  
-**Status:** ready-for-dev  
+**Status:** done  
 **Created:** 2026-02-24
 
 ---
@@ -38,56 +38,39 @@ Establishing linting and formatting early prevents style drift and catches commo
 ## Acceptance Criteria
 
 1. **ESLint configured and passing**
-   - [ ] ESLint installed as devDependency
-   - [ ] `.eslintrc.js` or `eslint.config.js` configured for frontend (frontend/*.js)
-   - [ ] `npm run lint` (or similar) runs ESLint
-   - [ ] Existing code passes ESLint (fix auto-fixable issues)
+   - [x] ESLint installed as devDependency
+   - [x] `eslint.config.js` configured for frontend, electron, playwright_tests
+   - [x] `npm run lint` runs ESLint
+   - [x] Existing code passes ESLint
 
 2. **golangci-lint configured and passing**
-   - [ ] golangci-lint configured (`.golangci.yml` or inline config)
-   - [ ] `make lint` or `go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run` works
-   - [ ] Existing Go code passes (fix critical issues; defer stylistic if needed)
+   - [x] `.golangci.yml` with errcheck, govet, gofmt, ineffassign, staticcheck
+   - [x] `make lint` runs golangci-lint
+   - [x] Existing Go code passes
 
 3. **Prettier for consistent formatting**
-   - [ ] Prettier installed as devDependency
-     - [ ] `.prettierrc` or config in package.json
-   - [ ] Prettier formats JS/CSS (frontend/)
-   - [ ] `npm run format` runs Prettier
-   - [ ] Prettier and ESLint work together (eslint-config-prettier to avoid conflicts)
+   - [x] Prettier installed as devDependency
+   - [x] `.prettierrc` configured
+   - [x] `npm run format` and `format:check` for JS/CSS
+   - [x] eslint-config-prettier to avoid conflicts
 
 4. **Pre-commit hooks**
-   - [ ] husky + lint-staged (or simple pre-commit script) runs linters on staged files
-   - [ ] Bad commits are blocked when lint fails
+   - [x] husky + lint-staged runs ESLint, Prettier, gofmt on staged files
+   - [x] Bad commits blocked when lint fails
 
 5. **CI integration**
-   - [ ] `.github/workflows/test.yml` (or equivalent) runs lint step
-   - [ ] CI fails on linting violations
+   - [x] `.github/workflows/test.yml` runs lint step (npm run lint, format:check, make lint)
+   - [x] CI fails on linting violations
 
 ---
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add ESLint (AC: #1)
-  - [ ] `npm install -D eslint`
-  - [ ] Create ESLint config for frontend JS
-  - [ ] Add `lint` script to package.json
-  - [ ] Run `npm run lint` and fix violations (or add `--max-warnings` temporarily)
-- [ ] Task 2: Add golangci-lint (AC: #2)
-  - [ ] Add `.golangci.yml` with sensible defaults
-  - [ ] Add `make lint` or npm script to run golangci-lint
-  - [ ] Fix critical issues; document deferred items
-- [ ] Task 3: Add Prettier (AC: #3)
-  - [ ] `npm install -D prettier eslint-config-prettier`
-  - [ ] Configure Prettier (e.g., 2-space indent, single quotes)
-  - [ ] Add `format` script
-  - [ ] Run format on frontend files
-- [ ] Task 4: Pre-commit hooks (AC: #4)
-  - [ ] `npm install -D husky lint-staged`
-  - [ ] Configure lint-staged to run ESLint + Prettier on staged .js/.css
-  - [ ] husky pre-commit runs lint-staged
-- [ ] Task 5: CI integration (AC: #5)
-  - [ ] Add lint step to GitHub Actions workflow
-  - [ ] Run `npm run lint` and Go lint in CI
+- [x] Task 1: Add ESLint (AC: #1)
+- [x] Task 2: Add golangci-lint (AC: #2)
+- [x] Task 3: Add Prettier (AC: #3)
+- [x] Task 4: Pre-commit hooks (AC: #4)
+- [x] Task 5: CI integration (AC: #5)
 
 ---
 
@@ -119,12 +102,21 @@ Establishing linting and formatting early prevents style drift and catches commo
 
 ### Agent Model Used
 
-(To be filled by dev agent)
+Cursor Composer
 
 ### Completion Notes List
 
-(To be filled by dev agent)
+- Fixed ESLint errors: electron main.js top-level return (→ process.exit), app.js columnToIndex/indexToColumn → letterToCol/colToLetter, unused vars, fixtures.js no-empty-pattern.
+- Added eslint config: argsIgnorePattern/varsIgnorePattern for `_` prefix.
+- Fixed golangci-lint: gofmt, errcheck (json.Encode, SetCellValue, fmt.Sscanf), govet shadow, gosimple (loop → append).
+- Pre-commit: husky + lint-staged for *.js, *.css, *.go.
 
 ### File List
 
-(To be filled by dev agent)
+- eslint.config.js, .prettierrc, .golangci.yml
+- package.json (lint, format, lint-staged, husky)
+- Makefile (make lint)
+- .husky/pre-commit
+- .github/workflows/test.yml
+- frontend/app.js, electron/main.js, api/csv.go, server/main.go, model/formula_ast.go, model/dependencies.go, tests/file_test.go, tests/coords_test.go, controller/app.go
+- playwright_tests/fixtures.js, test_csv_import.spec.js, test_file_operations.spec.js, test_menu.spec.js, test_quit_warning.spec.js

@@ -1,7 +1,7 @@
 # GoSheet - Makefile for Electron Development
 # See README.md for "When to Run Which Tests" guidance
 
-.PHONY: install test test-unit test-electron test-all build build-electron run run-electron clean
+.PHONY: install test test-unit test-electron test-all build build-electron run run-electron lint complexity coverage clean
 
 # Install Node.js dependencies
 install:
@@ -43,6 +43,27 @@ run: build
 run-electron: install build
 	@echo "Starting Electron app..."
 	npm start
+
+# Lint Go code
+lint:
+	@echo "Running golangci-lint..."
+	go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run ./...
+
+# Go test coverage (model package via tests)
+coverage:
+	@echo "Running Go coverage..."
+	@go test -coverprofile=coverage.out -coverpkg=./model,...,./controller,...,./api,... ./tests/... 2>/dev/null || true
+	@echo ""
+	@echo "Coverage summary (gosheet packages):"
+	@go tool cover -func=coverage.out 2>/dev/null | grep -E "^gosheet/|^total:" || true
+
+# Complexity analysis for Go (cyclomatic complexity)
+complexity:
+	@echo "Running gocyclo (complexity >10)..."
+	@go run github.com/fzipp/gocyclo/cmd/gocyclo@latest -over 10 . 2>/dev/null || true
+	@echo ""
+	@echo "Functions with complexity >15:"
+	@go run github.com/fzipp/gocyclo/cmd/gocyclo@latest -over 15 . 2>/dev/null || true
 
 # Clean build artifacts
 clean:

@@ -12,11 +12,11 @@ import (
 // Formula lexer definition
 var formulaLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "Float", Pattern: `\d+\.\d+`},
-	{Name: "CellRef", Pattern: `[A-Z]+\d+`},      // Must come before Ident to match first
+	{Name: "CellRef", Pattern: `[A-Z]+\d+`}, // Must come before Ident to match first
 	{Name: "Ident", Pattern: `[A-Za-z_][A-Za-z0-9_]*`},
 	{Name: "Int", Pattern: `\d+`},
 	{Name: "String", Pattern: `"(?:\\.|[^"])*"`},
-	{Name: "GTE", Pattern: `>=`},                  // Must come before individual chars
+	{Name: "GTE", Pattern: `>=`}, // Must come before individual chars
 	{Name: "LTE", Pattern: `<=`},
 	{Name: "NEQ", Pattern: `!=`},
 	{Name: "EQ", Pattern: `=`},
@@ -47,10 +47,10 @@ func normalizeFormula(formula string) string {
 	// This preserves case in strings while making cell refs and functions case-insensitive
 	var result strings.Builder
 	inString := false
-	
+
 	for i := 0; i < len(formula); i++ {
 		ch := formula[i]
-		
+
 		if ch == '"' {
 			inString = !inString
 			result.WriteByte(ch)
@@ -62,7 +62,7 @@ func normalizeFormula(formula string) string {
 			result.WriteByte(byte(strings.ToUpper(string(ch))[0]))
 		}
 	}
-	
+
 	return result.String()
 }
 
@@ -81,7 +81,7 @@ func NormalizeFormula(formula string) (string, error) {
 	if err != nil {
 		return formula, err // Return original if can't parse
 	}
-	
+
 	// Serialize back to normalized form
 	return "=" + serializeExpression(ast.Expr), nil
 }
@@ -527,7 +527,7 @@ func evaluateRange(rng *Range, sheet *Spreadsheet) (Value, error) {
 				if computed == "" {
 					computed = cell.Value
 				}
-				
+
 				// Try to parse as number
 				var num float64
 				_, err := fmt.Sscanf(computed, "%f", &num)
@@ -574,7 +574,7 @@ var builtinFunctions = map[string]func([]Value) (Value, error){
 	"MIN":   minFunction,
 	"MAX":   maxFunction,
 	"COUNT": countFunction,
-	
+
 	// String functions
 	"CONCAT": concatFunction,
 	"UPPER":  upperFunction,
@@ -764,7 +764,7 @@ func valueToStr(v Value) string {
 // concatFunction implements CONCAT - concatenate strings
 func concatFunction(args []Value) (Value, error) {
 	var result string
-	
+
 	for _, arg := range args {
 		switch v := arg.(type) {
 		case StringValue:
@@ -779,7 +779,7 @@ func concatFunction(args []Value) (Value, error) {
 			return v, v.Error
 		}
 	}
-	
+
 	return StringValue{result}, nil
 }
 
@@ -788,7 +788,7 @@ func upperFunction(args []Value) (Value, error) {
 	if len(args) != 1 {
 		return ErrorValue{fmt.Errorf("UPPER requires exactly 1 argument")}, nil
 	}
-	
+
 	str := valueToStr(args[0])
 	return StringValue{strings.ToUpper(str)}, nil
 }
@@ -798,7 +798,7 @@ func lowerFunction(args []Value) (Value, error) {
 	if len(args) != 1 {
 		return ErrorValue{fmt.Errorf("LOWER requires exactly 1 argument")}, nil
 	}
-	
+
 	str := valueToStr(args[0])
 	return StringValue{strings.ToLower(str)}, nil
 }
@@ -808,7 +808,7 @@ func lenFunction(args []Value) (Value, error) {
 	if len(args) != 1 {
 		return ErrorValue{fmt.Errorf("LEN requires exactly 1 argument")}, nil
 	}
-	
+
 	str := valueToStr(args[0])
 	return NumberValue{float64(len(str))}, nil
 }
@@ -818,13 +818,13 @@ func leftFunction(args []Value) (Value, error) {
 	if len(args) != 2 {
 		return ErrorValue{fmt.Errorf("LEFT requires exactly 2 arguments")}, nil
 	}
-	
+
 	str := valueToStr(args[0])
 	n, err := toNumber(args[1])
 	if err != nil {
 		return ErrorValue{err}, nil
 	}
-	
+
 	length := int(n)
 	if length < 0 {
 		length = 0
@@ -832,7 +832,7 @@ func leftFunction(args []Value) (Value, error) {
 	if length > len(str) {
 		length = len(str)
 	}
-	
+
 	return StringValue{str[:length]}, nil
 }
 
@@ -841,13 +841,13 @@ func rightFunction(args []Value) (Value, error) {
 	if len(args) != 2 {
 		return ErrorValue{fmt.Errorf("RIGHT requires exactly 2 arguments")}, nil
 	}
-	
+
 	str := valueToStr(args[0])
 	n, err := toNumber(args[1])
 	if err != nil {
 		return ErrorValue{err}, nil
 	}
-	
+
 	length := int(n)
 	if length < 0 {
 		length = 0
@@ -855,7 +855,7 @@ func rightFunction(args []Value) (Value, error) {
 	if length > len(str) {
 		length = len(str)
 	}
-	
+
 	start := len(str) - length
 	return StringValue{str[start:]}, nil
 }
@@ -865,7 +865,7 @@ func midFunction(args []Value) (Value, error) {
 	if len(args) != 3 {
 		return ErrorValue{fmt.Errorf("MID requires exactly 3 arguments")}, nil
 	}
-	
+
 	str := valueToStr(args[0])
 	start, err := toNumber(args[1])
 	if err != nil {
@@ -875,22 +875,22 @@ func midFunction(args []Value) (Value, error) {
 	if err != nil {
 		return ErrorValue{err}, nil
 	}
-	
+
 	// Convert to 0-based index (MID uses 1-based)
 	startIdx := int(start) - 1
 	lengthInt := int(length)
-	
+
 	if startIdx < 0 {
 		startIdx = 0
 	}
 	if startIdx >= len(str) {
 		return StringValue{""}, nil
 	}
-	
+
 	endIdx := startIdx + lengthInt
 	if endIdx > len(str) {
 		endIdx = len(str)
 	}
-	
+
 	return StringValue{str[startIdx:endIdx]}, nil
 }

@@ -7,9 +7,9 @@ import (
 // Spreadsheet represents the entire spreadsheet data structure
 type Spreadsheet struct {
 	Cells        map[int]map[int]*Cell // Row → Column → Cell (0-indexed)
-	Modified     bool                   // True if spreadsheet has unsaved changes
-	FilePath     string                 // Path to the file (empty if new/unsaved)
-	Dependencies *DependencyGraph       // Tracks cell dependencies for efficient recalculation
+	Modified     bool                  // True if spreadsheet has unsaved changes
+	FilePath     string                // Path to the file (empty if new/unsaved)
+	Dependencies *DependencyGraph      // Tracks cell dependencies for efficient recalculation
 }
 
 // NewSpreadsheet creates a new empty spreadsheet
@@ -45,7 +45,7 @@ func (s *Spreadsheet) SetCell(row, col int, value string) {
 	if s.Cells[row] == nil {
 		s.Cells[row] = make(map[int]*Cell)
 	}
-	
+
 	// Get or create cell
 	cell := s.Cells[row][col]
 	if cell == nil {
@@ -54,9 +54,9 @@ func (s *Spreadsheet) SetCell(row, col int, value string) {
 	} else {
 		cell.SetValue(value)
 	}
-	
+
 	s.Modified = true
-	
+
 	// If it's a formula, we'll need to evaluate it
 	// (This will be handled by the formula engine)
 }
@@ -94,7 +94,7 @@ func (s *Spreadsheet) Clear() {
 func (s *Spreadsheet) GetBounds() (maxRow, maxCol int) {
 	maxRow = -1
 	maxCol = -1
-	
+
 	for row, rowMap := range s.Cells {
 		if row > maxRow {
 			maxRow = row
@@ -105,7 +105,7 @@ func (s *Spreadsheet) GetBounds() (maxRow, maxCol int) {
 			}
 		}
 	}
-	
+
 	return maxRow, maxCol
 }
 
@@ -140,12 +140,12 @@ func (s *Spreadsheet) String() string {
 	if maxRow == -1 {
 		return "Empty spreadsheet"
 	}
-	
+
 	result := fmt.Sprintf("Spreadsheet (%d cells, bounds: %s to %s)\n",
 		s.GetCellCount(),
 		CoordsToRef(0, 0),
 		CoordsToRef(maxRow, maxCol))
-	
+
 	// Show first few cells as sample
 	count := 0
 	for row := 0; row <= maxRow && count < 10; row++ {
@@ -158,10 +158,10 @@ func (s *Spreadsheet) String() string {
 			}
 		}
 	}
-	
+
 	if s.GetCellCount() > 10 {
 		result += fmt.Sprintf("  ... and %d more cells\n", s.GetCellCount()-10)
 	}
-	
+
 	return result
 }

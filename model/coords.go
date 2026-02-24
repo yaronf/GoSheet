@@ -21,13 +21,13 @@ func ColLetterToIndex(col string) int {
 func ColIndexToLetter(index int) string {
 	result := ""
 	index++ // Convert to 1-indexed for calculation
-	
+
 	for index > 0 {
 		index-- // Adjust for 0-based modulo
 		result = string(rune('A'+index%26)) + result
 		index /= 26
 	}
-	
+
 	return result
 }
 
@@ -37,34 +37,34 @@ func RefToCoords(ref string) (row, col int, err error) {
 	if len(ref) == 0 {
 		return 0, 0, fmt.Errorf("empty cell reference")
 	}
-	
+
 	// Split into letter and number parts
 	i := 0
 	for i < len(ref) && (ref[i] >= 'A' && ref[i] <= 'Z' || ref[i] >= 'a' && ref[i] <= 'z') {
 		i++
 	}
-	
+
 	if i == 0 || i == len(ref) {
 		return 0, 0, fmt.Errorf("invalid cell reference: %s", ref)
 	}
-	
+
 	colStr := ref[:i]
 	rowStr := ref[i:]
-	
+
 	// Parse row number
 	var rowNum int
 	_, err = fmt.Sscanf(rowStr, "%d", &rowNum)
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid row number in reference: %s", ref)
 	}
-	
+
 	if rowNum < 1 {
 		return 0, 0, fmt.Errorf("row number must be >= 1: %s", ref)
 	}
-	
+
 	col = ColLetterToIndex(colStr)
 	row = rowNum - 1 // Convert to 0-indexed
-	
+
 	return row, col, nil
 }
 

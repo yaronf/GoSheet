@@ -3,7 +3,7 @@
 **Epic:** 10 - Code Quality & Technical Debt  
 **Story:** 10.10  
 **Estimated Effort:** 8-16 hours  
-**Status:** backlog  
+**Status:** ready-for-dev  
 **Created:** 2026-02-24
 
 ---
@@ -29,6 +29,8 @@ So that frontend and backend stay in sync and API contract mismatches are elimin
 - Epic 3 and Epic 4 experienced API contract mismatches (100% failure rate on first test)
 - Response formats and endpoint signatures maintained manually
 
+**Existing endpoints (server/main.go):** `/api/cell/value`, `/api/cell/raw`, `/api/cell/set`, `/api/cell/ref`, `/api/cells/all`, `/api/file/save`, `/api/file/load`, `/api/file/new`, `/api/file/status`, `/api/file/download`, `/api/file/upload`, `/api/csv/preview`, `/api/csv/import`, `/api/csv/export`
+
 **Why This Story:**
 Epic 3 and Epic 4 both experienced API contract mismatches between frontend and backend. Defining contracts in OpenAPI and auto-generating types eliminates this class of bugs and provides compile-time verification.
 
@@ -40,7 +42,7 @@ Epic 3 and Epic 4 both experienced API contract mismatches between frontend and 
 
 1. **OpenAPI schema defined**
    - [ ] OpenAPI 3.x schema documents all existing HTTP endpoints
-   - [ ] Endpoints: `/api/set-cell`, `/api/get-cell`, `/api/get-formula`, `/api/cells`, `/api/status`, `/api/new`, file operations
+   - [ ] Endpoints: `/api/cell/value`, `/api/cell/raw`, `/api/cell/set`, `/api/cell/ref`, `/api/cells/all`, `/api/file/*`, `/api/csv/*`
    - [ ] Request/response schemas defined for each endpoint
    - [ ] Schema lives in `api/openapi.yaml` or `docs/openapi.yaml`
 
@@ -103,6 +105,15 @@ Epic 3 and Epic 4 both experienced API contract mismatches between frontend and 
 - Epic 3: 6 API contract bugs (Wails import map, endpoint mismatches, response format)
 - Epic 4: 4 API contract bugs (frontend not calling new APIs, API signature mismatches)
 
+### Architecture Compliance
+- **API layer**: server/main.go handlers, api/ (response.go, csv.go, spreadsheet.go)
+- **Frontend**: frontend/api-client.js — fetch calls
+- **Vanilla JS**: No TypeScript build — openapi-typescript or generate .d.ts for JSDoc; or keep api-client.js untyped
+
+### File Structure
+- **New**: api/openapi.yaml or docs/openapi.yaml
+- **Modify**: package.json (codegen scripts), Makefile, api-client.js, server handlers
+
 ---
 
 ## References
@@ -131,7 +142,7 @@ Epic 3 and Epic 4 both experienced API contract mismatches between frontend and 
 
 ## Status
 
-**Current Status:** backlog  
+**Current Status:** ready-for-dev  
 **Last Updated:** 2026-02-24
 
 OpenAPI schema and code generation for API contract enforcement.

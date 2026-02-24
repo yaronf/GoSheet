@@ -28,71 +28,71 @@ type CSVPreviewResponse struct {
 // Reads a CSV file from the given path and returns preview data (first 10 rows)
 func HandleCSVPreview(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Parse request
 	var req CSVPreviewRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		json.NewEncoder(w).Encode(CSVPreviewResponse{
+		_ = json.NewEncoder(w).Encode(CSVPreviewResponse{
 			Success: false,
 			Error:   "Invalid request format",
 			Code:    "INVALID_REQUEST",
 		})
 		return
 	}
-	
+
 	if req.Path == "" {
-		json.NewEncoder(w).Encode(CSVPreviewResponse{
+		_ = json.NewEncoder(w).Encode(CSVPreviewResponse{
 			Success: false,
 			Error:   "File path is required",
 			Code:    "INVALID_REQUEST",
 		})
 		return
 	}
-	
+
 	// Read file
 	content, err := os.ReadFile(req.Path)
 	if err != nil {
-		json.NewEncoder(w).Encode(CSVPreviewResponse{
+		_ = json.NewEncoder(w).Encode(CSVPreviewResponse{
 			Success: false,
 			Error:   fmt.Sprintf("Failed to read file: %v", err),
 			Code:    "FILE_READ_ERROR",
 		})
 		return
 	}
-	
+
 	// Check if file is empty
 	if len(content) == 0 {
-		json.NewEncoder(w).Encode(CSVPreviewResponse{
+		_ = json.NewEncoder(w).Encode(CSVPreviewResponse{
 			Success: false,
 			Error:   "CSV file is empty",
 			Code:    "EMPTY_FILE",
 		})
 		return
 	}
-	
+
 	// Parse CSV
 	reader := csv.NewReader(strings.NewReader(string(content)))
 	reader.FieldsPerRecord = -1 // Allow variable number of fields
-	
+
 	records, err := reader.ReadAll()
 	if err != nil {
-		json.NewEncoder(w).Encode(CSVPreviewResponse{
+		_ = json.NewEncoder(w).Encode(CSVPreviewResponse{
 			Success: false,
 			Error:   fmt.Sprintf("Failed to parse CSV: %v", err),
 			Code:    "PARSE_ERROR",
 		})
 		return
 	}
-	
+
 	if len(records) == 0 {
-		json.NewEncoder(w).Encode(CSVPreviewResponse{
+		_ = json.NewEncoder(w).Encode(CSVPreviewResponse{
 			Success: false,
 			Error:   "CSV file contains no data",
 			Code:    "EMPTY_FILE",
 		})
 		return
 	}
-	
+
 	// Determine column count (max columns in any row)
 	maxCols := 0
 	for _, row := range records {
@@ -100,15 +100,15 @@ func HandleCSVPreview(w http.ResponseWriter, r *http.Request) {
 			maxCols = len(row)
 		}
 	}
-	
+
 	// Get preview (first 10 rows)
 	previewRows := records
 	if len(records) > 10 {
 		previewRows = records[:10]
 	}
-	
+
 	// Return preview
-	json.NewEncoder(w).Encode(CSVPreviewResponse{
+	_ = json.NewEncoder(w).Encode(CSVPreviewResponse{
 		Success: true,
 		Rows:    len(records),
 		Cols:    maxCols,
@@ -138,25 +138,25 @@ func ParseCSVFile(path string) ([][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
-	
+
 	// Check if file is empty
 	if len(content) == 0 {
 		return nil, fmt.Errorf("CSV file is empty")
 	}
-	
+
 	// Parse CSV
 	reader := csv.NewReader(strings.NewReader(string(content)))
 	reader.FieldsPerRecord = -1 // Allow variable number of fields
-	
+
 	records, err := reader.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CSV: %v", err)
 	}
-	
+
 	if len(records) == 0 {
 		return nil, fmt.Errorf("CSV file contains no data")
 	}
-	
+
 	return records, nil
 }
 
@@ -179,17 +179,17 @@ type CSVExportResponse struct {
 func GenerateCSV(records [][]string) (string, error) {
 	var buf strings.Builder
 	writer := csv.NewWriter(&buf)
-	
+
 	for _, record := range records {
 		if err := writer.Write(record); err != nil {
 			return "", fmt.Errorf("failed to write CSV record: %v", err)
 		}
 	}
-	
+
 	writer.Flush()
 	if err := writer.Error(); err != nil {
 		return "", fmt.Errorf("failed to flush CSV writer: %v", err)
 	}
-	
+
 	return buf.String(), nil
 }

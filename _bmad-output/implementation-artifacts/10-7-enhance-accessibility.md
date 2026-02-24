@@ -402,6 +402,12 @@ test('Dialog traps focus', async ({ window, electronApp }) => {
 - [Electron Accessibility Documentation](https://www.electronjs.org/docs/latest/tutorial/accessibility)
 - [VoiceOver Testing Guide](https://developer.apple.com/library/archive/technotes/TestingAccessibilityOfiOSApps/TestAccessibilityonYourDevicewithVoiceOver/TestAccessibilityonYourDevicewithVoiceOver.html)
 
+### Architecture Compliance
+- **Frontend**: frontend/app.js (HTML generation, event handlers), frontend/spreadsheet.css, frontend/style.css
+- **Modal**: #modal-overlay — add focus trap, aria attributes
+- **Grid**: .spreadsheet-container, #spreadsheet — add role="grid", aria-rowcount, aria-colcount
+- **Playwright**: playwright_tests/ — add ARIA assertion tests
+
 ---
 
 ## Change Log

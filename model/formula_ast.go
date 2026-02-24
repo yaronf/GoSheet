@@ -41,7 +41,7 @@ type Unary struct {
 type Primary struct {
 	Number   *float64    `parser:"  @Float | @Int"`
 	String   *string     `parser:"| @String"`
-	Range    *Range      `parser:"| @@"`       // Must come before CellRef
+	Range    *Range      `parser:"| @@"` // Must come before CellRef
 	CellRef  *CellRef    `parser:"| @@"`
 	FuncCall *FuncCall   `parser:"| @@"`
 	SubExpr  *Expression `parser:"| LParen @@ RParen"`
@@ -59,15 +59,15 @@ func (c *CellRef) ToCoords() (row, col int) {
 	for i < len(c.Ref) && (c.Ref[i] >= 'A' && c.Ref[i] <= 'Z') {
 		i++
 	}
-	
+
 	colStr := c.Ref[:i]
 	rowStr := c.Ref[i:]
-	
+
 	col = ColLetterToIndex(colStr)
 	var rowNum int
-	fmt.Sscanf(rowStr, "%d", &rowNum)
+	_, _ = fmt.Sscanf(rowStr, "%d", &rowNum)
 	row = rowNum - 1 // Convert to 0-indexed
-	
+
 	return row, col
 }
 
