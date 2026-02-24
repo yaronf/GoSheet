@@ -3,7 +3,7 @@
 **Epic:** 10 - Code Quality & Technical Debt  
 **Story:** 10.7  
 **Estimated Effort:** 3-4 hours  
-**Status:** ready-for-dev  
+**Status:** done  
 **Created:** 2026-02-16
 
 ---
@@ -413,12 +413,13 @@ test('Dialog traps focus', async ({ window, electronApp }) => {
 ## Change Log
 
 - 2026-02-16: Story created to implement accessibility enhancements per UX design specification
+- 2026-02-23: Implemented WCAG AA — app.js (ARIA, live region, focus trap), spreadsheet.css (focus-visible, reduced-motion, contrast), test_accessibility.spec.js
 
 ---
 
 ## Status
 
-**Current Status:** ready-for-dev  
-**Last Updated:** 2026-02-16
+**Current Status:** done  
+**Last Updated:** 2026-02-23
 
-Ultimate context engine analysis completed - comprehensive developer guide created.
+Implemented: semantic HTML (header, main, complementary), ARIA grid/roles, aria-live for file status and cell announcements, focus trap on dialogs, focus-visible indicators, prefers-reduced-motion, prefers-contrast. Playwright accessibility tests added.
