@@ -1,0 +1,597 @@
+openapi: 3.0.3
+info:
+  title: GoSheet API
+  description: HTTP API for GoSheet spreadsheet application
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: /
+    description: Relative to host
+
+security: []  # No auth - local/desktop app
+
+paths:
+  /api/cell/value:
+    get:
+      operationId: getCellValue
+      summary: Get cell computed value
+      parameters:
+        - name: row
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: col
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cell value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CellValueResponse'
+        '400':
+          description: Bad request (invalid or missing row/col)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/cell/raw:
+    get:
+      operationId: getCellRaw
+      summary: Get cell raw value (formula or text)
+      parameters:
+        - name: row
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: col
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cell raw value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CellRawResponse'
+        '400':
+          description: Bad request (invalid or missing row/col)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/cell/set:
+    post:
+      operationId: setCellValue
+      summary: Set cell value
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetCellRequest'
+      responses:
+        '200':
+          description: Cell updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetCellResponse'
+        '400':
+          description: Bad request (invalid body, missing fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error (e.g. circular ref, invalid formula)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/cell/ref:
+    get:
+      operationId: getCellRef
+      summary: Get cell reference (e.g. A1)
+      parameters:
+        - name: row
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: col
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cell reference string
+          content:
+            application/json:
+              schema:
+                type: string
+                example: '"A1"'
+        '400':
+          description: Bad request (invalid or missing row/col)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/cells/all:
+    get:
+      operationId: getAllCells
+      summary: Get all non-empty cells
+      responses:
+        '200':
+          description: Array of cell data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllCellsResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/file/save:
+    post:
+      operationId: saveFile
+      summary: Save spreadsheet to file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathRequest'
+      responses:
+        '200':
+          description: File saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveLoadResponse'
+        '400':
+          description: Bad request (missing path)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error (e.g. file write error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/file/load:
+    post:
+      operationId: loadFile
+      summary: Load spreadsheet from file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathRequest'
+      responses:
+        '200':
+          description: File loaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveLoadResponse'
+        '400':
+          description: Bad request (missing path)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error (e.g. file not found, read error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/file/new:
+    post:
+      operationId: newFile
+      summary: Create new empty spreadsheet
+      responses:
+        '200':
+          description: New file created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/file/status:
+    get:
+      operationId: getFileStatus
+      summary: Get file status
+      responses:
+        '200':
+          description: File status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStatusResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/file/download:
+    get:
+      operationId: downloadFile
+      summary: Download spreadsheet as binary file
+      responses:
+        '200':
+          description: Binary .gosheet file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/file/upload:
+    post:
+      operationId: uploadFile
+      summary: Upload spreadsheet from binary data
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad request (invalid body)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/csv/preview:
+    post:
+      operationId: previewCsv
+      summary: Preview CSV file before import
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathRequest'
+      responses:
+        '200':
+          description: CSV preview data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CSVPreviewResponse'
+        '400':
+          description: Bad request (missing path)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error (e.g. file read error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/csv/import:
+    post:
+      operationId: importCsv
+      summary: Import CSV file into spreadsheet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathRequest'
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CSVImportResponse'
+        '400':
+          description: Bad request (missing path)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error (e.g. parse error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/csv/export:
+    post:
+      operationId: exportCsv
+      summary: Export spreadsheet to CSV file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathRequest'
+      responses:
+        '200':
+          description: Export result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CSVExportResponse'
+        '400':
+          description: Bad request (missing path)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error (e.g. file write error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code (e.g. INVALID_CELL_REF, FILE_NOT_FOUND)
+    ApiResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+        error:
+          type: string
+        code:
+          type: string
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          example: true
+    PathRequest:
+      type: object
+      required: [path]
+      properties:
+        path:
+          type: string
+    SetCellRequest:
+      type: object
+      required: [row, col, value]
+      properties:
+        row:
+          type: integer
+        col:
+          type: integer
+        value:
+          type: string
+    CellValueResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                computed:
+                  type: string
+    CellRawResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                value:
+                  type: string
+    SetCellResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                value:
+                  type: string
+                displayValue:
+                  type: string
+                isFormula:
+                  type: boolean
+                hasUnsavedChanges:
+                  type: boolean
+    CellData:
+      type: object
+      properties:
+        row:
+          type: integer
+        col:
+          type: integer
+        computed:
+          type: string
+        value:
+          type: string
+    AllCellsResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/CellData'
+    SaveLoadResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            path:
+              type: string
+    FileStatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                path:
+                  type: string
+                saved:
+                  type: boolean
+                modified:
+                  type: boolean
+                hasUnsavedChanges:
+                  type: boolean
+                filename:
+                  type: string
+    CSVPreviewResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        rows:
+          type: integer
+        cols:
+          type: integer
+        preview:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+        error:
+          type: string
+        code:
+          type: string
+    CSVImportResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        rows:
+          type: integer
+        cols:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string
+        code:
+          type: string
+    CSVExportResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        rows:
+          type: integer
+        cols:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string
+        code:
+          type: string

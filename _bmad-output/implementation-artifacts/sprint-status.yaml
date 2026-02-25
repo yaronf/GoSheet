@@ -177,7 +177,7 @@ development_status:
   10-7-enhance-accessibility: done
   10-8-implement-proper-logging: done
   10-9-implement-universal-macos-build: done
-  10-10-openapi-schema-and-code-generation: ready-for-dev
+  10-10-openapi-schema-and-code-generation: done
   10-11-add-unit-tests-for-coverage-gaps: ready-for-dev
   epic-10-retrospective: optional
   

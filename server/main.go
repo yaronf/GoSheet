@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"gosheet/api"
+	"gosheet/api/generated"
 	"gosheet/controller"
 	"gosheet/logutil"
 )
@@ -167,12 +168,7 @@ func handleGetCellRawValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSetCellValue(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Row   int    `json:"row"`
-		Col   int    `json:"col"`
-		Value string `json:"value"`
-	}
-
+	var req generated.SetCellRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -249,10 +245,7 @@ func handleGetAllCells(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSaveFile(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Path string `json:"path"`
-	}
-
+	var req generated.PathRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -278,10 +271,7 @@ func handleSaveFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLoadFile(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Path string `json:"path"`
-	}
-
+	var req generated.PathRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -400,7 +390,7 @@ func handleCSVImport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Parse request
-	var req api.CSVImportRequest
+	var req generated.PathRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		_ = json.NewEncoder(w).Encode(api.CSVImportResponse{
 			Success: false,
@@ -466,7 +456,7 @@ func handleCSVExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Parse request
-	var req api.CSVExportRequest
+	var req generated.PathRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("[handleCSVExport] Failed to parse request: %v\n", err)
 		_ = json.NewEncoder(w).Encode(api.CSVExportResponse{

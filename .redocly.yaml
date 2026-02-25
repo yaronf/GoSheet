@@ -1,0 +1,6 @@
+rules:
+  security-defined: off
+  info-license: off
+  no-server-example.com: off
+  operation-operationId: warn
+  operation-4xx-response: warn

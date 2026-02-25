@@ -24,12 +24,18 @@ Thank you for your interest in contributing to GoSheet!
    # or: npm install && go mod download
    ```
 
-3. Build the Go server:
+3. Install oapi-codegen (for API type generation):
+   ```bash
+   go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+   ```
+   Ensure `$(go env GOPATH)/bin` is in your PATH.
+
+4. Build the Go server:
    ```bash
    make build
    ```
 
-4. Run tests to verify setup:
+5. Run tests to verify setup:
    ```bash
    npm run test:all
    ```
@@ -94,6 +100,34 @@ npm run build
 # Output: dist/mac-arm64/GoSheet.app (Apple Silicon), dist/mac/GoSheet.app (Intel), plus .zip and .dmg
 # Verify arch: file dist/mac-arm64/.../gosheet-server → arm64; file dist/mac/.../gosheet-server → x86_64
 ```
+
+## API Contract & OpenAPI
+
+The API contract is defined in `api/openapi.yaml`. Types are generated for the frontend (TypeScript) and backend (Go).
+
+### Viewing API Documentation
+
+```bash
+npm run openapi:preview
+```
+
+Opens Swagger UI in your browser (default: http://127.0.0.1:8000). Auto-reloads when the schema changes.
+
+### Adding New API Endpoints
+
+1. **Edit the schema** — Add the path, parameters, request/response schemas to `api/openapi.yaml`. Use existing endpoints as templates.
+
+2. **Validate** — Run `npm run openapi:lint` to catch schema errors.
+
+3. **Regenerate types:**
+   - Frontend: `npm run openapi:generate` (updates `frontend/api-types.d.ts`)
+   - Go: `make generate` (updates `api/generated/types.go`)
+
+4. **Implement the handler** — In `server/main.go`, add a handler that uses `generated.*` types for request parsing. Register the route in `main()`.
+
+5. **Update the frontend** — In `frontend/api-client.js`, add a function that calls the new endpoint. Use the generated types for IDE support.
+
+6. **Test** — Run `npm run test:all` to verify no regressions.
 
 ## Project Structure
 

@@ -1,6 +1,8 @@
 // GoSheet API Client - Mode-aware (web vs Electron)
 // Web mode: fetch to HTTP API (for Playwright testing)
 // Electron mode: HTTP API for spreadsheet operations + Electron IPC for file dialogs
+// @ts-check
+/// <reference path="./api-types.d.ts" />
 
 // Story 3.5: Detect Electron mode by checking for window.electronAPI
 const isElectronMode =

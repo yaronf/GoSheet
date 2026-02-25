@@ -38,11 +38,16 @@ build-server-x64:
 	@echo "Building Go server for darwin/amd64..."
 	GOOS=darwin GOARCH=amd64 go build -o server/gosheet-server-x64 ./server
 
-build-server-universal: build-server-arm64 build-server-x64
+build-server-universal: generate build-server-arm64 build-server-x64
 	@echo "Universal Go server binaries ready."
 
+# Generate Go types from OpenAPI schema (Story 10.10)
+generate:
+	@echo "Generating Go types from OpenAPI..."
+	oapi-codegen -generate types -package generated -o api/generated/types.go api/openapi.yaml
+
 # Build Electron app (.app bundle)
-build-electron: install build
+build-electron: generate install build
 	@echo "Building Electron app..."
 	npm run build
 

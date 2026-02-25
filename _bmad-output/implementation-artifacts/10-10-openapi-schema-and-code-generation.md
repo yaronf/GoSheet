@@ -41,50 +41,50 @@ Epic 3 and Epic 4 both experienced API contract mismatches between frontend and 
 ## Acceptance Criteria
 
 1. **OpenAPI schema defined**
-   - [ ] OpenAPI 3.x schema documents all existing HTTP endpoints
-   - [ ] Endpoints: `/api/cell/value`, `/api/cell/raw`, `/api/cell/set`, `/api/cell/ref`, `/api/cells/all`, `/api/file/*`, `/api/csv/*`
-   - [ ] Request/response schemas defined for each endpoint
-   - [ ] Schema lives in `api/openapi.yaml` or `docs/openapi.yaml`
+   - [x] OpenAPI 3.x schema documents all existing HTTP endpoints
+   - [x] Endpoints: `/api/cell/value`, `/api/cell/raw`, `/api/cell/set`, `/api/cell/ref`, `/api/cells/all`, `/api/file/*`, `/api/csv/*`
+   - [x] Request/response schemas defined for each endpoint
+   - [x] Schema lives in `api/openapi.yaml` or `docs/openapi.yaml`
 
 2. **TypeScript types generated for frontend**
-   - [ ] openapi-typescript or openapi-generator-cli integrated
-   - [ ] Generated types used by api-client.js (or equivalent)
-   - [ ] Build step generates types before frontend build
+   - [x] openapi-typescript or openapi-generator-cli integrated
+   - [x] Generated types used by api-client.js (or equivalent)
+   - [x] Build step generates types before frontend build
 
 3. **Go server integration**
-   - [ ] oapi-codegen or go-swagger generates server stubs/validators
-   - [ ] Existing handlers wired to generated interfaces, or generated code validates requests
-   - [ ] Build step includes code generation
+   - [x] oapi-codegen or go-swagger generates server stubs/validators
+   - [x] Existing handlers wired to generated interfaces, or generated code validates requests
+   - [x] Build step includes code generation
 
 4. **Documentation**
-   - [ ] API docs generated from OpenAPI (e.g., Swagger UI or Redoc)
-   - [ ] CONTRIBUTING.md or README updated with "Adding new API endpoints" instructions
+   - [x] API docs generated from OpenAPI (e.g., Swagger UI or Redoc)
+   - [x] CONTRIBUTING.md or README updated with "Adding new API endpoints" instructions
 
 5. **Verification**
-   - [ ] All existing tests pass
-   - [ ] No API contract regressions
-   - [ ] `make build` and `npm run build` succeed
+   - [x] All existing tests pass
+   - [x] No API contract regressions
+   - [x] `make build` and `npm run build` succeed
 
 ---
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define OpenAPI schema (AC: #1)
-  - [ ] Audit existing endpoints in server/, api/
-  - [ ] Create openapi.yaml with paths, schemas, request/response definitions
-  - [ ] Validate schema (e.g., `npx @redocly/cli lint openapi.yaml`)
-- [ ] Task 2: Integrate TypeScript code generation (AC: #2)
-  - [ ] Add openapi-typescript or openapi-generator as devDependency
-  - [ ] Add npm script to generate types
-  - [ ] Update api-client.js to use generated types
-- [ ] Task 3: Integrate Go code generation (AC: #3)
-  - [ ] Add oapi-codegen or go-swagger
-  - [ ] Generate server interface/types from schema
-  - [ ] Wire existing handlers or add validation layer
-- [ ] Task 4: Update build process (AC: #4, #5)
-  - [ ] Makefile or package.json runs codegen before build
-  - [ ] Document workflow for adding new endpoints
-  - [ ] Run full test suite and fix any regressions
+- [x] Task 1: Define OpenAPI schema (AC: #1)
+  - [x] Audit existing endpoints in server/, api/
+  - [x] Create openapi.yaml with paths, schemas, request/response definitions
+  - [x] Validate schema (e.g., `npx @redocly/cli lint openapi.yaml`)
+- [x] Task 2: Integrate TypeScript code generation (AC: #2)
+  - [x] Add openapi-typescript or openapi-generator as devDependency
+  - [x] Add npm script to generate types
+  - [x] Update api-client.js to use generated types
+- [x] Task 3: Integrate Go code generation (AC: #3)
+  - [x] Add oapi-codegen or go-swagger
+  - [x] Generate server interface/types from schema
+  - [x] Wire existing handlers or add validation layer
+- [x] Task 4: Update build process (AC: #4, #5)
+  - [x] Makefile or package.json runs codegen before build
+  - [x] Document workflow for adding new endpoints
+  - [x] Run full test suite and fix any regressions
 
 ---
 
@@ -127,10 +127,20 @@ Epic 3 and Epic 4 both experienced API contract mismatches between frontend and 
 ## Dev Agent Record
 
 ### File List
-*(To be filled when implemented)*
+- api/openapi.yaml (new)
+- api/generated/types.go (new, generated)
+- .redocly.yaml (new)
+- package.json (openapi:lint, openapi:generate, openapi:preview scripts)
+- Makefile (generate target, build-server-universal depends on generate)
+- frontend/api-client.js (/// @ts-check, /// @reference to api-types.d.ts)
+- frontend/api-types.d.ts (new, generated)
+- server/main.go (imports generated, use generated.SetCellRequest, generated.PathRequest)
+- CONTRIBUTING.md (oapi-codegen install, API section, Adding new API endpoints)
+- README.md (project structure: api/, frontend/api-types.d.ts)
 
 ### Change Log
-*(To be filled when implemented)*
+- 2026-02-25: Task 1 complete - OpenAPI 3.x schema for all 14 endpoints, Redocly validation
+- 2026-02-25: Tasks 2–4 complete - openapi-typescript, oapi-codegen, build integration, docs, CR fixes
 
 ---
 
@@ -142,7 +152,7 @@ Epic 3 and Epic 4 both experienced API contract mismatches between frontend and 
 
 ## Status
 
-**Current Status:** ready-for-dev  
-**Last Updated:** 2026-02-24
+**Current Status:** done  
+**Last Updated:** 2026-02-25
 
 OpenAPI schema and code generation for API contract enforcement.

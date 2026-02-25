@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "start:verbose": "electron . --verbose",
-    "build": "electron-builder",
+    "build": "npm run openapi:generate && npx electron-builder",
     "test": "NODE_ENV=test playwright test",
     "test:unit": "go test ./tests/...",
     "test:all": "npm run test:unit && npm test",
@@ -18,7 +18,10 @@
     "format": "prettier --write 'frontend/**/*.{js,css}' 'electron/**/*.js' 'playwright_tests/**/*.js'",
     "format:check": "prettier --check 'frontend/**/*.{js,css}' 'electron/**/*.js' 'playwright_tests/**/*.js'",
     "prepare": "husky",
-    "prebuild": "make build-server-universal"
+    "prebuild": "make build-server-universal",
+    "openapi:lint": "npx @redocly/cli lint api/openapi.yaml",
+    "openapi:generate": "npx openapi-typescript api/openapi.yaml -o frontend/api-types.d.ts",
+    "openapi:preview": "npx swagger-ui-watcher api/openapi.yaml"
   },
   "keywords": [
     "spreadsheet",
@@ -38,6 +41,7 @@
     "globals": "^17.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "openapi-typescript": "^7.13.0",
     "playwright": "^1.48.2",
     "prettier": "^3.8.1"
   },

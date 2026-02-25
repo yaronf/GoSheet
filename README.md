@@ -46,12 +46,15 @@ spreadsheet/
 ├── .github/              # GitHub Actions workflows
 │   └── workflows/
 │       └── test.yml
-├── api/                  # REST API handlers (Go)
+├── api/                  # OpenAPI schema and generated Go types
+│   ├── openapi.yaml      # API contract (single source of truth)
+│   └── generated/        # Go types from oapi-codegen (make generate)
 ├── assets/               # App icons and resources
 ├── controller/           # Application logic
 ├── docs/                 # User documentation (USER_GUIDE.md)
 ├── electron/             # Electron main process
 ├── frontend/             # Web UI (HTML/CSS/JS)
+│   └── api-types.d.ts    # TypeScript types from OpenAPI (npm run openapi:generate)
 ├── model/                # Core data model
 ├── playwright_tests/     # Playwright Electron UI tests
 ├── server/               # Go HTTP backend
