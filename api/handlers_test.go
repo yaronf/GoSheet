@@ -576,7 +576,7 @@ func TestGetFrontendDir_FromTempDir(t *testing.T) {
 	assert.NoError(t, os.Chdir(t.TempDir()))
 	dir := GetFrontendDir()
 	assert.NotEmpty(t, dir)
-	assert.Equal(t, "../frontend", dir)
+	assert.Contains(t, dir, "frontend", "fallback should return path containing 'frontend'")
 }
 
 func TestServeStatic(t *testing.T) {

@@ -19,31 +19,20 @@
 
 ## Current Baseline
 
-**Command:** `make coverage`
+**Command:** `make coverage`  
+**Updated:** 2026-02-25 (Story 10.11 CR fixes; commit 68ffc71)
 
 ### Summary
 
 | Package | Coverage | Status |
 |---------|----------|--------|
-| model/ | 13.7% | Below target |
-| controller/ | 0% | Not covered by unit tests (tests/ imports model only) |
-| api/ | 0% | Not covered by unit tests |
+| model/ + controller/ + api/ | **90.5%** | ✓ Target met (80%) |
 
 ### Notes
 
-- **JS/Playwright coverage deferred:** Playwright tests are integration/E2E; coverage would need V8 or Istanbul instrumentation. Skipped for Story 10.4. Frontend (app.js, api-client.js) exercised by Playwright; app.js simplification planned (Story 10.5).
-- **tests/** package tests **model** only — controller and api are exercised via server HTTP handlers (integration)
-- Playwright tests provide integration coverage for full stack
-- To increase model coverage: add unit tests for low-coverage functions (LoadFromBytes, SaveToBytes, RecalculateAll, String, extractCellReferencesRegex, value, toNumber)
-- controller/ and api/ would need dedicated unit tests or integration tests with coverage instrumentation
-
-### Gaps (model, <80%)
-
-- model/file.go: LoadFromBytes, SaveToBytes (0%)
-- model/spreadsheet.go: RecalculateAll, String (0%)
-- model/dependencies.go: extractCellReferencesRegex (0%)
-- model/formula.go: value variants, toNumber (0–22%)
-- Various formula helpers: 50–75%
+- **Makefile fix:** The previous `-coverpkg=./model,...,./controller,...,./api,...` pattern incorrectly included transitive deps (bufio, encoding, etc.), inflating the denominator and showing ~15%. Fixed to `-coverpkg=./model,./controller,./api` — now `make coverage` correctly reports per-file coverage with deduplication for merged profiles.
+- **Story 10.11:** All three packages reach 80% target.
+- **JS/Playwright coverage deferred:** Playwright tests are integration/E2E; coverage would need V8 or Istanbul instrumentation. Skipped for Story 10.4.
 
 ---
 
