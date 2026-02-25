@@ -100,6 +100,11 @@ test.describe('Quit Warning Dialog', () => {
     const cell = window.locator('#cell-0-0');
     await editCell(window, cell, 'test');
 
+    // Wait for status to update before checking variable (avoids race with API response)
+    await expect(window.locator('#file-status')).toContainText('Unsaved', {
+      timeout: 3000,
+    });
+
     // Should now have unsaved changes
     hasUnsavedChanges = await window.evaluate(
       () => window.currentHasUnsavedChanges

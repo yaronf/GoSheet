@@ -1,9 +1,7 @@
-package tests
+package model
 
 import (
 	"testing"
-
-	"gosheet/model"
 )
 
 func TestNormalizeFormula(t *testing.T) {
@@ -51,7 +49,7 @@ func TestNormalizeFormula(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := model.NormalizeFormula(tt.input)
+			result, err := NormalizeFormula(tt.input)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -93,7 +91,7 @@ func TestCellNormalizesFormulas(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cell := model.NewCell(tt.input)
+			cell := NewCell(tt.input)
 
 			if cell.Value != tt.expected {
 				t.Errorf("Expected cell.Value %q, got %q", tt.expected, cell.Value)
@@ -103,7 +101,7 @@ func TestCellNormalizesFormulas(t *testing.T) {
 }
 
 func TestSpreadsheetNormalizesFormulas(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	// Set a formula with lowercase and spaces
 	sheet.SetCell(0, 0, "= a1 + b2 ")

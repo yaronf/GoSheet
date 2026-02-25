@@ -1,14 +1,13 @@
-package tests
+package model
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gosheet/model"
 )
 
 func TestNewSpreadsheet(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 	assert.NotNil(t, sheet)
 	assert.NotNil(t, sheet.Cells)
 	assert.False(t, sheet.Modified)
@@ -17,7 +16,7 @@ func TestNewSpreadsheet(t *testing.T) {
 }
 
 func TestSetAndGetCell(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	// Set a cell
 	sheet.SetCell(0, 0, "Hello")
@@ -32,7 +31,7 @@ func TestSetAndGetCell(t *testing.T) {
 }
 
 func TestSetAndGetCellByRef(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	// Set a cell by reference
 	err := sheet.SetCellByRef("A1", "World")
@@ -46,7 +45,7 @@ func TestSetAndGetCellByRef(t *testing.T) {
 }
 
 func TestSetCellFormula(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	// Set a formula
 	sheet.SetCell(0, 0, "=A2+A3")
@@ -58,7 +57,7 @@ func TestSetCellFormula(t *testing.T) {
 }
 
 func TestDeleteCell(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	// Set and then delete a cell
 	sheet.SetCell(0, 0, "Test")
@@ -70,7 +69,7 @@ func TestDeleteCell(t *testing.T) {
 }
 
 func TestClear(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	// Add some cells
 	sheet.SetCell(0, 0, "A")
@@ -85,7 +84,7 @@ func TestClear(t *testing.T) {
 }
 
 func TestGetBounds(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	// Empty spreadsheet
 	maxRow, maxCol := sheet.GetBounds()
@@ -103,7 +102,7 @@ func TestGetBounds(t *testing.T) {
 }
 
 func TestGetCellCount(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	assert.Equal(t, 0, sheet.GetCellCount())
 
@@ -119,7 +118,7 @@ func TestGetCellCount(t *testing.T) {
 }
 
 func TestSparseStorage(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	// Set cells far apart - should not allocate intermediate cells
 	sheet.SetCell(0, 0, "A1")
@@ -132,7 +131,7 @@ func TestSparseStorage(t *testing.T) {
 }
 
 func TestModifiedFlag(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 	assert.False(t, sheet.Modified)
 
 	sheet.SetCell(0, 0, "Test")
@@ -145,4 +144,55 @@ func TestModifiedFlag(t *testing.T) {
 	sheet.Modified = false
 	sheet.Clear()
 	assert.True(t, sheet.Modified)
+}
+
+func TestRecalculateAll(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "=1+1")
+	sheet.SetCell(1, 0, "=A1*2")
+
+	err := sheet.RecalculateAll()
+	assert.NoError(t, err)
+
+	// RecalculateAll marks formulas as #PENDING (placeholder impl)
+	cell := sheet.GetCell(0, 0)
+	assert.NotNil(t, cell)
+	assert.True(t, cell.IsFormula)
+	assert.Equal(t, "#PENDING", cell.Computed)
+}
+
+func TestSpreadsheetString(t *testing.T) {
+	sheet := NewSpreadsheet()
+
+	// Empty spreadsheet
+	s := sheet.String()
+	assert.Contains(t, s, "Empty spreadsheet")
+
+	// With data
+	sheet.SetCell(0, 0, "A1")
+	sheet.SetCell(1, 1, "B2")
+	s = sheet.String()
+	assert.Contains(t, s, "2 cells")
+	assert.Contains(t, s, "A1")
+}
+
+func TestGetCellByRef_InvalidRef(t *testing.T) {
+	sheet := NewSpreadsheet()
+	_, err := sheet.GetCellByRef("")
+	assert.Error(t, err)
+
+	_, err = sheet.GetCellByRef("A0")
+	assert.Error(t, err)
+
+	_, err = sheet.GetCellByRef("invalid")
+	assert.Error(t, err)
+}
+
+func TestSetCellByRef_InvalidRef(t *testing.T) {
+	sheet := NewSpreadsheet()
+	err := sheet.SetCellByRef("A0", "x")
+	assert.Error(t, err)
+
+	err = sheet.SetCellByRef("", "x")
+	assert.Error(t, err)
 }

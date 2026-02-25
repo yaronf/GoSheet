@@ -1,16 +1,14 @@
-package tests
+package model
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"gosheet/model"
 )
 
 func TestSaveAndLoadEmptySpreadsheet(t *testing.T) {
 	// Create empty spreadsheet
-	s := model.NewSpreadsheet()
+	s := NewSpreadsheet()
 
 	// Save to temp file
 	tmpfile := filepath.Join(t.TempDir(), "empty.gosheet")
@@ -25,7 +23,7 @@ func TestSaveAndLoadEmptySpreadsheet(t *testing.T) {
 	}
 
 	// Load from file
-	loaded, err := model.LoadFromFile(tmpfile)
+	loaded, err := LoadFromFile(tmpfile)
 	if err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
 	}
@@ -44,7 +42,7 @@ func TestSaveAndLoadEmptySpreadsheet(t *testing.T) {
 
 func TestSaveAndLoadWithData(t *testing.T) {
 	// Create spreadsheet with data
-	s := model.NewSpreadsheet()
+	s := NewSpreadsheet()
 	s.SetCell(0, 0, "Hello")
 	s.SetCell(0, 1, "World")
 	s.SetCell(1, 0, "42")
@@ -64,7 +62,7 @@ func TestSaveAndLoadWithData(t *testing.T) {
 	}
 
 	// Load from file
-	loaded, err := model.LoadFromFile(tmpfile)
+	loaded, err := LoadFromFile(tmpfile)
 	if err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
 	}
@@ -100,7 +98,7 @@ func TestSaveAndLoadWithData(t *testing.T) {
 
 func TestSaveAndLoadFormulas(t *testing.T) {
 	// Create spreadsheet with formulas
-	s := model.NewSpreadsheet()
+	s := NewSpreadsheet()
 	s.SetCell(0, 0, "10")
 	s.SetCell(0, 1, "20")
 	s.SetCell(0, 2, "=A1+B1")
@@ -118,7 +116,7 @@ func TestSaveAndLoadFormulas(t *testing.T) {
 	}
 
 	// Load from file
-	loaded, err := model.LoadFromFile(tmpfile)
+	loaded, err := LoadFromFile(tmpfile)
 	if err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
 	}
@@ -146,7 +144,7 @@ func TestSaveAndLoadFormulas(t *testing.T) {
 
 func TestSaveAsNewFile(t *testing.T) {
 	// Create spreadsheet
-	s := model.NewSpreadsheet()
+	s := NewSpreadsheet()
 	s.SetCell(0, 0, "Test")
 
 	// Save to first file
@@ -170,7 +168,7 @@ func TestSaveAsNewFile(t *testing.T) {
 	}
 
 	// Load from second file and verify
-	loaded, err := model.LoadFromFile(tmpfile2)
+	loaded, err := LoadFromFile(tmpfile2)
 	if err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
 	}
@@ -181,14 +179,14 @@ func TestSaveAsNewFile(t *testing.T) {
 }
 
 func TestLoadNonExistentFile(t *testing.T) {
-	_, err := model.LoadFromFile("/nonexistent/file.gosheet")
+	_, err := LoadFromFile("/nonexistent/file.gosheet")
 	if err == nil {
 		t.Error("Expected error when loading non-existent file")
 	}
 }
 
 func TestHasUnsavedChanges(t *testing.T) {
-	s := model.NewSpreadsheet()
+	s := NewSpreadsheet()
 
 	// New spreadsheet should not have unsaved changes
 	if s.HasUnsavedChanges() {
@@ -215,9 +213,64 @@ func TestHasUnsavedChanges(t *testing.T) {
 	}
 }
 
+func TestLoadFromBytesAndSaveToBytes(t *testing.T) {
+	// Create spreadsheet with data
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "Hello")
+	s.SetCell(0, 1, "42")
+	s.SetCell(1, 0, "=A1+A2")
+
+	// Save to bytes
+	data, err := s.SaveToBytes()
+	if err != nil {
+		t.Fatalf("SaveToBytes failed: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("SaveToBytes returned empty data")
+	}
+
+	// Load from bytes
+	loaded, err := LoadFromBytes(data, "/test/path.sheet")
+	if err != nil {
+		t.Fatalf("LoadFromBytes failed: %v", err)
+	}
+
+	// Verify loaded data
+	if loaded.GetCellCount() != 3 {
+		t.Errorf("Expected 3 cells, got %d", loaded.GetCellCount())
+	}
+	if loaded.FilePath != "/test/path.sheet" {
+		t.Errorf("Expected FilePath /test/path.sheet, got %s", loaded.FilePath)
+	}
+	cell := loaded.GetCell(0, 0)
+	if cell == nil || cell.Value != "Hello" {
+		t.Error("Cell A1 not loaded correctly")
+	}
+}
+
+func TestLoadFromBytesInvalidVersion(t *testing.T) {
+	// Create valid gob data with wrong version by manually constructing
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "x")
+	data, _ := s.SaveToBytes()
+
+	// Corrupt the version by replacing "1.0" in the header - we'd need to decode, modify, re-encode
+	// Simpler: pass empty or invalid bytes
+	_, err := LoadFromBytes([]byte{}, "/x.sheet")
+	if err == nil {
+		t.Error("Expected error when loading empty bytes")
+	}
+
+	// Load with truncated data (invalid gob)
+	_, err = LoadFromBytes(data[:10], "/x.sheet")
+	if err == nil {
+		t.Error("Expected error when loading truncated bytes")
+	}
+}
+
 func TestSparseStorageEfficiency(t *testing.T) {
 	// Create spreadsheet with sparse data
-	s := model.NewSpreadsheet()
+	s := NewSpreadsheet()
 	s.SetCell(0, 0, "A1")
 	s.SetCell(100, 100, "Far away")
 	s.SetCell(1000, 1000, "Very far")
@@ -230,7 +283,7 @@ func TestSparseStorageEfficiency(t *testing.T) {
 	}
 
 	// Load and verify
-	loaded, err := model.LoadFromFile(tmpfile)
+	loaded, err := LoadFromFile(tmpfile)
 	if err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
 	}

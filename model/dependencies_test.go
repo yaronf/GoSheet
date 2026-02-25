@@ -1,9 +1,7 @@
-package tests
+package model
 
 import (
 	"testing"
-
-	"gosheet/model"
 )
 
 func TestDependencyGraph_ExtractCellReferences(t *testing.T) {
@@ -46,7 +44,7 @@ func TestDependencyGraph_ExtractCellReferences(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			refs := model.ExtractCellReferences(tt.formula)
+			refs := ExtractCellReferences(tt.formula)
 
 			if len(refs) != len(tt.expected) {
 				t.Errorf("Expected %d references, got %d: %v", len(tt.expected), len(refs), refs)
@@ -105,11 +103,29 @@ func TestDependencyGraph_ExpandRange(t *testing.T) {
 			expected: nil,
 			wantErr:  true,
 		},
+		{
+			name:     "Invalid start reference",
+			rangeRef: "A0:B1",
+			expected: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "Invalid end reference",
+			rangeRef: "A1:invalid",
+			expected: nil,
+			wantErr:  true,
+		},
+		{
+			name:     "Invalid range - single part",
+			rangeRef: "A1:B1:C1",
+			expected: nil,
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cells, err := model.ExpandRange(tt.rangeRef)
+			cells, err := ExpandRange(tt.rangeRef)
 
 			if tt.wantErr {
 				if err == nil {
@@ -144,7 +160,7 @@ func TestDependencyGraph_ExpandRange(t *testing.T) {
 }
 
 func TestDependencyGraph_Basic(t *testing.T) {
-	dg := model.NewDependencyGraph()
+	dg := NewDependencyGraph()
 
 	// Add dependency: B1 depends on A1
 	dg.AddDependency("B1", "A1")
@@ -163,7 +179,7 @@ func TestDependencyGraph_Basic(t *testing.T) {
 }
 
 func TestDependencyGraph_Multiple(t *testing.T) {
-	dg := model.NewDependencyGraph()
+	dg := NewDependencyGraph()
 
 	// Create chain: C1 depends on B1, B1 depends on A1
 	dg.AddDependency("B1", "A1")
@@ -183,7 +199,7 @@ func TestDependencyGraph_Multiple(t *testing.T) {
 }
 
 func TestDependencyGraph_RemoveDependencies(t *testing.T) {
-	dg := model.NewDependencyGraph()
+	dg := NewDependencyGraph()
 
 	// Add dependencies
 	dg.AddDependency("B1", "A1")
@@ -206,7 +222,7 @@ func TestDependencyGraph_RemoveDependencies(t *testing.T) {
 }
 
 func TestDependencyGraph_CircularReferenceDetection(t *testing.T) {
-	dg := model.NewDependencyGraph()
+	dg := NewDependencyGraph()
 
 	// Create: B1 depends on A1
 	dg.AddDependency("B1", "A1")
@@ -239,7 +255,7 @@ func TestDependencyGraph_CircularReferenceDetection(t *testing.T) {
 }
 
 func TestDependencyGraph_CircularReferenceLongerChain(t *testing.T) {
-	dg := model.NewDependencyGraph()
+	dg := NewDependencyGraph()
 
 	// Create chain: C1 → B1 → A1
 	dg.AddDependency("B1", "A1")
@@ -256,7 +272,7 @@ func TestDependencyGraph_CircularReferenceLongerChain(t *testing.T) {
 }
 
 func TestDependencyGraph_NoCircularReferenceWhenNoCycle(t *testing.T) {
-	dg := model.NewDependencyGraph()
+	dg := NewDependencyGraph()
 
 	// Create: B1 depends on A1, C1 depends on A1 (no cycle)
 	dg.AddDependency("B1", "A1")
@@ -271,7 +287,7 @@ func TestDependencyGraph_NoCircularReferenceWhenNoCycle(t *testing.T) {
 }
 
 func TestDependencyGraph_CalculationOrder(t *testing.T) {
-	dg := model.NewDependencyGraph()
+	dg := NewDependencyGraph()
 
 	// Create dependencies: C1 → B1 → A1
 	// When A1 changes, we should calculate B1 then C1
@@ -309,7 +325,7 @@ func TestDependencyGraph_CalculationOrder(t *testing.T) {
 }
 
 func TestDependencyGraph_CalculationOrderMultipleBranches(t *testing.T) {
-	dg := model.NewDependencyGraph()
+	dg := NewDependencyGraph()
 
 	// Create diamond dependency:
 	//     A1
@@ -344,7 +360,7 @@ func TestDependencyGraph_CalculationOrderMultipleBranches(t *testing.T) {
 }
 
 func TestDependencyGraph_CalculationOrderWithCircularReference(t *testing.T) {
-	dg := model.NewDependencyGraph()
+	dg := NewDependencyGraph()
 
 	// Create circular dependency: B1 → A1 → B1
 	dg.AddDependency("B1", "A1")
@@ -360,8 +376,25 @@ func TestDependencyGraph_CalculationOrderWithCircularReference(t *testing.T) {
 	}
 }
 
+// TestExtractCellReferences_RegexFallback tests that malformed formulas still extract refs via regex fallback
+func TestExtractCellReferences_RegexFallback(t *testing.T) {
+	// Formula that may fail AST parse but has cell refs - triggers regex fallback
+	refs := ExtractCellReferences("=A1+B2+")
+	// Regex fallback should still find A1 and B2
+	if len(refs) < 2 {
+		t.Errorf("Expected at least 2 refs from regex fallback, got %v", refs)
+	}
+	refMap := make(map[string]bool)
+	for _, r := range refs {
+		refMap[r] = true
+	}
+	if !refMap["A1"] || !refMap["B2"] {
+		t.Errorf("Expected A1 and B2 in refs, got %v", refs)
+	}
+}
+
 func TestDependencyGraph_IntegrationWithSpreadsheet(t *testing.T) {
-	sheet := model.NewSpreadsheet()
+	sheet := NewSpreadsheet()
 
 	// Verify dependency graph is initialized
 	if sheet.Dependencies == nil {

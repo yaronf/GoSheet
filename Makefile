@@ -11,10 +11,10 @@ install:
 # Fast feedback: unit + Electron tests (run during development)
 test: test-unit test-electron
 
-# Go unit tests
+# Go unit tests (co-located with packages)
 test-unit:
 	@echo "Running Go unit tests..."
-	go test ./tests/... -v
+	go test ./model/... ./controller/... ./api/... -v
 
 # Playwright Electron tests
 test-electron:
@@ -66,10 +66,10 @@ lint:
 	@echo "Running golangci-lint..."
 	go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run ./...
 
-# Go test coverage (model package via tests)
+# Go test coverage (co-located with packages)
 coverage:
 	@echo "Running Go coverage..."
-	@go test -coverprofile=coverage.out -coverpkg=./model,...,./controller,...,./api,... ./tests/... 2>/dev/null || true
+	@go test -coverprofile=coverage.out -coverpkg=./model,./controller,./api ./model/... ./controller/... ./api/... 2>/dev/null || true
 	@echo ""
 	@echo "Coverage summary (gosheet packages):"
 	@go tool cover -func=coverage.out 2>/dev/null | grep -E "^gosheet/|^total:" || true

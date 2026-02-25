@@ -1,10 +1,9 @@
-package tests
+package model
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gosheet/model"
 )
 
 func TestColLetterToIndex(t *testing.T) {
@@ -25,7 +24,7 @@ func TestColLetterToIndex(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.letter, func(t *testing.T) {
-			result := model.ColLetterToIndex(tt.letter)
+			result := ColLetterToIndex(tt.letter)
 			assert.Equal(t, tt.index, result, "ColLetterToIndex(%s) should be %d", tt.letter, tt.index)
 		})
 	}
@@ -49,7 +48,7 @@ func TestColIndexToLetter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.letter, func(t *testing.T) {
-			result := model.ColIndexToLetter(tt.index)
+			result := ColIndexToLetter(tt.index)
 			assert.Equal(t, tt.letter, result, "ColIndexToLetter(%d) should be %s", tt.index, tt.letter)
 		})
 	}
@@ -76,7 +75,7 @@ func TestRefToCoords(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.ref, func(t *testing.T) {
-			row, col, err := model.RefToCoords(tt.ref)
+			row, col, err := RefToCoords(tt.ref)
 			if tt.err {
 				assert.Error(t, err, "RefToCoords(%s) should return error", tt.ref)
 			} else {
@@ -103,7 +102,7 @@ func TestCoordsToRef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.ref, func(t *testing.T) {
-			result := model.CoordsToRef(tt.row, tt.col)
+			result := CoordsToRef(tt.row, tt.col)
 			assert.Equal(t, tt.ref, result, "CoordsToRef(%d, %d) should be %s", tt.row, tt.col, tt.ref)
 		})
 	}
@@ -115,10 +114,10 @@ func TestRoundTrip(t *testing.T) {
 
 	for _, ref := range tests {
 		t.Run(ref, func(t *testing.T) {
-			row, col, err := model.RefToCoords(ref)
+			row, col, err := RefToCoords(ref)
 			assert.NoError(t, err)
 
-			result := model.CoordsToRef(row, col)
+			result := CoordsToRef(row, col)
 			assert.Equal(t, ref, result, "Round trip for %s failed", ref)
 		})
 	}
