@@ -40,6 +40,16 @@ func TestDependencyGraph_ExtractCellReferences(t *testing.T) {
 			formula:  "=5+3",
 			expected: []string{},
 		},
+		{
+			name:     "Unary minus",
+			formula:  "=-A1+B2",
+			expected: []string{"A1", "B2"},
+		},
+		{
+			name:     "Comparison",
+			formula:  "=A1>B2",
+			expected: []string{"A1", "B2"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -373,6 +383,14 @@ func TestDependencyGraph_CalculationOrderWithCircularReference(t *testing.T) {
 
 	if err != nil {
 		t.Logf("Got expected error: %v", err)
+	}
+}
+
+// TestExtractCellReferences_EmptyFormula tests formula that may produce minimal AST
+func TestExtractCellReferences_EmptyFormula(t *testing.T) {
+	refs := ExtractCellReferences("=1")
+	if len(refs) != 0 {
+		t.Errorf("Expected no refs for =1, got %v", refs)
 	}
 }
 

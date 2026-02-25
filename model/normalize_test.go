@@ -45,6 +45,11 @@ func TestNormalizeFormula(t *testing.T) {
 			input:    "=A1+B2",
 			expected: "=A1+B2",
 		},
+		{
+			name:     "Chained comparison",
+			input:    "=a1>b2",
+			expected: "=A1>B2",
+		},
 	}
 
 	for _, tt := range tests {

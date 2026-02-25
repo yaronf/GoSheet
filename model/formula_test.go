@@ -476,6 +476,15 @@ func TestFormulaParseError(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse")
 }
 
+// TestFormulaEvalError exercises the eval error path (err propagation from toNumber in unary)
+func TestFormulaEvalError(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// =--A1 with empty A1: inner -A1 returns ErrorValue, toNumber fails, err propagates
+	_, err := EvaluateFormula("=--A1", sheet)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "eval")
+}
+
 func TestFormulaDivisionByZero(t *testing.T) {
 	sheet := NewSpreadsheet()
 	result, err := EvaluateFormula("=10/0", sheet)
@@ -544,6 +553,28 @@ func TestFormulaAVGNoNumericValues(t *testing.T) {
 	assert.Contains(t, result, "at least one numeric")
 }
 
+func TestFormulaRightEdgeCases(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "hi")
+	sheet.GetCell(0, 0).SetComputed("hi")
+	// length < 0 -> clamped to 0
+	result, err := EvaluateFormula("=RIGHT(\"hi\",-1)", sheet)
+	assert.NoError(t, err)
+	assert.Equal(t, "", result)
+	// length > len(str) -> clamped to len(str)
+	result, err = EvaluateFormula("=RIGHT(\"hi\",10)", sheet)
+	assert.NoError(t, err)
+	assert.Equal(t, "hi", result)
+}
+
+func TestFormulaMidEdgeCases(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// startIdx >= len(str) -> return ""
+	result, err := EvaluateFormula("=MID(\"hi\",5,2)", sheet)
+	assert.NoError(t, err)
+	assert.Equal(t, "", result)
+}
+
 func TestFormulaFunctionArgErrors(t *testing.T) {
 	sheet := NewSpreadsheet()
 
@@ -603,4 +634,36 @@ func TestFormulaInvalidPrimary(t *testing.T) {
 	} else {
 		assert.Contains(t, result, "#ERROR")
 	}
+}
+
+// TestFormulaToNumberVectorValue exercises toNumber default case (VectorValue cannot convert)
+func TestFormulaToNumberVectorValue(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "1")
+	sheet.SetCell(0, 1, "2")
+	sheet.GetCell(0, 0).SetComputed("1")
+	sheet.GetCell(0, 1).SetComputed("2")
+	// Bare range A1:B1 in arithmetic hits toNumber default
+	result, err := EvaluateFormula("=A1:B1+1", sheet)
+	assert.NoError(t, err)
+	assert.Contains(t, result, "#ERROR")
+	assert.Contains(t, result, "cannot convert")
+}
+
+// TestFormulaValueToStrDefault exercises valueToStr default (ErrorValue -> "")
+func TestFormulaValueToStrDefault(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// A1 empty (ErrorValue), B1 has "x"
+	sheet.SetCell(0, 1, "x")
+	sheet.GetCell(0, 1).SetComputed("x")
+	// CONCAT(A1:B1) gets VectorValue with ErrorValue for A1, StringValue for B1
+	result, err := EvaluateFormula("=CONCAT(A1:B1)", sheet)
+	assert.NoError(t, err)
+	assert.Equal(t, "x", result) // valueToStr(ErrorValue) -> "" so "" + "x"
+}
+
+// TestFormulaNormalizeError exercises NormalizeFormula with invalid formula
+func TestFormulaNormalizeError(t *testing.T) {
+	_, err := NormalizeFormula("=1+")
+	assert.Error(t, err)
 }

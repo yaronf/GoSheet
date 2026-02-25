@@ -1,8 +1,11 @@
 package model
 
 import (
+	"bytes"
+	"encoding/gob"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -185,6 +188,78 @@ func TestLoadNonExistentFile(t *testing.T) {
 	}
 }
 
+func TestSaveToFile_UnwritablePath(t *testing.T) {
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "x")
+	err := s.SaveToFile("/nonexistent/parent/dir/file.gosheet")
+	if err == nil {
+		t.Error("Expected error when saving to path with non-existent parent")
+	}
+}
+
+func TestSaveToFile_InvalidPath(t *testing.T) {
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "x")
+	// Saving to directory path fails (e.g. "/" on Unix)
+	err := s.SaveToFile("/")
+	if err == nil {
+		t.Error("Expected error when saving to invalid path")
+	}
+}
+
+func TestLoadFromFile_InvalidGob(t *testing.T) {
+	tmpfile := filepath.Join(t.TempDir(), "badgob.gosheet")
+	if err := os.WriteFile(tmpfile, []byte("not valid gob content"), 0644); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+	_, err := LoadFromFile(tmpfile)
+	if err == nil {
+		t.Error("Expected error when loading invalid gob file")
+	}
+}
+
+func TestLoadFromFile_InvalidCellsGob(t *testing.T) {
+	// Valid header but invalid cells structure (wrong type encoded)
+	tmpfile := filepath.Join(t.TempDir(), "badcells.gosheet")
+	f, err := os.Create(tmpfile)
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	enc := gob.NewEncoder(f)
+	enc.Encode(FileHeader{Version: "1.0", CellCount: 0})
+	enc.Encode("not a map") // Wrong type - should be map[int]map[int]*Cell
+	f.Close()
+
+	_, err = LoadFromFile(tmpfile)
+	if err == nil {
+		t.Error("Expected error when loading file with invalid cells structure")
+	}
+}
+
+func TestLoadFromFile_InvalidVersion(t *testing.T) {
+	tmpfile := filepath.Join(t.TempDir(), "badversion.gosheet")
+	f, err := os.Create(tmpfile)
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	enc := gob.NewEncoder(f)
+	if err := enc.Encode(FileHeader{Version: "2.0", CellCount: 0}); err != nil {
+		t.Fatalf("Encode header failed: %v", err)
+	}
+	if err := enc.Encode(map[int]map[int]*Cell{}); err != nil {
+		t.Fatalf("Encode cells failed: %v", err)
+	}
+	f.Close()
+
+	_, err = LoadFromFile(tmpfile)
+	if err == nil {
+		t.Error("Expected error when loading file with unsupported version")
+	}
+	if err != nil && !strings.Contains(err.Error(), "unsupported") {
+		t.Errorf("Expected 'unsupported' in error, got: %v", err)
+	}
+}
+
 func TestHasUnsavedChanges(t *testing.T) {
 	s := NewSpreadsheet()
 
@@ -254,17 +329,29 @@ func TestLoadFromBytesInvalidVersion(t *testing.T) {
 	s.SetCell(0, 0, "x")
 	data, _ := s.SaveToBytes()
 
-	// Corrupt the version by replacing "1.0" in the header - we'd need to decode, modify, re-encode
-	// Simpler: pass empty or invalid bytes
+	// Empty bytes
 	_, err := LoadFromBytes([]byte{}, "/x.sheet")
 	if err == nil {
 		t.Error("Expected error when loading empty bytes")
 	}
 
-	// Load with truncated data (invalid gob)
+	// Truncated data (invalid gob)
 	_, err = LoadFromBytes(data[:10], "/x.sheet")
 	if err == nil {
 		t.Error("Expected error when loading truncated bytes")
+	}
+
+	// Valid gob structure but wrong version
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	enc.Encode(FileHeader{Version: "2.0", CellCount: 0})
+	enc.Encode(map[int]map[int]*Cell{})
+	_, err = LoadFromBytes(buf.Bytes(), "/x.sheet")
+	if err == nil {
+		t.Error("Expected error when loading bytes with unsupported version")
+	}
+	if err != nil && !strings.Contains(err.Error(), "unsupported") {
+		t.Errorf("Expected 'unsupported' in error, got: %v", err)
 	}
 }
 

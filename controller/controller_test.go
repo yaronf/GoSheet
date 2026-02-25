@@ -161,6 +161,12 @@ func TestControllerLoadFromBytes(t *testing.T) {
 	assert.Equal(t, "/test/loaded.sheet", ctrl.GetFilePath())
 }
 
+func TestControllerLoadFromBytes_InvalidData(t *testing.T) {
+	ctrl := NewAppController()
+	err := ctrl.LoadFromBytes([]byte("not valid gob"), "/x.sheet")
+	assert.Error(t, err)
+}
+
 func TestControllerLoadFromBytes_FormulasRecalculated(t *testing.T) {
 	// Load spreadsheet with formulas; loadSheet rebuilds deps and recalculates
 	s := model.NewSpreadsheet()
