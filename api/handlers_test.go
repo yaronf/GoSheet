@@ -568,6 +568,17 @@ func TestGetFrontendDir(t *testing.T) {
 	assert.Contains(t, []string{"frontend", "../frontend", "Resources/frontend", "../Resources/frontend"}, dir)
 }
 
+func TestGetFrontendDir_FromTempDir(t *testing.T) {
+	// Run from temp dir without frontend - should hit fallback
+	orig, err := os.Getwd()
+	assert.NoError(t, err)
+	defer os.Chdir(orig)
+	assert.NoError(t, os.Chdir(t.TempDir()))
+	dir := GetFrontendDir()
+	assert.NotEmpty(t, dir)
+	assert.Equal(t, "../frontend", dir)
+}
+
 func TestServeStatic(t *testing.T) {
 	srv := newTestServer()
 	// ServeStatic serves / as index.html

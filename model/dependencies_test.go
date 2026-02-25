@@ -411,6 +411,26 @@ func TestExtractCellReferences_RegexFallback(t *testing.T) {
 	}
 }
 
+// TestExtractCellReferences_RangeExpandError tests that invalid ranges in formulas skip the bad range
+func TestExtractCellReferences_RangeExpandError(t *testing.T) {
+	// A1:B0 has invalid end ref (row 0); ExpandRange fails, we skip that range
+	// AST still parses and walkPrimary hits the err != nil branch and skips
+	refs := ExtractCellReferences("=SUM(A1:B0)+C1")
+	// Should get C1; A1:B0 fails to expand so we may get A1 from the range start or nothing
+	// The actual behavior: range "A1:B0" - RefToCoords("B0") fails (row must be >= 1)
+	// So we skip the range expansion. We get refs from C1. The range A1:B0 doesn't add refs.
+	if len(refs) < 1 {
+		t.Errorf("Expected at least 1 ref, got %v", refs)
+	}
+	refMap := make(map[string]bool)
+	for _, r := range refs {
+		refMap[r] = true
+	}
+	if !refMap["C1"] {
+		t.Errorf("Expected C1 in refs, got %v", refs)
+	}
+}
+
 func TestDependencyGraph_IntegrationWithSpreadsheet(t *testing.T) {
 	sheet := NewSpreadsheet()
 

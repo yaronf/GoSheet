@@ -83,7 +83,10 @@ func NormalizeFormula(formula string) (string, error) {
 	}
 
 	// Serialize back to normalized form
-	return "=" + serializeExpression(ast.Expr), nil
+	if ast.Expr == nil {
+		return formula, fmt.Errorf("invalid parse result")
+	}
+	return "=" + serializeComparison(ast.Expr.Comparison), nil
 }
 
 // EvaluateFormula evaluates a formula and returns the result as a string
@@ -106,13 +109,11 @@ func EvaluateFormula(formula string, sheet *Spreadsheet) (string, error) {
 	return valueToString(result), nil
 }
 
-// serializeExpression converts an Expression AST back to a string
-func serializeExpression(expr *Expression) string {
-	return serializeComparison(expr.Comparison)
-}
-
 // serializeComparison converts a Comparison AST back to a string
 func serializeComparison(comp *Comparison) string {
+	if comp == nil {
+		return ""
+	}
 	result := serializeAddition(comp.Left)
 	if comp.Op != nil && comp.Right != nil {
 		result += *comp.Op + serializeComparison(comp.Right)
@@ -174,7 +175,7 @@ func serializePrimary(prim *Primary) string {
 		return serializeFuncCall(prim.FuncCall)
 	}
 	if prim.SubExpr != nil {
-		return "(" + serializeExpression(prim.SubExpr) + ")"
+		return "(" + serializeComparison(prim.SubExpr.Comparison) + ")"
 	}
 	return ""
 }
@@ -186,7 +187,9 @@ func serializeFuncCall(fc *FuncCall) string {
 		if i > 0 {
 			result += ","
 		}
-		result += serializeExpression(arg)
+		if arg != nil {
+			result += serializeComparison(arg.Comparison)
+		}
 	}
 	result += ")"
 	return result

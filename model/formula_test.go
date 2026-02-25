@@ -430,10 +430,17 @@ func TestFormulaStringFunctions(t *testing.T) {
 	}{
 		{"=UPPER(\"hello\")", "HELLO"},
 		{"=LOWER(\"HELLO\")", "hello"},
+		{"=LOWER(\"\")", ""},
 		{"=LEN(\"hello\")", "5"},
+		{"=LEN(\"\")", "0"},
 		{"=LEFT(\"hello\",2)", "he"},
+		{"=LEFT(\"hello\",0)", ""},
+		{"=LEFT(\"hello\",99)", "hello"},
+		{"=LEFT(\"hi\",-1)", ""},
 		{"=RIGHT(\"hello\",2)", "lo"},
 		{"=MID(\"hello\",2,2)", "el"},
+		{"=MID(\"hi\",5,2)", ""},
+		{"=MID(\"hello\",1,99)", "hello"},
 		{"=CONCAT(\"a\",\"b\",\"c\")", "abc"},
 	}
 
@@ -442,6 +449,27 @@ func TestFormulaStringFunctions(t *testing.T) {
 			result, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFormulaStringFunctions_ArgCountErrors(t *testing.T) {
+	sheet := NewSpreadsheet()
+	tests := []struct {
+		formula string
+	}{
+		{"=LOWER()"},
+		{"=LOWER(\"a\",\"b\")"},
+		{"=LEN()"},
+		{"=LEN(\"a\",\"b\")"},
+		{"=LEFT(\"hello\")"},
+		{"=LEFT(\"hello\",1,2)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.formula, func(t *testing.T) {
+			result, err := EvaluateFormula(tt.formula, sheet)
+			assert.NoError(t, err)
+			assert.Contains(t, result, "#ERROR")
 		})
 	}
 }
@@ -678,4 +706,33 @@ func TestFormulaValueToStrDefault(t *testing.T) {
 func TestFormulaNormalizeError(t *testing.T) {
 	_, err := NormalizeFormula("=1+")
 	assert.Error(t, err)
+}
+
+// testUnknownValue implements Value for testing valueToString default branch
+type testUnknownValue struct{}
+
+func (testUnknownValue) value() {}
+
+func TestValueToStringDefault(t *testing.T) {
+	// Custom Value type that doesn't match any case in valueToString -> "#UNKNOWN"
+	result := valueToString(testUnknownValue{})
+	assert.Equal(t, "#UNKNOWN", result)
+}
+
+func TestValueToStrDefault(t *testing.T) {
+	// valueToStr returns "" for non-StringValue, non-NumberValue
+	result := valueToStr(testUnknownValue{})
+	assert.Equal(t, "", result)
+}
+
+func TestValueInterfaceMethods(t *testing.T) {
+	// Exercise value() interface markers for coverage
+	var v Value = NumberValue{1}
+	v.value()
+	v = StringValue{"x"}
+	v.value()
+	v = VectorValue{Values: []Value{NumberValue{1}}}
+	v.value()
+	v = ErrorValue{Error: assert.AnError}
+	v.value()
 }
