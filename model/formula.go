@@ -189,6 +189,8 @@ func serializeFuncCall(fc *FuncCall) string {
 		}
 		if arg != nil {
 			result += serializeComparison(arg.Comparison)
+		} else {
+			result += "?" // placeholder for nil arg (defensive)
 		}
 	}
 	result += ")"

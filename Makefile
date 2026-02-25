@@ -72,10 +72,10 @@ coverage:
 	@go test -coverprofile=coverage.out -coverpkg=./model,./controller,./api ./model/... ./controller/... ./api/... 2>/dev/null || true
 	@echo ""
 	@echo "Coverage summary (per-file):"
-	@awk '/^mode:/ { next } NF>=3 { key=$$1; stmts=$$2+0; count=$$3+0; if (count>cov[key]) cov[key]=count; stmts_key[key]=stmts } END { for (k in stmts_key) { f=k; sub(/:[0-9]+\.[0-9]+,[0-9]+\.[0-9]+$$/,"",f); t[f]+=stmts_key[k]; c[f]+=stmts_key[k]*cov[k] } for (x in t) printf "%s: %.1f%%\n", x, (t[x]>0 ? c[x]/t[x]*100 : 0) }' coverage.out 2>/dev/null | sort
+	@test -f coverage.out && awk '/^mode:/ { next } NF>=3 { key=$$1; stmts=$$2+0; count=$$3+0; if (count>cov[key]) cov[key]=count; stmts_key[key]=stmts } END { for (k in stmts_key) { f=k; sub(/:[0-9]+\.[0-9]+,[0-9]+\.[0-9]+$$/,"",f); t[f]+=stmts_key[k]; c[f]+=stmts_key[k]*cov[k] } for (x in t) printf "%s: %.1f%%\n", x, (t[x]>0 ? c[x]/t[x]*100 : 0) }' coverage.out 2>/dev/null | sort || echo "(no coverage.out - run tests first)"
 	@echo ""
 	@echo "Total:"
-	@go tool cover -func=coverage.out 2>/dev/null | grep "^total:"
+	@test -f coverage.out && go tool cover -func=coverage.out 2>/dev/null | grep "^total:" || echo "(no coverage.out)"
 
 # Complexity analysis for Go (cyclomatic complexity)
 complexity:
