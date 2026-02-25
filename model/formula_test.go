@@ -598,6 +598,18 @@ func TestFormulaFunctionArgErrors(t *testing.T) {
 	}
 }
 
+func TestFormulaSerializeUnaryWithOp(t *testing.T) {
+	// Nested unary (e.g. =--5) - previously panicked in NormalizeFormula, now serializes correctly
+	result, err := NormalizeFormula("=--5")
+	assert.NoError(t, err)
+	assert.Equal(t, "=--5", result)
+	// Verify evaluation works
+	sheet := NewSpreadsheet()
+	val, err := EvaluateFormula("=--5", sheet)
+	assert.NoError(t, err)
+	assert.Equal(t, "5", val)
+}
+
 func TestFormulaNumberFormatting(t *testing.T) {
 	sheet := NewSpreadsheet()
 	// Integer formatting (no decimal)

@@ -140,15 +140,24 @@ func serializeMultiplication(mult *Multiplication) string {
 
 // serializeUnary converts a Unary AST back to a string
 func serializeUnary(unary *Unary) string {
+	if unary == nil {
+		return ""
+	}
 	result := ""
 	if unary.Op != nil {
 		result += *unary.Op
+	}
+	if unary.Unary != nil {
+		return result + serializeUnary(unary.Unary)
 	}
 	return result + serializePrimary(unary.Primary)
 }
 
 // serializePrimary converts a Primary AST back to a string
 func serializePrimary(prim *Primary) string {
+	if prim == nil {
+		return ""
+	}
 	if prim.Number != nil {
 		return fmt.Sprintf("%g", *prim.Number)
 	}
