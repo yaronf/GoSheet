@@ -3,7 +3,7 @@
 **Epic:** 11 - Cell Merging  
 **Story:** 11.1  
 **Estimated Effort:** 4-6 hours  
-**Status:** ready-for-dev  
+**Status:** review  
 **Created:** 2026-02-23  
 **Last Updated:** 2026-02-25 (CS for Epic 11 — all stories)
 
@@ -39,44 +39,44 @@ So that merged cells can persist across save/load and the file format supports t
 ## Acceptance Criteria
 
 1. **MergeRegion struct**
-   - [ ] `MergeRegion` has `StartRow`, `StartCol`, `RowSpan`, `ColSpan` (all int)
-   - [ ] Anchor is (StartRow, StartCol); covered cells are StartRow..StartRow+RowSpan-1, StartCol..StartCol+ColSpan-1
+   - [x] `MergeRegion` has `StartRow`, `StartCol`, `RowSpan`, `ColSpan` (all int)
+   - [x] Anchor is (StartRow, StartCol); covered cells are StartRow..StartRow+RowSpan-1, StartCol..StartCol+ColSpan-1
 
 2. **Spreadsheet model**
-   - [ ] `Spreadsheet` has `Merges []MergeRegion` field
-   - [ ] `NewSpreadsheet()` initializes `Merges` as empty slice (or nil; empty on load)
+   - [x] `Spreadsheet` has `Merges []MergeRegion` field
+   - [x] `NewSpreadsheet()` initializes `Merges` as empty slice (or nil; empty on load)
 
 3. **File format**
-   - [ ] File header version supports "1.1" for save
-   - [ ] Save encodes `Merges` after cells (when version 1.1)
-   - [ ] Load decodes `Merges` for v1.1; v1.0 files load with empty Merges
-   - [ ] `SaveToFile`, `LoadFromFile`, `SaveToBytes`, `LoadFromBytes` updated
+   - [x] File header version supports "1.1" for save
+   - [x] Save encodes `Merges` after cells (when version 1.1)
+   - [x] Load decodes `Merges` for v1.1; v1.0 files load with empty Merges
+   - [x] `SaveToFile`, `LoadFromFile`, `SaveToBytes`, `LoadFromBytes` updated
 
 4. **Tests**
-   - [ ] Go unit tests pass (`go test ./model/...`)
-   - [ ] Add tests for save/load with merge regions
-   - [ ] Add tests for v1.0 backward compatibility (load old file → empty Merges)
+   - [x] Go unit tests pass (`go test ./model/...`)
+   - [x] Add tests for save/load with merge regions
+   - [x] Add tests for v1.0 backward compatibility (load old file → empty Merges)
 
 ---
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add MergeRegion and Spreadsheet.Merges (AC: 1, 2)
-  - [ ] Define `MergeRegion` struct in `model/` (e.g. `model/merge.go` or in `spreadsheet.go`)
-  - [ ] Add `Merges []MergeRegion` to `Spreadsheet`
-  - [ ] Update `NewSpreadsheet()` to initialize `Merges` (empty slice)
-  - [ ] Update `LoadFromFile` / `LoadFromBytes` to set `Merges` when constructing Spreadsheet (v1.0: empty)
+- [x] Task 1: Add MergeRegion and Spreadsheet.Merges (AC: 1, 2)
+  - [x] Define `MergeRegion` struct in `model/spreadsheet.go`
+  - [x] Add `Merges []MergeRegion` to `Spreadsheet`
+  - [x] Update `NewSpreadsheet()` to initialize `Merges` (empty slice)
+  - [x] Update `LoadFromFile` / `LoadFromBytes` to set `Merges` when constructing Spreadsheet (v1.0: empty)
 
-- [ ] Task 2: Update file format for v1.1 (AC: 3)
-  - [ ] In `SaveToFile` and `SaveToBytes`: use version "1.1", encode Merges after cells
-  - [ ] In `LoadFromFile` and `LoadFromBytes`: accept "1.0" and "1.1"
-  - [ ] For v1.0: decode cells only, set Merges = nil or empty
-  - [ ] For v1.1: decode cells, then decode Merges
+- [x] Task 2: Update file format for v1.1 (AC: 3)
+  - [x] In `SaveToFile` and `SaveToBytes`: use version "1.1", encode Merges after cells
+  - [x] In `LoadFromFile` and `LoadFromBytes`: accept "1.0" and "1.1"
+  - [x] For v1.0: decode cells only, set Merges = empty slice
+  - [x] For v1.1: decode cells, then decode Merges
 
-- [ ] Task 3: Add unit tests (AC: 4)
-  - [ ] Test save/load round-trip with merge regions
-  - [ ] Test v1.0 file loads with empty Merges (create minimal v1.0 gob, load, assert Merges empty)
-  - [ ] Run `go test ./model/...` — all pass
+- [x] Task 3: Add unit tests (AC: 4)
+  - [x] Test save/load round-trip with merge regions (TestSaveAndLoadWithMergeRegions)
+  - [x] Test v1.0 file loads with empty Merges (TestLoadFromBytes_V1BackwardCompatibility)
+  - [x] Run `go test ./model/...` — all pass
 
 ---
 
@@ -147,8 +147,14 @@ type Spreadsheet struct {
 
 ### Agent Model Used
 
-(To be filled by dev agent)
+Cursor Composer
 
 ### Completion Notes List
 
+- **2026-02-25 DS:** Implemented MergeRegion struct, Spreadsheet.Merges, file format v1.1 with backward compat for v1.0. Added TestSaveAndLoadWithMergeRegions and TestLoadFromBytes_V1BackwardCompatibility.
+
 ### File List
+
+- model/spreadsheet.go (MergeRegion struct, Merges field, NewSpreadsheet)
+- model/file.go (SaveToFile, LoadFromFile, SaveToBytes, LoadFromBytes — v1.1 with Merges)
+- model/file_test.go (TestSaveAndLoadWithMergeRegions, TestLoadFromBytes_V1BackwardCompatibility)

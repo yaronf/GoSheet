@@ -4,9 +4,18 @@ import (
 	"fmt"
 )
 
+// MergeRegion represents a merged cell range. Anchor is (StartRow, StartCol).
+// Covered cells are StartRow..StartRow+RowSpan-1, StartCol..StartCol+ColSpan-1.
+// RowSpan/ColSpan of 1 means single cell (no merge).
+type MergeRegion struct {
+	StartRow, StartCol int
+	RowSpan, ColSpan   int
+}
+
 // Spreadsheet represents the entire spreadsheet data structure
 type Spreadsheet struct {
 	Cells        map[int]map[int]*Cell // Row → Column → Cell (0-indexed)
+	Merges       []MergeRegion         // Merge regions (anchor = top-left; covered cells hidden)
 	Modified     bool                  // True if spreadsheet has unsaved changes
 	FilePath     string                // Path to the file (empty if new/unsaved)
 	Dependencies *DependencyGraph      // Tracks cell dependencies for efficient recalculation
@@ -16,6 +25,7 @@ type Spreadsheet struct {
 func NewSpreadsheet() *Spreadsheet {
 	return &Spreadsheet{
 		Cells:        make(map[int]map[int]*Cell),
+		Merges:       []MergeRegion{},
 		Modified:     false,
 		FilePath:     "",
 		Dependencies: NewDependencyGraph(),

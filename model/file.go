@@ -25,9 +25,9 @@ func (s *Spreadsheet) SaveToFile(filepath string) error {
 	// Create gob encoder
 	encoder := gob.NewEncoder(file)
 
-	// Write file header
+	// Write file header (v1.1 includes merges)
 	header := FileHeader{
-		Version:   "1.0",
+		Version:   "1.1",
 		CellCount: s.GetCellCount(),
 	}
 	if err := encoder.Encode(header); err != nil {
@@ -37,6 +37,11 @@ func (s *Spreadsheet) SaveToFile(filepath string) error {
 	// Write the cells map
 	if err := encoder.Encode(s.Cells); err != nil {
 		return fmt.Errorf("failed to encode cells: %w", err)
+	}
+
+	// Write merges (v1.1)
+	if err := encoder.Encode(s.Merges); err != nil {
+		return fmt.Errorf("failed to encode merges: %w", err)
 	}
 
 	// Update spreadsheet metadata
@@ -64,8 +69,8 @@ func LoadFromFile(filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode header: %w", err)
 	}
 
-	// Validate version
-	if header.Version != "1.0" {
+	// Validate version (support 1.0 and 1.1)
+	if header.Version != "1.0" && header.Version != "1.1" {
 		return nil, fmt.Errorf("unsupported file version: %s", header.Version)
 	}
 
@@ -75,11 +80,21 @@ func LoadFromFile(filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode cells: %w", err)
 	}
 
+	// Read merges (v1.1 only; v1.0 has no merges block)
+	var merges []MergeRegion
+	if header.Version == "1.1" {
+		if err := decoder.Decode(&merges); err != nil {
+			return nil, fmt.Errorf("failed to decode merges: %w", err)
+		}
+	}
+
 	// Create spreadsheet
 	spreadsheet := &Spreadsheet{
-		Cells:    cells,
-		Modified: false,
-		FilePath: filepath,
+		Cells:        cells,
+		Merges:       merges,
+		Modified:     false,
+		FilePath:     filepath,
+		Dependencies: NewDependencyGraph(),
 	}
 
 	return spreadsheet, nil
@@ -105,7 +120,7 @@ func LoadFromBytes(data []byte, filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode header: %w", err)
 	}
 
-	if header.Version != "1.0" {
+	if header.Version != "1.0" && header.Version != "1.1" {
 		return nil, fmt.Errorf("unsupported file version: %s", header.Version)
 	}
 
@@ -114,8 +129,16 @@ func LoadFromBytes(data []byte, filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode cells: %w", err)
 	}
 
+	var merges []MergeRegion
+	if header.Version == "1.1" {
+		if err := decoder.Decode(&merges); err != nil {
+			return nil, fmt.Errorf("failed to decode merges: %w", err)
+		}
+	}
+
 	return &Spreadsheet{
 		Cells:        cells,
+		Merges:       merges,
 		Modified:     false,
 		FilePath:     filepath,
 		Dependencies: NewDependencyGraph(),
@@ -129,7 +152,7 @@ func (s *Spreadsheet) SaveToBytes() ([]byte, error) {
 	encoder := gob.NewEncoder(&buf)
 
 	header := FileHeader{
-		Version:   "1.0",
+		Version:   "1.1",
 		CellCount: s.GetCellCount(),
 	}
 	if err := encoder.Encode(header); err != nil {
@@ -137,6 +160,9 @@ func (s *Spreadsheet) SaveToBytes() ([]byte, error) {
 	}
 	if err := encoder.Encode(s.Cells); err != nil {
 		return nil, fmt.Errorf("failed to encode cells: %w", err)
+	}
+	if err := encoder.Encode(s.Merges); err != nil {
+		return nil, fmt.Errorf("failed to encode merges: %w", err)
 	}
 
 	return buf.Bytes(), nil

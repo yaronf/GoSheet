@@ -355,6 +355,59 @@ func TestLoadFromBytesInvalidVersion(t *testing.T) {
 	}
 }
 
+func TestSaveAndLoadWithMergeRegions(t *testing.T) {
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "Header")
+	s.SetCell(0, 1, "A")
+	s.SetCell(0, 2, "B")
+	s.Merges = []MergeRegion{
+		{StartRow: 0, StartCol: 0, RowSpan: 1, ColSpan: 3}, // A1:C1 merged
+	}
+
+	data, err := s.SaveToBytes()
+	if err != nil {
+		t.Fatalf("SaveToBytes failed: %v", err)
+	}
+
+	loaded, err := LoadFromBytes(data, "/test/merge.sheet")
+	if err != nil {
+		t.Fatalf("LoadFromBytes failed: %v", err)
+	}
+
+	if len(loaded.Merges) != 1 {
+		t.Fatalf("Expected 1 merge region, got %d", len(loaded.Merges))
+	}
+	m := loaded.Merges[0]
+	if m.StartRow != 0 || m.StartCol != 0 || m.RowSpan != 1 || m.ColSpan != 3 {
+		t.Errorf("Expected merge A1:C1, got StartRow=%d StartCol=%d RowSpan=%d ColSpan=%d",
+			m.StartRow, m.StartCol, m.RowSpan, m.ColSpan)
+	}
+	if loaded.GetCell(0, 0).Value != "Header" {
+		t.Errorf("Expected anchor value 'Header', got %q", loaded.GetCell(0, 0).Value)
+	}
+}
+
+func TestLoadFromBytes_V1BackwardCompatibility(t *testing.T) {
+	// v1.0 format: header + cells only (no merges block)
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(FileHeader{Version: "1.0", CellCount: 0}); err != nil {
+		t.Fatalf("Encode header failed: %v", err)
+	}
+	if err := enc.Encode(map[int]map[int]*Cell{}); err != nil {
+		t.Fatalf("Encode cells failed: %v", err)
+	}
+
+	loaded, err := LoadFromBytes(buf.Bytes(), "/test/v1.sheet")
+	if err != nil {
+		t.Fatalf("LoadFromBytes failed: %v", err)
+	}
+
+	if len(loaded.Merges) != 0 {
+		t.Errorf("Expected empty Merges for v1.0 file, got %d merges", len(loaded.Merges))
+	}
+}
+
 func TestSparseStorageEfficiency(t *testing.T) {
 	// Create spreadsheet with sparse data
 	s := NewSpreadsheet()
