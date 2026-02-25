@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"log"
 
 	"gosheet/logutil"
@@ -240,6 +241,53 @@ func (c *AppController) rebuildDependencyGraph() {
 // HasUnsavedChanges returns true if the spreadsheet has unsaved changes
 func (c *AppController) HasUnsavedChanges() bool {
 	return c.Sheet.HasUnsavedChanges()
+}
+
+// GetMerges returns all merge regions.
+func (c *AppController) GetMerges() []model.MergeRegion {
+	if c.Sheet.Merges == nil {
+		return []model.MergeRegion{}
+	}
+	return c.Sheet.Merges
+}
+
+// rectanglesOverlap returns true if two merge regions overlap (share any cell).
+func rectanglesOverlap(a, b model.MergeRegion) bool {
+	aRowEnd := a.StartRow + a.RowSpan - 1
+	aColEnd := a.StartCol + a.ColSpan - 1
+	bRowEnd := b.StartRow + b.RowSpan - 1
+	bColEnd := b.StartCol + b.ColSpan - 1
+	rowOverlap := a.StartRow <= bRowEnd && b.StartRow <= aRowEnd
+	colOverlap := a.StartCol <= bColEnd && b.StartCol <= aColEnd
+	return rowOverlap && colOverlap
+}
+
+// SetMerge adds a merge region. Validates no overlap and bounds.
+func (c *AppController) SetMerge(startRow, startCol, rowSpan, colSpan int) error {
+	if startRow < 0 || startCol < 0 || rowSpan < 1 || colSpan < 1 {
+		return fmt.Errorf("invalid merge: startRow and startCol must be >= 0, rowSpan and colSpan must be >= 1")
+	}
+	newMerge := model.MergeRegion{StartRow: startRow, StartCol: startCol, RowSpan: rowSpan, ColSpan: colSpan}
+	for _, m := range c.Sheet.Merges {
+		if rectanglesOverlap(newMerge, m) {
+			return fmt.Errorf("merge overlaps existing region at (%d,%d)", m.StartRow, m.StartCol)
+		}
+	}
+	c.Sheet.Merges = append(c.Sheet.Merges, newMerge)
+	c.Sheet.Modified = true
+	return nil
+}
+
+// Unmerge removes the merge region containing the anchor (startRow, startCol).
+func (c *AppController) Unmerge(startRow, startCol int) error {
+	for i, m := range c.Sheet.Merges {
+		if m.StartRow == startRow && m.StartCol == startCol {
+			c.Sheet.Merges = append(c.Sheet.Merges[:i], c.Sheet.Merges[i+1:]...)
+			c.Sheet.Modified = true
+			return nil
+		}
+	}
+	return fmt.Errorf("no merge region with anchor at (%d,%d)", startRow, startCol)
 }
 
 // GetFilePath returns the current file path

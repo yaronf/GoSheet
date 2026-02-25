@@ -146,6 +146,87 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/merges:
+    get:
+      operationId: getMerges
+      summary: Get all merge regions
+      responses:
+        '200':
+          description: Merge regions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergesResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/merge:
+    post:
+      operationId: setMerge
+      summary: Create merge region
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetMergeRequest'
+      responses:
+        '200':
+          description: Merge created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetMergeResponse'
+        '400':
+          description: Bad request (overlap, invalid bounds)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/unmerge:
+    post:
+      operationId: unmerge
+      summary: Remove merge region
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnmergeRequest'
+      responses:
+        '200':
+          description: Merge removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnmergeResponse'
+        '400':
+          description: Bad request (anchor not found)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/cells/all:
     get:
       operationId: getAllCells
@@ -595,3 +676,67 @@ components:
           type: string
         code:
           type: string
+    MergeRegion:
+      type: object
+      required: [startRow, startCol, rowSpan, colSpan]
+      properties:
+        startRow:
+          type: integer
+        startCol:
+          type: integer
+        rowSpan:
+          type: integer
+        colSpan:
+          type: integer
+    SetMergeRequest:
+      type: object
+      required: [startRow, startCol, rowSpan, colSpan]
+      properties:
+        startRow:
+          type: integer
+        startCol:
+          type: integer
+        rowSpan:
+          type: integer
+        colSpan:
+          type: integer
+    UnmergeRequest:
+      type: object
+      required: [startRow, startCol]
+      properties:
+        startRow:
+          type: integer
+        startCol:
+          type: integer
+    MergesResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                merges:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/MergeRegion'
+    SetMergeResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                hasUnsavedChanges:
+                  type: boolean
+    UnmergeResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                hasUnsavedChanges:
+                  type: boolean

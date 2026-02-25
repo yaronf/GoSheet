@@ -51,6 +51,9 @@ func main() {
 	http.HandleFunc("/api/csv/preview", cors(srv.HandleCSVPreview))
 	http.HandleFunc("/api/csv/import", cors(srv.HandleCSVImport))
 	http.HandleFunc("/api/csv/export", cors(srv.HandleCSVExport))
+	http.HandleFunc("/api/merges", cors(srv.HandleGetMerges))
+	http.HandleFunc("/api/merge", cors(srv.HandleSetMerge))
+	http.HandleFunc("/api/unmerge", cors(srv.HandleUnmerge))
 
 	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
 	logutil.Debugf("Open http://localhost:%s in your browser\n", *port)

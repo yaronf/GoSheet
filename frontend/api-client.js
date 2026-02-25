@@ -184,6 +184,26 @@ const ImportCSV = async (path) => {
   };
 };
 
+const GetMerges = async () => {
+  const json = await fetchUnified('GET', '/api/merges');
+  return json.data?.merges ?? [];
+};
+
+const SetMerge = async (startRow, startCol, rowSpan, colSpan) => {
+  const json = await fetchUnified('POST', '/api/merge', {
+    startRow,
+    startCol,
+    rowSpan,
+    colSpan,
+  });
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
+const Unmerge = async (startRow, startCol) => {
+  const json = await fetchUnified('POST', '/api/unmerge', { startRow, startCol });
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
 const ExportCSV = async (path) => {
   if (window.__DEBUG__) console.log('[ExportCSV] Starting, path:', path);
   // Story 6.3: Export spreadsheet to CSV
@@ -226,6 +246,9 @@ export {
   GetCellRef,
   GetAllCells,
   GetFileStatus,
+  GetMerges,
+  SetMerge,
+  Unmerge,
   NewFile,
   SaveFile,
   SaveAs,

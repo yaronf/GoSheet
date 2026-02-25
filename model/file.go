@@ -9,7 +9,7 @@ import (
 
 // FileHeader contains metadata about the saved spreadsheet file
 type FileHeader struct {
-	Version   string // File format version (e.g., "1.0")
+	Version   string // File format version (e.g., "1.1")
 	CellCount int    // Number of cells in the file
 }
 
@@ -69,8 +69,8 @@ func LoadFromFile(filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode header: %w", err)
 	}
 
-	// Validate version (support 1.0 and 1.1)
-	if header.Version != "1.0" && header.Version != "1.1" {
+	// Validate version (1.1 only)
+	if header.Version != "1.1" {
 		return nil, fmt.Errorf("unsupported file version: %s", header.Version)
 	}
 
@@ -80,12 +80,10 @@ func LoadFromFile(filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode cells: %w", err)
 	}
 
-	// Read merges (v1.1 only; v1.0 has no merges block)
+	// Read merges
 	var merges []MergeRegion
-	if header.Version == "1.1" {
-		if err := decoder.Decode(&merges); err != nil {
-			return nil, fmt.Errorf("failed to decode merges: %w", err)
-		}
+	if err := decoder.Decode(&merges); err != nil {
+		return nil, fmt.Errorf("failed to decode merges: %w", err)
 	}
 
 	// Create spreadsheet
@@ -120,7 +118,7 @@ func LoadFromBytes(data []byte, filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode header: %w", err)
 	}
 
-	if header.Version != "1.0" && header.Version != "1.1" {
+	if header.Version != "1.1" {
 		return nil, fmt.Errorf("unsupported file version: %s", header.Version)
 	}
 
@@ -130,10 +128,8 @@ func LoadFromBytes(data []byte, filepath string) (*Spreadsheet, error) {
 	}
 
 	var merges []MergeRegion
-	if header.Version == "1.1" {
-		if err := decoder.Decode(&merges); err != nil {
-			return nil, fmt.Errorf("failed to decode merges: %w", err)
-		}
+	if err := decoder.Decode(&merges); err != nil {
+		return nil, fmt.Errorf("failed to decode merges: %w", err)
 	}
 
 	return &Spreadsheet{

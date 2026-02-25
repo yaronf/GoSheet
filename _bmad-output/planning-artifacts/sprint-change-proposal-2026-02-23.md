@@ -1,115 +1,189 @@
-# Sprint Change Proposal: Electron Upgrade vs Story 10.9 Scope
+# Sprint Change Proposal: Story 10.11 Redo — Methodical Coverage Target
 
 **Date:** 2026-02-23  
-**Trigger:** User question during Story 10.9 (Universal macOS Build)  
-**Scope:** Minor (story scope decision)
+**Workflow:** correct-course  
+**Scope:** Minor — Story-level edit
 
 ---
 
 ## 1. Issue Summary
 
-**Question:** Should the Electron upgrade (TECHNICAL-DEBT #1) be folded into Story 10.9 (Implement Universal macOS Build)?
+**Problem:** Story 10.11 (Add Unit Tests for Coverage Gaps) was implemented but the resulting coverage (~15.5%) is far from the 80% target. The story’s acceptance criteria were vague (“approach 80%”, “toward 80%”) and did not define a clear, repeatable process for reaching the target.
 
-**Context:**
-- **Story 10.9** delivers universal macOS binary (Intel + Apple Silicon) via Go cross-compilation and electron-builder config
-- **TECHNICAL-DEBT #1** documents need to upgrade from Electron 30.5.1 (EOL) to a supported version (38.x/39/40) while keeping Playwright operational
-- Both touch `package.json`, build scripts, and the Electron app
+**Trigger:** Implementation revealed that the story did not prescribe a methodical approach. Tests were added for specific gaps, but there was no systematic way to drive coverage up to 80%.
 
 **Evidence:**
-- Electron 30.5.1 is EOL; security and compatibility concerns
-- Story 5.1 previously downgraded from Electron 40 due to CDP timeouts with Playwright
-- 10.9 estimated 2–3 hours; Electron upgrade estimated 2–4 hours
+- Current total coverage: ~15.5% (model + controller + api)
+- Target: 80% per package (from coverage-baseline.md and Epic 9)
+- Story AC used soft language (“approach”, “toward”) instead of a concrete target and workflow
 
 ---
 
 ## 2. Impact Analysis
 
-### Epic Impact
-- **Epic 10 (Code Quality & Technical Debt):** Both items belong here
-- No other epics affected
+**Epic Impact:** Epic 10 (Code Quality & Technical Debt) — Story 10.11 only.
 
-### Story Impact
-- **10.9:** Would expand scope if Electron upgrade is folded in
-- **Future:** Electron upgrade could be a separate story (e.g. 10.9b or new story)
+**Story Impact:** Story 10.11 needs to be rewritten so that:
+1. The 80% coverage target is explicit and required.
+2. A methodical process is defined: go through Go source, identify uncovered code, add tests until the target is met.
 
-### Technical Impact
-- **10.9:** Go cross-compilation + electron-builder `extraResources` + mac target arch
-- **Electron upgrade:** `package.json` devDependencies, Playwright version, CDP compatibility
-- **Overlap:** Both modify `package.json` and build flow
-- **Isolation:** 10.9 does not depend on Electron version; universal build works with 30.5.1
+**Artifact Conflicts:** None. PRD, Architecture, UI/UX unchanged.
 
-### Risk Assessment
-| Approach | Effort | Risk | Debugging |
-|----------|--------|------|-----------|
-| **Keep separate** | 2–3h (10.9) + 2–4h (later) | Low | Clear cause if something breaks |
-| **Fold into 10.9** | 4–7h combined | Medium | Hard to tell if failure is universal build or Electron upgrade |
+**Technical Impact:** Story 10.11 will be reverted to `ready-for-dev` or `in-progress` and re-executed with the new criteria.
 
 ---
 
 ## 3. Recommended Approach
 
-**Recommendation: Do NOT fold. Keep Story 10.9 and Electron upgrade as separate work.**
+**Selected approach:** Direct Adjustment — modify Story 10.11 only.
 
-### Rationale
+**Rationale:**
+- Scope is limited to one story.
+- No epic or PRD changes.
+- Implementation can proceed immediately with the updated story.
 
-1. **Different concerns**
-   - 10.9: Universal binary (Go cross-compilation, extraResources, mac target)
-   - Electron upgrade: Security, Playwright compatibility, CDP stability
-
-2. **Risk isolation**
-   - Electron upgrade has known compatibility risk (CDP timeouts)
-   - If combined and tests fail, it is unclear whether the cause is universal build or Electron/Playwright
-
-3. **Scope and estimation**
-   - 10.9 is well-scoped (2–3h) with clear ACs
-   - Adding Electron upgrade would roughly double scope and require rewriting ACs
-
-4. **Validation differs**
-   - 10.9: `npm run build` succeeds, app runs on arm64/x64
-   - Electron upgrade: All Playwright tests pass, no CDP timeouts, app functions correctly
-
-5. **No dependency**
-   - 10.9 does not require a newer Electron; it works with 30.5.1
-
-### Alternative: Sequential in Same Session
-
-If you want both done in one session:
-- Complete 10.9 first (universal build)
-- Then run a new story for Electron upgrade (create via `create-story` or add to Epic 10 backlog)
-- Same total effort, but with clear separation and easier debugging
+**Effort:** Low (story edit) + existing implementation effort (tests already added; more tests needed to reach 80%).
 
 ---
 
 ## 4. Detailed Change Proposals
 
-### No changes to Story 10.9
+### Story 10.11 — Add Unit Tests for Coverage Gaps
 
-Story 10.9 remains as-is:
-- Tasks 1–3 unchanged
-- No new ACs or tasks for Electron upgrade
+**Section: Story (user story)**
 
-### Electron upgrade remains in TECHNICAL-DEBT
+**OLD:**
+```
+As a developer,
+I want unit tests added for large coverage gaps,
+So that critical paths (model, controller, api) approach the 80% target and regressions are caught early.
+```
 
-- TECHNICAL-DEBT #1 stays as a separate, deferred item
-- Can be turned into a story (e.g. “Upgrade Electron to supported version”) when prioritized
+**NEW:**
+```
+As a developer,
+I want unit tests added methodically by going through Go source and covering each package,
+So that model, controller, and api each reach the 80% coverage target and regressions are caught early.
+```
+
+**Rationale:** Makes the 80% target explicit and ties it to a methodical, source-driven process.
+
+---
+
+**Section: Acceptance Criteria**
+
+**OLD:**
+```
+1. **Model coverage improved**
+   - [ ] Add tests for 0% functions: LoadFromBytes, SaveToBytes, RecalculateAll, String, extractCellReferencesRegex
+   - [ ] Add tests for low-coverage formula helpers (toNumber, value variants)
+   - [ ] model/ coverage increases toward 80% (or document blockers)
+
+2. **Controller coverage added**
+   ...
+   - [ ] controller/ coverage >0% (target: approach 80%)
+
+3. **API coverage added**
+   ...
+   - [ ] api/ coverage >0% (target: approach 80%)
+```
+
+**NEW:**
+```
+1. **Model coverage reaches 80%**
+   - [ ] Methodically add unit tests for model/ until `make coverage` shows model/ ≥ 80%
+   - [ ] Run `go tool cover -func=coverage.out | grep model/` to identify uncovered functions
+   - [ ] Add tests for each uncovered or low-coverage function until target is met
+
+2. **Controller coverage reaches 80%**
+   - [ ] Methodically add unit tests for controller/ until `make coverage` shows controller/ ≥ 80%
+   - [ ] Identify uncovered functions via coverage report and add tests
+
+3. **API coverage reaches 80%**
+   - [ ] Methodically add unit tests for api/ until `make coverage` shows api/ ≥ 80%
+   - [ ] Identify uncovered functions via coverage report and add tests
+
+4. **Verification**
+   - [ ] `make coverage` shows model/ ≥ 80%, controller/ ≥ 80%, api/ ≥ 80%
+   - [ ] All tests pass (`go test ./tests/...`)
+   - [ ] coverage-baseline.md updated with final numbers
+```
+
+**Rationale:** Replaces vague “approach/toward” with a clear 80% target and a repeatable workflow.
+
+---
+
+**Section: Tasks / Subtasks**
+
+**OLD:** Task list focused on specific gaps (LoadFromBytes, SaveToBytes, etc.).
+
+**NEW:**
+```
+- [ ] Task 1: Model — reach 80%
+  - Run `make coverage`, inspect `go tool cover -func=coverage.out | grep model/`
+  - For each function below 80%, add or extend tests in tests/
+  - Iterate until model/ package coverage ≥ 80%
+
+- [ ] Task 2: Controller — reach 80%
+  - Run coverage, identify uncovered controller functions
+  - Add tests in tests/controller_test.go (or new files as needed)
+  - Iterate until controller/ package coverage ≥ 80%
+
+- [ ] Task 3: API — reach 80%
+  - Run coverage, identify uncovered api functions
+  - Add tests in tests/api_test.go (or new files as needed)
+  - Iterate until api/ package coverage ≥ 80%
+
+- [ ] Task 4: Verify and document
+  - Run `make coverage`, confirm all three packages ≥ 80%
+  - Run `go test ./tests/...`, all pass
+  - Update coverage-baseline.md with final baseline
+```
+
+**Rationale:** Describes a methodical, coverage-driven workflow instead of a fixed list of gaps.
+
+---
+
+**Section: Dev Notes — add "Methodical Approach"**
+
+**ADD:**
+```
+### Methodical Approach (Required)
+
+1. **Run coverage baseline:** `make coverage`
+2. **Get per-package totals:** `go tool cover -func=coverage.out | grep -E "model/|controller/|api/" | awk '...'` (or inspect output)
+3. **Pick lowest-coverage package** and run `go tool cover -func=coverage.out | grep gosheet/<package>/`
+4. **For each function below 80%:** Add or extend a test that exercises it
+5. **Re-run coverage** after each batch of tests
+6. **Repeat** until model/, controller/, and api/ each show ≥ 80%
+7. **Document blockers** only if a function cannot be unit-tested (e.g., requires OS-specific behavior); note in coverage-baseline.md
+```
+
+**Rationale:** Gives a concrete, repeatable process for reaching the target.
+
+---
+
+**Section: Status**
+
+**OLD:** `Status: review`
+
+**NEW:** `Status: ready-for-dev` (or `in-progress` if re-implementation starts immediately)
+
+**Rationale:** Story is being redone; previous completion is superseded.
 
 ---
 
 ## 5. Implementation Handoff
 
-**Scope:** Minor – story scope decision, no artifact edits
+**Scope:** Minor — Development team implements directly.
 
-**Action:**
-1. Proceed with Story 10.9 as written (universal macOS build only)
-2. Leave Electron upgrade as TECHNICAL-DEBT #1 for a future story
-3. Optionally create a new Epic 10 story for Electron upgrade and add it to backlog
+**Handoff:** Development team
 
-**Handoff:** Development team – continue with 10.9 dev-story workflow
+**Deliverables:**
+- Updated Story 10.11 file with new acceptance criteria and tasks
+- Implementation follows the methodical approach until 80% is reached
 
----
-
-## 6. Approval
-
-**Proposal:** Keep 10.9 and Electron upgrade separate; complete 10.9 first.
-
-**User approval:** [x] Yes  [ ] No  [ ] Revise
+**Success criteria:**
+- Story 10.11 file reflects the changes above
+- `make coverage` eventually shows model/, controller/, api/ each ≥ 80%
+- coverage-baseline.md updated

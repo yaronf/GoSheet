@@ -360,3 +360,60 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 		Message: fmt.Sprintf("Exported %d rows, %d columns to %s", maxRow+1, maxCol+1, req.Path),
 	})
 }
+
+func (s *Server) HandleGetMerges(w http.ResponseWriter, r *http.Request) {
+	merges := s.Ctrl.GetMerges()
+	// Convert to API format
+	mergeData := make([]map[string]interface{}, 0, len(merges))
+	for _, m := range merges {
+		mergeData = append(mergeData, map[string]interface{}{
+			"startRow": m.StartRow,
+			"startCol": m.StartCol,
+			"rowSpan":  m.RowSpan,
+			"colSpan":  m.ColSpan,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    map[string]interface{}{"merges": mergeData},
+	})
+}
+
+func (s *Server) HandleSetMerge(w http.ResponseWriter, r *http.Request) {
+	var req generated.SetMergeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.SetMerge(req.StartRow, req.StartCol, req.RowSpan, req.ColSpan); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+func (s *Server) HandleUnmerge(w http.ResponseWriter, r *http.Request) {
+	var req generated.UnmergeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.Unmerge(req.StartRow, req.StartCol); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}

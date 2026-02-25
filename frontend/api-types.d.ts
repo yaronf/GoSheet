@@ -72,6 +72,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/merges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get all merge regions */
+        get: operations["getMerges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create merge region */
+        post: operations["setMerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/unmerge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove merge region */
+        post: operations["unmerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cells/all": {
         parameters: {
             query?: never;
@@ -335,6 +386,37 @@ export interface components {
             error?: string;
             code?: string;
         };
+        MergeRegion: {
+            startRow: number;
+            startCol: number;
+            rowSpan: number;
+            colSpan: number;
+        };
+        SetMergeRequest: {
+            startRow: number;
+            startCol: number;
+            rowSpan: number;
+            colSpan: number;
+        };
+        UnmergeRequest: {
+            startRow: number;
+            startCol: number;
+        };
+        MergesResponse: components["schemas"]["ApiResponse"] & {
+            data?: {
+                merges?: components["schemas"]["MergeRegion"][];
+            };
+        };
+        SetMergeResponse: components["schemas"]["ApiResponse"] & {
+            data?: {
+                hasUnsavedChanges?: boolean;
+            };
+        };
+        UnmergeResponse: components["schemas"]["ApiResponse"] & {
+            data?: {
+                hasUnsavedChanges?: boolean;
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -490,6 +572,119 @@ export interface operations {
                 };
             };
             /** @description Bad request (invalid or missing row/col) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMerges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Merge regions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergesResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setMerge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMergeRequest"];
+            };
+        };
+        responses: {
+            /** @description Merge created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetMergeResponse"];
+                };
+            };
+            /** @description Bad request (overlap, invalid bounds) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unmerge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnmergeRequest"];
+            };
+        };
+        responses: {
+            /** @description Merge removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnmergeResponse"];
+                };
+            };
+            /** @description Bad request (anchor not found) */
             400: {
                 headers: {
                     [name: string]: unknown;

@@ -215,3 +215,57 @@ func TestControllerRecalculateAllFormulas_OnLoadWithCycle(t *testing.T) {
 	val := ctrl.GetCellValue(2, 0)
 	assert.Contains(t, val, "#ERROR") // A1 has cycle error, so C1 propagates it
 }
+
+func TestControllerGetMerges(t *testing.T) {
+	ctrl := NewAppController()
+	assert.Empty(t, ctrl.GetMerges())
+
+	_ = ctrl.SetMerge(0, 0, 1, 3)
+	merges := ctrl.GetMerges()
+	assert.Len(t, merges, 1)
+	assert.Equal(t, 0, merges[0].StartRow)
+	assert.Equal(t, 0, merges[0].StartCol)
+	assert.Equal(t, 1, merges[0].RowSpan)
+	assert.Equal(t, 3, merges[0].ColSpan)
+}
+
+func TestControllerSetMerge(t *testing.T) {
+	ctrl := NewAppController()
+
+	err := ctrl.SetMerge(0, 0, 1, 3)
+	assert.NoError(t, err)
+	assert.True(t, ctrl.HasUnsavedChanges())
+	assert.Len(t, ctrl.GetMerges(), 1)
+
+	// Overlapping merge should fail
+	err = ctrl.SetMerge(0, 1, 1, 2)
+	assert.Error(t, err)
+	assert.Len(t, ctrl.GetMerges(), 1)
+
+	// Non-overlapping merge should succeed
+	err = ctrl.SetMerge(2, 0, 2, 2)
+	assert.NoError(t, err)
+	assert.Len(t, ctrl.GetMerges(), 2)
+
+	// Invalid bounds
+	err = ctrl.SetMerge(-1, 0, 1, 1)
+	assert.Error(t, err)
+	err = ctrl.SetMerge(0, 0, 0, 1)
+	assert.Error(t, err)
+}
+
+func TestControllerUnmerge(t *testing.T) {
+	ctrl := NewAppController()
+	_ = ctrl.SetMerge(0, 0, 1, 3)
+
+	err := ctrl.Unmerge(0, 0)
+	assert.NoError(t, err)
+	assert.Empty(t, ctrl.GetMerges())
+	assert.True(t, ctrl.HasUnsavedChanges())
+
+	// Unmerge non-anchor should fail
+	_ = ctrl.SetMerge(0, 0, 2, 2)
+	err = ctrl.Unmerge(1, 1)
+	assert.Error(t, err)
+	assert.Len(t, ctrl.GetMerges(), 1)
+}

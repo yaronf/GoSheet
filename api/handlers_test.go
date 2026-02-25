@@ -593,3 +593,101 @@ func TestServeStatic(t *testing.T) {
 	srv.ServeStatic(w2, req2)
 	assert.True(t, w2.Code == http.StatusOK || w2.Code == http.StatusNotFound, "expected 200 or 404, got %d", w2.Code)
 }
+
+func TestHandleGetMerges(t *testing.T) {
+	srv := newTestServer()
+	// Empty merges
+	req := httptest.NewRequest(http.MethodGet, "/api/merges", nil)
+	w := httptest.NewRecorder()
+	srv.HandleGetMerges(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Merges []map[string]interface{} `json:"merges"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.Empty(t, resp.Data.Merges)
+
+	// Add merge via controller
+	assert.NoError(t, srv.Ctrl.SetMerge(0, 0, 1, 3))
+	req2 := httptest.NewRequest(http.MethodGet, "/api/merges", nil)
+	w2 := httptest.NewRecorder()
+	srv.HandleGetMerges(w2, req2)
+	assert.Equal(t, http.StatusOK, w2.Code)
+	assert.NoError(t, json.NewDecoder(w2.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.Len(t, resp.Data.Merges, 1)
+	assert.Equal(t, float64(0), resp.Data.Merges[0]["startRow"])
+	assert.Equal(t, float64(0), resp.Data.Merges[0]["startCol"])
+	assert.Equal(t, float64(1), resp.Data.Merges[0]["rowSpan"])
+	assert.Equal(t, float64(3), resp.Data.Merges[0]["colSpan"])
+}
+
+func TestHandleSetMerge(t *testing.T) {
+	srv := newTestServer()
+	body, _ := json.Marshal(generated.SetMergeRequest{StartRow: 0, StartCol: 0, RowSpan: 1, ColSpan: 3})
+	req := httptest.NewRequest(http.MethodPost, "/api/merge", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleSetMerge(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			HasUnsavedChanges bool `json:"hasUnsavedChanges"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.True(t, resp.Data.HasUnsavedChanges)
+
+	// Overlapping merge should fail
+	body2, _ := json.Marshal(generated.SetMergeRequest{StartRow: 0, StartCol: 1, RowSpan: 1, ColSpan: 2})
+	req2 := httptest.NewRequest(http.MethodPost, "/api/merge", bytes.NewReader(body2))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	srv.HandleSetMerge(w2, req2)
+	assert.Equal(t, http.StatusBadRequest, w2.Code)
+
+	// Invalid bounds (rowSpan 0) should fail
+	body3, _ := json.Marshal(generated.SetMergeRequest{StartRow: 5, StartCol: 5, RowSpan: 0, ColSpan: 1})
+	req3 := httptest.NewRequest(http.MethodPost, "/api/merge", bytes.NewReader(body3))
+	req3.Header.Set("Content-Type", "application/json")
+	w3 := httptest.NewRecorder()
+	srv.HandleSetMerge(w3, req3)
+	assert.Equal(t, http.StatusBadRequest, w3.Code)
+}
+
+func TestHandleUnmerge(t *testing.T) {
+	srv := newTestServer()
+	assert.NoError(t, srv.Ctrl.SetMerge(0, 0, 1, 3))
+
+	body, _ := json.Marshal(generated.UnmergeRequest{StartRow: 0, StartCol: 0})
+	req := httptest.NewRequest(http.MethodPost, "/api/unmerge", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleUnmerge(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			HasUnsavedChanges bool `json:"hasUnsavedChanges"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.True(t, resp.Data.HasUnsavedChanges)
+	assert.Empty(t, srv.Ctrl.GetMerges())
+
+	// Unmerge non-anchor should fail
+	assert.NoError(t, srv.Ctrl.SetMerge(0, 0, 2, 2))
+	body2, _ := json.Marshal(generated.UnmergeRequest{StartRow: 1, StartCol: 1})
+	req2 := httptest.NewRequest(http.MethodPost, "/api/unmerge", bytes.NewReader(body2))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	srv.HandleUnmerge(w2, req2)
+	assert.Equal(t, http.StatusBadRequest, w2.Code)
+}

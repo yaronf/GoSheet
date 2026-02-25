@@ -101,6 +101,24 @@ type FileStatusResponse struct {
 	Success bool    `json:"success"`
 }
 
+// MergeRegion defines model for MergeRegion.
+type MergeRegion struct {
+	ColSpan  int `json:"colSpan"`
+	RowSpan  int `json:"rowSpan"`
+	StartCol int `json:"startCol"`
+	StartRow int `json:"startRow"`
+}
+
+// MergesResponse defines model for MergesResponse.
+type MergesResponse struct {
+	Code *string `json:"code,omitempty"`
+	Data *struct {
+		Merges *[]MergeRegion `json:"merges,omitempty"`
+	} `json:"data,omitempty"`
+	Error   *string `json:"error,omitempty"`
+	Success bool    `json:"success"`
+}
+
 // PathRequest defines model for PathRequest.
 type PathRequest struct {
 	Path string `json:"path"`
@@ -135,9 +153,43 @@ type SetCellResponse struct {
 	Success bool    `json:"success"`
 }
 
+// SetMergeRequest defines model for SetMergeRequest.
+type SetMergeRequest struct {
+	ColSpan  int `json:"colSpan"`
+	RowSpan  int `json:"rowSpan"`
+	StartCol int `json:"startCol"`
+	StartRow int `json:"startRow"`
+}
+
+// SetMergeResponse defines model for SetMergeResponse.
+type SetMergeResponse struct {
+	Code *string `json:"code,omitempty"`
+	Data *struct {
+		HasUnsavedChanges *bool `json:"hasUnsavedChanges,omitempty"`
+	} `json:"data,omitempty"`
+	Error   *string `json:"error,omitempty"`
+	Success bool    `json:"success"`
+}
+
 // SuccessResponse defines model for SuccessResponse.
 type SuccessResponse struct {
 	Success bool `json:"success"`
+}
+
+// UnmergeRequest defines model for UnmergeRequest.
+type UnmergeRequest struct {
+	StartCol int `json:"startCol"`
+	StartRow int `json:"startRow"`
+}
+
+// UnmergeResponse defines model for UnmergeResponse.
+type UnmergeResponse struct {
+	Code *string `json:"code,omitempty"`
+	Data *struct {
+		HasUnsavedChanges *bool `json:"hasUnsavedChanges,omitempty"`
+	} `json:"data,omitempty"`
+	Error   *string `json:"error,omitempty"`
+	Success bool    `json:"success"`
 }
 
 // GetCellRawParams defines parameters for GetCellRaw.
@@ -175,3 +227,9 @@ type LoadFileJSONRequestBody = PathRequest
 
 // SaveFileJSONRequestBody defines body for SaveFile for application/json ContentType.
 type SaveFileJSONRequestBody = PathRequest
+
+// SetMergeJSONRequestBody defines body for SetMerge for application/json ContentType.
+type SetMergeJSONRequestBody = SetMergeRequest
+
+// UnmergeJSONRequestBody defines body for Unmerge for application/json ContentType.
+type UnmergeJSONRequestBody = UnmergeRequest

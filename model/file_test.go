@@ -226,7 +226,7 @@ func TestLoadFromFile_InvalidCellsGob(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 	enc := gob.NewEncoder(f)
-	enc.Encode(FileHeader{Version: "1.0", CellCount: 0})
+	enc.Encode(FileHeader{Version: "1.1", CellCount: 0})
 	enc.Encode("not a map") // Wrong type - should be map[int]map[int]*Cell
 	f.Close()
 
@@ -341,11 +341,12 @@ func TestLoadFromBytesInvalidVersion(t *testing.T) {
 		t.Error("Expected error when loading truncated bytes")
 	}
 
-	// Valid gob structure but wrong version
+	// Valid gob structure but wrong version (v1.1 required)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	enc.Encode(FileHeader{Version: "2.0", CellCount: 0})
 	enc.Encode(map[int]map[int]*Cell{})
+	enc.Encode([]MergeRegion{})
 	_, err = LoadFromBytes(buf.Bytes(), "/x.sheet")
 	if err == nil {
 		t.Error("Expected error when loading bytes with unsupported version")
@@ -384,27 +385,6 @@ func TestSaveAndLoadWithMergeRegions(t *testing.T) {
 	}
 	if loaded.GetCell(0, 0).Value != "Header" {
 		t.Errorf("Expected anchor value 'Header', got %q", loaded.GetCell(0, 0).Value)
-	}
-}
-
-func TestLoadFromBytes_V1BackwardCompatibility(t *testing.T) {
-	// v1.0 format: header + cells only (no merges block)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(FileHeader{Version: "1.0", CellCount: 0}); err != nil {
-		t.Fatalf("Encode header failed: %v", err)
-	}
-	if err := enc.Encode(map[int]map[int]*Cell{}); err != nil {
-		t.Fatalf("Encode cells failed: %v", err)
-	}
-
-	loaded, err := LoadFromBytes(buf.Bytes(), "/test/v1.sheet")
-	if err != nil {
-		t.Fatalf("LoadFromBytes failed: %v", err)
-	}
-
-	if len(loaded.Merges) != 0 {
-		t.Errorf("Expected empty Merges for v1.0 file, got %d merges", len(loaded.Merges))
 	}
 }
 

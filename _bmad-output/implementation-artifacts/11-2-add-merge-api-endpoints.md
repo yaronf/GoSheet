@@ -3,7 +3,7 @@
 **Epic:** 11 - Cell Merging  
 **Story:** 11.2  
 **Estimated Effort:** 2-3 hours  
-**Status:** ready-for-dev  
+**Status:** in-progress  
 **Created:** 2026-02-23  
 **Last Updated:** 2026-02-25 (CS for Epic 11)
 
@@ -35,52 +35,52 @@ So that the UI can sync merge state with the backend.
 ## Acceptance Criteria
 
 1. **GetMergeRegions**
-   - [ ] `GET /api/merges` returns all merge regions
-   - [ ] Response: `{ success: true, data: { merges: [{startRow, startCol, rowSpan, colSpan}, ...] } }`
-   - [ ] Empty array when no merges
+   - [x] `GET /api/merges` returns all merge regions
+   - [x] Response: `{ success: true, data: { merges: [{startRow, startCol, rowSpan, colSpan}, ...] } }`
+   - [x] Empty array when no merges
 
 2. **SetMerge**
-   - [ ] `POST /api/merge` accepts `{startRow, startCol, rowSpan, colSpan}`
-   - [ ] Creates merge region; returns success or error
-   - [ ] Validates no overlapping regions
-   - [ ] Validates range within grid bounds (startRow/startCol >= 0, rowSpan/colSpan >= 1)
-   - [ ] Sets Modified = true
+   - [x] `POST /api/merge` accepts `{startRow, startCol, rowSpan, colSpan}`
+   - [x] Creates merge region; returns success or error
+   - [x] Validates no overlapping regions
+   - [x] Validates range within grid bounds (startRow/startCol >= 0, rowSpan/colSpan >= 1)
+   - [x] Sets Modified = true
 
 3. **Unmerge**
-   - [ ] `POST /api/unmerge` accepts `{startRow, startCol}` (anchor)
-   - [ ] Removes merge containing that anchor
-   - [ ] Returns error if (startRow, startCol) is not an anchor
-   - [ ] Sets Modified = true
+   - [x] `POST /api/unmerge` accepts `{startRow, startCol}` (anchor)
+   - [x] Removes merge containing that anchor
+   - [x] Returns error if (startRow, startCol) is not an anchor
+   - [x] Sets Modified = true
 
 4. **Integration**
-   - [ ] Endpoints follow existing patterns (HandleGetCellValue, HandleSetCellValue)
-   - [ ] Add to server/main.go, api-client.js, api-types.d.ts
-   - [ ] OpenAPI schema updated (optional but recommended)
+   - [x] Endpoints follow existing patterns (HandleGetCellValue, HandleSetCellValue)
+   - [x] Add to server/main.go, api-client.js, api-types.d.ts
+   - [x] OpenAPI schema updated (optional but recommended)
 
 ---
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Controller merge methods (AC: 1, 2, 3)
-  - [ ] Add `GetMerges() []MergeRegion` to controller (reads Sheet.Merges)
-  - [ ] Add `SetMerge(startRow, startCol, rowSpan, colSpan) error` — validate, append to Merges, set Modified
-  - [ ] Add `Unmerge(startRow, startCol) error` — find and remove merge containing anchor
-  - [ ] Validation: no overlap with existing merges; bounds check
+- [x] Task 1: Controller merge methods (AC: 1, 2, 3)
+  - [x] Add `GetMerges() []MergeRegion` to controller (reads Sheet.Merges)
+  - [x] Add `SetMerge(startRow, startCol, rowSpan, colSpan) error` — validate, append to Merges, set Modified
+  - [x] Add `Unmerge(startRow, startCol) error` — find and remove merge containing anchor
+  - [x] Validation: no overlap with existing merges; bounds check
 
-- [ ] Task 2: API handlers (AC: 1, 2, 3)
-  - [ ] HandleGetMerges: GET /api/merges → JSON { merges: [...] }
-  - [ ] HandleSetMerge: POST /api/merge, decode body, call SetMerge
-  - [ ] HandleUnmerge: POST /api/unmerge, decode body, call Unmerge
-  - [ ] Register in server/main.go
+- [x] Task 2: API handlers (AC: 1, 2, 3)
+  - [x] HandleGetMerges: GET /api/merges → JSON { merges: [...] }
+  - [x] HandleSetMerge: POST /api/merge, decode body, call SetMerge
+  - [x] HandleUnmerge: POST /api/unmerge, decode body, call Unmerge
+  - [x] Register in server/main.go
 
-- [ ] Task 3: Frontend API client (AC: 4)
-  - [ ] Add getMerges(), setMerge(), unmerge() to api-client.js
-  - [ ] Add types to api-types.d.ts if using TypeScript/typed API
+- [x] Task 3: Frontend API client (AC: 4)
+  - [x] Add getMerges(), setMerge(), unmerge() to api-client.js
+  - [x] Add types to api-types.d.ts if using TypeScript/typed API
 
-- [ ] Task 4: Tests
-  - [ ] Add api/handlers_test.go tests for merge endpoints
-  - [ ] Add controller tests for SetMerge/Unmerge validation
-  - [ ] Go unit tests pass
+- [x] Task 4: Tests
+  - [x] Add api/handlers_test.go tests for merge endpoints
+  - [x] Add controller tests for SetMerge/Unmerge validation
+  - [ ] Go unit tests pass (user runs manually)
 
 ---
 
@@ -121,8 +121,20 @@ So that the UI can sync merge state with the backend.
 
 ### Agent Model Used
 
-(To be filled by dev agent)
+Cursor Composer
 
 ### Completion Notes List
 
+- **2026-02-25 DS:** Implemented GetMerges, SetMerge, Unmerge in controller; HandleGetMerges, HandleSetMerge, HandleUnmerge in api; registered routes; added getMerges, setMerge, unmerge to frontend api-client.js; OpenAPI schema; controller and handler tests.
+
 ### File List
+
+- controller/app.go (GetMerges, SetMerge, Unmerge, rectanglesOverlap)
+- api/handlers.go (HandleGetMerges, HandleSetMerge, HandleUnmerge)
+- api/handlers_test.go (TestHandleGetMerges, TestHandleSetMerge, TestHandleUnmerge)
+- controller/controller_test.go (TestControllerGetMerges, TestControllerSetMerge, TestControllerUnmerge)
+- server/main.go (merge route registration)
+- frontend/api-client.js (GetMerges, SetMerge, Unmerge)
+- api/openapi.yaml (merge paths and schemas)
+- api/generated/types.go (regenerated)
+- frontend/api-types.d.ts (regenerated)
