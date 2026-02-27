@@ -607,8 +607,8 @@ func TestFormulaFunctionArgErrors(t *testing.T) {
 	sheet := NewSpreadsheet()
 
 	tests := []struct {
-		formula   string
-		contains  string
+		formula  string
+		contains string
 	}{
 		{"=UPPER()", "exactly 1"},
 		{"=UPPER(1,2)", "exactly 1"},

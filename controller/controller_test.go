@@ -199,9 +199,9 @@ func TestControllerGetFilePath(t *testing.T) {
 func TestControllerRecalculateAllFormulas_OnLoadWithCycle(t *testing.T) {
 	// Create spreadsheet with cycle at model level (bypasses controller cycle detection)
 	s := model.NewSpreadsheet()
-	s.SetCell(0, 0, "=B1")  // A1
-	s.SetCell(0, 1, "=A1")  // B1 - cycle
-	s.SetCell(2, 0, "=A1")  // C1 depends on A1
+	s.SetCell(0, 0, "=B1") // A1
+	s.SetCell(0, 1, "=A1") // B1 - cycle
+	s.SetCell(2, 0, "=A1") // C1 depends on A1
 	data, err := s.SaveToBytes()
 	assert.NoError(t, err)
 

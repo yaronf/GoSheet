@@ -243,11 +243,11 @@ func TestLoadFromFile_InvalidVersion(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 	enc := gob.NewEncoder(f)
-	if err := enc.Encode(FileHeader{Version: "2.0", CellCount: 0}); err != nil {
-		t.Fatalf("Encode header failed: %v", err)
+	if encErr := enc.Encode(FileHeader{Version: "2.0", CellCount: 0}); encErr != nil {
+		t.Fatalf("Encode header failed: %v", encErr)
 	}
-	if err := enc.Encode(map[int]map[int]*Cell{}); err != nil {
-		t.Fatalf("Encode cells failed: %v", err)
+	if encErr := enc.Encode(map[int]map[int]*Cell{}); encErr != nil {
+		t.Fatalf("Encode cells failed: %v", encErr)
 	}
 	f.Close()
 
