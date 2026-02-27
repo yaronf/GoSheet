@@ -83,12 +83,70 @@ async function selectCellViaApp(window, row, col) {
 }
 
 /**
+ * Start editing a cell via app's startEditing (exposed for tests). Use when
+ * dblclick doesn't reliably trigger edit mode in Electron.
+ */
+async function startEditingViaApp(window, row, col) {
+  await window.evaluate(
+    ({ row, col }) => {
+      if (typeof window.startEditing === 'function') {
+        window.startEditing(row, col);
+      }
+    },
+    { row, col }
+  );
+}
+
+/**
  * Set cell value via API and select it. For Copy/Cut/Paste tests that need
  * a cell with data and selection.
  */
 async function setCellAndSelect(window, row, col, value) {
   await setCellViaApi(window, row, col, value);
   await selectCellViaApp(window, row, col);
+}
+
+/**
+ * Create merge region via API. Story 11.4 tests.
+ * After merging, call buildSpreadsheet to rebuild grid with merge regions.
+ */
+async function setMergeViaApi(window, startRow, startCol, rowSpan, colSpan) {
+  const result = await window.evaluate(
+    async (arg) => {
+      const { startRow, startCol, rowSpan, colSpan } = arg;
+      const res = await fetch('/api/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startRow,
+          startCol,
+          rowSpan,
+          colSpan,
+        }),
+      });
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        throw new Error(
+          `setMergeViaApi: invalid JSON (${res.status}): ${text.slice(0, 100)}`
+        );
+      }
+      if (json.success && typeof window.buildSpreadsheet === 'function') {
+        await window.buildSpreadsheet();
+        if (typeof window.refreshAllCells === 'function') {
+          await window.refreshAllCells();
+        }
+      }
+      return json;
+    },
+    { startRow, startCol, rowSpan, colSpan }
+  );
+  if (result && result.success === false) {
+    throw new Error(result.error || 'setMergeViaApi failed');
+  }
+  return result;
 }
 
 /**
@@ -111,5 +169,7 @@ module.exports = {
   fillCell,
   setCellViaApi,
   selectCellViaApp,
+  startEditingViaApp,
   setCellAndSelect,
+  setMergeViaApi,
 };

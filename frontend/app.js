@@ -563,6 +563,7 @@ function _isCoveredByRowspanFromAbove(row, col, merges) {
  * @returns {{row: number, col: number}}
  */
 function resolveToAnchor(row, col) {
+  // CR 11-4: Reject invalid inputs instead of coercing to (0,0) - avoids silent wrong-cell selection
   if (
     typeof row !== 'number' ||
     typeof col !== 'number' ||
@@ -571,7 +572,9 @@ function resolveToAnchor(row, col) {
     row < 0 ||
     col < 0
   ) {
-    return { row: Math.max(0, row | 0), col: Math.max(0, col | 0) };
+    throw new TypeError(
+      `resolveToAnchor: invalid coords (row=${row}, col=${col})`
+    );
   }
   const merge = getMergeAt(row, col, currentMerges);
   if (!merge) return { row, col };
@@ -737,109 +740,74 @@ function colToLetter(col) {
   return result;
 }
 
-// Select a cell
-function selectCell(row, col) {
-  // Story 11.4: Resolve covered cells to anchor so formula bar and API use anchor coords
-  ({ row, col } = resolveToAnchor(row, col));
-
-  // If we're currently editing, SAVE the current edit first
-  if (isEditing) {
-    if (window.__DEBUG__)
-      console.log(
-        'Selecting new cell while editing - saving current edit first'
-      );
-
-    // Find the input element and save its value
-    const input = document.querySelector('.cell-editor');
-    if (input) {
-      const editingCell = input.parentElement;
-      const editRow = parseInt(editingCell.dataset.row);
-      const editCol = parseInt(editingCell.dataset.col);
-      const value = input.value;
-
-      if (window.__DEBUG__)
-        console.log(
-          `Saving edit: row=${editRow}, col=${editCol}, value="${value}"`
-        );
-
-      // Remove input and reset state
-      input.remove();
-      isEditing = false;
-
-      // Save the value (don't wait for it)
-      SetCellValue(editRow, editCol, value)
-        .then((result) => {
-          // Update file status from the response
-          if (result.hasUnsavedChanges !== undefined) {
-            displayFileStatus(result.hasUnsavedChanges);
-          }
-          return refreshAllCells();
-        })
-        .catch((err) => {
-          console.error('Error saving on cell switch:', err);
-        });
-    } else {
-      // No input found, just reset state
-      forceCleanupEditing();
-    }
+function saveCurrentEditOnCellSwitch() {
+  const input = document.querySelector('.cell-editor');
+  if (!input) {
+    forceCleanupEditing();
+    return;
   }
+  const editingCell = input.parentElement;
+  const editRow = parseInt(editingCell.dataset.row);
+  const editCol = parseInt(editingCell.dataset.col);
+  const value = input.value;
+  if (window.__DEBUG__)
+    console.log(`Saving edit: row=${editRow}, col=${editCol}, value="${value}"`);
+  input.remove();
+  isEditing = false;
+  SetCellValue(editRow, editCol, value)
+    .then((result) => {
+      if (result.hasUnsavedChanges !== undefined) displayFileStatus(result.hasUnsavedChanges);
+      return refreshAllCells();
+    })
+    .catch((err) => console.error('Error saving on cell switch:', err));
+}
 
-  // Check if we need to expand the grid
+function expandGridIfNeeded(row, col) {
   let needsRebuild = false;
-
-  // Expand rows if near bottom edge
   if (row >= ROWS - EXPAND_THRESHOLD) {
-    const newRows = Math.max(row + EXPAND_ROWS, ROWS + EXPAND_ROWS);
-    if (window.__DEBUG__)
-      console.log(`Expanding rows from ${ROWS} to ${newRows}`);
-    ROWS = newRows;
+    ROWS = Math.max(row + EXPAND_ROWS, ROWS + EXPAND_ROWS);
+    if (window.__DEBUG__) console.log(`Expanding rows to ${ROWS}`);
     needsRebuild = true;
   }
-
-  // Expand columns if near right edge
   if (col >= COLS - EXPAND_THRESHOLD) {
-    const newCols = Math.max(col + EXPAND_COLS, COLS + EXPAND_COLS);
-    if (window.__DEBUG__)
-      console.log(`Expanding columns from ${COLS} to ${newCols}`);
-    COLS = newCols;
+    COLS = Math.max(col + EXPAND_COLS, COLS + EXPAND_COLS);
+    if (window.__DEBUG__) console.log(`Expanding columns to ${COLS}`);
     needsRebuild = true;
   }
+  if (needsRebuild) buildSpreadsheet().then(() => refreshAllCells());
+}
 
-  // Rebuild grid if expanded
-  if (needsRebuild) {
-    buildSpreadsheet().then(() => refreshAllCells());
-  }
-
-  // Remove previous selection and tabindex
+function applyCellSelection(row, col) {
   document.querySelectorAll('.cell.selected').forEach((el) => {
     el.classList.remove('selected');
     el.setAttribute('tabindex', '-1');
   });
-
-  // Highlight selected cell and make it focusable (use getCellElement for merge-aware lookup)
   const cell = getCellElement(row, col);
-  if (cell) {
-    cell.classList.add('selected');
-    cell.setAttribute('tabindex', '0');
-    selectedCell = { row, col };
+  if (!cell) return;
+  cell.classList.add('selected');
+  cell.setAttribute('tabindex', '0');
+  selectedCell = { row, col };
+  updateFormulaBar(row, col);
+  const cellRef = colToLetter(col) + (row + 1);
+  const displayValue = cell.textContent?.trim() || '';
+  const formula = cell.dataset.formula || '';
+  const announcement = formula
+    ? `Cell ${cellRef} selected, formula: ${formula}, value: ${displayValue || 'empty'}`
+    : displayValue
+      ? `Cell ${cellRef} selected, value: ${displayValue}`
+      : `Cell ${cellRef} selected, empty`;
+  announceToScreenReader(announcement);
+}
 
-    // Update formula bar
-    updateFormulaBar(row, col);
-
-    // Story 10.7: Announce cell selection to screen reader
-    const cellRef = colToLetter(col) + (row + 1);
-    const displayValue = cell.textContent?.trim() || '';
-    const formula = cell.dataset.formula || '';
-    let announcement = `Cell ${cellRef} selected`;
-    if (formula) {
-      announcement += `, formula: ${formula}, value: ${displayValue || 'empty'}`;
-    } else if (displayValue) {
-      announcement += `, value: ${displayValue}`;
-    } else {
-      announcement += ', empty';
-    }
-    announceToScreenReader(announcement);
+// Select a cell
+function selectCell(row, col) {
+  ({ row, col } = resolveToAnchor(row, col));
+  if (isEditing) {
+    if (window.__DEBUG__) console.log('Selecting new cell while editing - saving first');
+    saveCurrentEditOnCellSwitch();
   }
+  expandGridIfNeeded(row, col);
+  applyCellSelection(row, col);
 }
 
 // Update the formula bar with the selected cell's content
@@ -1037,12 +1005,23 @@ function finishEditing(row, col, value, cell) {
     });
 }
 
-// Refresh all cells from the backend
+function applyCellValue(cell, value, rawValue) {
+  cell.textContent = value;
+  cell.classList.toggle('error-cell', !!value && value.startsWith('#ERROR'));
+  if ((rawValue ?? '').startsWith('=')) {
+    cell.classList.add('formula-cell');
+    cell.dataset.formula = rawValue;
+  } else {
+    cell.classList.remove('formula-cell');
+    delete cell.dataset.formula;
+  }
+  const isNum = value && !isNaN(value) && value.trim() !== '';
+  cell.classList.toggle('number-cell', !!isNum);
+}
+
 async function refreshAllCells() {
   try {
     const cells = await GetAllCells();
-
-    // Clear all cells first (use getCellElement for merge-aware lookup; avoid redundant clears)
     const cleared = new Set();
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
@@ -1054,41 +1033,11 @@ async function refreshAllCells() {
         }
       }
     }
-
-    // Update cells with new values
-    for (const [ref, value] of Object.entries(cells)) {
+    for (const [ref, cellData] of Object.entries(cells)) {
       const match = ref.match(/([A-Z]+)(\d+)/);
       if (match) {
-        const col = letterToCol(match[1]);
-        const row = parseInt(match[2]) - 1;
-        const cell = getCellElement(row, col);
-        if (cell) {
-          cell.textContent = value;
-
-          // Check if it's an error cell
-          if (value && value.startsWith('#ERROR')) {
-            cell.classList.add('error-cell');
-          } else {
-            cell.classList.remove('error-cell');
-          }
-
-          // Check if it's a formula cell (store for screen reader announcements)
-          const rawValue = await GetCellRawValue(row, col);
-          if (rawValue && rawValue.startsWith('=')) {
-            cell.classList.add('formula-cell');
-            cell.dataset.formula = rawValue;
-          } else {
-            cell.classList.remove('formula-cell');
-            delete cell.dataset.formula;
-          }
-
-          // Add number-cell class for right alignment
-          if (value && !isNaN(value) && value.trim() !== '') {
-            cell.classList.add('number-cell');
-          } else {
-            cell.classList.remove('number-cell');
-          }
-        }
+        const cell = getCellElement(parseInt(match[2]) - 1, letterToCol(match[1]));
+        if (cell) applyCellValue(cell, cellData.display, cellData.raw ?? '');
       }
     }
   } catch (err) {
@@ -1113,44 +1062,14 @@ function cancelEditing(cell, originalContent) {
   cell.textContent = originalContent;
 }
 
-// Load all cells from backend
 async function loadCells() {
   try {
     const cells = await GetAllCells();
-
-    for (const [ref, value] of Object.entries(cells)) {
+    for (const [ref, cellData] of Object.entries(cells)) {
       const match = ref.match(/([A-Z]+)(\d+)/);
       if (match) {
-        const col = letterToCol(match[1]);
-        const row = parseInt(match[2]) - 1;
-        const cell = getCellElement(row, col);
-        if (cell) {
-          cell.textContent = value;
-
-          // Check if it's an error cell
-          if (value && value.startsWith('#ERROR')) {
-            cell.classList.add('error-cell');
-          } else {
-            cell.classList.remove('error-cell');
-          }
-
-          // Check if it's a formula cell (store for screen reader announcements)
-          const rawValue = await GetCellRawValue(row, col);
-          if (rawValue && rawValue.startsWith('=')) {
-            cell.classList.add('formula-cell');
-            cell.dataset.formula = rawValue;
-          } else {
-            cell.classList.remove('formula-cell');
-            delete cell.dataset.formula;
-          }
-
-          // Add number-cell class for right alignment
-          if (value && !isNaN(value) && value.trim() !== '') {
-            cell.classList.add('number-cell');
-          } else {
-            cell.classList.remove('number-cell');
-          }
-        }
+        const cell = getCellElement(parseInt(match[2]) - 1, letterToCol(match[1]));
+        if (cell) applyCellValue(cell, cellData.display, cellData.raw ?? '');
       }
     }
   } catch (err) {
@@ -1453,12 +1372,14 @@ async function handleImportCSV() {
   }
 }
 
-// Expose for testing (Story 11.3, 11.4)
+// Expose for testing (Story 11.3, 11.4) - Playwright merge tests need buildSpreadsheet to apply merge regions
 window.getCellElement = getCellElement;
 window.resolveToAnchor = resolveToAnchor;
+window.startEditing = startEditing;
 window.handleImportCSV = handleImportCSV;
 window.selectCell = selectCell;
 window.refreshAllCells = refreshAllCells;
+window.buildSpreadsheet = buildSpreadsheet;
 window.displayFileStatus = displayFileStatus;
 
 function showCSVPreviewModal(preview) {

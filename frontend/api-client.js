@@ -77,11 +77,14 @@ const GetCellRef = async (row, col) => {
 
 const GetAllCells = async () => {
   // Story 3.5: Electron uses HTTP API for spreadsheet operations
+  // Returns { ref: { display, raw } } so callers avoid per-cell GetCellRawValue (CR 11-4 perf)
   const json = await fetchUnified('GET', '/api/cells/all');
   const cells = {};
   (json.data || []).forEach((c) => {
     const ref = colToLetter(c.col) + (c.row + 1);
-    cells[ref] = c.computed ?? c.value ?? '';
+    const display = c.computed ?? c.value ?? '';
+    const raw = c.value ?? '';
+    cells[ref] = { display, raw };
   });
   return cells;
 };
