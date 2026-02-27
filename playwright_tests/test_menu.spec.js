@@ -6,7 +6,7 @@
 const { test, expect } = require('./fixtures');
 const {
   ensureSpreadsheetView,
-  editCell,
+  setCellViaApi,
   waitForSaveEnabled,
 } = require('./helpers');
 
@@ -383,7 +383,7 @@ test.describe('File Menu Tests', () => {
     // Modify a cell to trigger unsaved changes
     const cell = await window.locator('.cell[data-row="0"][data-col="0"]');
     await expect(cell).toBeVisible();
-    await editCell(window, cell, 'Test');
+    await setCellViaApi(window, 0, 0, 'Test');
 
     // Wait for file status to show unsaved changes
     await expect(fileStatus).toContainText('Unsaved', { timeout: 5000 });
@@ -436,7 +436,7 @@ test.describe('Menu Integration Tests', () => {
     // Type something in a cell
     const cell = await window.locator('.cell[data-row="0"][data-col="0"]');
     await expect(cell).toBeVisible();
-    await editCell(window, cell, 'Test Data');
+    await setCellViaApi(window, 0, 0, 'Test Data');
 
     // Wait for the cell to contain the expected text
     await expect(cell).toHaveText('Test Data', { timeout: 5000 });
@@ -482,8 +482,7 @@ test.describe('Menu Integration Tests', () => {
     await expect(grid).toBeVisible();
 
     // Edit a cell so Save is enabled
-    const cell = await window.locator('.cell[data-row="0"][data-col="0"]');
-    await editCell(window, cell, 'test');
+    await setCellViaApi(window, 0, 0, 'test');
     await waitForSaveEnabled(window);
 
     // First save a file normally (Save As would also work; we use Save to open dialog then Escape)

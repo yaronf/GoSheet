@@ -3,7 +3,7 @@
 // Story 8.2: Navigate from welcome screen; #new-btn is in spreadsheet view
 
 const { test, expect } = require('./fixtures');
-const { ensureSpreadsheetView } = require('./helpers');
+const { ensureSpreadsheetView, setCellAndSelect, selectCellViaApp } = require('./helpers');
 
 test.describe('Edit Menu Tests', () => {
   // Create new file before each test to ensure isolation
@@ -129,20 +129,9 @@ test.describe('Edit Menu Tests', () => {
     const grid = await window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
 
-    // Enter value in cell A1
-    const cell = await window.locator('.cell[data-row="0"][data-col="0"]');
+    const cell = window.locator('#cell-0-0');
     await expect(cell).toBeVisible();
-    await cell.click();
-    await cell.dblclick();
-    await window.waitForTimeout(150); // Let edit mode be ready (avoids first char lost)
-    await window.keyboard.type('Test Value');
-    await window.keyboard.press('Enter');
-
-    // Wait for value to appear
-    await expect(cell).toHaveText('Test Value', { timeout: 3000 });
-
-    // Select the cell again
-    await cell.click();
+    await setCellAndSelect(window, 0, 0, 'Test Value');
 
     // Trigger Copy from menu
     await electronApp.evaluate(({ Menu }) => {
@@ -161,7 +150,7 @@ test.describe('Edit Menu Tests', () => {
 
     // Verify clipboard content by pasting into another cell
     const cellB1 = await window.locator('.cell[data-row="0"][data-col="1"]');
-    await cellB1.click();
+    await selectCellViaApp(window, 0, 1);
     await window.waitForTimeout(200);
 
     // Trigger paste from menu (more reliable than keyboard shortcut)
@@ -187,20 +176,9 @@ test.describe('Edit Menu Tests', () => {
     const grid = await window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
 
-    // Enter value in cell A1
-    const cell = await window.locator('.cell[data-row="0"][data-col="0"]');
+    const cell = window.locator('.cell[data-row="0"][data-col="0"]');
     await expect(cell).toBeVisible();
-    await cell.click();
-    await cell.dblclick();
-    await window.waitForTimeout(150); // Let edit mode be ready (avoids first char lost)
-    await window.keyboard.type('Cut Me');
-    await window.keyboard.press('Enter');
-
-    // Wait for value to appear
-    await expect(cell).toHaveText('Cut Me', { timeout: 3000 });
-
-    // Select the cell again
-    await cell.click();
+    await setCellAndSelect(window, 0, 0, 'Cut Me');
 
     // Trigger Cut from menu
     await electronApp.evaluate(({ Menu }) => {
@@ -219,7 +197,7 @@ test.describe('Edit Menu Tests', () => {
 
     // Paste into B1 to verify clipboard
     const cellB1 = await window.locator('.cell[data-row="0"][data-col="1"]');
-    await cellB1.click();
+    await selectCellViaApp(window, 0, 1);
     await window.waitForTimeout(200);
 
     // Use menu paste instead of keyboard
@@ -248,19 +226,11 @@ test.describe('Edit Menu Tests', () => {
     const grid = await window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
 
-    // Enter value in cell A1
-    const cellA1 = await window.locator('.cell[data-row="0"][data-col="0"]');
+    const cellA1 = window.locator('.cell[data-row="0"][data-col="0"]');
     await expect(cellA1).toBeVisible();
-    await cellA1.click();
-    await cellA1.dblclick();
-    await window.waitForTimeout(150); // Let edit mode be ready (avoids first char lost)
-    await window.keyboard.type('Original');
-    await window.keyboard.press('Enter');
-
-    await expect(cellA1).toHaveText('Original', { timeout: 3000 });
+    await setCellAndSelect(window, 0, 0, 'Original');
 
     // Copy A1 using menu
-    await cellA1.click();
     await window.waitForTimeout(200);
 
     await electronApp.evaluate(({ Menu }) => {
@@ -277,9 +247,8 @@ test.describe('Edit Menu Tests', () => {
     await window.waitForTimeout(800);
 
     // Select B1 and use Paste menu
-    const cellB1 = await window.locator('.cell[data-row="0"][data-col="1"]');
-    await cellB1.click();
-    await window.waitForTimeout(200);
+    const cellB1 = window.locator('.cell[data-row="0"][data-col="1"]');
+    await selectCellViaApp(window, 0, 1);
 
     // Trigger Paste from menu
     await electronApp.evaluate(({ Menu }) => {
@@ -346,18 +315,8 @@ test.describe('Edit Menu Tests', () => {
     const grid = await window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
 
-    // Add some values to cells
-    const cellA1 = await window.locator('.cell[data-row="0"][data-col="0"]');
-    await cellA1.click();
-    await cellA1.dblclick();
-    await window.keyboard.type('A1');
-    await window.keyboard.press('Enter');
-
-    const cellB2 = await window.locator('.cell[data-row="1"][data-col="1"]');
-    await cellB2.click();
-    await cellB2.dblclick();
-    await window.keyboard.type('B2');
-    await window.keyboard.press('Enter');
+    await setCellAndSelect(window, 0, 0, 'A1');
+    await setCellAndSelect(window, 1, 1, 'B2');
 
     // Trigger Select All from menu
     await electronApp.evaluate(({ Menu }) => {

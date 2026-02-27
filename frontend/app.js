@@ -7,6 +7,7 @@ import {
   GetCellRef,
   GetAllCells,
   GetFileStatus,
+  GetMerges,
   NewFile,
   SaveFile,
   LoadFile,
@@ -27,6 +28,9 @@ const EXPAND_COLS = 10; // Add 10 columns when expanding
 
 let selectedCell = null;
 let isEditing = false;
+
+// Story 11.3: Cached merge regions (updated by buildSpreadsheet) for getCellElement
+let currentMerges = [];
 
 // Story 7.11: Track unsaved changes for quit warning dialog
 // Exposed to window so Electron main process can check it via executeJavaScript()
@@ -376,7 +380,7 @@ async function loadFileByPath(filePath) {
     }
     ROWS = 100;
     COLS = 26;
-    buildSpreadsheet();
+    await buildSpreadsheet();
     await loadCells();
     selectCell(0, 0);
     updateFileStatus();
@@ -417,7 +421,22 @@ async function setupWelcomeScreen() {
 }
 
 // Story 8.2: Determine initial view (welcome vs spreadsheet) and wire welcome buttons
-setupWelcomeScreen();
+setupWelcomeScreen().then(() => {
+  // Only build spreadsheet when showing spreadsheet view (avoids race with new-file flow)
+  if (document.querySelector('#app')?.getAttribute('data-view') !== 'spreadsheet') return;
+  setTimeout(async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') !== 'spreadsheet') return;
+    if (window.__DEBUG__) console.log('[app.js] Building spreadsheet and loading cells...');
+    try {
+      await buildSpreadsheet();
+      await loadCells();
+      if (window.__DEBUG__) console.log('[app.js] Cells loaded successfully');
+      selectCell(0, 0);
+    } catch (err) {
+      console.error('[app.js] Failed to load cells:', err);
+    }
+  }, 50);
+});
 
 // Add scroll listener for infinite scrolling
 const container = document.querySelector('.spreadsheet-container');
@@ -465,8 +484,7 @@ function checkScrollPosition() {
     const oldScrollLeft = scrollLeft;
     const oldScrollTop = scrollTop;
 
-    buildSpreadsheet();
-    refreshAllCells();
+    buildSpreadsheet().then(() => refreshAllCells());
 
     // Restore scroll position
     setTimeout(() => {
@@ -476,8 +494,106 @@ function checkScrollPosition() {
   }
 }
 
-// Build the spreadsheet table
-function buildSpreadsheet() {
+// Story 11.3: Merge-aware grid rendering helpers
+// Merge region format: { startRow, startCol, rowSpan, colSpan } — anchor is (startRow, startCol)
+
+/**
+ * Find merge region containing (row, col), or null if not in any merge.
+ * @param {number} row
+ * @param {number} col
+ * @param {Array<{startRow: number, startCol: number, rowSpan: number, colSpan: number}>} merges
+ * @returns {{startRow: number, startCol: number, rowSpan: number, colSpan: number} | null}
+ */
+function getMergeAt(row, col, merges) {
+  if (!merges || merges.length === 0) return null;
+  for (const m of merges) {
+    const rs = m.rowSpan ?? 0;
+    const cs = m.colSpan ?? 0;
+    if (rs < 1 || cs < 1) continue;
+    const inRow = row >= m.startRow && row < m.startRow + rs;
+    const inCol = col >= m.startCol && col < m.startCol + cs;
+    if (inRow && inCol) return m;
+  }
+  return null;
+}
+
+/**
+ * Get merge info for (row,col): { merge, isAnchor }.
+ * isAnchor: true if (row,col) is the top-left of the merge.
+ * @param {number} row
+ * @param {number} col
+ * @param {Array<{startRow: number, startCol: number, rowSpan: number, colSpan: number}>} merges
+ * @returns {{ merge: {startRow: number, startCol: number, rowSpan: number, colSpan: number} | null, isAnchor: boolean }}
+ */
+function getMergeInfo(row, col, merges) {
+  const merge = getMergeAt(row, col, merges);
+  if (!merge) return { merge: null, isAnchor: false };
+  const isAnchor = merge.startRow === row && merge.startCol === col;
+  return { merge, isAnchor };
+}
+
+/**
+ * Check if (row,col) is covered by a rowspan from a cell above (same column, higher row).
+ * Reserved for Story 11.6 keyboard navigation.
+ * @param {number} row
+ * @param {number} col
+ * @param {Array<{startRow: number, startCol: number, rowSpan: number, colSpan: number}>} merges
+ * @returns {boolean}
+ */
+function isCoveredByRowspanFromAbove(row, col, merges) {
+  const merge = getMergeAt(row, col, merges);
+  if (!merge) return false;
+  return merge.startRow !== row || merge.startCol !== col;
+}
+
+/**
+ * Resolve (row,col) to anchor if covered by a merge. Story 11.4.
+ * @param {number} row
+ * @param {number} col
+ * @returns {{row: number, col: number}}
+ */
+function resolveToAnchor(row, col) {
+  if (typeof row !== 'number' || typeof col !== 'number' || !Number.isFinite(row) || !Number.isFinite(col) || row < 0 || col < 0) {
+    return { row: Math.max(0, row | 0), col: Math.max(0, col | 0) };
+  }
+  const merge = getMergeAt(row, col, currentMerges);
+  if (!merge) return { row, col };
+  return { row: merge.startRow, col: merge.startCol };
+}
+
+/**
+ * Get DOM element for cell (row,col). When (row,col) is covered by a merge, returns the anchor's td.
+ * @param {number} row
+ * @param {number} col
+ * @returns {HTMLTableCellElement | null}
+ */
+function getCellElement(row, col) {
+  const { merge, isAnchor } = getMergeInfo(row, col, currentMerges);
+  if (isAnchor || !merge) {
+    return document.getElementById(`cell-${row}-${col}`);
+  }
+  // Covered: return anchor's td
+  return document.getElementById(`cell-${merge.startRow}-${merge.startCol}`);
+}
+
+// Build the spreadsheet table (merge-aware)
+// Fetches merge regions and renders anchor cells with colspan/rowspan; covered cells are not in DOM
+// Serialize concurrent calls to prevent duplicate cell IDs (race between init and new-file flow)
+let buildSpreadsheetPromise = null;
+async function buildSpreadsheet() {
+  while (buildSpreadsheetPromise) {
+    await buildSpreadsheetPromise;
+  }
+  buildSpreadsheetPromise = (async () => {
+    try {
+      return await buildSpreadsheetImpl();
+    } finally {
+      buildSpreadsheetPromise = null;
+    }
+  })();
+  return buildSpreadsheetPromise;
+}
+async function buildSpreadsheetImpl() {
   const table = document.getElementById('spreadsheet');
   const container = document.getElementById('container');
   table.innerHTML = '';
@@ -506,7 +622,16 @@ function buildSpreadsheet() {
   }
   table.appendChild(headerRow);
 
-  // Data rows
+  // Fetch merge regions from API
+  try {
+    currentMerges = await GetMerges();
+  } catch (err) {
+    console.warn('[buildSpreadsheet] Could not fetch merges:', err);
+    currentMerges = [];
+  }
+  const merges = currentMerges;
+
+  // Data rows — merge-aware: anchor cells use colSpan/rowSpan, covered cells not rendered
   for (let row = 0; row < ROWS; row++) {
     const tr = document.createElement('tr');
     tr.setAttribute('role', 'row');
@@ -520,29 +645,63 @@ function buildSpreadsheet() {
     th.textContent = row + 1;
     tr.appendChild(th);
 
-    // Data cells
-    for (let col = 0; col < COLS; col++) {
-      const td = document.createElement('td');
-      td.className = 'cell';
-      td.id = `cell-${row}-${col}`;
-      td.dataset.row = row;
-      td.dataset.col = col;
-      td.setAttribute('role', 'gridcell');
-      td.setAttribute('aria-colindex', String(col + 1));
-      td.setAttribute('aria-rowindex', String(row + 1));
-      td.setAttribute('tabindex', '-1');
+    // Data cells — iterate by logical column; skip cols covered by rowspan from above
+    let col = 0;
+    let colIndex = 1; // For aria-colindex
+    while (col < COLS) {
+      const { merge, isAnchor } = getMergeInfo(row, col, merges);
 
-      // Click to select/edit
-      td.addEventListener('click', (e) => {
-        // Don't select if clicking on the input editor
-        if (e.target.classList.contains('cell-editor')) {
-          return;
-        }
-        selectCell(row, col);
-      });
-      td.addEventListener('dblclick', () => startEditing(row, col));
+      if (merge && isAnchor) {
+        // Anchor: create td with colSpan and rowSpan
+        const td = document.createElement('td');
+        td.className = 'cell';
+        td.id = `cell-${row}-${col}`;
+        td.dataset.row = row;
+        td.dataset.col = col;
+        td.colSpan = merge.colSpan;
+        td.rowSpan = merge.rowSpan;
+        td.setAttribute('role', 'gridcell');
+        td.setAttribute('aria-colspan', String(merge.colSpan));
+        td.setAttribute('aria-rowspan', String(merge.rowSpan));
+        td.setAttribute('aria-colindex', String(colIndex));
+        td.setAttribute('aria-rowindex', String(row + 1));
+        td.setAttribute('tabindex', '-1');
 
-      tr.appendChild(td);
+        td.addEventListener('click', (e) => {
+          if (e.target.classList.contains('cell-editor')) return;
+          selectCell(row, col);
+        });
+        td.addEventListener('dblclick', () => startEditing(row, col));
+
+        tr.appendChild(td);
+        col += merge.colSpan;
+        colIndex += merge.colSpan;
+      } else if (merge) {
+        // Covered by merge (same row or rowspan from above) — no td
+        col++;
+        colIndex++;
+      } else {
+        // Unmerged cell
+        const td = document.createElement('td');
+        td.className = 'cell';
+        td.id = `cell-${row}-${col}`;
+        td.dataset.row = row;
+        td.dataset.col = col;
+        td.setAttribute('role', 'gridcell');
+        td.setAttribute('aria-colindex', String(colIndex));
+        td.setAttribute('aria-rowindex', String(row + 1));
+        td.setAttribute('tabindex', '-1');
+
+        td.addEventListener('click', (e) => {
+          if (e.target.classList.contains('cell-editor')) return;
+          selectCell(row, col);
+        });
+        td.addEventListener('dblclick', () => startEditing(row, col));
+
+        tr.appendChild(td);
+        col++;
+        colIndex++;
+      }
     }
 
     table.appendChild(tr);
@@ -563,6 +722,9 @@ function colToLetter(col) {
 
 // Select a cell
 function selectCell(row, col) {
+  // Story 11.4: Resolve covered cells to anchor so formula bar and API use anchor coords
+  ({ row, col } = resolveToAnchor(row, col));
+
   // If we're currently editing, SAVE the current edit first
   if (isEditing) {
     if (window.__DEBUG__) console.log('Selecting new cell while editing - saving current edit first');
@@ -623,8 +785,7 @@ function selectCell(row, col) {
 
   // Rebuild grid if expanded
   if (needsRebuild) {
-    buildSpreadsheet();
-    refreshAllCells();
+    buildSpreadsheet().then(() => refreshAllCells());
   }
 
   // Remove previous selection and tabindex
@@ -633,8 +794,8 @@ function selectCell(row, col) {
     el.setAttribute('tabindex', '-1');
   });
 
-  // Highlight selected cell and make it focusable
-  const cell = document.getElementById(`cell-${row}-${col}`);
+  // Highlight selected cell and make it focusable (use getCellElement for merge-aware lookup)
+  const cell = getCellElement(row, col);
   if (cell) {
     cell.classList.add('selected');
     cell.setAttribute('tabindex', '0');
@@ -682,7 +843,10 @@ function startEditing(row, col) {
     return;
   }
 
-  const cell = document.getElementById(`cell-${row}-${col}`);
+  // Story 11.4: Resolve covered cells to anchor for editing
+  ({ row, col } = resolveToAnchor(row, col));
+
+  const cell = getCellElement(row, col);
   if (!cell) return;
 
   // Clean up any leftover input elements
@@ -852,11 +1016,13 @@ async function refreshAllCells() {
   try {
     const cells = await GetAllCells();
 
-    // Clear all cells first
+    // Clear all cells first (use getCellElement for merge-aware lookup; avoid redundant clears)
+    const cleared = new Set();
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
-        const cell = document.getElementById(`cell-${row}-${col}`);
-        if (cell) {
+        const cell = getCellElement(row, col);
+        if (cell && !cleared.has(cell)) {
+          cleared.add(cell);
           cell.textContent = '';
           cell.classList.remove('formula-cell', 'error-cell');
         }
@@ -869,7 +1035,7 @@ async function refreshAllCells() {
       if (match) {
         const col = letterToCol(match[1]);
         const row = parseInt(match[2]) - 1;
-        const cell = document.getElementById(`cell-${row}-${col}`);
+        const cell = getCellElement(row, col);
         if (cell) {
           cell.textContent = value;
 
@@ -931,7 +1097,7 @@ async function loadCells() {
       if (match) {
         const col = letterToCol(match[1]);
         const row = parseInt(match[2]) - 1;
-        const cell = document.getElementById(`cell-${row}-${col}`);
+        const cell = getCellElement(row, col);
         if (cell) {
           cell.textContent = value;
 
@@ -1034,7 +1200,7 @@ function handleKeydownCellNavigation(e, row, col) {
   if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
     SetCellValue(row, col, '').then((result) => {
-      const cell = document.getElementById(`cell-${row}-${col}`);
+      const cell = getCellElement(row, col);
       if (cell) {
         cell.textContent = '';
         cell.classList.remove('formula-cell');
@@ -1071,7 +1237,10 @@ function startEditingWithChar(row, col, initialChar) {
     return;
   }
 
-  const cell = document.getElementById(`cell-${row}-${col}`);
+  // Story 11.4: Resolve covered cells to anchor
+  ({ row, col } = resolveToAnchor(row, col));
+
+  const cell = getCellElement(row, col);
   if (!cell) return;
 
   // Clean up any leftover input elements
@@ -1115,20 +1284,8 @@ function startEditingWithChar(row, col, initialChar) {
 
 // Initialize - wait for DOM and modules to be ready
 if (window.__DEBUG__) console.log('[app.js] Starting initialization...');
-buildSpreadsheet();
 
-// Load cells after a short delay to ensure Electron preload is ready
-setTimeout(async () => {
-  if (window.__DEBUG__) console.log('[app.js] Loading cells...');
-  try {
-    await loadCells();
-    if (window.__DEBUG__) console.log('[app.js] Cells loaded successfully');
-    // Select A1 by default
-    selectCell(0, 0);
-  } catch (err) {
-    console.error('[app.js] Failed to load cells:', err);
-  }
-}, 100);
+// Load cells after setupWelcomeScreen (see above) - only when spreadsheet view is shown
 
 // Set up formula bar event handlers
 const formulaBar = document.getElementById('formula-bar');
@@ -1182,7 +1339,7 @@ document.getElementById('new-btn').addEventListener('click', async () => {
     // Clear the grid
     ROWS = 100;
     COLS = 26;
-    buildSpreadsheet();
+    await buildSpreadsheet();
     await loadCells();
     selectCell(0, 0);
     updateFileStatus();
@@ -1238,7 +1395,7 @@ document.getElementById('load-btn').addEventListener('click', async () => {
     // Reload all cells from server
     ROWS = 100;
     COLS = 26;
-    buildSpreadsheet();
+    await buildSpreadsheet();
     await loadCells();
     selectCell(0, 0);
     updateFileStatus();
@@ -1267,8 +1424,13 @@ async function handleImportCSV() {
   }
 }
 
-// Expose for testing
+// Expose for testing (Story 11.3, 11.4)
+window.getCellElement = getCellElement;
+window.resolveToAnchor = resolveToAnchor;
 window.handleImportCSV = handleImportCSV;
+window.selectCell = selectCell;
+window.refreshAllCells = refreshAllCells;
+window.displayFileStatus = displayFileStatus;
 
 function showCSVPreviewModal(preview) {
   const modal = document.getElementById('csv-preview-modal');
@@ -1340,7 +1502,7 @@ function showCSVPreviewModal(preview) {
       // Reload grid
       ROWS = Math.max(100, result.rows);
       COLS = Math.max(26, result.cols);
-      buildSpreadsheet();
+      await buildSpreadsheet();
       await loadCells();
       selectCell(0, 0);
       updateFileStatus();

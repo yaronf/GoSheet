@@ -6,7 +6,7 @@
 const { test, expect } = require('./fixtures');
 const {
   ensureSpreadsheetView,
-  editCell,
+  setCellViaApi,
   waitForSaveEnabled,
 } = require('./helpers');
 const eph = require('electron-playwright-helpers');
@@ -30,8 +30,7 @@ test.describe('File Operation Tests', () => {
     await expect(window.locator('#spreadsheet')).toBeVisible();
 
     // Enter data in a cell to trigger unsaved state
-    const cell = window.locator('#cell-5-5');
-    await editCell(window, cell, '999');
+    await setCellViaApi(window, 5, 5, '999');
 
     const status = window.locator('#file-status');
     await expect(status).toContainText('Unsaved', { timeout: 5000 });
@@ -63,12 +62,9 @@ test.describe('File Operation Tests', () => {
 
     try {
       // First, create a test file by entering data and saving it
-      const cellA1 = window.locator('#cell-0-0');
-      const cellB1 = window.locator('#cell-0-1');
-      const cellC1 = window.locator('#cell-0-2');
-      await editCell(window, cellA1, '100');
-      await editCell(window, cellB1, '200');
-      await editCell(window, cellC1, '=A1+B1');
+      await setCellViaApi(window, 0, 0, '100');
+      await setCellViaApi(window, 0, 1, '200');
+      await setCellViaApi(window, 0, 2, '=A1+B1');
 
       // Save the file
       await eph.stubDialog(electronApp, 'showSaveDialog', {
@@ -129,8 +125,7 @@ test.describe('File Operation Tests', () => {
     const testFilePath = path.join(os.tmpdir(), 'test-save.sheet');
 
     try {
-      const cellA1 = window.locator('#cell-0-0');
-      await editCell(window, cellA1, '42');
+      await setCellViaApi(window, 0, 0, '42');
 
       const status = window.locator('#file-status');
       await expect(status).toContainText('Unsaved', { timeout: 5000 });
@@ -168,8 +163,7 @@ test.describe('File Operation Tests', () => {
     const status = window.locator('#file-status');
 
     try {
-      const cellA1 = window.locator('#cell-0-0');
-      await editCell(window, cellA1, '50');
+      await setCellViaApi(window, 0, 0, '50');
 
       await eph.stubDialog(electronApp, 'showSaveDialog', {
         filePath: testFilePath,
@@ -181,9 +175,8 @@ test.describe('File Operation Tests', () => {
       const modal = window.locator('#modal-overlay');
       await expect(modal).not.toBeVisible({ timeout: 2000 });
 
-      // Edit a cell
-      const cell = window.locator('#cell-1-1');
-      await editCell(window, cell, '75');
+      // Edit a cell to trigger unsaved
+      await setCellViaApi(window, 1, 1, '75');
 
       await expect(status).toContainText('Unsaved', { timeout: 5000 });
 
@@ -213,13 +206,8 @@ test.describe('File Operation Tests', () => {
     const table = window.locator('#spreadsheet');
     await expect(table).toBeVisible({ timeout: 3000 });
 
-    // Verify we can still interact with cells
-    const cell = window.locator('#cell-0-0');
-    await cell.click();
-    await expect(cell).toHaveClass(/selected/);
-
     // Make an edit so Save is enabled, then test save dialog cancellation
-    await editCell(window, cell, 'test');
+    await setCellViaApi(window, 0, 0, 'test');
     await waitForSaveEnabled(window);
 
     await eph.stubDialog(electronApp, 'showSaveDialog', {

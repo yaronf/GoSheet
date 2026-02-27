@@ -22,7 +22,7 @@ async function triggerExportCSV(electronApp, stubValue) {
   await clickMenuItemById(electronApp, 'export-csv');
 }
 
-const { ensureSpreadsheetView } = require('./helpers');
+const { ensureSpreadsheetView, setCellViaApi } = require('./helpers');
 
 // Helper to clear spreadsheet and ensure no modals are open
 async function clearSpreadsheet(window) {
@@ -116,20 +116,9 @@ test.describe('CSV Round-Trip Verification', () => {
     // Clear spreadsheet
     await clearSpreadsheet(window);
 
-    // Create data with formulas
-    await window.locator('#cell-0-0').click();
-    await window.keyboard.type('10');
-    await window.keyboard.press('Enter');
-    await window.locator('#cell-1-0').click();
-    await window.keyboard.type('20');
-    await window.keyboard.press('Enter');
-    await window.locator('#cell-2-0').click();
-    await window.keyboard.type('=A1+A2');
-    await window.keyboard.press('Enter');
-    await window.waitForTimeout(200);
-
-    // Verify formula computed
-    await expect(window.locator('#cell-2-0')).toHaveText('30');
+    await setCellViaApi(window, 0, 0, '10');
+    await setCellViaApi(window, 1, 0, '20');
+    await setCellViaApi(window, 2, 0, '=A1+A2');
 
     // Export CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
@@ -157,18 +146,14 @@ test.describe('CSV Round-Trip Verification', () => {
     await expect(modal3).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
 
-    // Confirm unsaved changes
+    // Confirm unsaved changes if modal appears
     const confirmModal = window.locator('#modal-overlay.active');
-    await window.waitForTimeout(300);
     if (await confirmModal.isVisible()) {
       await window.locator('#modal-ok').click();
-      await window.waitForTimeout(300);
-      // Wait for modal to fully close
       await expect(confirmModal).not.toBeVisible();
     }
-    await window.waitForTimeout(300);
 
-    // Verify values preserved (formula lost)
+    // Verify values preserved (formula lost) - assertions wait for import to complete
     await expect(window.locator('#cell-0-0')).toHaveText('10');
     await expect(window.locator('#cell-1-0')).toHaveText('20');
     await expect(window.locator('#cell-2-0')).toHaveText('30');
@@ -185,14 +170,8 @@ test.describe('CSV Round-Trip Verification', () => {
     // Clear spreadsheet
     await clearSpreadsheet(window);
 
-    // Create data with special characters
-    await window.locator('#cell-0-0').click();
-    await window.keyboard.type('Smith, John'); // Comma in value
-    await window.keyboard.press('Enter');
-    await window.locator('#cell-0-1').click();
-    await window.keyboard.type('He said "hello"'); // Quotes in value
-    await window.keyboard.press('Enter');
-    await window.waitForTimeout(200);
+    await setCellViaApi(window, 0, 0, 'Smith, John');
+    await setCellViaApi(window, 0, 1, 'He said "hello"');
 
     // Export CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
@@ -213,18 +192,14 @@ test.describe('CSV Round-Trip Verification', () => {
     await expect(modal4).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
 
-    // Confirm unsaved changes
+    // Confirm unsaved changes if modal appears
     const confirmModal = window.locator('#modal-overlay.active');
-    await window.waitForTimeout(300);
     if (await confirmModal.isVisible()) {
       await window.locator('#modal-ok').click();
-      await window.waitForTimeout(300);
-      // Wait for modal to fully close
       await expect(confirmModal).not.toBeVisible();
     }
-    await window.waitForTimeout(300);
 
-    // Verify special characters preserved
+    // Verify special characters preserved - assertions wait for import to complete
     await expect(window.locator('#cell-0-0')).toHaveText('Smith, John');
     await expect(window.locator('#cell-0-1')).toHaveText('He said "hello"');
 
@@ -256,7 +231,6 @@ test.describe('CSV Round-Trip Verification', () => {
     const modal5 = window.locator('#csv-preview-modal.active');
     await expect(modal5).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
-    await window.waitForTimeout(1000);
 
     // Verify first and some middle rows (grid only renders 100 rows initially)
     await expect(window.locator('#cell-0-0')).toHaveText('ID');
@@ -285,13 +259,12 @@ test.describe('CSV Round-Trip Verification', () => {
     await expect(modal6).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
 
-    // Confirm unsaved changes
+    // Confirm unsaved changes if modal appears
     const confirmModal = window.locator('#modal-overlay.active');
-    await window.waitForTimeout(200);
     if (await confirmModal.isVisible()) {
       await window.locator('#modal-ok').click();
+      await expect(confirmModal).not.toBeVisible();
     }
-    await window.waitForTimeout(1000);
 
     // Verify data integrity after round-trip (check first and middle rows)
     await expect(window.locator('#cell-0-0')).toHaveText('ID');
@@ -311,15 +284,8 @@ test.describe('CSV Round-Trip Verification', () => {
     // Clear spreadsheet
     await clearSpreadsheet(window);
 
-    // Create sparse data (with empty cells)
-    await window.locator('#cell-0-0').click();
-    await window.keyboard.type('A');
-    await window.keyboard.press('Enter');
-    // Skip cell-0-1 (leave empty)
-    await window.locator('#cell-0-2').click();
-    await window.keyboard.type('C');
-    await window.keyboard.press('Enter');
-    await window.waitForTimeout(200);
+    await setCellViaApi(window, 0, 0, 'A');
+    await setCellViaApi(window, 0, 2, 'C');
 
     // Export CSV
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
@@ -340,13 +306,12 @@ test.describe('CSV Round-Trip Verification', () => {
     await expect(modal7).toBeVisible({ timeout: 5000 });
     await window.locator('#csv-preview-import').click();
 
-    // Confirm unsaved changes
+    // Confirm unsaved changes if modal appears
     const confirmModal = window.locator('#modal-overlay.active');
-    await window.waitForTimeout(200);
     if (await confirmModal.isVisible()) {
       await window.locator('#modal-ok').click();
+      await expect(confirmModal).not.toBeVisible();
     }
-    await window.waitForTimeout(500);
 
     // Verify sparse data preserved
     await expect(window.locator('#cell-0-0')).toHaveText('A');

@@ -1,7 +1,7 @@
 // Story 10.7: Accessibility tests - ARIA attributes, focus trap, screen reader support
 
 const { test, expect } = require('./fixtures');
-const { ensureSpreadsheetView } = require('./helpers');
+const { ensureSpreadsheetView, setCellViaApi } = require('./helpers');
 
 test.describe('Accessibility (Story 10.7)', () => {
   test.beforeEach(async ({ window }) => {
@@ -64,14 +64,12 @@ test.describe('Accessibility (Story 10.7)', () => {
   });
 
   test('Escape closes confirm dialog', async ({ window }) => {
-    // Trigger unsaved changes
-    await window.locator('#cell-0-0').click();
-    await window.keyboard.type('test');
-    await window.keyboard.press('Enter');
+    // Trigger unsaved changes via API (avoids flaky click/type in Electron)
+    await setCellViaApi(window, 0, 0, 'test');
 
     // Open new file to trigger confirm dialog
     await window.locator('#new-btn').click();
-    await window.waitForSelector('#modal-overlay.active', { timeout: 3000 });
+    await expect(window.locator('#modal-overlay.active')).toBeVisible({ timeout: 5000 });
 
     // Escape should close
     await window.keyboard.press('Escape');

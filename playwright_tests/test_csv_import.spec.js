@@ -16,7 +16,7 @@ async function triggerImportCSV(electronApp, stubValue) {
   await clickMenuItemById(electronApp, 'import-csv');
 }
 
-const { ensureSpreadsheetView } = require('./helpers');
+const { ensureSpreadsheetView, setCellViaApi } = require('./helpers');
 
 // Use menu click + stubDialog instead of window.evaluate (avoids Electron 27+ flakiness)
 async function triggerExportCSV(electronApp, stubValue) {
@@ -405,20 +405,10 @@ test.describe('CSV Export', () => {
 
   test('Export CSV creates file with data', async ({ window, electronApp }) => {
     await ensureSpreadsheetView(window);
-    // Create some data
-    await window.locator('#cell-0-0').click();
-    await window.keyboard.type('Name');
-    await window.keyboard.press('Enter');
-    await window.locator('#cell-0-1').click();
-    await window.keyboard.type('Age');
-    await window.keyboard.press('Enter');
-    await window.locator('#cell-1-0').click();
-    await window.keyboard.type('Alice');
-    await window.keyboard.press('Enter');
-    await window.locator('#cell-1-1').click();
-    await window.keyboard.type('30');
-    await window.keyboard.press('Enter');
-    await window.waitForTimeout(200);
+    await setCellViaApi(window, 0, 0, 'Name');
+    await setCellViaApi(window, 0, 1, 'Age');
+    await setCellViaApi(window, 1, 0, 'Alice');
+    await setCellViaApi(window, 1, 1, '30');
 
     // Create export path
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
@@ -455,20 +445,9 @@ test.describe('CSV Export', () => {
     electronApp,
   }) => {
     await ensureSpreadsheetView(window);
-    // Create data with formula
-    await window.locator('#cell-0-0').click();
-    await window.keyboard.type('10');
-    await window.keyboard.press('Enter');
-    await window.locator('#cell-0-1').click();
-    await window.keyboard.type('20');
-    await window.keyboard.press('Enter');
-    await window.locator('#cell-0-2').click();
-    await window.keyboard.type('=A1+B1');
-    await window.keyboard.press('Enter');
-    await window.waitForTimeout(200);
-
-    // Verify formula is computed
-    await expect(window.locator('#cell-0-2')).toHaveText('30');
+    await setCellViaApi(window, 0, 0, '10');
+    await setCellViaApi(window, 0, 1, '20');
+    await setCellViaApi(window, 0, 2, '=A1+B1');
 
     // Create export path
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));

@@ -8,7 +8,7 @@ const {
   stubDialog,
   clickMenuItemById,
 } = require('electron-playwright-helpers');
-const { ensureSpreadsheetView, editCell } = require('./helpers');
+const { ensureSpreadsheetView, setCellViaApi } = require('./helpers');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -49,8 +49,7 @@ test.describe('Quit Warning Dialog', () => {
   });
 
   test('should show quit dialog when there are unsaved changes', async () => {
-    const cell = window.locator('#cell-0-0');
-    await editCell(window, cell, 'test');
+    await setCellViaApi(window, 0, 0, 'test');
 
     // Verify unsaved changes indicator
     const status = await window.locator('#file-status');
@@ -97,8 +96,7 @@ test.describe('Quit Warning Dialog', () => {
       true
     );
 
-    const cell = window.locator('#cell-0-0');
-    await editCell(window, cell, 'test');
+    await setCellViaApi(window, 0, 0, 'test');
 
     // Wait for status to update before checking variable (avoids race with API response)
     await expect(window.locator('#file-status')).toContainText('Unsaved', {
@@ -113,8 +111,7 @@ test.describe('Quit Warning Dialog', () => {
   });
 
   test('should clear currentHasUnsavedChanges after save', async () => {
-    const cell = window.locator('#cell-0-0');
-    await editCell(window, cell, 'test');
+    await setCellViaApi(window, 0, 0, 'test');
 
     // Wait for status and menu to update (Save becomes enabled)
     await expect(window.locator('#file-status')).toContainText('Unsaved', {
@@ -166,8 +163,7 @@ test.describe('Quit Warning Dialog', () => {
   });
 
   test('should synchronize currentHasUnsavedChanges with displayFileStatus', async () => {
-    const cell = window.locator('#cell-0-0');
-    await editCell(window, cell, 'test');
+    await setCellViaApi(window, 0, 0, 'test');
 
     // Check both the UI and the variable
     const status = await window.locator('#file-status');

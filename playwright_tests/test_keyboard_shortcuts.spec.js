@@ -188,14 +188,10 @@ test.describe('Keyboard Shortcuts Tests', () => {
     const grid = window.locator('#spreadsheet');
     await expect(grid).toBeVisible();
 
-    // Make a change - wait for editor to appear before typing (avoids flaky first-char drop)
+    // Make a change via API (avoids flaky click/dblclick in Electron)
+    const { setCellViaApi } = require('./helpers');
+    await setCellViaApi(window, 0, 0, 'Change');
     const cell = window.locator('.cell[data-row="0"][data-col="0"]');
-    await cell.click();
-    await cell.dblclick();
-    const editor = window.locator('.cell-editor');
-    await expect(editor).toBeVisible({ timeout: 2000 });
-    await editor.fill('Change');
-    await window.keyboard.press('Enter');
     await expect(cell).toHaveText('Change', { timeout: 5000 });
 
     // Wait for menu state to update
