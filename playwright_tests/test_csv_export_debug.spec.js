@@ -47,7 +47,10 @@ test('DEBUG: trace cell persistence before CSV export', async ({
       return { error: e.message };
     }
   });
-  console.log('[DEBUG] Backend /api/cells/all:', JSON.stringify(backendCells, null, 2));
+  console.log(
+    '[DEBUG] Backend /api/cells/all:',
+    JSON.stringify(backendCells, null, 2)
+  );
 
   // Diagnostic: what does the DOM show?
   const domCells = await window.evaluate(() => {

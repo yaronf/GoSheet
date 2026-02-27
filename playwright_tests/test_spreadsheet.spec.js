@@ -4,7 +4,11 @@
 // Story 8.2: Navigate from welcome screen before testing
 
 const { test, expect } = require('./fixtures');
-const { ensureSpreadsheetView, setCellViaApi, selectCellViaApp } = require('./helpers');
+const {
+  ensureSpreadsheetView,
+  setCellViaApi,
+  selectCellViaApp,
+} = require('./helpers');
 
 test.describe('GoSheet Spreadsheet Tests', () => {
   test.beforeEach(async ({ window }) => {

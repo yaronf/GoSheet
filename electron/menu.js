@@ -341,7 +341,8 @@ function buildMenu(recentFiles = [], onClearRecent) {
     );
   }
 
-  if (DEBUG) console.log('[Menu] Template has', template.length, 'top-level menus');
+  if (DEBUG)
+    console.log('[Menu] Template has', template.length, 'top-level menus');
   const fileMenuIndex = process.platform === 'darwin' ? 1 : 0;
   const editMenuIndex = process.platform === 'darwin' ? 2 : 1;
   const helpMenuIndex = process.platform === 'darwin' ? 3 : 2;

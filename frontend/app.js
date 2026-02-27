@@ -423,10 +423,18 @@ async function setupWelcomeScreen() {
 // Story 8.2: Determine initial view (welcome vs spreadsheet) and wire welcome buttons
 setupWelcomeScreen().then(() => {
   // Only build spreadsheet when showing spreadsheet view (avoids race with new-file flow)
-  if (document.querySelector('#app')?.getAttribute('data-view') !== 'spreadsheet') return;
+  if (
+    document.querySelector('#app')?.getAttribute('data-view') !== 'spreadsheet'
+  )
+    return;
   setTimeout(async () => {
-    if (document.querySelector('#app')?.getAttribute('data-view') !== 'spreadsheet') return;
-    if (window.__DEBUG__) console.log('[app.js] Building spreadsheet and loading cells...');
+    if (
+      document.querySelector('#app')?.getAttribute('data-view') !==
+      'spreadsheet'
+    )
+      return;
+    if (window.__DEBUG__)
+      console.log('[app.js] Building spreadsheet and loading cells...');
     try {
       await buildSpreadsheet();
       await loadCells();
@@ -467,7 +475,8 @@ function checkScrollPosition() {
   // Check if scrolled near right edge (within 20% of total width)
   if (scrollLeft + containerWidth > tableWidth * 0.8) {
     const newCols = COLS + EXPAND_COLS;
-    if (window.__DEBUG__) console.log(`Scroll: Expanding columns from ${COLS} to ${newCols}`);
+    if (window.__DEBUG__)
+      console.log(`Scroll: Expanding columns from ${COLS} to ${newCols}`);
     COLS = newCols;
     needsRebuild = true;
   }
@@ -475,7 +484,8 @@ function checkScrollPosition() {
   // Check if scrolled near bottom edge (within 20% of total height)
   if (scrollTop + containerHeight > tableHeight * 0.8) {
     const newRows = ROWS + EXPAND_ROWS;
-    if (window.__DEBUG__) console.log(`Scroll: Expanding rows from ${ROWS} to ${newRows}`);
+    if (window.__DEBUG__)
+      console.log(`Scroll: Expanding rows from ${ROWS} to ${newRows}`);
     ROWS = newRows;
     needsRebuild = true;
   }
@@ -540,7 +550,7 @@ function getMergeInfo(row, col, merges) {
  * @param {Array<{startRow: number, startCol: number, rowSpan: number, colSpan: number}>} merges
  * @returns {boolean}
  */
-function isCoveredByRowspanFromAbove(row, col, merges) {
+function _isCoveredByRowspanFromAbove(row, col, merges) {
   const merge = getMergeAt(row, col, merges);
   if (!merge) return false;
   return merge.startRow !== row || merge.startCol !== col;
@@ -553,7 +563,14 @@ function isCoveredByRowspanFromAbove(row, col, merges) {
  * @returns {{row: number, col: number}}
  */
 function resolveToAnchor(row, col) {
-  if (typeof row !== 'number' || typeof col !== 'number' || !Number.isFinite(row) || !Number.isFinite(col) || row < 0 || col < 0) {
+  if (
+    typeof row !== 'number' ||
+    typeof col !== 'number' ||
+    !Number.isFinite(row) ||
+    !Number.isFinite(col) ||
+    row < 0 ||
+    col < 0
+  ) {
     return { row: Math.max(0, row | 0), col: Math.max(0, col | 0) };
   }
   const merge = getMergeAt(row, col, currentMerges);
@@ -727,7 +744,10 @@ function selectCell(row, col) {
 
   // If we're currently editing, SAVE the current edit first
   if (isEditing) {
-    if (window.__DEBUG__) console.log('Selecting new cell while editing - saving current edit first');
+    if (window.__DEBUG__)
+      console.log(
+        'Selecting new cell while editing - saving current edit first'
+      );
 
     // Find the input element and save its value
     const input = document.querySelector('.cell-editor');
@@ -770,7 +790,8 @@ function selectCell(row, col) {
   // Expand rows if near bottom edge
   if (row >= ROWS - EXPAND_THRESHOLD) {
     const newRows = Math.max(row + EXPAND_ROWS, ROWS + EXPAND_ROWS);
-    if (window.__DEBUG__) console.log(`Expanding rows from ${ROWS} to ${newRows}`);
+    if (window.__DEBUG__)
+      console.log(`Expanding rows from ${ROWS} to ${newRows}`);
     ROWS = newRows;
     needsRebuild = true;
   }
@@ -778,7 +799,8 @@ function selectCell(row, col) {
   // Expand columns if near right edge
   if (col >= COLS - EXPAND_THRESHOLD) {
     const newCols = Math.max(col + EXPAND_COLS, COLS + EXPAND_COLS);
-    if (window.__DEBUG__) console.log(`Expanding columns from ${COLS} to ${newCols}`);
+    if (window.__DEBUG__)
+      console.log(`Expanding columns from ${COLS} to ${newCols}`);
     COLS = newCols;
     needsRebuild = true;
   }
@@ -965,7 +987,8 @@ function finishEditing(row, col, value, cell) {
     return;
   }
 
-  if (window.__DEBUG__) console.log(`Finishing edit: row=${row}, col=${col}, value="${value}"`);
+  if (window.__DEBUG__)
+    console.log(`Finishing edit: row=${row}, col=${col}, value="${value}"`);
 
   // Remove the input element first
   const input = cell.querySelector('.cell-editor');
@@ -976,11 +999,13 @@ function finishEditing(row, col, value, cell) {
   // CRITICAL: Reset isEditing AFTER removing input but BEFORE async operations
   isEditing = false;
   isSaving = true;
-  if (window.__DEBUG__) console.log(`isEditing set to false, isSaving set to true`);
+  if (window.__DEBUG__)
+    console.log(`isEditing set to false, isSaving set to true`);
 
   SetCellValue(row, col, value)
     .then((result) => {
-      if (window.__DEBUG__) console.log(`SetCellValue completed for row=${row}, col=${col}`);
+      if (window.__DEBUG__)
+        console.log(`SetCellValue completed for row=${row}, col=${col}`);
       // Update file status from the response
       if (result.hasUnsavedChanges !== undefined) {
         displayFileStatus(result.hasUnsavedChanges);
@@ -989,7 +1014,8 @@ function finishEditing(row, col, value, cell) {
       return refreshAllCells();
     })
     .then(() => {
-      if (window.__DEBUG__) console.log(`All cells refreshed after edit at row=${row}, col=${col}`);
+      if (window.__DEBUG__)
+        console.log(`All cells refreshed after edit at row=${row}, col=${col}`);
       isSaving = false;
 
       // Update formula bar to show the new value
@@ -1226,7 +1252,10 @@ document.addEventListener('keydown', (e) => {
   if (isEditing) return;
   if (e.target.tagName === 'INPUT') return;
   if (handleKeydownFileOps(e)) return;
-  if (selectedCell && handleKeydownCellNavigation(e, selectedCell.row, selectedCell.col))
+  if (
+    selectedCell &&
+    handleKeydownCellNavigation(e, selectedCell.row, selectedCell.col)
+  )
     return;
 });
 
@@ -1685,20 +1714,25 @@ async function showUserGuideModal() {
 
 // Story 7.12: Extract CSV export logic into function (CSV buttons removed from toolbar)
 async function handleExportCSV(testPath = '') {
-  if (window.__DEBUG__) console.log('[handleExportCSV] Starting export, testPath:', testPath);
+  if (window.__DEBUG__)
+    console.log('[handleExportCSV] Starting export, testPath:', testPath);
   try {
     if (window.__DEBUG__) console.log('[handleExportCSV] Calling ExportCSV...');
     const result = await ExportCSV(testPath);
-    if (window.__DEBUG__) console.log('[handleExportCSV] ExportCSV returned:', result);
+    if (window.__DEBUG__)
+      console.log('[handleExportCSV] ExportCSV returned:', result);
 
     if (!result) {
-      if (window.__DEBUG__) console.log('[handleExportCSV] User cancelled file dialog');
+      if (window.__DEBUG__)
+        console.log('[handleExportCSV] User cancelled file dialog');
       return;
     }
 
-    if (window.__DEBUG__) console.log('[handleExportCSV] Showing success alert...');
+    if (window.__DEBUG__)
+      console.log('[handleExportCSV] Showing success alert...');
     await showAlert(`Exported to ${result.path}`);
-    if (window.__DEBUG__) console.log('[handleExportCSV] Export complete:', result.message);
+    if (window.__DEBUG__)
+      console.log('[handleExportCSV] Export complete:', result.message);
   } catch (error) {
     console.error('[handleExportCSV] Error caught:', error);
     await showAlert('Error exporting CSV: ' + error.message);
@@ -1770,7 +1804,8 @@ async function updateFileStatus() {
 
 // Story 7.1: Setup menu event listeners for Electron
 if (window.electronAPI) {
-  if (window.__DEBUG__) console.log('[App] Setting up Electron menu event listeners');
+  if (window.__DEBUG__)
+    console.log('[App] Setting up Electron menu event listeners');
 
   // New file from menu (Story 8.2: show spreadsheet first when on welcome screen)
   window.electronAPI.onMenuNew(async () => {
@@ -1828,14 +1863,16 @@ if (window.electronAPI) {
 
   // Story 7.5: Open recent file from menu (Story 8.2: uses loadFileByPath)
   window.electronAPI.onMenuOpenRecent(async (event, filePath) => {
-    if (window.__DEBUG__) console.log('[App] Menu Open Recent triggered:', filePath);
+    if (window.__DEBUG__)
+      console.log('[App] Menu Open Recent triggered:', filePath);
     await loadFileByPath(filePath);
   });
 
   // Story 9.6: Formula Reference from Help menu
   if (window.electronAPI.onMenuFormulaReference) {
     window.electronAPI.onMenuFormulaReference(() => {
-      if (window.__DEBUG__) console.log('[App] Menu Formula Reference triggered');
+      if (window.__DEBUG__)
+        console.log('[App] Menu Formula Reference triggered');
       showFormulaHelpModal();
     });
   }
@@ -1865,7 +1902,8 @@ if (window.electronAPI) {
 
       // Copy to clipboard
       await navigator.clipboard.writeText(value);
-      if (window.__DEBUG__) console.log('[App] Cut: Copied to clipboard:', value);
+      if (window.__DEBUG__)
+        console.log('[App] Cut: Copied to clipboard:', value);
 
       // Clear the cell
       await SetCellValue(row, col, '');
@@ -1892,7 +1930,8 @@ if (window.electronAPI) {
 
       // Copy to clipboard
       await navigator.clipboard.writeText(value);
-      if (window.__DEBUG__) console.log('[App] Copy: Copied to clipboard:', value);
+      if (window.__DEBUG__)
+        console.log('[App] Copy: Copied to clipboard:', value);
     } catch (error) {
       console.error('[App] Error during Copy:', error);
       await showAlert('Error during Copy operation: ' + error.message);
@@ -1912,7 +1951,8 @@ if (window.electronAPI) {
 
       // Read from clipboard
       const text = await navigator.clipboard.readText();
-      if (window.__DEBUG__) console.log('[App] Paste: Read from clipboard:', text);
+      if (window.__DEBUG__)
+        console.log('[App] Paste: Read from clipboard:', text);
 
       // Set cell value
       await SetCellValue(row, col, text);
@@ -1980,7 +2020,8 @@ if (window.electronAPI) {
           );
         }
       } else {
-        if (window.__DEBUG__) console.log('[App] Select All: No non-empty cells found');
+        if (window.__DEBUG__)
+          console.log('[App] Select All: No non-empty cells found');
         await showAlert('No cells to select');
       }
     } catch (error) {
@@ -1989,7 +2030,8 @@ if (window.electronAPI) {
     }
   });
 
-  if (window.__DEBUG__) console.log('[App] Electron menu event listeners registered (File + Edit)');
+  if (window.__DEBUG__)
+    console.log('[App] Electron menu event listeners registered (File + Edit)');
 }
 
 // Story 7.10: Dark mode support
@@ -2007,10 +2049,12 @@ if (window.matchMedia) {
   // Initial detection
   if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
     document.documentElement.setAttribute('data-theme', 'dark');
-    if (window.__DEBUG__) console.log('[App] Initial theme: dark (from media query)');
+    if (window.__DEBUG__)
+      console.log('[App] Initial theme: dark (from media query)');
   } else {
     document.documentElement.setAttribute('data-theme', 'light');
-    if (window.__DEBUG__) console.log('[App] Initial theme: light (from media query)');
+    if (window.__DEBUG__)
+      console.log('[App] Initial theme: light (from media query)');
   }
 
   // Listen for changes
@@ -2018,7 +2062,8 @@ if (window.matchMedia) {
     .matchMedia('(prefers-color-scheme: dark)')
     .addEventListener('change', (e) => {
       const theme = e.matches ? 'dark' : 'light';
-      if (window.__DEBUG__) console.log('[App] System theme changed to:', theme);
+      if (window.__DEBUG__)
+        console.log('[App] System theme changed to:', theme);
       document.documentElement.setAttribute('data-theme', theme);
     });
 }

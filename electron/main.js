@@ -52,7 +52,11 @@ function loadRecentFiles() {
       const data = JSON.parse(fs.readFileSync(RECENT_FILES_PATH, 'utf8'));
       const files = Array.isArray(data) ? data : [];
       if (DEBUG)
-        console.log('[Electron] loadRecentFiles from JSON:', files.length, files);
+        console.log(
+          '[Electron] loadRecentFiles from JSON:',
+          files.length,
+          files
+        );
       return files;
     }
     if (DEBUG)
@@ -269,8 +273,7 @@ function startGoServer() {
     ? path.join(__dirname, '..') // Project root in dev mode
     : process.resourcesPath; // Resources directory in packaged app
 
-  if (DEBUG)
-    console.log(`[Electron] Server working directory: ${serverCwd}`);
+  if (DEBUG) console.log(`[Electron] Server working directory: ${serverCwd}`);
 
   const spawnArgs = ['--port', GO_SERVER_PORT.toString()];
   if (DEBUG) spawnArgs.push('--verbose');
@@ -641,7 +644,8 @@ function setupIpcHandlers() {
       }
 
       const filePath = result.filePath;
-      if (DEBUG) console.log(`[Electron] CSV export path selected: ${filePath}`);
+      if (DEBUG)
+        console.log(`[Electron] CSV export path selected: ${filePath}`);
       return filePath;
     }
   );

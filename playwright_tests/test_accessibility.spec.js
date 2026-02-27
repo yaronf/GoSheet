@@ -33,7 +33,10 @@ test.describe('Accessibility (Story 10.7)', () => {
   test('Formula bar has complementary role and label', async ({ window }) => {
     const formulaBarContainer = window.locator('.formula-bar-container');
     await expect(formulaBarContainer).toHaveAttribute('role', 'complementary');
-    await expect(formulaBarContainer).toHaveAttribute('aria-label', 'Formula bar');
+    await expect(formulaBarContainer).toHaveAttribute(
+      'aria-label',
+      'Formula bar'
+    );
   });
 
   test('Buttons have descriptive aria-labels', async ({ window }) => {
@@ -69,7 +72,9 @@ test.describe('Accessibility (Story 10.7)', () => {
 
     // Open new file to trigger confirm dialog
     await window.locator('#new-btn').click();
-    await expect(window.locator('#modal-overlay.active')).toBeVisible({ timeout: 5000 });
+    await expect(window.locator('#modal-overlay.active')).toBeVisible({
+      timeout: 5000,
+    });
 
     // Escape should close
     await window.keyboard.press('Escape');

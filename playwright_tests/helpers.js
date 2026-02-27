@@ -50,7 +50,10 @@ async function setCellViaApi(window, row, col, value) {
         if (typeof window.refreshAllCells === 'function') {
           await window.refreshAllCells();
         }
-        if (json.data?.hasUnsavedChanges !== undefined && typeof window.displayFileStatus === 'function') {
+        if (
+          json.data?.hasUnsavedChanges !== undefined &&
+          typeof window.displayFileStatus === 'function'
+        ) {
           window.displayFileStatus(json.data.hasUnsavedChanges);
         }
       }

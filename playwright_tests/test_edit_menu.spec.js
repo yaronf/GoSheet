@@ -3,7 +3,11 @@
 // Story 8.2: Navigate from welcome screen; #new-btn is in spreadsheet view
 
 const { test, expect } = require('./fixtures');
-const { ensureSpreadsheetView, setCellAndSelect, selectCellViaApp } = require('./helpers');
+const {
+  ensureSpreadsheetView,
+  setCellAndSelect,
+  selectCellViaApp,
+} = require('./helpers');
 
 test.describe('Edit Menu Tests', () => {
   // Create new file before each test to ensure isolation

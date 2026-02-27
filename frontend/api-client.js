@@ -159,7 +159,8 @@ const PreviewCSV = async (path) => {
 
     if (!path) {
       // User cancelled dialog
-      if (window.__DEBUG__) console.log('[api-client] Import CSV cancelled by user');
+      if (window.__DEBUG__)
+        console.log('[api-client] Import CSV cancelled by user');
       return null;
     }
   }
@@ -200,7 +201,10 @@ const SetMerge = async (startRow, startCol, rowSpan, colSpan) => {
 };
 
 const Unmerge = async (startRow, startCol) => {
-  const json = await fetchUnified('POST', '/api/unmerge', { startRow, startCol });
+  const json = await fetchUnified('POST', '/api/unmerge', {
+    startRow,
+    startCol,
+  });
   return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
 };
 
@@ -208,7 +212,8 @@ const ExportCSV = async (path) => {
   if (window.__DEBUG__) console.log('[ExportCSV] Starting, path:', path);
   // Story 6.3: Export spreadsheet to CSV
   if (isElectronMode && !path) {
-    if (window.__DEBUG__) console.log('[ExportCSV] Electron mode, showing save dialog...');
+    if (window.__DEBUG__)
+      console.log('[ExportCSV] Electron mode, showing save dialog...');
     // Show Electron save dialog
     const status = await GetFileStatus();
     if (window.__DEBUG__) console.log('[ExportCSV] File status:', status);
@@ -217,16 +222,19 @@ const ExportCSV = async (path) => {
       : 'Untitled.csv';
     if (window.__DEBUG__) console.log('[ExportCSV] Default name:', defaultName);
     path = await window.electronAPI.exportCSVDialog(defaultName);
-    if (window.__DEBUG__) console.log('[ExportCSV] Dialog returned path:', path);
+    if (window.__DEBUG__)
+      console.log('[ExportCSV] Dialog returned path:', path);
 
     if (!path) {
       // User cancelled dialog
-      if (window.__DEBUG__) console.log('[ExportCSV] Export CSV cancelled by user');
+      if (window.__DEBUG__)
+        console.log('[ExportCSV] Export CSV cancelled by user');
       return null;
     }
   }
 
-  if (window.__DEBUG__) console.log('[ExportCSV] Calling backend API with path:', path);
+  if (window.__DEBUG__)
+    console.log('[ExportCSV] Calling backend API with path:', path);
   // Export via HTTP API
   const json = await fetchUnified('POST', '/api/csv/export', { path });
   if (window.__DEBUG__) console.log('[ExportCSV] Backend returned:', json);
