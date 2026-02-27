@@ -8,7 +8,7 @@
     "start:verbose": "electron . --verbose",
     "build": "npm run openapi:generate && npx electron-builder",
     "test": "NODE_ENV=test playwright test",
-    "test:unit": "go test ./tests/...",
+    "test:unit": "go test ./model/... ./controller/... ./api/...",
     "test:all": "npm run test:unit && npm test",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
