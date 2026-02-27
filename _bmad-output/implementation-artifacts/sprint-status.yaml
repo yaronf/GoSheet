@@ -184,9 +184,9 @@ development_status:
   # Epic 11: Cell Merging (from technical research 2026-02-23)
   epic-11: in-progress
   11-1-add-merge-regions-to-backend: done
-  11-2-add-merge-api-endpoints: in-progress
-  11-3-implement-merge-aware-grid-rendering: ready-for-dev
-  11-4-update-cell-logic-for-merge-aware-behavior: ready-for-dev
+  11-2-add-merge-api-endpoints: done
+  11-3-implement-merge-aware-grid-rendering: done
+  11-4-update-cell-logic-for-merge-aware-behavior: review
   11-5-add-merge-and-unmerge-ui: ready-for-dev
   11-6-keyboard-navigation-and-edge-cases: ready-for-dev
   epic-11-retrospective: optional

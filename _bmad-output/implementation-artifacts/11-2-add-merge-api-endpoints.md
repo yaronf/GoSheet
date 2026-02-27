@@ -3,7 +3,7 @@
 **Epic:** 11 - Cell Merging  
 **Story:** 11.2  
 **Estimated Effort:** 2-3 hours  
-**Status:** in-progress  
+**Status:** done  
 **Created:** 2026-02-23  
 **Last Updated:** 2026-02-25 (CS for Epic 11)
 
@@ -80,7 +80,7 @@ So that the UI can sync merge state with the backend.
 - [x] Task 4: Tests
   - [x] Add api/handlers_test.go tests for merge endpoints
   - [x] Add controller tests for SetMerge/Unmerge validation
-  - [ ] Go unit tests pass (user runs manually)
+  - [x] Go unit tests pass (user runs manually)
 
 ---
 
@@ -138,3 +138,12 @@ Cursor Composer
 - api/openapi.yaml (merge paths and schemas)
 - api/generated/types.go (regenerated)
 - frontend/api-types.d.ts (regenerated)
+
+---
+
+## Senior Developer Review (AI)
+
+**Date:** 2026-02-26  
+**Outcome:** Approve
+
+**Review summary:** Implementation verified. Controller methods with overlap validation, API handlers following existing patterns, routes registered, frontend client and OpenAPI schema complete. Go tests in handlers_test.go and controller_test.go cover merge endpoints.
