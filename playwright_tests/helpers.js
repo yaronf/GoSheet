@@ -4,16 +4,21 @@
 const { expect } = require('@playwright/test');
 
 async function ensureSpreadsheetView(window) {
-  const welcomeScreen = window.locator('#welcome-screen');
-  if (await welcomeScreen.isVisible()) {
+  await Promise.race([
+    window.locator('#welcome-screen').waitFor({ state: 'visible', timeout: 5000 }),
+    window.locator('#spreadsheet-view').waitFor({ state: 'visible', timeout: 5000 }),
+  ]);
+  if (await window.locator('#welcome-screen').isVisible()) {
     await window.locator('#welcome-btn-new').click();
-    await expect(window.locator('#spreadsheet')).toBeVisible({ timeout: 5000 });
+    await expect(window.locator('#cell-0-0')).toBeVisible({ timeout: 15000 });
+  } else {
+    await expect(window.locator('#cell-0-0')).toBeVisible({ timeout: 3000 });
   }
 }
 
 /** Wait for cell edit mode to be ready (cell-editor visible) before typing. Avoids first-char loss. */
 async function waitForEditModeReady(window) {
-  await expect(window.locator('.cell-editor')).toBeVisible({ timeout: 3000 });
+  await expect(window.locator('.cell-editor')).toBeVisible({ timeout: 2000 });
 }
 
 /**
@@ -30,7 +35,7 @@ async function editCell(window, cell, text) {
 
 /** Wait for Save button to become enabled (indicates unsaved changes). */
 async function waitForSaveEnabled(window) {
-  await expect(window.locator('#save-btn')).toBeEnabled({ timeout: 5000 });
+  await expect(window.locator('#save-btn')).toBeEnabled({ timeout: 3000 });
 }
 
 /**
@@ -68,8 +73,27 @@ async function setCellViaApi(window, row, col, value) {
 }
 
 /**
- * Select a cell via app's selectCell (exposed for tests). Use when click doesn't
- * reliably add selected class in Electron.
+ * Select a cell by real DOM click. Use for E2E tests that must verify click behavior.
+ * Uses evaluate+click() so the app's click handler runs (Playwright's click can miss
+ * in Electron). Waits for selected class to confirm the handler ran.
+ */
+async function selectCellByClick(window, row, col) {
+  const cell = window.locator(`#cell-${row}-${col}`);
+  await cell.waitFor({ state: 'visible' });
+  await window.evaluate(
+    ({ row, col }) => {
+      const el = document.getElementById(`cell-${row}-${col}`);
+      if (el) el.click();
+    },
+    { row, col }
+  );
+  await expect(cell).toHaveClass(/selected/, { timeout: 2000 });
+}
+
+/**
+ * Select a cell via app's selectCell. Only use when the cell has no DOM element
+ * (e.g. covered by a merge - user cannot click it). Prefer selectCellByClick for
+ * real E2E coverage.
  */
 async function selectCellViaApp(window, row, col) {
   await window.evaluate(
@@ -128,9 +152,10 @@ async function setMergeViaApi(window, startRow, startCol, rowSpan, colSpan) {
       let json;
       try {
         json = JSON.parse(text);
-      } catch (e) {
+      } catch (parseErr) {
         throw new Error(
-          `setMergeViaApi: invalid JSON (${res.status}): ${text.slice(0, 100)}`
+          `setMergeViaApi: invalid JSON (${res.status}): ${text.slice(0, 100)}`,
+          { cause: parseErr }
         );
       }
       if (json.success && typeof window.buildSpreadsheet === 'function') {
@@ -168,6 +193,7 @@ module.exports = {
   waitForSaveEnabled,
   fillCell,
   setCellViaApi,
+  selectCellByClick,
   selectCellViaApp,
   startEditingViaApp,
   setCellAndSelect,

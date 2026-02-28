@@ -8,6 +8,8 @@ import {
   GetAllCells,
   GetFileStatus,
   GetMerges,
+  SetMerge,
+  Unmerge,
   NewFile,
   SaveFile,
   LoadFile,
@@ -28,6 +30,10 @@ const EXPAND_COLS = 10; // Add 10 columns when expanding
 
 let selectedCell = null;
 let isEditing = false;
+
+// Story 11.5: Selection range for Merge/Unmerge (startRow, startCol, endRow, endCol)
+// Single cell when startRow===endRow && startCol===endCol
+let selectionRange = { startRow: 0, startCol: 0, endRow: 0, endCol: 0 };
 
 // Story 11.3: Cached merge regions (updated by buildSpreadsheet) for getCellElement
 let currentMerges = [];
@@ -450,6 +456,29 @@ setupWelcomeScreen().then(() => {
 const container = document.querySelector('.spreadsheet-container');
 let scrollTimeout;
 
+// Event delegation for cell clicks (more reliable than per-cell handlers in Chromium/Electron)
+const table = document.getElementById('spreadsheet');
+if (table) {
+  table.addEventListener('click', (e) => {
+    if (e.target.classList.contains('cell-editor')) return;
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    const row = parseInt(cell.dataset.row, 10);
+    const col = parseInt(cell.dataset.col, 10);
+    if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+    selectCell(row, col, e.shiftKey);
+  });
+  table.addEventListener('dblclick', (e) => {
+    if (e.target.classList.contains('cell-editor')) return;
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    const row = parseInt(cell.dataset.row, 10);
+    const col = parseInt(cell.dataset.col, 10);
+    if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+    startEditing(row, col);
+  });
+}
+
 container.addEventListener('scroll', () => {
   // Debounce scroll events
   clearTimeout(scrollTimeout);
@@ -687,12 +716,6 @@ async function buildSpreadsheetImpl() {
         td.setAttribute('aria-rowindex', String(row + 1));
         td.setAttribute('tabindex', '-1');
 
-        td.addEventListener('click', (e) => {
-          if (e.target.classList.contains('cell-editor')) return;
-          selectCell(row, col);
-        });
-        td.addEventListener('dblclick', () => startEditing(row, col));
-
         tr.appendChild(td);
         col += merge.colSpan;
         colIndex += merge.colSpan;
@@ -712,12 +735,6 @@ async function buildSpreadsheetImpl() {
         td.setAttribute('aria-rowindex', String(row + 1));
         td.setAttribute('tabindex', '-1');
 
-        td.addEventListener('click', (e) => {
-          if (e.target.classList.contains('cell-editor')) return;
-          selectCell(row, col);
-        });
-        td.addEventListener('dblclick', () => startEditing(row, col));
-
         tr.appendChild(td);
         col++;
         colIndex++;
@@ -726,6 +743,12 @@ async function buildSpreadsheetImpl() {
 
     table.appendChild(tr);
   }
+
+  // Story 11.5: Re-apply selection after grid rebuild (preserves range)
+  const isRange =
+    selectionRange.startRow !== selectionRange.endRow ||
+    selectionRange.startCol !== selectionRange.endCol;
+  applyCellSelection(selectionRange.endRow, selectionRange.endCol, isRange);
 }
 
 // Convert column index to letter (0 -> A, 25 -> Z, 26 -> AA)
@@ -751,12 +774,15 @@ function saveCurrentEditOnCellSwitch() {
   const editCol = parseInt(editingCell.dataset.col);
   const value = input.value;
   if (window.__DEBUG__)
-    console.log(`Saving edit: row=${editRow}, col=${editCol}, value="${value}"`);
+    console.log(
+      `Saving edit: row=${editRow}, col=${editCol}, value="${value}"`
+    );
   input.remove();
   isEditing = false;
   SetCellValue(editRow, editCol, value)
     .then((result) => {
-      if (result.hasUnsavedChanges !== undefined) displayFileStatus(result.hasUnsavedChanges);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
       return refreshAllCells();
     })
     .catch((err) => console.error('Error saving on cell switch:', err));
@@ -777,37 +803,120 @@ function expandGridIfNeeded(row, col) {
   if (needsRebuild) buildSpreadsheet().then(() => refreshAllCells());
 }
 
-function applyCellSelection(row, col) {
+function computeSelectionRange(row, col, extendSelection) {
+  if (!extendSelection) {
+    return { startRow: row, startCol: col, endRow: row, endCol: col };
+  }
+  const { startRow: sr, startCol: sc } = selectionRange;
+  const minR = Math.min(sr, row);
+  const maxR = Math.max(sr, row);
+  const minC = Math.min(sc, col);
+  const maxC = Math.max(sc, col);
+  return { startRow: minR, startCol: minC, endRow: maxR, endCol: maxC };
+}
+
+function applyCellSelection(row, col, extendSelection = false) {
+  const { startRow, startCol, endRow, endCol } = computeSelectionRange(
+    row,
+    col,
+    extendSelection
+  );
+
+  selectionRange = { startRow, startCol, endRow, endCol };
+  selectedCell = { row: startRow, col: startCol };
+
   document.querySelectorAll('.cell.selected').forEach((el) => {
     el.classList.remove('selected');
     el.setAttribute('tabindex', '-1');
   });
-  const cell = getCellElement(row, col);
-  if (!cell) return;
-  cell.classList.add('selected');
-  cell.setAttribute('tabindex', '0');
-  selectedCell = { row, col };
-  updateFormulaBar(row, col);
-  const cellRef = colToLetter(col) + (row + 1);
-  const displayValue = cell.textContent?.trim() || '';
-  const formula = cell.dataset.formula || '';
-  const announcement = formula
-    ? `Cell ${cellRef} selected, formula: ${formula}, value: ${displayValue || 'empty'}`
-    : displayValue
-      ? `Cell ${cellRef} selected, value: ${displayValue}`
-      : `Cell ${cellRef} selected, empty`;
+
+  for (let r = startRow; r <= endRow; r++) {
+    for (let c = startCol; c <= endCol; c++) {
+      const cell = getCellElement(r, c);
+      if (cell) {
+        cell.classList.add('selected');
+        if (r === startRow && c === startCol)
+          cell.setAttribute('tabindex', '0');
+      }
+    }
+  }
+
+  updateFormulaBar(startRow, startCol);
+  const cellCount = (endRow - startRow + 1) * (endCol - startCol + 1);
+  const announcement = buildSelectionAnnouncement(
+    startRow,
+    startCol,
+    endRow,
+    endCol,
+    cellCount
+  );
   announceToScreenReader(announcement);
+
+  updateMergeMenuState();
 }
 
-// Select a cell
-function selectCell(row, col) {
+function buildSelectionAnnouncement(
+  startRow,
+  startCol,
+  endRow,
+  endCol,
+  cellCount
+) {
+  if (cellCount > 1) {
+    return `Range ${colToLetter(startCol)}${startRow + 1} to ${colToLetter(endCol)}${endRow + 1} selected, ${cellCount} cells`;
+  }
+  const cellRef = colToLetter(startCol) + (startRow + 1);
+  const primaryCell = getCellElement(startRow, startCol);
+  const displayValue = primaryCell?.textContent?.trim() || '';
+  const formula = primaryCell?.dataset.formula || '';
+  if (formula)
+    return `Cell ${cellRef} selected, formula: ${formula}, value: ${displayValue || 'empty'}`;
+  if (displayValue) return `Cell ${cellRef} selected, value: ${displayValue}`;
+  return `Cell ${cellRef} selected, empty`;
+}
+
+// Story 11.5: Check if selection overlaps any existing merge (disables Merge menu)
+function selectionOverlapsMerge(startRow, startCol, endRow, endCol) {
+  for (const m of currentMerges) {
+    const mEndRow = m.startRow + (m.rowSpan || 1) - 1;
+    const mEndCol = m.startCol + (m.colSpan || 1) - 1;
+    if (
+      startRow <= mEndRow &&
+      endRow >= m.startRow &&
+      startCol <= mEndCol &&
+      endCol >= m.startCol
+    )
+      return true;
+  }
+  return false;
+}
+
+// Story 11.5: Update Format menu Merge/Unmerge enable state
+function updateMergeMenuState() {
+  if (!window.electronAPI?.updateMenuState) return;
+  const { startRow, startCol, endRow, endCol } = selectionRange;
+  const cellCount = (endRow - startRow + 1) * (endCol - startCol + 1);
+  const overlaps = selectionOverlapsMerge(startRow, startCol, endRow, endCol);
+  const canMerge = cellCount >= 2 && !overlaps;
+  const isSingleCell = cellCount === 1;
+  const { merge, isAnchor } = getMergeInfo(startRow, startCol, currentMerges);
+  const canUnmerge = isSingleCell && merge && isAnchor;
+  window.electronAPI.updateMenuState({
+    canMerge,
+    canUnmerge,
+  });
+}
+
+// Select a cell (Story 11.5: extendSelection = true for Shift+click range selection)
+function selectCell(row, col, extendSelection = false) {
   ({ row, col } = resolveToAnchor(row, col));
   if (isEditing) {
-    if (window.__DEBUG__) console.log('Selecting new cell while editing - saving first');
+    if (window.__DEBUG__)
+      console.log('Selecting new cell while editing - saving first');
     saveCurrentEditOnCellSwitch();
   }
   expandGridIfNeeded(row, col);
-  applyCellSelection(row, col);
+  applyCellSelection(row, col, extendSelection);
 }
 
 // Update the formula bar with the selected cell's content
@@ -880,7 +989,7 @@ function startEditing(row, col) {
       cell.textContent = '';
       cell.appendChild(input);
       input.focus();
-      input.select();
+      input.setSelectionRange(input.value.length, input.value.length);
 
       // Set up event handlers
       setupEditorHandlers(input, row, col, cell, originalContent);
@@ -1036,7 +1145,10 @@ async function refreshAllCells() {
     for (const [ref, cellData] of Object.entries(cells)) {
       const match = ref.match(/([A-Z]+)(\d+)/);
       if (match) {
-        const cell = getCellElement(parseInt(match[2]) - 1, letterToCol(match[1]));
+        const cell = getCellElement(
+          parseInt(match[2]) - 1,
+          letterToCol(match[1])
+        );
         if (cell) applyCellValue(cell, cellData.display, cellData.raw ?? '');
       }
     }
@@ -1068,7 +1180,10 @@ async function loadCells() {
     for (const [ref, cellData] of Object.entries(cells)) {
       const match = ref.match(/([A-Z]+)(\d+)/);
       if (match) {
-        const cell = getCellElement(parseInt(match[2]) - 1, letterToCol(match[1]));
+        const cell = getCellElement(
+          parseInt(match[2]) - 1,
+          letterToCol(match[1])
+        );
         if (cell) applyCellValue(cell, cellData.display, cellData.raw ?? '');
       }
     }
@@ -1882,6 +1997,60 @@ if (window.electronAPI) {
     } catch (error) {
       console.error('[App] Error during Paste:', error);
       await showAlert('Error during Paste operation: ' + error.message);
+    }
+  });
+
+  // Story 11.5: Merge Cells - merge selected range
+  window.electronAPI.onMenuMergeCells?.(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Merge Cells triggered');
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    const { startRow, startCol, endRow, endCol } = selectionRange;
+    const cellCount = (endRow - startRow + 1) * (endCol - startCol + 1);
+    if (cellCount < 2) {
+      await showAlert('Select 2 or more cells to merge.');
+      return;
+    }
+    try {
+      const rowSpan = endRow - startRow + 1;
+      const colSpan = endCol - startCol + 1;
+      const result = await SetMerge(startRow, startCol, rowSpan, colSpan);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await buildSpreadsheet();
+      await refreshAllCells();
+      updateFileStatus();
+    } catch (error) {
+      console.error('[App] Error during Merge:', error);
+      await showAlert('Error merging cells: ' + error.message);
+    }
+  });
+
+  // Story 11.5: Unmerge - unmerge selected merged cell
+  window.electronAPI.onMenuUnmergeCells?.(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Unmerge triggered');
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    const { startRow, startCol, endRow, endCol } = selectionRange;
+    if (startRow !== endRow || startCol !== endCol) {
+      await showAlert('Select a single merged cell to unmerge.');
+      return;
+    }
+    const { merge, isAnchor } = getMergeInfo(startRow, startCol, currentMerges);
+    if (!merge || !isAnchor) {
+      await showAlert('Selected cell is not merged.');
+      return;
+    }
+    try {
+      const result = await Unmerge(startRow, startCol);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await buildSpreadsheet();
+      await refreshAllCells();
+      updateFileStatus();
+    } catch (error) {
+      console.error('[App] Error during Unmerge:', error);
+      await showAlert('Error unmerging cells: ' + error.message);
     }
   });
 
