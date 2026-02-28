@@ -9,6 +9,7 @@ const {
   selectCellByClick,
   selectCellViaApp,
   setMergeViaApi,
+  setStyleViaApi,
   startEditingViaApp,
   waitForEditModeReady,
 } = require('./helpers');
@@ -129,5 +130,134 @@ test.describe('Format menu Merge/Unmerge (Story 11.5)', () => {
     const cellB1 = window.locator('#cell-0-1');
     await expect(cellA1).toHaveText('header');
     await expect(cellB1).toBeVisible();
+  });
+});
+
+test.describe('Format menu styles (Story 12.2)', () => {
+  test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
+  });
+
+  test('Format → Title applies Title style to selection', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 0, 'Report Title');
+    await selectCellViaApp(window, 0, 0);
+
+    const styleApplied = window.evaluate(() => {
+      return new Promise((resolve, reject) => {
+        const handler = () => {
+          window.removeEventListener('style-applied', handler);
+          clearTimeout(timer);
+          resolve();
+        };
+        window.addEventListener('style-applied', handler);
+        const timer = setTimeout(() => {
+          window.removeEventListener('style-applied', handler);
+          const err = window.__lastStyleError
+            ? `Style apply failed: ${window.__lastStyleError}`
+            : 'Style apply timed out (no style-applied event, menu may not have triggered)';
+          reject(new Error(err));
+        }, 5000);
+      });
+    });
+
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const formatMenu = menu.items.find((item) => item.label === 'Format');
+      const titleItem = formatMenu?.submenu?.items.find(
+        (item) => item.label === 'Title'
+      );
+      if (titleItem?.click) titleItem.click();
+    });
+
+    await styleApplied;
+    const cell = window.locator('#cell-0-0');
+    await expect(cell).toHaveClass(/style-title/);
+    await expect(cell).toHaveText('Report Title');
+  });
+
+  test('Format → Header applies Header style to selection', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 1, 0, 'Col A');
+    await setCellViaApi(window, 1, 1, 'Col B');
+    const cellA = window.locator('#cell-1-0');
+    const cellB = window.locator('#cell-1-1');
+    await cellA.click();
+    await cellB.click({ modifiers: ['Shift'] });
+
+    const styleApplied = window.evaluate(() => {
+      return new Promise((resolve, reject) => {
+        const handler = () => {
+          window.removeEventListener('style-applied', handler);
+          clearTimeout(timer);
+          resolve();
+        };
+        window.addEventListener('style-applied', handler);
+        const timer = setTimeout(() => {
+          window.removeEventListener('style-applied', handler);
+          const err = window.__lastStyleError
+            ? `Style apply failed: ${window.__lastStyleError}`
+            : 'Style apply timed out (no style-applied event)';
+          reject(new Error(err));
+        }, 5000);
+      });
+    });
+
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const formatMenu = menu.items.find((item) => item.label === 'Format');
+      const headerItem = formatMenu?.submenu?.items.find(
+        (item) => item.label === 'Header'
+      );
+      if (headerItem?.click) headerItem.click();
+    });
+
+    await styleApplied;
+    await expect(cellA).toHaveClass(/style-header/);
+    await expect(cellB).toHaveClass(/style-header/);
+  });
+
+  test('Format → Total applies Total style to selection', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 2, 0, 'Subtotal');
+    await selectCellViaApp(window, 2, 0);
+
+    const styleApplied = window.evaluate(() => {
+      return new Promise((resolve, reject) => {
+        const handler = () => {
+          window.removeEventListener('style-applied', handler);
+          clearTimeout(timer);
+          resolve();
+        };
+        window.addEventListener('style-applied', handler);
+        const timer = setTimeout(() => {
+          window.removeEventListener('style-applied', handler);
+          const err = window.__lastStyleError
+            ? `Style apply failed: ${window.__lastStyleError}`
+            : 'Style apply timed out (no style-applied event)';
+          reject(new Error(err));
+        }, 5000);
+      });
+    });
+
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const formatMenu = menu.items.find((item) => item.label === 'Format');
+      const totalItem = formatMenu?.submenu?.items.find(
+        (item) => item.label === 'Total'
+      );
+      if (totalItem?.click) totalItem.click();
+    });
+
+    await styleApplied;
+    const cell = window.locator('#cell-2-0');
+    await expect(cell).toHaveClass(/style-total/);
+    await expect(cell).toHaveText('Subtotal');
   });
 });

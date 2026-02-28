@@ -670,6 +670,32 @@ input[type='text'].formula-bar {
   font-weight: 500;
 }
 
+/* Story 12.2: Named styles (Title, Header, Total) - theme-aware via CSS variables */
+.cell.style-title {
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  vertical-align: middle;
+  color: var(--color-text-primary);
+}
+
+.cell.style-header {
+  font-weight: bold;
+  text-align: center;
+  vertical-align: middle;
+  background: var(--color-bg-header);
+  color: var(--color-text-primary);
+  border-bottom: 2px solid var(--color-text-primary);
+}
+
+.cell.style-total {
+  font-weight: bold;
+  text-align: left;
+  vertical-align: middle;
+  color: var(--color-text-primary);
+  border-top: 2px solid var(--color-text-primary);
+}
+
 /* In-cell editor */
 .cell-editor {
   /* Re-apply styles after Pico.css reset */

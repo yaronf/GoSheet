@@ -40,7 +40,16 @@ async function fetchUnified(method, path, body = null) {
     opts.body = JSON.stringify(body);
   }
   const res = await fetch(`${API_BASE}${path}`, opts);
-  const json = await res.json();
+  const text = await res.text();
+  let json;
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(res.ok ? 'Invalid JSON response' : `API error (${res.status}): ${text.slice(0, 100)}`);
+  }
+  if (!res.ok) {
+    throw new Error(json.error || text || `HTTP ${res.status}`);
+  }
   if (!json.success) {
     throw new Error(json.error || 'API error');
   }
@@ -77,16 +86,28 @@ const GetCellRef = async (row, col) => {
 
 const GetAllCells = async () => {
   // Story 3.5: Electron uses HTTP API for spreadsheet operations
-  // Returns { ref: { display, raw } } so callers avoid per-cell GetCellRawValue (CR 11-4 perf)
+  // Returns { ref: { display, raw, styleId? } } so callers avoid per-cell GetCellRawValue (CR 11-4 perf)
   const json = await fetchUnified('GET', '/api/cells/all');
   const cells = {};
   (json.data || []).forEach((c) => {
     const ref = colToLetter(c.col) + (c.row + 1);
     const display = c.computed ?? c.value ?? '';
     const raw = c.value ?? '';
-    cells[ref] = { display, raw };
+    cells[ref] = { display, raw, styleId: c.styleId };
   });
   return cells;
+};
+
+// Story 12.2: Apply style to cell or range
+const ApplyRangeStyle = async (startRow, startCol, endRow, endCol, styleId) => {
+  const json = await fetchUnified('POST', '/api/range/style', {
+    startRow,
+    startCol,
+    endRow,
+    endCol,
+    styleId,
+  });
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
 };
 
 const GetFileStatus = async () => {
@@ -260,6 +281,7 @@ export {
   GetMerges,
   SetMerge,
   Unmerge,
+  ApplyRangeStyle,
   NewFile,
   SaveFile,
   SaveAs,

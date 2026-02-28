@@ -318,6 +318,40 @@ function buildMenu(recentFiles = [], onClearRecent) {
             }
           },
         },
+        { type: 'separator' },
+        {
+          id: 'style-title',
+          label: 'Title',
+          accelerator: 'CmdOrCtrl+Shift+1',
+          click: () => {
+            if (DEBUG) console.log('[Menu] Style Title triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-style-title');
+            }
+          },
+        },
+        {
+          id: 'style-header',
+          label: 'Header',
+          accelerator: 'CmdOrCtrl+Shift+2',
+          click: () => {
+            if (DEBUG) console.log('[Menu] Style Header triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-style-header');
+            }
+          },
+        },
+        {
+          id: 'style-total',
+          label: 'Total',
+          accelerator: 'CmdOrCtrl+Shift+3',
+          click: () => {
+            if (DEBUG) console.log('[Menu] Style Total triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-style-total');
+            }
+          },
+        },
       ],
     },
 

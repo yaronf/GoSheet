@@ -10,6 +10,7 @@ import {
   GetMerges,
   SetMerge,
   Unmerge,
+  ApplyRangeStyle,
   NewFile,
   SaveFile,
   LoadFile,
@@ -1157,7 +1158,10 @@ function finishEditing(row, col, value, cell) {
     });
 }
 
-function applyCellValue(cell, value, rawValue) {
+const STYLE_CLASSES = ['style-title', 'style-header', 'style-total'];
+const STYLE_ID = { TITLE: 1, HEADER: 2, TOTAL: 3 };
+
+function applyCellValue(cell, value, rawValue, styleId) {
   cell.textContent = value;
   cell.classList.toggle('error-cell', !!value && value.startsWith('#ERROR'));
   if ((rawValue ?? '').startsWith('=')) {
@@ -1169,6 +1173,11 @@ function applyCellValue(cell, value, rawValue) {
   }
   const isNum = value && !isNaN(value) && value.trim() !== '';
   cell.classList.toggle('number-cell', !!isNum);
+  // Story 12.2: Apply style classes (1=Title, 2=Header, 3=Total)
+  STYLE_CLASSES.forEach((c) => cell.classList.remove(c));
+  if (styleId >= STYLE_ID.TITLE && styleId <= STYLE_ID.TOTAL) {
+    cell.classList.add(STYLE_CLASSES[styleId - 1]);
+  }
 }
 
 async function refreshAllCells() {
@@ -1181,7 +1190,7 @@ async function refreshAllCells() {
         if (cell && !cleared.has(cell)) {
           cleared.add(cell);
           cell.textContent = '';
-          cell.classList.remove('formula-cell', 'error-cell');
+          cell.classList.remove('formula-cell', 'error-cell', ...STYLE_CLASSES);
         }
       }
     }
@@ -1192,7 +1201,13 @@ async function refreshAllCells() {
           parseInt(match[2]) - 1,
           letterToCol(match[1])
         );
-        if (cell) applyCellValue(cell, cellData.display, cellData.raw ?? '');
+        if (cell)
+          applyCellValue(
+            cell,
+            cellData.display,
+            cellData.raw ?? '',
+            cellData.styleId
+          );
       }
     }
   } catch (err) {
@@ -1227,7 +1242,13 @@ async function loadCells() {
           parseInt(match[2]) - 1,
           letterToCol(match[1])
         );
-        if (cell) applyCellValue(cell, cellData.display, cellData.raw ?? '');
+        if (cell)
+          applyCellValue(
+            cell,
+            cellData.display,
+            cellData.raw ?? '',
+            cellData.styleId
+          );
       }
     }
   } catch (err) {
@@ -2121,6 +2142,35 @@ if (window.electronAPI) {
       await showAlert('Error unmerging cells: ' + error.message);
     }
   });
+
+  // Story 12.2: Apply style (Title=1, Header=2, Total=3) to selection
+  const applyStyleToSelection = async (styleId) => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    const { startRow, startCol, endRow, endCol } = selectionRange;
+    try {
+      const result = await ApplyRangeStyle(
+        startRow,
+        startCol,
+        endRow,
+        endCol,
+        styleId
+      );
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await refreshAllCells();
+      updateFileStatus();
+      window.dispatchEvent(new CustomEvent('style-applied', { detail: { styleId } }));
+    } catch (error) {
+      console.error('[App] Error applying style:', error);
+      window.__lastStyleError = String(error.message);
+      await showAlert('Error applying style: ' + error.message);
+    }
+  };
+  window.__lastStyleError = null;
+  window.electronAPI.onMenuStyleTitle?.(() => applyStyleToSelection(STYLE_ID.TITLE));
+  window.electronAPI.onMenuStyleHeader?.(() => applyStyleToSelection(STYLE_ID.HEADER));
+  window.electronAPI.onMenuStyleTotal?.(() => applyStyleToSelection(STYLE_ID.TOTAL));
 
   // Select All: If formula bar/input has focus, select its text; else select all cells
   window.electronAPI.onMenuSelectAll(async () => {

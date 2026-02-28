@@ -101,6 +101,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('menu-unmerge-cells', callback);
   },
 
+  // Story 12.2: Format menu (Style: Title, Header, Total)
+  onMenuStyleTitle: (callback) => {
+    ipcRenderer.on('menu-style-title', callback);
+  },
+  onMenuStyleHeader: (callback) => {
+    ipcRenderer.on('menu-style-header', callback);
+  },
+  onMenuStyleTotal: (callback) => {
+    ipcRenderer.on('menu-style-total', callback);
+  },
+
   // Story 7.5: Recent files management
   addRecentFile: (filePath) => {
     if (DEBUG) console.log('[Preload] addRecentFile called:', filePath);

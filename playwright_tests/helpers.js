@@ -175,6 +175,50 @@ async function setMergeViaApi(window, startRow, startCol, rowSpan, colSpan) {
 }
 
 /**
+ * Apply style to range via backend API. Story 12.2.
+ * Calls refreshAllCells so grid shows the style.
+ */
+async function setStyleViaApi(window, startRow, startCol, endRow, endCol, styleId) {
+  const result = await window.evaluate(
+    async (arg) => {
+      const { startRow, startCol, endRow, endCol, styleId } = arg;
+      const res = await fetch('/api/range/style', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startRow,
+          startCol,
+          endRow,
+          endCol,
+          styleId,
+        }),
+      });
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new Error(
+          `setStyleViaApi: invalid JSON (${res.status}): ${text.slice(0, 80)}`
+        );
+      }
+      if (!res.ok) {
+        throw new Error(json.error || text || `HTTP ${res.status}`);
+      }
+      if (json.success && typeof window.refreshAllCells === 'function') {
+        await window.refreshAllCells();
+      }
+      return json;
+    },
+    { startRow, startCol, endRow, endCol, styleId }
+  );
+  if (result && result.success === false) {
+    throw new Error(result.error || 'setStyleViaApi failed');
+  }
+  return result;
+}
+
+/**
  * Fill a cell: click, wait for selection (avoids race where typing happens before
  * selectCell runs), type, Enter. Use for reliable cell editing in Electron.
  */
@@ -198,4 +242,5 @@ module.exports = {
   startEditingViaApp,
   setCellAndSelect,
   setMergeViaApi,
+  setStyleViaApi,
 };
