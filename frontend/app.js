@@ -11,6 +11,7 @@ import {
   SetMerge,
   Unmerge,
   ApplyRangeStyle,
+  CleanupFormat,
   NewFile,
   SaveFile,
   LoadFile,
@@ -2171,6 +2172,22 @@ if (window.electronAPI) {
   window.electronAPI.onMenuStyleTitle?.(() => applyStyleToSelection(STYLE_ID.TITLE));
   window.electronAPI.onMenuStyleHeader?.(() => applyStyleToSelection(STYLE_ID.HEADER));
   window.electronAPI.onMenuStyleTotal?.(() => applyStyleToSelection(STYLE_ID.TOTAL));
+
+  // Story 12.3: Format Cleanup - remove style from empty cells
+  window.electronAPI.onMenuFormatCleanup?.(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Format Cleanup triggered');
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    try {
+      const result = await CleanupFormat();
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await buildSpreadsheet();
+    } catch (error) {
+      console.error('[App] Error during Format Cleanup:', error);
+      await showAlert('Error during Format Cleanup: ' + error.message);
+    }
+  });
 
   // Select All: If formula bar/input has focus, select its text; else select all cells
   window.electronAPI.onMenuSelectAll(async () => {

@@ -218,6 +218,47 @@ func (s *Spreadsheet) ApplyStyleToCell(row, col int, styleId int) error {
 	return nil
 }
 
+// isMergeAnchor returns true if (row, col) is the anchor of any merge region.
+func (s *Spreadsheet) isMergeAnchor(row, col int) bool {
+	for _, m := range s.Merges {
+		if m.RowSpan >= 1 && m.ColSpan >= 1 && m.StartRow == row && m.StartCol == col {
+			return true
+		}
+	}
+	return false
+}
+
+// CleanupFormat removes style from empty cells and deletes cells that have no value and no style.
+// Story 12.3: Reduces used range and file size by removing orphaned formatting.
+// Merge anchors are not deleted to avoid orphaned merge regions.
+func (s *Spreadsheet) CleanupFormat() {
+	var toDelete [][2]int
+	for row, rowMap := range s.Cells {
+		for col, cell := range rowMap {
+			if cell == nil {
+				continue
+			}
+			if cell.Value == "" {
+				if cell.StyleId != 0 {
+					cell.StyleId = 0
+					s.Modified = true
+				}
+				toDelete = append(toDelete, [2]int{row, col})
+			}
+		}
+	}
+	for _, rc := range toDelete {
+		row, col := rc[0], rc[1]
+		if s.isMergeAnchor(row, col) {
+			continue
+		}
+		cell := s.GetCell(row, col)
+		if cell != nil && cell.Value == "" && cell.StyleId == 0 {
+			s.DeleteCell(row, col)
+		}
+	}
+}
+
 // ApplyStyleToRange applies the given style to all cells in the range [startRow,endRow] x [startCol,endCol].
 // No-op if styleId is 0. Returns error if styleId is invalid.
 func (s *Spreadsheet) ApplyStyleToRange(startRow, startCol, endRow, endCol int, styleId int) error {

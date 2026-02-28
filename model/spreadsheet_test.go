@@ -265,3 +265,45 @@ func TestApplyStyleToRange_NegativeCoords(t *testing.T) {
 	err = sheet.ApplyStyleToRange(0, 0, 99, 200, 1) // 100*201 = 20100 > 10000
 	assert.Error(t, err)
 }
+
+func TestCleanupFormat(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// Cell with value and style - should remain
+	sheet.SetCell(0, 0, "Keep")
+	_ = sheet.ApplyStyleToCell(0, 0, 1)
+	// Empty cell with style - cleanup clears style and deletes
+	_ = sheet.ApplyStyleToCell(1, 0, 2)
+	// Empty cell without style - cleanup deletes
+	sheet.SetCell(2, 0, "")
+	// Cell with value, no style - should remain
+	sheet.SetCell(3, 0, "AlsoKeep")
+
+	sheet.Modified = false
+	sheet.CleanupFormat()
+
+	// (0,0) kept with value and style
+	assert.NotNil(t, sheet.GetCell(0, 0))
+	assert.Equal(t, "Keep", sheet.GetCell(0, 0).Value)
+	assert.Equal(t, 1, sheet.GetCell(0, 0).StyleId)
+	// (1,0) and (2,0) deleted
+	assert.Nil(t, sheet.GetCell(1, 0))
+	assert.Nil(t, sheet.GetCell(2, 0))
+	// (3,0) kept
+	assert.NotNil(t, sheet.GetCell(3, 0))
+	assert.Equal(t, "AlsoKeep", sheet.GetCell(3, 0).Value)
+	assert.Equal(t, 2, sheet.GetCellCount())
+	assert.True(t, sheet.Modified)
+}
+
+func TestCleanupFormat_SkipsMergeAnchors(t *testing.T) {
+	sheet := NewSpreadsheet()
+	_ = sheet.ApplyStyleToCell(0, 0, 1) // empty merge anchor
+	sheet.Merges = []MergeRegion{{StartRow: 0, StartCol: 0, RowSpan: 1, ColSpan: 2}} // A1:B1 merged
+	sheet.Modified = false
+
+	sheet.CleanupFormat()
+
+	// Merge anchor (0,0) should not be deleted (would orphan merge)
+	assert.NotNil(t, sheet.GetCell(0, 0))
+	assert.Len(t, sheet.Merges, 1)
+}

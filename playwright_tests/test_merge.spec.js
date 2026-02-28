@@ -260,4 +260,28 @@ test.describe('Format menu styles (Story 12.2)', () => {
     await expect(cell).toHaveClass(/style-total/);
     await expect(cell).toHaveText('Subtotal');
   });
+
+  test('Format → Format Cleanup removes style from empty cells (Story 12.3)', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 0, 'Keep');
+    await setCellViaApi(window, 1, 0, '');
+    await setStyleViaApi(window, 1, 0, 1, 0, 1); // Title on empty A2
+
+    const cellA2 = window.locator('#cell-1-0');
+    await expect(cellA2).toHaveClass(/style-title/);
+
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const formatMenu = menu.items.find((item) => item.label === 'Format');
+      const cleanupItem = formatMenu?.submenu?.items.find(
+        (item) => item.label === 'Format Cleanup'
+      );
+      if (cleanupItem?.click) cleanupItem.click();
+    });
+
+    await window.waitForTimeout(300);
+    await expect(cellA2).not.toHaveClass(/style-title/);
+  });
 });

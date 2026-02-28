@@ -827,3 +827,39 @@ func TestHandleGetAllCells_WithStyleId(t *testing.T) {
 	assert.Len(t, resp.Data, 1)
 	assert.Equal(t, 1, resp.Data[0].StyleId)
 }
+
+func TestHandleFormatCleanup(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "Keep")
+	_ = srv.Ctrl.ApplyStyleToCell(0, 0, 1)
+	_ = srv.Ctrl.ApplyStyleToCell(1, 0, 2) // empty + styled -> cleanup removes
+
+	req := httptest.NewRequest(http.MethodPost, "/api/format/cleanup", nil)
+	w := httptest.NewRecorder()
+	srv.HandleFormatCleanup(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			HasUnsavedChanges bool `json:"hasUnsavedChanges"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.True(t, resp.Data.HasUnsavedChanges)
+
+	// Styled empty cell should be gone
+	assert.Nil(t, srv.Ctrl.Sheet.GetCell(1, 0))
+	// Cell with value kept
+	assert.NotNil(t, srv.Ctrl.Sheet.GetCell(0, 0))
+	assert.Equal(t, 1, srv.Ctrl.Sheet.GetCell(0, 0).StyleId)
+}
+
+func TestHandleFormatCleanup_MethodNotAllowed(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/format/cleanup", nil)
+	w := httptest.NewRecorder()
+	srv.HandleFormatCleanup(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}

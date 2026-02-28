@@ -352,6 +352,17 @@ function buildMenu(recentFiles = [], onClearRecent) {
             }
           },
         },
+        { type: 'separator' },
+        {
+          id: 'format-cleanup',
+          label: 'Format Cleanup',
+          click: () => {
+            if (DEBUG) console.log('[Menu] Format Cleanup triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-format-cleanup');
+            }
+          },
+        },
       ],
     },
 

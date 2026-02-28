@@ -195,5 +195,5 @@ development_status:
   epic-12: in-progress
   12-1-add-style-registry-and-named-styles: done
   12-2-add-style-picker-ui: done
-  12-3-style-optimization-and-format-cleanup: backlog
+  12-3-style-optimization-and-format-cleanup: done
   epic-12-retrospective: optional

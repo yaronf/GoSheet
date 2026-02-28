@@ -112,6 +112,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('menu-style-total', callback);
   },
 
+  // Story 12.3: Format Cleanup
+  onMenuFormatCleanup: (callback) => {
+    ipcRenderer.on('menu-format-cleanup', callback);
+  },
+
   // Story 7.5: Recent files management
   addRecentFile: (filePath) => {
     if (DEBUG) console.log('[Preload] addRecentFile called:', filePath);

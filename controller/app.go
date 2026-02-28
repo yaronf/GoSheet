@@ -308,3 +308,9 @@ func (c *AppController) ApplyStyleToCell(row, col int, styleId int) error {
 func (c *AppController) ApplyStyleToRange(startRow, startCol, endRow, endCol int, styleId int) error {
 	return c.Sheet.ApplyStyleToRange(startRow, startCol, endRow, endCol, styleId)
 }
+
+// CleanupFormat removes style from empty cells and deletes cells with no value and no style.
+// Story 12.3: Reduces used range and file size.
+func (c *AppController) CleanupFormat() {
+	c.Sheet.CleanupFormat()
+}

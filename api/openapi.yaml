@@ -285,6 +285,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/format/cleanup:
+    post:
+      operationId: formatCleanup
+      summary: Remove style from empty cells and delete cells with no value and no style
+      responses:
+        '200':
+          description: Cleanup completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyStyleResponse'
+        '405':
+          description: Method not allowed (POST required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/cells/all:
     get:
       operationId: getAllCells

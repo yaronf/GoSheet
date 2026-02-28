@@ -98,6 +98,12 @@ const GetAllCells = async () => {
   return cells;
 };
 
+// Story 12.3: Format cleanup - remove style from empty cells
+const CleanupFormat = async () => {
+  const json = await fetchUnified('POST', '/api/format/cleanup');
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
 // Story 12.2: Apply style to cell or range
 const ApplyRangeStyle = async (startRow, startCol, endRow, endCol, styleId) => {
   const json = await fetchUnified('POST', '/api/range/style', {
@@ -282,6 +288,7 @@ export {
   SetMerge,
   Unmerge,
   ApplyRangeStyle,
+  CleanupFormat,
   NewFile,
   SaveFile,
   SaveAs,

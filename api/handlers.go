@@ -497,3 +497,20 @@ func (s *Server) HandleApplyRangeStyle(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 }
+
+// HandleFormatCleanup removes style from empty cells and deletes cells with no value and no style.
+// Story 12.3: POST /api/format/cleanup
+func (s *Server) HandleFormatCleanup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	s.Ctrl.CleanupFormat()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
