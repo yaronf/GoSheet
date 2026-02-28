@@ -5,6 +5,7 @@ const { test, expect } = require('./fixtures');
 const {
   ensureSpreadsheetView,
   setCellViaApi,
+  selectCellByClick,
   selectCellViaApp,
   setMergeViaApi,
   startEditingViaApp,
@@ -48,7 +49,7 @@ test.describe('Merge-aware cell behavior (Story 11.4)', () => {
 
   test('editing merged cell updates anchor', async ({ window }) => {
     await setMergeViaApi(window, 2, 0, 2, 1); // A3:A4 merged
-    await setCellViaApi(window, 2, 0, 'edit-me');
+    await setCellViaApi(window, 2, 0, '');
     await selectCellViaApp(window, 2, 0);
 
     const cell = window.locator('#cell-2-0');
