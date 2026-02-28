@@ -66,9 +66,9 @@ func NewStyleRegistry() *StyleRegistry {
 		Names:   make(map[string]int),
 	}
 	// Index 0 reserved for "no style" - no format stored
-	// Index 1: Title - 18pt bold, centered
+	// Index 1: Title - 18pt bold, centered, dark text color
 	r.Formats = append(r.Formats, CellFormat{
-		Font: Font{Name: "Helvetica", Size: 18, Bold: true, Color: "#000000"},
+		Font: Font{Name: "Helvetica", Size: 18, Bold: true, Color: "#1a1a2e"},
 		Fill: Fill{Pattern: "none"},
 		Border: Border{
 			Left:   BorderSide{Style: "none"},
@@ -80,7 +80,7 @@ func NewStyleRegistry() *StyleRegistry {
 	})
 	r.Names["Title"] = 1
 
-	// Index 2: Header - bold, light gray fill, bottom border, centered
+	// Index 2: Header - bold, light gray fill, bottom border, centered, black text
 	r.Formats = append(r.Formats, CellFormat{
 		Font: Font{Name: "Helvetica", Size: 12, Bold: true, Color: "#000000"},
 		Fill: Fill{Pattern: "solid", FgColor: "#E0E0E0", BgColor: "#E0E0E0"},
@@ -94,9 +94,9 @@ func NewStyleRegistry() *StyleRegistry {
 	})
 	r.Names["Header"] = 2
 
-	// Index 3: Total - bold, top border, left aligned
+	// Index 3: Total - bold, top border, left aligned, dark gray text
 	r.Formats = append(r.Formats, CellFormat{
-		Font: Font{Name: "Helvetica", Size: 12, Bold: true, Color: "#000000"},
+		Font: Font{Name: "Helvetica", Size: 12, Bold: true, Color: "#333333"},
 		Fill: Fill{Pattern: "none"},
 		Border: Border{
 			Left:   BorderSide{Style: "none"},
