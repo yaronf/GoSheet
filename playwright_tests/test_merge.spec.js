@@ -1,5 +1,6 @@
 // Story 11.4: Merge-aware cell logic - Playwright tests
-// Verifies selection, formula bar, and editing work correctly with merged cells
+// Story 11.5: Format menu Merge/Unmerge - E2E tests
+// Verifies selection, formula bar, editing, and Format menu merge/unmerge
 
 const { test, expect } = require('./fixtures');
 const {
@@ -59,5 +60,58 @@ test.describe('Merge-aware cell behavior (Story 11.4)', () => {
     await window.keyboard.press('Enter');
 
     await expect(cell).toHaveText('edited');
+  });
+});
+
+test.describe('Format menu Merge/Unmerge (Story 11.5)', () => {
+  test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
+  });
+
+  test('Format → Merge Cells merges selected range', async ({
+    electronApp,
+    window,
+  }) => {
+    const cellA1 = window.locator('#cell-0-0');
+    const cellB1 = window.locator('#cell-0-1');
+    await cellA1.click();
+    await cellB1.click({ modifiers: ['Shift'] });
+
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const formatMenu = menu.items.find((item) => item.label === 'Format');
+      const mergeItem = formatMenu?.submenu?.items.find(
+        (item) => item.label === 'Merge Cells'
+      );
+      if (mergeItem?.click) mergeItem.click();
+    });
+
+    await window.waitForTimeout(500);
+    const anchor = window.locator('#cell-0-0');
+    await expect(anchor).toHaveAttribute('colspan', '2');
+  });
+
+  test('Format → Unmerge splits merged cell', async ({
+    electronApp,
+    window,
+  }) => {
+    await setMergeViaApi(window, 0, 0, 1, 2);
+    await setCellViaApi(window, 0, 0, 'header');
+    await selectCellViaApp(window, 0, 0);
+
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const formatMenu = menu.items.find((item) => item.label === 'Format');
+      const unmergeItem = formatMenu?.submenu?.items.find(
+        (item) => item.label === 'Unmerge'
+      );
+      if (unmergeItem?.click) unmergeItem.click();
+    });
+
+    await window.waitForTimeout(500);
+    const cellA1 = window.locator('#cell-0-0');
+    const cellB1 = window.locator('#cell-0-1');
+    await expect(cellA1).toHaveText('header');
+    await expect(cellB1).toBeVisible();
   });
 });

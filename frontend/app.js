@@ -2011,6 +2011,10 @@ if (window.electronAPI) {
       await showAlert('Select 2 or more cells to merge.');
       return;
     }
+    if (selectionOverlapsMerge(startRow, startCol, endRow, endCol)) {
+      await showAlert('Selection overlaps an existing merged cell.');
+      return;
+    }
     try {
       const rowSpan = endRow - startRow + 1;
       const colSpan = endCol - startCol + 1;
