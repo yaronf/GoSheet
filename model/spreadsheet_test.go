@@ -10,6 +10,7 @@ func TestNewSpreadsheet(t *testing.T) {
 	sheet := NewSpreadsheet()
 	assert.NotNil(t, sheet)
 	assert.NotNil(t, sheet.Cells)
+	assert.NotNil(t, sheet.Styles)
 	assert.False(t, sheet.Modified)
 	assert.Equal(t, "", sheet.FilePath)
 	assert.Equal(t, 0, sheet.GetCellCount())
@@ -194,5 +195,73 @@ func TestSetCellByRef_InvalidRef(t *testing.T) {
 	assert.Error(t, err)
 
 	err = sheet.SetCellByRef("", "x")
+	assert.Error(t, err)
+}
+
+func TestApplyStyleToCell(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "Title")
+
+	err := sheet.ApplyStyleToCell(0, 0, 1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, sheet.GetCell(0, 0).StyleId)
+	assert.True(t, sheet.Modified)
+
+	// No-op for styleId 0
+	err = sheet.ApplyStyleToCell(0, 0, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, sheet.GetCell(0, 0).StyleId)
+
+	// Invalid styleId
+	err = sheet.ApplyStyleToCell(0, 0, 99)
+	assert.Error(t, err)
+}
+
+func TestApplyStyleToCell_CreatesCell(t *testing.T) {
+	sheet := NewSpreadsheet()
+	err := sheet.ApplyStyleToCell(5, 5, 2)
+	assert.NoError(t, err)
+	cell := sheet.GetCell(5, 5)
+	assert.NotNil(t, cell)
+	assert.Equal(t, 2, cell.StyleId)
+	assert.Equal(t, "", cell.Value)
+}
+
+func TestApplyStyleToRange(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "A")
+	sheet.SetCell(0, 1, "B")
+	sheet.SetCell(1, 0, "C")
+
+	err := sheet.ApplyStyleToRange(0, 0, 1, 1, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, sheet.GetCell(0, 0).StyleId)
+	assert.Equal(t, 2, sheet.GetCell(0, 1).StyleId)
+	assert.Equal(t, 2, sheet.GetCell(1, 0).StyleId)
+	assert.Equal(t, 2, sheet.GetCell(1, 1).StyleId)
+
+	err = sheet.ApplyStyleToRange(2, 2, 2, 2, 99)
+	assert.Error(t, err)
+}
+
+func TestApplyStyleToRange_InvalidRange(t *testing.T) {
+	sheet := NewSpreadsheet()
+	err := sheet.ApplyStyleToRange(2, 2, 0, 0, 1)
+	assert.Error(t, err)
+}
+
+func TestApplyStyleToCell_NegativeCoords(t *testing.T) {
+	sheet := NewSpreadsheet()
+	err := sheet.ApplyStyleToCell(-1, 0, 1)
+	assert.Error(t, err)
+	err = sheet.ApplyStyleToCell(0, -1, 1)
+	assert.Error(t, err)
+}
+
+func TestApplyStyleToRange_NegativeCoords(t *testing.T) {
+	sheet := NewSpreadsheet()
+	err := sheet.ApplyStyleToRange(-1, 0, 0, 0, 1)
+	assert.Error(t, err)
+	err = sheet.ApplyStyleToRange(0, 0, 99, 200, 1) // 100*201 = 20100 > 10000
 	assert.Error(t, err)
 }

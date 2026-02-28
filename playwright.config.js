@@ -1,44 +1,42 @@
-// Playwright Configuration for Electron Testing
-// Story 5.1: Setup Playwright Electron Environment
+// Playwright Configuration
+// Story 5.1: Electron testing
+// 2026-02-28: Dual projects per technical-ui-testing-research - Chromium (reliable clicks) + Electron (menus, IPC)
 
 const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
-  // Test directory
   testDir: './playwright_tests',
-  
-  // Timeout for each test (Electron apps can be slower to start)
-  timeout: 30000,
-  
-  // Run tests serially (Electron apps don't parallelize well)
+  timeout: 15000,
   workers: 1,
-  
-  // Retry failed tests (handle occasional flakiness)
   retries: 2,
-  
-  // Reporter configuration
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }]
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
   ],
-  
-  // Shared settings for all tests
   use: {
-    // Screenshot on failure
     screenshot: 'only-on-failure',
-    
-    // Video on failure
     video: 'retain-on-failure',
-    
-    // Trace on failure
     trace: 'on-first-retry',
   },
-  
-  // Projects (we only have one: Electron)
+  globalSetup: require.resolve('./playwright_tests/global-setup.js'),
+  globalTeardown: require.resolve('./playwright_tests/global-teardown.js'),
+  // Only run globalSetup for chromium-web; Electron spawns its own server
+  // (globalSetup runs once; server on 3001 doesn't conflict with Electron's 3000)
   projects: [
+    {
+      name: 'chromium-web',
+      use: {
+        browserName: 'chromium',
+        baseURL: `http://localhost:${process.env.GOSHEET_WEB_PORT || 3001}`,
+      },
+      testMatch: '**/test_ui_interactions.spec.js',
+      dependencies: [],
+    },
     {
       name: 'electron',
       testMatch: '**/*.spec.js',
+      testIgnore: '**/test_ui_interactions.spec.js',
+      dependencies: [],
     },
   ],
 });

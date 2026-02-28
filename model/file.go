@@ -25,9 +25,9 @@ func (s *Spreadsheet) SaveToFile(filepath string) error {
 	// Create gob encoder
 	encoder := gob.NewEncoder(file)
 
-	// Write file header (v1.1 includes merges)
+	// Write file header (v1.2 includes styles)
 	header := FileHeader{
-		Version:   "1.1",
+		Version:   "1.2",
 		CellCount: s.GetCellCount(),
 	}
 	if err := encoder.Encode(header); err != nil {
@@ -39,9 +39,18 @@ func (s *Spreadsheet) SaveToFile(filepath string) error {
 		return fmt.Errorf("failed to encode cells: %w", err)
 	}
 
-	// Write merges (v1.1)
+	// Write merges
 	if err := encoder.Encode(s.Merges); err != nil {
 		return fmt.Errorf("failed to encode merges: %w", err)
+	}
+
+	// Write styles (v1.2)
+	styles := s.Styles
+	if styles == nil {
+		styles = NewStyleRegistry()
+	}
+	if err := encoder.Encode(styles); err != nil {
+		return fmt.Errorf("failed to encode styles: %w", err)
 	}
 
 	// Update spreadsheet metadata
@@ -69,8 +78,8 @@ func LoadFromFile(filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode header: %w", err)
 	}
 
-	// Validate version (1.1 only)
-	if header.Version != "1.1" {
+	// Validate version (1.1 or 1.2)
+	if header.Version != "1.1" && header.Version != "1.2" {
 		return nil, fmt.Errorf("unsupported file version: %s", header.Version)
 	}
 
@@ -86,10 +95,22 @@ func LoadFromFile(filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode merges: %w", err)
 	}
 
+	// Read styles (v1.2 only); v1.1 files have no styles block
+	var styles *StyleRegistry
+	if header.Version == "1.2" {
+		if err := decoder.Decode(&styles); err != nil {
+			return nil, fmt.Errorf("failed to decode styles: %w", err)
+		}
+	}
+	if styles == nil {
+		styles = NewStyleRegistry()
+	}
+
 	// Create spreadsheet
 	spreadsheet := &Spreadsheet{
 		Cells:        cells,
 		Merges:       merges,
+		Styles:       styles,
 		Modified:     false,
 		FilePath:     filepath,
 		Dependencies: NewDependencyGraph(),
@@ -118,7 +139,7 @@ func LoadFromBytes(data []byte, filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode header: %w", err)
 	}
 
-	if header.Version != "1.1" {
+	if header.Version != "1.1" && header.Version != "1.2" {
 		return nil, fmt.Errorf("unsupported file version: %s", header.Version)
 	}
 
@@ -132,9 +153,20 @@ func LoadFromBytes(data []byte, filepath string) (*Spreadsheet, error) {
 		return nil, fmt.Errorf("failed to decode merges: %w", err)
 	}
 
+	var styles *StyleRegistry
+	if header.Version == "1.2" {
+		if err := decoder.Decode(&styles); err != nil {
+			return nil, fmt.Errorf("failed to decode styles: %w", err)
+		}
+	}
+	if styles == nil {
+		styles = NewStyleRegistry()
+	}
+
 	return &Spreadsheet{
 		Cells:        cells,
 		Merges:       merges,
+		Styles:       styles,
 		Modified:     false,
 		FilePath:     filepath,
 		Dependencies: NewDependencyGraph(),
@@ -148,7 +180,7 @@ func (s *Spreadsheet) SaveToBytes() ([]byte, error) {
 	encoder := gob.NewEncoder(&buf)
 
 	header := FileHeader{
-		Version:   "1.1",
+		Version:   "1.2",
 		CellCount: s.GetCellCount(),
 	}
 	if err := encoder.Encode(header); err != nil {
@@ -159,6 +191,13 @@ func (s *Spreadsheet) SaveToBytes() ([]byte, error) {
 	}
 	if err := encoder.Encode(s.Merges); err != nil {
 		return nil, fmt.Errorf("failed to encode merges: %w", err)
+	}
+	styles := s.Styles
+	if styles == nil {
+		styles = NewStyleRegistry()
+	}
+	if err := encoder.Encode(styles); err != nil {
+		return nil, fmt.Errorf("failed to encode styles: %w", err)
 	}
 
 	return buf.Bytes(), nil

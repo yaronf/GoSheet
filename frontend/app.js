@@ -586,6 +586,49 @@ function _isCoveredByRowspanFromAbove(row, col, merges) {
 }
 
 /**
+ * Story 11.6: Get next selectable cell in direction, skipping covered cells.
+ * @param {number} row
+ * @param {number} col
+ * @param {'up'|'down'|'left'|'right'} direction
+ * @returns {{row: number, col: number} | null} Next cell or null if at boundary
+ */
+function getNextCell(row, col, direction) {
+  let r = row;
+  let c = col;
+  if (direction === 'up') r--;
+  else if (direction === 'down') r++;
+  else if (direction === 'left') c--;
+  else if (direction === 'right') c++;
+  if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return null;
+  while (true) {
+    const merge = getMergeAt(r, c, currentMerges);
+    if (!merge || (merge.startRow === r && merge.startCol === c))
+      return { row: r, col: c };
+    // Covered: jump to edge in direction. Left/up → anchor; right/down → past merge.
+    if (direction === 'right') c = merge.startCol + (merge.colSpan || 1);
+    else if (direction === 'left') {
+      r = merge.startRow;
+      c = merge.startCol;
+    } else if (direction === 'down') r = merge.startRow + (merge.rowSpan || 1);
+    else if (direction === 'up') {
+      r = merge.startRow;
+      c = merge.startCol;
+    }
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return null;
+  }
+}
+
+/**
+ * Story 11.6: Get next cell in tab order (left-to-right, top-to-bottom), skipping covered.
+ */
+function getNextCellTabOrder(row, col) {
+  const next = getNextCell(row, col, 'right');
+  if (next) return next;
+  if (row + 1 >= ROWS) return null;
+  return getNextCell(row + 1, -1, 'right');
+}
+
+/**
  * Resolve (row,col) to anchor if covered by a merge. Story 11.4.
  * @param {number} row
  * @param {number} col
@@ -1230,27 +1273,48 @@ function handleKeydownFileOps(e) {
   return false;
 }
 
-// Handle arrow keys, Enter, Delete, typing when a cell is selected
+// Handle arrow keys, Enter, Tab, Delete, typing when a cell is selected
+// Story 11.6: Arrow/Tab/Enter use getNextCell to skip covered cells
 function handleKeydownCellNavigation(e, row, col) {
-  if (e.key === 'ArrowUp' && row > 0) {
-    e.preventDefault();
-    selectCell(row - 1, col);
-    return true;
+  if (e.key === 'ArrowUp') {
+    const next = getNextCell(row, col, 'up');
+    if (next) {
+      e.preventDefault();
+      selectCell(next.row, next.col);
+      return true;
+    }
   }
   if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    selectCell(row + 1, col);
-    return true;
+    const next = getNextCell(row, col, 'down');
+    if (next) {
+      e.preventDefault();
+      selectCell(next.row, next.col);
+      return true;
+    }
   }
-  if (e.key === 'ArrowLeft' && col > 0) {
-    e.preventDefault();
-    selectCell(row, col - 1);
-    return true;
+  if (e.key === 'ArrowLeft') {
+    const next = getNextCell(row, col, 'left');
+    if (next) {
+      e.preventDefault();
+      selectCell(next.row, next.col);
+      return true;
+    }
   }
   if (e.key === 'ArrowRight') {
-    e.preventDefault();
-    selectCell(row, col + 1);
-    return true;
+    const next = getNextCell(row, col, 'right');
+    if (next) {
+      e.preventDefault();
+      selectCell(next.row, next.col);
+      return true;
+    }
+  }
+  if (e.key === 'Tab') {
+    const next = getNextCellTabOrder(row, col);
+    if (next) {
+      e.preventDefault();
+      selectCell(next.row, next.col);
+      return true;
+    }
   }
   if (e.key === 'Enter' || e.key === 'F2') {
     e.preventDefault();

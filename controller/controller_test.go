@@ -269,3 +269,20 @@ func TestControllerUnmerge(t *testing.T) {
 	assert.Error(t, err)
 	assert.Len(t, ctrl.GetMerges(), 1)
 }
+
+// TestControllerGetCellValue_CoveredCell returns anchor value for covered cells (Story 11.6)
+func TestControllerGetCellValue_CoveredCell(t *testing.T) {
+	ctrl := NewAppController()
+	_ = ctrl.SetCellValue(0, 0, "anchor")
+	_ = ctrl.SetMerge(0, 0, 1, 3) // A1:C1 merged
+
+	assert.Equal(t, "anchor", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "anchor", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "anchor", ctrl.GetCellValue(0, 2))
+
+	_ = ctrl.SetCellValue(0, 0, "=1+1")
+	assert.Equal(t, "2", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "2", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "=1+1", ctrl.GetCellRawValue(0, 0))
+	assert.Equal(t, "=1+1", ctrl.GetCellRawValue(0, 1))
+}

@@ -486,10 +486,12 @@ func evaluatePrimary(prim *Primary, sheet *Spreadsheet) (Value, error) {
 	return ErrorValue{fmt.Errorf("invalid primary expression")}, nil
 }
 
-// evaluateCellRef evaluates a cell reference
+// evaluateCellRef evaluates a cell reference.
+// Story 11.6: Covered cells resolve to anchor so formulas referencing merged ranges work.
 func evaluateCellRef(ref *CellRef, sheet *Spreadsheet) (Value, error) {
 	row, col := ref.ToCoords()
-	cell := sheet.GetCell(row, col)
+	ar, ac := sheet.ResolveToAnchor(row, col)
+	cell := sheet.GetCell(ar, ac)
 
 	if cell == nil {
 		return ErrorValue{fmt.Errorf("reference to empty cell")}, nil
@@ -528,6 +530,11 @@ func evaluateRange(rng *Range, sheet *Spreadsheet) (Value, error) {
 
 	for row := startRow; row <= endRow; row++ {
 		for col := startCol; col <= endCol; col++ {
+			// Story 11.6: Skip covered cells; only process anchor (avoids double-count in merged range)
+			ar, ac := sheet.ResolveToAnchor(row, col)
+			if ar != row || ac != col {
+				continue
+			}
 			cell := sheet.GetCell(row, col)
 			if cell == nil {
 				// Empty cell in range - return error

@@ -54,6 +54,8 @@ func main() {
 	http.HandleFunc("/api/merges", cors(srv.HandleGetMerges))
 	http.HandleFunc("/api/merge", cors(srv.HandleSetMerge))
 	http.HandleFunc("/api/unmerge", cors(srv.HandleUnmerge))
+	http.HandleFunc("/api/cell/style", cors(srv.HandleApplyCellStyle))
+	http.HandleFunc("/api/range/style", cors(srv.HandleApplyRangeStyle))
 
 	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
 	logutil.Debugf("Open http://localhost:%s in your browser\n", *port)

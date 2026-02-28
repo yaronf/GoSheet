@@ -388,6 +388,66 @@ func TestSaveAndLoadWithMergeRegions(t *testing.T) {
 	}
 }
 
+func TestSaveAndLoadWithStyles(t *testing.T) {
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "Title")
+	s.SetCell(0, 1, "Header")
+	s.SetCell(1, 0, "Total")
+	_ = s.ApplyStyleToCell(0, 0, StyleIDTitle)
+	_ = s.ApplyStyleToCell(0, 1, StyleIDHeader)
+	_ = s.ApplyStyleToCell(1, 0, StyleIDTotal)
+
+	data, err := s.SaveToBytes()
+	if err != nil {
+		t.Fatalf("SaveToBytes failed: %v", err)
+	}
+
+	loaded, err := LoadFromBytes(data, "/test/styles.sheet")
+	if err != nil {
+		t.Fatalf("LoadFromBytes failed: %v", err)
+	}
+
+	if loaded.GetCell(0, 0).StyleId != StyleIDTitle {
+		t.Errorf("Cell (0,0) expected StyleId %d, got %d", StyleIDTitle, loaded.GetCell(0, 0).StyleId)
+	}
+	if loaded.GetCell(0, 1).StyleId != StyleIDHeader {
+		t.Errorf("Cell (0,1) expected StyleId %d, got %d", StyleIDHeader, loaded.GetCell(0, 1).StyleId)
+	}
+	if loaded.GetCell(1, 0).StyleId != StyleIDTotal {
+		t.Errorf("Cell (1,0) expected StyleId %d, got %d", StyleIDTotal, loaded.GetCell(1, 0).StyleId)
+	}
+	if loaded.Styles == nil {
+		t.Error("Loaded spreadsheet should have Styles registry")
+	}
+}
+
+func TestLoadFromBytes_V1_1BackwardCompat(t *testing.T) {
+	// Manually create v1.1 format (header + cells + merges, no styles)
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	enc.Encode(FileHeader{Version: "1.1", CellCount: 2})
+	cells := map[int]map[int]*Cell{
+		0: {0: {Value: "A", Computed: "A", IsFormula: false, StyleId: 0}},
+		1: {0: {Value: "B", Computed: "B", IsFormula: false, StyleId: 0}},
+	}
+	enc.Encode(cells)
+	enc.Encode([]MergeRegion{})
+
+	loaded, err := LoadFromBytes(buf.Bytes(), "/test/v11.sheet")
+	if err != nil {
+		t.Fatalf("LoadFromBytes v1.1 failed: %v", err)
+	}
+	if loaded.GetCellCount() != 2 {
+		t.Errorf("Expected 2 cells, got %d", loaded.GetCellCount())
+	}
+	if loaded.GetCell(0, 0).StyleId != 0 {
+		t.Errorf("v1.1 cell should have StyleId 0, got %d", loaded.GetCell(0, 0).StyleId)
+	}
+	if loaded.Styles == nil {
+		t.Error("Loaded v1.1 should have default Styles registry")
+	}
+}
+
 func TestSparseStorageEfficiency(t *testing.T) {
 	// Create spreadsheet with sparse data
 	s := NewSpreadsheet()

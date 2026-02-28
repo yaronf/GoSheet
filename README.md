@@ -122,14 +122,24 @@ npm run build
 
 ## Testing
 
-### Playwright Electron Tests
+### Playwright Tests (Chromium + Electron)
 
-**Over 100 tests** covering:
+Tests run in two modes per [UI testing research](_bmad-output/planning-artifacts/research/technical-ui-testing-research-2026-02-28.md):
+
+- **Chromium** – Reliable real clicks (single, double, shift+click). Run `test_ui_interactions.spec.js` against web server.
+- **Electron** – Menus, IPC, native dialogs. Uses hybrid pattern (API setup, UI assertions).
 
 ```bash
-# Run all Playwright tests (Electron)
+# Run all tests (Chromium UI + Electron)
 npm test
 # or: make test-electron
+
+# Run Chromium UI tests only (single/double/shift-click)
+# Requires: npx playwright install (one-time, for Chromium browser)
+npm run test:chromium
+
+# Run Electron tests only
+npm run test:electron
 
 # Run specific test file
 npx playwright test test_spreadsheet.spec.js

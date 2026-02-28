@@ -129,6 +129,27 @@ func TestHandleGetAllCells(t *testing.T) {
 	assert.Len(t, resp.Data, 2)
 }
 
+func TestHandleGetAllCells_WithMerges(t *testing.T) {
+	// Story 11.6: Covered cells omitted; only anchor included
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "anchor")
+	_ = srv.Ctrl.SetMerge(0, 0, 1, 3) // A1:C1 merged
+
+	req := httptest.NewRequest(http.MethodGet, "/api/cells/all", nil)
+	w := httptest.NewRecorder()
+	srv.HandleGetAllCells(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Success bool                     `json:"success"`
+		Data    []map[string]interface{} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.Len(t, resp.Data, 1) // Only anchor, not B1/C1
+	assert.Equal(t, "anchor", resp.Data[0]["computed"])
+}
+
 func TestHandleNewFile(t *testing.T) {
 	srv := newTestServer()
 	srv.Ctrl.SetCellValue(0, 0, "data")
@@ -393,6 +414,33 @@ func TestHandleCSVExport(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(content), "a")
 	assert.Contains(t, string(content), "b")
+}
+
+func TestHandleCSVExport_WithMergedCells(t *testing.T) {
+	// Story 11.6: Covered positions empty; anchor gets value
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "header")
+	_ = srv.Ctrl.SetMerge(0, 0, 1, 2) // A1:B1 merged
+	tmpfile := filepath.Join(t.TempDir(), "merged.csv")
+
+	body, _ := json.Marshal(generated.PathRequest{Path: tmpfile})
+	req := httptest.NewRequest(http.MethodPost, "/api/csv/export", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleCSVExport(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp CSVExportResponse
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	content, err := os.ReadFile(tmpfile)
+	assert.NoError(t, err)
+	// A1=header, B1=covered (empty)
+	assert.Contains(t, string(content), "header")
+	// CSV should have header in col 0, empty in col 1
+	lines := bytes.Split(content, []byte("\n"))
+	assert.GreaterOrEqual(t, len(lines), 1)
+	assert.Contains(t, string(lines[0]), "header")
 }
 
 func TestHandleCSVExport_WithErrorCell(t *testing.T) {
@@ -690,4 +738,92 @@ func TestHandleUnmerge(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	srv.HandleUnmerge(w2, req2)
 	assert.Equal(t, http.StatusBadRequest, w2.Code)
+}
+
+func TestHandleApplyCellStyle(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "Title")
+
+	body, _ := json.Marshal(ApplyCellStyleRequest{Row: 0, Col: 0, StyleId: 1})
+	req := httptest.NewRequest(http.MethodPost, "/api/cell/style", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleApplyCellStyle(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	cell := srv.Ctrl.Sheet.GetCell(0, 0)
+	assert.NotNil(t, cell)
+	assert.Equal(t, 1, cell.StyleId)
+
+	// Invalid styleId
+	body2, _ := json.Marshal(ApplyCellStyleRequest{Row: 0, Col: 0, StyleId: 99})
+	req2 := httptest.NewRequest(http.MethodPost, "/api/cell/style", bytes.NewReader(body2))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	srv.HandleApplyCellStyle(w2, req2)
+	assert.Equal(t, http.StatusBadRequest, w2.Code)
+
+	// Negative coords
+	body3, _ := json.Marshal(ApplyCellStyleRequest{Row: -1, Col: 0, StyleId: 1})
+	req3 := httptest.NewRequest(http.MethodPost, "/api/cell/style", bytes.NewReader(body3))
+	req3.Header.Set("Content-Type", "application/json")
+	w3 := httptest.NewRecorder()
+	srv.HandleApplyCellStyle(w3, req3)
+	assert.Equal(t, http.StatusBadRequest, w3.Code)
+}
+
+func TestHandleApplyRangeStyle(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "A")
+	srv.Ctrl.SetCellValue(0, 1, "B")
+
+	body, _ := json.Marshal(ApplyRangeStyleRequest{
+		StartRow: 0, StartCol: 0, EndRow: 1, EndCol: 1, StyleId: 2,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/range/style", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleApplyRangeStyle(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	assert.Equal(t, 2, srv.Ctrl.Sheet.GetCell(0, 0).StyleId)
+	assert.Equal(t, 2, srv.Ctrl.Sheet.GetCell(0, 1).StyleId)
+	assert.Equal(t, 2, srv.Ctrl.Sheet.GetCell(1, 0).StyleId)
+	assert.Equal(t, 2, srv.Ctrl.Sheet.GetCell(1, 1).StyleId)
+
+	// Range too large
+	body2, _ := json.Marshal(ApplyRangeStyleRequest{
+		StartRow: 0, StartCol: 0, EndRow: 99, EndCol: 200, StyleId: 1,
+	})
+	req2 := httptest.NewRequest(http.MethodPost, "/api/range/style", bytes.NewReader(body2))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	srv.HandleApplyRangeStyle(w2, req2)
+	assert.Equal(t, http.StatusBadRequest, w2.Code)
+}
+
+func TestHandleGetAllCells_WithStyleId(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "Styled")
+	_ = srv.Ctrl.ApplyStyleToCell(0, 0, 1)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/cells/all", nil)
+	w := httptest.NewRecorder()
+	srv.HandleGetAllCells(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Success bool `json:"success"`
+		Data    []struct {
+			Row      int    `json:"row"`
+			Col      int    `json:"col"`
+			Value    string `json:"value"`
+			Computed string `json:"computed"`
+			StyleId  int    `json:"styleId"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.Len(t, resp.Data, 1)
+	assert.Equal(t, 1, resp.Data[0].StyleId)
 }

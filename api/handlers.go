@@ -127,13 +127,23 @@ func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
 	var cells []map[string]interface{}
 	for row := 0; row < 100; row++ {
 		for col := 0; col < 26; col++ {
+			// Story 11.6: Skip covered cells; only include anchor for merged regions
+			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
+			if ar != row || ac != col {
+				continue
+			}
 			value := s.Ctrl.GetCellValue(row, col)
-			if value != "" {
-				cells = append(cells, map[string]interface{}{
+			cell := s.Ctrl.Sheet.GetCell(row, col)
+			if value != "" || (cell != nil && cell.StyleId != 0) {
+				entry := map[string]interface{}{
 					"row": row, "col": col,
 					"computed": value,
 					"value":    s.Ctrl.GetCellRawValue(row, col),
-				})
+				}
+				if cell != nil && cell.StyleId != 0 {
+					entry["styleId"] = cell.StyleId
+				}
+				cells = append(cells, entry)
 			}
 		}
 	}
@@ -304,17 +314,26 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(CSVExportResponse{Success: false, Error: "File path is required", Code: "INVALID_REQUEST"})
 		return
 	}
-	type cellData struct {
-		row, col int
-		computed string
-	}
-	var cells []cellData
+	// Story 11.6: Build grid; covered positions get "", anchor gets value
 	maxRow, maxCol := -1, -1
+	for _, m := range s.Ctrl.GetMerges() {
+		if m.RowSpan > 0 && m.ColSpan > 0 {
+			r, c := m.StartRow+m.RowSpan-1, m.StartCol+m.ColSpan-1
+			if r > maxRow {
+				maxRow = r
+			}
+			if c > maxCol {
+				maxCol = c
+			}
+		}
+	}
 	for row := 0; row < 1000; row++ {
 		for col := 0; col < 100; col++ {
-			value := s.Ctrl.GetCellValue(row, col)
-			if value != "" {
-				cells = append(cells, cellData{row: row, col: col, computed: value})
+			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
+			if ar != row || ac != col {
+				continue
+			}
+			if s.Ctrl.GetCellValue(row, col) != "" {
 				if row > maxRow {
 					maxRow = row
 				}
@@ -324,8 +343,8 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	logutil.Debugf("[handleCSVExport] Found %d non-empty cells, maxRow=%d, maxCol=%d\n", len(cells), maxRow, maxCol)
-	if len(cells) == 0 {
+	logutil.Debugf("[handleCSVExport] Bounds maxRow=%d, maxCol=%d\n", maxRow, maxCol)
+	if maxRow < 0 || maxCol < 0 {
 		if err := os.WriteFile(req.Path, []byte(""), 0644); err != nil {
 			log.Printf("[handleCSVExport] Failed to write empty file: %v\n", err)
 			_ = json.NewEncoder(w).Encode(CSVExportResponse{Success: false, Error: fmt.Sprintf("Failed to write file: %v", err), Code: "FILE_WRITE_ERROR"})
@@ -338,8 +357,15 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 	for i := range records {
 		records[i] = make([]string, maxCol+1)
 	}
-	for _, cell := range cells {
-		records[cell.row][cell.col] = cell.computed
+	for row := 0; row <= maxRow; row++ {
+		for col := 0; col <= maxCol; col++ {
+			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
+			if ar != row || ac != col {
+				records[row][col] = "" // Story 11.6: covered = empty
+			} else {
+				records[row][col] = s.Ctrl.GetCellValue(row, col)
+			}
+		}
 	}
 	csvContent, err := GenerateCSV(records)
 	if err != nil {
@@ -406,6 +432,60 @@ func (s *Server) HandleUnmerge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Ctrl.Unmerge(req.StartRow, req.StartCol); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+// ApplyCellStyleRequest is the JSON body for POST /api/cell/style
+type ApplyCellStyleRequest struct {
+	Row     int `json:"row"`
+	Col     int `json:"col"`
+	StyleId int `json:"styleId"`
+}
+
+func (s *Server) HandleApplyCellStyle(w http.ResponseWriter, r *http.Request) {
+	var req ApplyCellStyleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.ApplyStyleToCell(req.Row, req.Col, req.StyleId); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+// ApplyRangeStyleRequest is the JSON body for POST /api/range/style
+type ApplyRangeStyleRequest struct {
+	StartRow int `json:"startRow"`
+	StartCol int `json:"startCol"`
+	EndRow   int `json:"endRow"`
+	EndCol   int `json:"endCol"`
+	StyleId  int `json:"styleId"`
+}
+
+func (s *Server) HandleApplyRangeStyle(w http.ResponseWriter, r *http.Request) {
+	var req ApplyRangeStyleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.ApplyStyleToRange(req.StartRow, req.StartCol, req.EndRow, req.EndCol, req.StyleId); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

@@ -91,6 +91,22 @@ test.describe('Format menu Merge/Unmerge (Story 11.5)', () => {
     await expect(anchor).toHaveAttribute('colspan', '2');
   });
 
+  test('arrow keys skip covered cells (Story 11.6)', async ({ window }) => {
+    await setMergeViaApi(window, 0, 0, 1, 2); // A1:B1 merged
+    await setCellViaApi(window, 0, 0, 'h');
+    await selectCellViaApp(window, 0, 0);
+
+    await window.keyboard.press('ArrowRight');
+    await window.waitForTimeout(150);
+    const cellC1 = window.locator('#cell-0-2');
+    await expect(cellC1).toHaveClass(/selected/);
+
+    await window.keyboard.press('ArrowLeft');
+    await window.waitForTimeout(150);
+    const cellA1 = window.locator('#cell-0-0');
+    await expect(cellA1).toHaveClass(/selected/);
+  });
+
   test('Format → Unmerge splits merged cell', async ({
     electronApp,
     window,

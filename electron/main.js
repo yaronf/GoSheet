@@ -308,12 +308,13 @@ function createWindow() {
   if (DEBUG) console.log('[Electron] Creating main window...');
 
   const isTest = process.env.NODE_ENV === 'test';
+  const showWindow = process.env.ELECTRON_SHOW_WINDOW === '1';
 
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     title: 'GoSheet',
-    show: !isTest, // Hide window in test mode
+    show: showWindow || !isTest, // Hide window in test mode unless ELECTRON_SHOW_WINDOW=1
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

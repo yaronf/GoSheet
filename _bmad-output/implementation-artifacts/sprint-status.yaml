@@ -188,5 +188,12 @@ development_status:
   11-3-implement-merge-aware-grid-rendering: done
   11-4-update-cell-logic-for-merge-aware-behavior: done
   11-5-add-merge-and-unmerge-ui: done
-  11-6-keyboard-navigation-and-edge-cases: ready-for-dev
+  11-6-keyboard-navigation-and-edge-cases: done
   epic-11-retrospective: optional
+
+  # Epic 12: Named Styles (from technical research 2026-02-23)
+  epic-12: in-progress
+  12-1-add-style-registry-and-named-styles: done
+  12-2-add-style-picker-ui: backlog
+  12-3-style-optimization-and-format-cleanup: backlog
+  epic-12-retrospective: optional

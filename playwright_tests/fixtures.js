@@ -13,15 +13,19 @@ exports.test = base.test.extend({
     const electronPath = require('electron');
 
     // Launch Electron app
+    // Use absolute paths and explicit cwd per Playwright #32027 (sandbox/VSCode cwd differs from terminal)
+    const projectRoot = path.resolve(__dirname, '..');
     const electronApp = await playwright._electron.launch({
       executablePath: electronPath,
       args: [
-        path.join(__dirname, '..', 'electron', 'main.js'),
+        path.join(projectRoot, 'electron', 'main.js'),
         '--no-sandbox',
         '--disable-gpu',
         '--disable-dev-shm-usage',
       ],
+      cwd: projectRoot,
       // Set environment variable to indicate we're in test mode
+      // ELECTRON_SHOW_WINDOW=1 (from test:headed) makes the window visible
       env: {
         ...process.env,
         NODE_ENV: 'test',

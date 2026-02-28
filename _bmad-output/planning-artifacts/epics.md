@@ -2100,3 +2100,72 @@ So that I can use the spreadsheet normally when merges are present.
 **And** CSV export outputs the anchor value only for merged cells
 **And** CSV import does not create merges (data goes to individual cells)
 **And** existing Playwright tests pass (or are updated for merge-aware behavior)
+
+---
+
+## Epic 12: Named Styles (Title, Header, Total)
+
+**Goal:** Users can apply named styles (Title, Header, Total) to cells and ranges for consistent, reusable formatting.
+
+**User Outcome:** Users can format spreadsheets with semantic styles that improve readability and match professional spreadsheet conventions.
+
+**Source:** Technical research `research/technical-named-styles-research-2026-02-23.md`
+
+**Architecture requirements covered:**
+- Style registry or index-based model (OOXML-style)
+- Separation of style storage from content
+- Title, Header, Total as built-in named styles
+- Apply styles to cells and ranges
+
+### Story 12.1: Add Style Registry and Named Styles
+
+**Effort:** 6–8 hours
+
+As a developer,
+I want a style registry with Title, Header, and Total named styles,
+So that cells and ranges can reference styles by ID and the foundation for style picker UI is in place.
+
+**Acceptance Criteria:**
+
+**Given** the spreadsheet model has no cell formatting today
+**When** I implement the style registry
+**Then** a shared style registry holds font, fill, border, and alignment definitions
+**And** cells reference styles by index (styleId) rather than inline properties
+**And** built-in named styles exist: Title, Header, Total
+**And** styles can be applied to individual cells and ranges via API
+**And** the .sheet file format is extended to persist styles (version bump)
+**And** Go unit tests cover style registry, application, and save/load
+
+### Story 12.2: Add Style Picker UI
+
+**Effort:** 4–6 hours
+
+As a user,
+I want a style picker (dropdown or toolbar) to apply Title, Header, or Total to my selection,
+So that I can format cells without using the API directly.
+
+**Acceptance Criteria:**
+
+**Given** Story 12.1 is complete (style registry and API exist)
+**When** I select one or more cells
+**Then** I can open a style picker (Format menu, toolbar, or context menu)
+**And** the picker shows Title, Header, Total as options
+**And** choosing an option applies that style to the selected range
+**And** the grid renders styled cells (font, fill, border, alignment)
+**And** Playwright tests cover style picker interaction
+
+### Story 12.3: Style Optimization and Format Cleanup
+
+**Effort:** 4–6 hours
+
+As a developer,
+I want format cleanup for unused cells and optional theme support,
+So that large workbooks remain performant and styling stays maintainable.
+
+**Acceptance Criteria:**
+
+**Given** Stories 12.1 and 12.2 are complete
+**When** cells retain formatting after data deletion
+**Then** we can identify and remove unnecessary formatted cells (format cleanup)
+**And** formatting is applied only to used ranges where practical
+**And** (Optional) theme support allows changing colors/fonts across styles

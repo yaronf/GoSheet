@@ -38,6 +38,8 @@ let mainWindow = null;
 let menuState = {
   hasUnsavedChanges: false,
   hasFilePath: false,
+  canMerge: false,
+  canUnmerge: false,
 };
 
 /**
@@ -289,6 +291,36 @@ function buildMenu(recentFiles = [], onClearRecent) {
       ],
     },
 
+    // Story 11.5: Format menu (Merge cells, Unmerge)
+    {
+      label: 'Format',
+      submenu: [
+        {
+          id: 'merge-cells',
+          label: 'Merge Cells',
+          accelerator: 'CmdOrCtrl+Shift+M',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Merge Cells triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-merge-cells');
+            }
+          },
+        },
+        {
+          id: 'unmerge-cells',
+          label: 'Unmerge',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Unmerge triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-unmerge-cells');
+            }
+          },
+        },
+      ],
+    },
+
     // Story 7.3: Help menu | Story 9.6: Formula Reference
     // Note: Don't use role: 'help' - it can prevent custom submenu items from receiving clicks on macOS
     {
@@ -345,7 +377,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
     console.log('[Menu] Template has', template.length, 'top-level menus');
   const fileMenuIndex = process.platform === 'darwin' ? 1 : 0;
   const editMenuIndex = process.platform === 'darwin' ? 2 : 1;
-  const helpMenuIndex = process.platform === 'darwin' ? 3 : 2;
+  const helpMenuIndex = process.platform === 'darwin' ? 4 : 3; // Format at 3/2
   if (DEBUG)
     console.log(
       '[Menu] File menu has',
@@ -400,6 +432,16 @@ function updateMenuState(state) {
       console.log(
         `[Menu] Save menu item ${menuState.hasUnsavedChanges ? 'enabled' : 'disabled'}`
       );
+  }
+
+  // Story 11.5: Update Format menu Merge/Unmerge based on selection
+  const mergeItem = menu.getMenuItemById('merge-cells');
+  if (mergeItem && menuState.canMerge !== undefined) {
+    mergeItem.enabled = menuState.canMerge;
+  }
+  const unmergeItem = menu.getMenuItemById('unmerge-cells');
+  if (unmergeItem && menuState.canUnmerge !== undefined) {
+    unmergeItem.enabled = menuState.canUnmerge;
   }
 
   // Save As is always enabled (no state dependency)

@@ -3,7 +3,7 @@
 **Epic:** 11 - Cell Merging  
 **Story:** 11.4  
 **Estimated Effort:** 4-5 hours  
-**Status:** review  
+**Status:** done  
 **Created:** 2026-02-23  
 **Last Updated:** 2026-02-25 (CS for Epic 11)
 

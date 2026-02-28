@@ -109,6 +109,24 @@ The selected cell is highlighted with a border. Its value or formula appears in 
 2. Press **Delete** or **Backspace**
 3. The cell contents are removed
 
+### Merging Cells (Story 11.5)
+
+You can combine multiple cells into one for headers or labels.
+
+**To merge cells:**
+
+1. Select a range of 2 or more cells (click one cell, then **Shift+click** another to extend the selection)
+2. Choose **Format → Merge Cells**, or press **Cmd+Shift+M**
+3. The cells become one merged cell; the value from the top-left cell is kept; other cells' values are discarded
+
+**To unmerge:**
+
+1. Select a merged cell (click its top-left corner)
+2. Choose **Format → Unmerge**
+3. The merged cell splits into individual cells; the original value stays in the top-left cell; other cells are empty
+
+**Value behavior:** When merging, only the top-left (anchor) cell's value is preserved. Formulas and data in other cells are discarded. When unmerging, the anchor value remains in the top-left cell; the other cells are empty.
+
 ---
 
 ## 4. Using Formulas
@@ -286,6 +304,12 @@ Extract parts of text:
 | **Cmd+A** | Select All |
 | **Delete** or **Backspace** | Clear cell contents |
 | **Escape** | Cancel editing |
+
+### Format
+
+| Shortcut | Action |
+|----------|--------|
+| **Cmd+Shift+M** | Merge cells |
 
 ### Navigation
 

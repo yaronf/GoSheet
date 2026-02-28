@@ -227,6 +227,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/cell/style:
+    post:
+      operationId: applyCellStyle
+      summary: Apply style to a single cell
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyCellStyleRequest'
+      responses:
+        '200':
+          description: Style applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyStyleResponse'
+        '400':
+          description: Bad request (invalid row/col/styleId)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/range/style:
+    post:
+      operationId: applyRangeStyle
+      summary: Apply style to a range of cells
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyRangeStyleRequest'
+      responses:
+        '200':
+          description: Style applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyStyleResponse'
+        '400':
+          description: Bad request (invalid range/styleId)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/cells/all:
     get:
       operationId: getAllCells
@@ -731,6 +789,40 @@ components:
                 hasUnsavedChanges:
                   type: boolean
     UnmergeResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                hasUnsavedChanges:
+                  type: boolean
+    ApplyCellStyleRequest:
+      type: object
+      required: [row, col, styleId]
+      properties:
+        row:
+          type: integer
+        col:
+          type: integer
+        styleId:
+          type: integer
+    ApplyRangeStyleRequest:
+      type: object
+      required: [startRow, startCol, endRow, endCol, styleId]
+      properties:
+        startRow:
+          type: integer
+        startCol:
+          type: integer
+        endRow:
+          type: integer
+        endCol:
+          type: integer
+        styleId:
+          type: integer
+    ApplyStyleResponse:
       allOf:
         - $ref: '#/components/schemas/ApiResponse'
         - type: object

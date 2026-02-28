@@ -56,13 +56,11 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   test('clicking a cell selects it', async ({ window }) => {
     await window.waitForTimeout(500);
 
-    // Use selectCellViaApp (click doesn't reliably add selected in Electron)
-    const cell = window.locator('#cell-5-5');
+    // Use selectCellViaApp: Playwright/Electron click often doesn't trigger
+    // the app's click handler; investigate single-click regression.
     await selectCellViaApp(window, 5, 5);
-
-    // Cell should have 'selected' class
-    const classAttr = await cell.getAttribute('class');
-    expect(classAttr).toContain('selected');
+    const cell = window.locator('#cell-5-5');
+    await expect(cell).toHaveClass(/selected/, { timeout: 3000 });
   });
 
   test('enter single digit', async ({ window }) => {

@@ -93,6 +93,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('menu-select-all', callback);
   },
 
+  // Story 11.5: Format menu (Merge/Unmerge)
+  onMenuMergeCells: (callback) => {
+    ipcRenderer.on('menu-merge-cells', callback);
+  },
+  onMenuUnmergeCells: (callback) => {
+    ipcRenderer.on('menu-unmerge-cells', callback);
+  },
+
   // Story 7.5: Recent files management
   addRecentFile: (filePath) => {
     if (DEBUG) console.log('[Preload] addRecentFile called:', filePath);

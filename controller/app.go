@@ -155,18 +155,22 @@ func (c *AppController) recalculateAllFormulas() {
 	}
 }
 
-// GetCellValue returns the computed value of a cell
+// GetCellValue returns the computed value of a cell.
+// Story 11.6: If (row,col) is covered by a merge, returns anchor's value.
 func (c *AppController) GetCellValue(row, col int) string {
-	cell := c.Sheet.GetCell(row, col)
+	ar, ac := c.Sheet.ResolveToAnchor(row, col)
+	cell := c.Sheet.GetCell(ar, ac)
 	if cell == nil {
 		return ""
 	}
 	return cell.Computed
 }
 
-// GetCellRawValue returns the raw value (formula) of a cell
+// GetCellRawValue returns the raw value (formula) of a cell.
+// Story 11.6: If (row,col) is covered by a merge, returns anchor's value.
 func (c *AppController) GetCellRawValue(row, col int) string {
-	cell := c.Sheet.GetCell(row, col)
+	ar, ac := c.Sheet.ResolveToAnchor(row, col)
+	cell := c.Sheet.GetCell(ar, ac)
 	if cell == nil {
 		return ""
 	}
@@ -293,4 +297,14 @@ func (c *AppController) Unmerge(startRow, startCol int) error {
 // GetFilePath returns the current file path
 func (c *AppController) GetFilePath() string {
 	return c.Sheet.FilePath
+}
+
+// ApplyStyleToCell applies a style to a single cell.
+func (c *AppController) ApplyStyleToCell(row, col int, styleId int) error {
+	return c.Sheet.ApplyStyleToCell(row, col, styleId)
+}
+
+// ApplyStyleToRange applies a style to a range of cells.
+func (c *AppController) ApplyStyleToRange(startRow, startCol, endRow, endCol int, styleId int) error {
+	return c.Sheet.ApplyStyleToRange(startRow, startCol, endRow, endCol, styleId)
 }

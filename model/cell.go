@@ -5,6 +5,7 @@ type Cell struct {
 	Value     string // Raw value or formula (e.g., "42" or "=A1+A2")
 	Computed  string // Calculated result (what's displayed)
 	IsFormula bool   // True if Value starts with '='
+	StyleId   int    // 0 = no style; 1=Title, 2=Header, 3=Total
 }
 
 // NewCell creates a new cell with the given value
