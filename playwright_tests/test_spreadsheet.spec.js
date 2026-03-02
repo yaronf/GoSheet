@@ -40,8 +40,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('spreadsheet starts empty', async ({ window }) => {
-    // Wait a bit for page to load
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     // Check that spreadsheet starts empty
     await expect(window.locator('#cell-0-0')).toHaveText('');
@@ -54,7 +53,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('clicking a cell selects it', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     // Use selectCellViaApp: Playwright/Electron click often doesn't trigger
     // the app's click handler; investigate single-click regression.
@@ -64,7 +63,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('enter single digit', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 10, 0, '5');
     const cell = window.locator('#cell-10-0');
@@ -72,7 +71,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('enter multi-digit number', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 11, 0, '123');
     const cell = window.locator('#cell-11-0');
@@ -80,7 +79,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('enter values in multiple cells', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 12, 0, '10');
     await setCellViaApi(window, 13, 0, '20');
@@ -95,7 +94,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('edit existing cell', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     // Enter initial value via API (dblclick/edit doesn't work reliably in Electron)
     await setCellViaApi(window, 15, 0, '100');
@@ -108,7 +107,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('escape cancels edit', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 16, 0, '50');
     const cell = window.locator('#cell-16-0');
@@ -123,7 +122,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('simple formula evaluation', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 17, 0, '=5+3');
     const cell = window.locator('#cell-17-0');
@@ -134,7 +133,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('edit after formula', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 18, 0, '=2*3');
     await setCellViaApi(window, 19, 0, '42');
@@ -145,7 +144,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('formula with cell references', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 20, 0, '5');
     await setCellViaApi(window, 21, 0, '3');
@@ -155,7 +154,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('arrow key navigation', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await selectCellViaApp(window, 5, 5);
     const cell = window.locator('#cell-5-5');
@@ -163,20 +162,18 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     expect(classAttr).toContain('selected');
 
     await window.keyboard.press('ArrowDown');
-    await window.waitForTimeout(100);
     const cellBelow = window.locator('#cell-6-5');
     classAttr = await cellBelow.getAttribute('class');
     expect(classAttr).toContain('selected');
 
     await window.keyboard.press('ArrowRight');
-    await window.waitForTimeout(100);
     const cellRight = window.locator('#cell-6-6');
     classAttr = await cellRight.getAttribute('class');
     expect(classAttr).toContain('selected');
   });
 
   test('enter number in empty cell does not show error', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 25, 5, '42');
     const cell = window.locator('#cell-25-5');
@@ -186,7 +183,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('formula dependency recalculation', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 9, 0, '10');
     await setCellViaApi(window, 10, 0, '=A10*2');
@@ -198,7 +195,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('click away saves value', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 4, 2, '99');
     await selectCellViaApp(window, 5, 3);
@@ -207,7 +204,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('empty cell reference shows error', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 9, 1, '=Z99+1');
     const cellB10 = window.locator('#cell-9-1');
@@ -217,7 +214,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('infinite scroll expands grid', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     // Get initial grid size - row 95 should exist
     const initialRow95 = window.locator('#cell-95-0');
@@ -232,7 +229,6 @@ test.describe('GoSheet Spreadsheet Tests', () => {
       const container = document.querySelector('.spreadsheet-container');
       container.scrollTop = container.scrollHeight;
     });
-    await window.waitForTimeout(1000);
 
     // After scrolling, row 105 should exist
     const expandedRow105 = window.locator('#cell-105-0');
@@ -251,7 +247,6 @@ test.describe('GoSheet Spreadsheet Tests', () => {
       const container = document.querySelector('.spreadsheet-container');
       container.scrollLeft = container.scrollWidth;
     });
-    await window.waitForTimeout(1000);
 
     // After scrolling right, more columns should exist
     const expandedColAB = window.locator('#cell-0-27');
@@ -259,7 +254,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('string functions work correctly', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 0, 3, '=CONCAT("Hello"," ","World")');
     await setCellViaApi(window, 1, 3, '=UPPER("hello")');
@@ -279,7 +274,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('formula bar shows formula for formula cells', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 0, 0, '10');
     await setCellViaApi(window, 0, 1, '=A1*2');
@@ -292,23 +287,19 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     await expect(cellRef).toHaveText('B1');
 
     await selectCellViaApp(window, 0, 0);
-    await window.waitForTimeout(300);
     await expect(formulaBar).toHaveValue('10');
     await expect(cellRef).toHaveText('A1');
   });
 
   test('formula bar editing updates cell', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 0, 0, '10');
     await selectCellViaApp(window, 4, 3);
-    await window.waitForTimeout(300);
-
     const formulaBar = window.locator('#formula-bar');
     await formulaBar.click();
     await formulaBar.fill('=A1+10');
     await formulaBar.press('Enter');
-    await window.waitForTimeout(500);
 
     const cellD5 = window.locator('#cell-4-3');
     await expect(cellD5).toHaveText('20');
@@ -320,7 +311,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   test('double-click formula cell shows formula in editor', async ({
     window,
   }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 0, 0, '10');
     await setCellViaApi(window, 0, 1, '=A1*2');
@@ -328,24 +319,20 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     // Verify formula bar shows formula when formula cell is selected
     // (dblclick doesn't work in Electron; we verify formula bar reflects formula)
     await selectCellViaApp(window, 0, 1);
-    await window.waitForTimeout(300);
     const formulaBar = window.locator('#formula-bar');
     await expect(formulaBar).toHaveValue('=A1*2');
   });
 
   test('formula bar updates after cell edit', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 0, 0, '10');
     await selectCellViaApp(window, 0, 0);
-    await window.waitForTimeout(300);
-
     const formulaBar = window.locator('#formula-bar');
     await expect(formulaBar).toHaveValue('10');
 
     await setCellViaApi(window, 0, 0, '99');
     await selectCellViaApp(window, 0, 0);
-    await window.waitForTimeout(300);
     await expect(formulaBar).toHaveValue('99');
   });
 
@@ -416,26 +403,25 @@ test.describe('GoSheet Spreadsheet Tests', () => {
   });
 
   test('new file clears data', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 0, 0, 'Test Data');
     const cellA1 = window.locator('#cell-0-0');
     await expect(cellA1).toHaveText('Test Data');
 
     await window.locator('#new-btn').click();
-    await window.waitForTimeout(300);
 
     const modal = window.locator('#modal-overlay');
     if (await modal.isVisible()) {
       await window.locator('#modal-ok').click();
-      await window.waitForTimeout(300);
+      await expect(modal).toBeHidden();
     }
 
     await expect(cellA1).toHaveText('');
   });
 
   test('new file warns on unsaved changes', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 5, 5, '999');
 
@@ -443,20 +429,18 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     await expect(status).toContainText('Unsaved', { timeout: 5000 });
 
     await window.locator('#new-btn').click();
-    await window.waitForTimeout(300);
 
     const modal = window.locator('#modal-overlay');
     await expect(modal).toBeVisible();
 
     await window.locator('#modal-cancel').click();
-    await window.waitForTimeout(200);
+    await expect(modal).toBeHidden();
 
-    await expect(modal).not.toBeVisible();
     await expect(window.locator('#cell-5-5')).toHaveText('999');
   });
 
   test('new file modal OK clears data', async ({ window }) => {
-    await window.waitForTimeout(500);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
 
     await setCellViaApi(window, 5, 5, '888');
 
@@ -465,7 +449,6 @@ test.describe('GoSheet Spreadsheet Tests', () => {
 
     // Click New button
     await window.locator('#new-btn').click();
-    await window.waitForTimeout(300);
 
     // Modal should appear
     const modal = window.locator('#modal-overlay');
@@ -473,10 +456,9 @@ test.describe('GoSheet Spreadsheet Tests', () => {
 
     // Click OK
     await window.locator('#modal-ok').click();
-    await window.waitForTimeout(300);
 
     // Modal should close
-    await expect(modal).not.toBeVisible();
+    await expect(modal).toBeHidden();
 
     // Cell should be empty
     await expect(window.locator('#cell-5-5')).toHaveText('');

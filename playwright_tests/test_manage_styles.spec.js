@@ -19,7 +19,7 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await ensureSpreadsheetView(window);
     const newBtn = window.locator('#new-btn');
     await newBtn.click();
-    await window.waitForTimeout(300);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
   });
 
   test('Manage Styles opens and shows style list', async ({

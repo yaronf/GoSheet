@@ -13,7 +13,7 @@ test.describe('Context menu (Story 13.2)', () => {
     await ensureSpreadsheetView(window);
     const newBtn = window.locator('#new-btn');
     await newBtn.click();
-    await window.waitForTimeout(300);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
   });
 
   test('right-click on cell shows context menu', async ({ window }) => {
@@ -33,13 +33,12 @@ test.describe('Context menu (Story 13.2)', () => {
     const cell = window.locator('#cell-0-0');
     await cell.click({ button: 'right' });
     await window.locator('#context-menu [data-action="copy"]').click();
-    await window.waitForTimeout(200);
+    await expect(window.locator('#context-menu')).toBeHidden();
 
     await selectCellViaApp(window, 0, 1);
     const cellB1 = window.locator('#cell-0-1');
     await cellB1.click({ button: 'right' });
     await window.locator('#context-menu [data-action="paste"]').click();
-    await window.waitForTimeout(300);
 
     await expect(window.locator('#cell-0-1')).toHaveText('copied');
   });
@@ -51,7 +50,6 @@ test.describe('Context menu (Story 13.2)', () => {
     const cell = window.locator('#cell-1-1');
     await cell.click({ button: 'right' });
     await window.locator('#context-menu [data-action="clear"]').click();
-    await window.waitForTimeout(300);
 
     await expect(window.locator('#cell-1-1')).toHaveText('');
   });
@@ -63,7 +61,6 @@ test.describe('Context menu (Story 13.2)', () => {
     const cell = window.locator('#cell-0-0');
     await cell.click({ button: 'right' });
     await window.locator('#context-menu [data-action="format-title"]').click();
-    await window.waitForTimeout(300);
 
     const styledCell = window.locator('#cell-0-0');
     await expect(styledCell).toHaveClass(/style-title/);
@@ -99,7 +96,6 @@ test.describe('Context menu (Story 13.2)', () => {
     const cell = window.locator('#cell-0-0');
     await cell.click({ button: 'right' });
     await window.locator('#context-menu [data-action="clear"]').click();
-    await window.waitForTimeout(300);
 
     await expect(window.locator('#cell-0-0')).toHaveText('');
     await expect(window.locator('#cell-0-1')).toHaveText('');

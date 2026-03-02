@@ -16,7 +16,7 @@ test.describe('Edit Menu Tests', () => {
     // Click New button to start with fresh spreadsheet
     const newBtn = window.locator('#new-btn');
     await newBtn.click();
-    await window.waitForTimeout(300);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
   });
 
   test('Edit menu exists with all required items', async ({

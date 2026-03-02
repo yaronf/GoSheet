@@ -13,7 +13,7 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
     await ensureSpreadsheetView(window);
     const newBtn = window.locator('#new-btn');
     await newBtn.click();
-    await window.waitForTimeout(300);
+    await expect(window.locator('#cell-0-0')).toBeVisible();
   });
 
   test('clicking row header selects row and enables Insert Row Above', async ({
@@ -22,7 +22,9 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
   }) => {
     const rowHeader = window.locator('.row-header[data-row="2"]');
     await rowHeader.click();
-    await window.waitForTimeout(200);
+    await expect(window.locator('#cell-2-0')).toHaveClass(/selected/, {
+      timeout: 2000,
+    });
 
     const insertRowEnabled = await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
@@ -41,7 +43,9 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
   }) => {
     const colHeader = window.locator('.column-header[data-col="1"]');
     await colHeader.click();
-    await window.waitForTimeout(200);
+    await expect(window.locator('#cell-0-1')).toHaveClass(/selected/, {
+      timeout: 2000,
+    });
 
     const insertColEnabled = await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
@@ -63,7 +67,9 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
 
     const rowHeader = window.locator('.row-header[data-row="2"]');
     await rowHeader.click();
-    await window.waitForTimeout(200);
+    await expect(window.locator('#cell-2-0')).toHaveClass(/selected/, {
+      timeout: 2000,
+    });
 
     await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
@@ -73,8 +79,6 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
       );
       if (insertRowItem?.click) insertRowItem.click();
     });
-
-    await window.waitForTimeout(500);
 
     const cellA2 = window.locator('#cell-2-0');
     const cellA3 = window.locator('#cell-3-0');
@@ -93,7 +97,9 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
 
     const colHeader = window.locator('.column-header[data-col="1"]');
     await colHeader.click();
-    await window.waitForTimeout(200);
+    await expect(window.locator('#cell-0-1')).toHaveClass(/selected/, {
+      timeout: 2000,
+    });
 
     await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
@@ -103,8 +109,6 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
       );
       if (insertColItem?.click) insertColItem.click();
     });
-
-    await window.waitForTimeout(500);
 
     const cellB1 = window.locator('#cell-0-1');
     const cellC1 = window.locator('#cell-0-2');
@@ -119,7 +123,7 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
     window,
   }) => {
     await selectCellViaApp(window, 0, 0);
-    await window.waitForTimeout(200);
+    await expect(window.locator('#cell-0-0')).toHaveClass(/selected/);
 
     const menuState = await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
