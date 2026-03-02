@@ -863,3 +863,53 @@ func TestHandleFormatCleanup_MethodNotAllowed(t *testing.T) {
 	srv.HandleFormatCleanup(w, req)
 	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
 }
+
+func TestHandleInsertRow(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "A1")
+	srv.Ctrl.SetCellValue(1, 0, "A2")
+	body, _ := json.Marshal(InsertRowRequest{Row: 1})
+	req := httptest.NewRequest(http.MethodPost, "/api/row/insert", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleInsertRow(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "A1", srv.Ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "A2", srv.Ctrl.GetCellValue(2, 0))
+}
+
+func TestHandleInsertColumn(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "A1")
+	srv.Ctrl.SetCellValue(0, 1, "B1")
+	body, _ := json.Marshal(InsertColumnRequest{Col: 1})
+	req := httptest.NewRequest(http.MethodPost, "/api/column/insert", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleInsertColumn(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "A1", srv.Ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "B1", srv.Ctrl.GetCellValue(0, 2))
+}
+
+func TestHandleClearRange(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "a")
+	srv.Ctrl.SetCellValue(0, 1, "b")
+	srv.Ctrl.SetCellValue(1, 0, "c")
+	srv.Ctrl.SetCellValue(1, 1, "d")
+	body, _ := json.Marshal(ClearRangeRequest{
+		StartRow: 0, StartCol: 0, EndRow: 1, EndCol: 1,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/range/clear", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleClearRange(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(1, 1))
+}

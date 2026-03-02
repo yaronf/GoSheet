@@ -19,6 +19,32 @@ type ApiResponse struct {
 	Success bool                    `json:"success"`
 }
 
+// ApplyCellStyleRequest defines model for ApplyCellStyleRequest.
+type ApplyCellStyleRequest struct {
+	Col     int `json:"col"`
+	Row     int `json:"row"`
+	StyleId int `json:"styleId"`
+}
+
+// ApplyRangeStyleRequest defines model for ApplyRangeStyleRequest.
+type ApplyRangeStyleRequest struct {
+	EndCol   int `json:"endCol"`
+	EndRow   int `json:"endRow"`
+	StartCol int `json:"startCol"`
+	StartRow int `json:"startRow"`
+	StyleId  int `json:"styleId"`
+}
+
+// ApplyStyleResponse defines model for ApplyStyleResponse.
+type ApplyStyleResponse struct {
+	Code *string `json:"code,omitempty"`
+	Data *struct {
+		HasUnsavedChanges *bool `json:"hasUnsavedChanges,omitempty"`
+	} `json:"data,omitempty"`
+	Error   *string `json:"error,omitempty"`
+	Success bool    `json:"success"`
+}
+
 // CSVExportResponse defines model for CSVExportResponse.
 type CSVExportResponse struct {
 	Code    *string `json:"code,omitempty"`
@@ -213,6 +239,9 @@ type GetCellValueParams struct {
 // SetCellValueJSONRequestBody defines body for SetCellValue for application/json ContentType.
 type SetCellValueJSONRequestBody = SetCellRequest
 
+// ApplyCellStyleJSONRequestBody defines body for ApplyCellStyle for application/json ContentType.
+type ApplyCellStyleJSONRequestBody = ApplyCellStyleRequest
+
 // ExportCsvJSONRequestBody defines body for ExportCsv for application/json ContentType.
 type ExportCsvJSONRequestBody = PathRequest
 
@@ -230,6 +259,9 @@ type SaveFileJSONRequestBody = PathRequest
 
 // SetMergeJSONRequestBody defines body for SetMerge for application/json ContentType.
 type SetMergeJSONRequestBody = SetMergeRequest
+
+// ApplyRangeStyleJSONRequestBody defines body for ApplyRangeStyle for application/json ContentType.
+type ApplyRangeStyleJSONRequestBody = ApplyRangeStyleRequest
 
 // UnmergeJSONRequestBody defines body for Unmerge for application/json ContentType.
 type UnmergeJSONRequestBody = UnmergeRequest

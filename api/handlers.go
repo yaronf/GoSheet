@@ -479,6 +479,14 @@ type ApplyRangeStyleRequest struct {
 	StyleId  int `json:"styleId"`
 }
 
+// ClearRangeRequest is the JSON body for POST /api/range/clear
+type ClearRangeRequest struct {
+	StartRow int `json:"startRow"`
+	StartCol int `json:"startCol"`
+	EndRow   int `json:"endRow"`
+	EndCol   int `json:"endCol"`
+}
+
 func (s *Server) HandleApplyRangeStyle(w http.ResponseWriter, r *http.Request) {
 	var req ApplyRangeStyleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -498,6 +506,22 @@ func (s *Server) HandleApplyRangeStyle(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) HandleClearRange(w http.ResponseWriter, r *http.Request) {
+	var req ClearRangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.Ctrl.ClearRange(req.StartRow, req.StartCol, req.EndRow, req.EndCol)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
 // HandleFormatCleanup removes style from empty cells and deletes cells with no value and no style.
 // Story 12.3: POST /api/format/cleanup
 func (s *Server) HandleFormatCleanup(w http.ResponseWriter, r *http.Request) {
@@ -506,6 +530,64 @@ func (s *Server) HandleFormatCleanup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Ctrl.CleanupFormat()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+// InsertRowRequest is the JSON body for POST /api/row/insert
+type InsertRowRequest struct {
+	Row int `json:"row"`
+}
+
+// InsertColumnRequest is the JSON body for POST /api/column/insert
+type InsertColumnRequest struct {
+	Col int `json:"col"`
+}
+
+// HandleInsertRow inserts an empty row at the given index. Story 13.1.
+func (s *Server) HandleInsertRow(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req InsertRowRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.InsertRow(req.Row); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+// HandleInsertColumn inserts an empty column at the given index. Story 13.1.
+func (s *Server) HandleInsertColumn(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req InsertColumnRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.InsertColumn(req.Col); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,

@@ -2169,3 +2169,175 @@ So that large workbooks remain performant and styling stays maintainable.
 **Then** we can identify and remove unnecessary formatted cells (format cleanup)
 **And** formatting is applied only to used ranges where practical
 **And** (Optional) theme support allows changing colors/fonts across styles
+
+---
+
+## Epic 13: Spreadsheet UX & Polish
+
+**Goal:** Improve spreadsheet usability with row/column operations, context menu, alignment, and bug fixes.
+
+**User Outcome:** Users get Excel-like conveniences (insert rows/cols, context menu, alignment, quote prefix) and fewer bugs.
+
+**Source:** `planning-artifacts/todo-2026-03-01.md`
+
+### Story 13.1: Row/Column Selection and Insert
+
+**Effort:** 4–6 hours
+
+As a user,
+I want to select a row or column and insert an empty row/column before it,
+So that I can add data without manually shifting cells.
+
+**Acceptance Criteria:**
+
+**Given** I have a spreadsheet with data
+**When** I select a row (or column)
+**Then** I can trigger "Insert row above" (or "Insert column before")
+**And** an empty row (or column) is inserted at the selection
+**And** existing data shifts down (or right) as expected
+**And** the selection moves to the new row/column
+
+### Story 13.2: Context Menu (Right-Click)
+
+**Effort:** 3–4 hours
+
+As a user,
+I want a context menu when right-clicking a cell,
+So that I can access common actions (copy, paste, format, etc.) quickly.
+
+**Acceptance Criteria:**
+
+**Given** I have selected one or more cells
+**When** I right-click on the selection
+**Then** a context menu appears with relevant actions
+**And** actions include at least: Copy, Paste, Format (styles), Clear
+**And** choosing an action executes it on the selection
+
+### Story 13.3: Edit/Add/Delete Styles
+
+**Effort:** 4–6 hours
+
+As a user,
+I want to edit, add, or delete named styles,
+So that I can customize formatting beyond the built-in Title, Header, Total.
+
+**Acceptance Criteria:**
+
+**Given** Story 12.x style registry exists
+**When** I open a style management UI (e.g. Format → Manage Styles)
+**Then** I can edit existing style definitions (font, fill, border, alignment)
+**And** I can add new named styles
+**And** I can delete custom styles (not built-in)
+**And** changes apply to cells using those styles
+
+### Story 13.4: UI Layout Compact (Fold Top Rows)
+
+**Effort:** 2–3 hours
+
+As a user,
+I want the top toolbar compacted into one row,
+So that more vertical space is available for the grid.
+
+**Acceptance Criteria:**
+
+**Given** the current layout has two rows (icons, file status, cell ref, formula bar)
+**When** the layout is updated
+**Then** these elements fold into a single compact row
+**And** all functionality remains accessible
+**And** the grid gains vertical space
+
+### Story 13.5: Cell Hover for Long Content
+
+**Effort:** 1–2 hours
+
+As a user,
+I want to see full content on hover when it doesn't fit in the cell,
+So that I can read long error messages or text without editing.
+
+**Acceptance Criteria:**
+
+**Given** a cell displays truncated content (e.g. #ERROR with long message)
+**When** I hover over the cell
+**Then** a tooltip shows the full content
+**And** the tooltip dismisses when I move the cursor away
+
+### Story 13.6: Bug Fixes (Formula, Merge, Scroll)
+
+**Effort:** 2–4 hours
+
+As a developer,
+I want critical bugs fixed,
+So that the spreadsheet behaves correctly.
+
+**Acceptance Criteria:**
+
+**Given** the current implementation
+**When** I enter "=" alone in a cell
+**Then** it is rejected or treated as invalid (not as formula)
+**When** I try to merge a range where more than one cell has content
+**Then** merge is refused with a clear message
+**When** I scroll down and new rows are added at the bottom
+**Then** the view does not reset to the top
+
+### Story 13.7: Quote Prefix for Text
+
+**Effort:** 1–2 hours
+
+As a user,
+I want to prefix a value with "'" to force text format (Excel-style),
+So that numbers like "001" or "3.14" display as text without conversion.
+
+**Acceptance Criteria:**
+
+**Given** I enter a value starting with "'" (e.g. '001)
+**When** I confirm the cell
+**Then** the cell displays the value without the leading quote
+**And** the value is stored/treated as text (no numeric conversion)
+**And** the leading quote is not shown in the cell
+
+### Story 13.8: Alignment (Left/Right/Center)
+
+**Effort:** 3–4 hours
+
+As a user,
+I want to set cell alignment (left, right, center),
+So that I can format tables and headers.
+
+**Acceptance Criteria:**
+
+**Given** I select one or more cells
+**When** I choose alignment (left, center, right) from Format menu or toolbar
+**Then** the cell content aligns accordingly
+**And** alignment persists in the style/cell model
+**And** alignment is saved and loaded with the file
+
+### Story 13.9: Merge Text Centering
+
+**Effort:** 1 hour
+
+As a user,
+I want text in merged cells to be centered by default,
+So that merged headers look clean.
+
+**Acceptance Criteria:**
+
+**Given** I merge a range of cells
+**When** the merged cell has content
+**Then** the content is centered within the merged region
+**And** this applies to new merges and existing merged cells
+
+### Story 13.10: RTL Support (Optional)
+
+**Effort:** 4–6 hours
+
+As a user,
+I want right-to-left spreadsheet layout for RTL languages (e.g. Hebrew),
+So that I can work in my language naturally.
+
+**Acceptance Criteria:**
+
+**Given** RTL mode is enabled (e.g. via setting or locale)
+**When** the grid renders
+**Then** columns flow right-to-left
+**And** text alignment respects RTL
+**And** formula bar and UI elements adapt

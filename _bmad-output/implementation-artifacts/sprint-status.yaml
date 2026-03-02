@@ -1,5 +1,5 @@
 # generated: 2026-02-23
-# last_updated: 2026-02-27 (11-4 marked done)
+# last_updated: 2026-03-02 (13-3 story created, ready-for-dev)
 # project: spreadsheet
 # project_key: NOKEY
 # tracking_system: file-system
@@ -192,8 +192,22 @@ development_status:
   epic-11-retrospective: optional
 
   # Epic 12: Named Styles (from technical research 2026-02-23)
-  epic-12: in-progress
+  epic-12: done
   12-1-add-style-registry-and-named-styles: done
   12-2-add-style-picker-ui: done
   12-3-style-optimization-and-format-cleanup: done
   epic-12-retrospective: optional
+
+  # Epic 13: Spreadsheet UX & Polish (from todo-2026-03-01.md)
+  epic-13: in-progress
+  13-1-row-column-selection-and-insert: done
+  13-2-context-menu-right-click: ready-for-dev
+  13-3-edit-add-delete-styles: ready-for-dev
+  13-4-ui-layout-compact: backlog
+  13-5-cell-hover-for-long-content: backlog
+  13-6-bug-fixes-formula-merge-scroll: backlog
+  13-7-quote-prefix-for-text: backlog
+  13-8-alignment-left-right-center: backlog
+  13-9-merge-text-centering: backlog
+  13-10-rtl-support: backlog
+  epic-13-retrospective: optional

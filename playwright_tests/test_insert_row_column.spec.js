@@ -1,0 +1,141 @@
+// Story 13.1: Row/Column Selection and Insert - Playwright tests
+// Tests row/column header selection and Insert menu (Insert Row Above, Insert Column Before)
+
+const { test, expect } = require('./fixtures');
+const {
+  ensureSpreadsheetView,
+  setCellViaApi,
+  selectCellViaApp,
+} = require('./helpers');
+
+test.describe('Row/Column selection and Insert (Story 13.1)', () => {
+  test.beforeEach(async ({ window }) => {
+    await ensureSpreadsheetView(window);
+    const newBtn = window.locator('#new-btn');
+    await newBtn.click();
+    await window.waitForTimeout(300);
+  });
+
+  test('clicking row header selects row and enables Insert Row Above', async ({
+    electronApp,
+    window,
+  }) => {
+    const rowHeader = window.locator('.row-header[data-row="2"]');
+    await rowHeader.click();
+    await window.waitForTimeout(200);
+
+    const insertRowEnabled = await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const insertMenu = menu?.items?.find((item) => item.label === 'Insert');
+      const insertRowItem = insertMenu?.submenu?.items?.find(
+        (item) => item.label === 'Insert Row Above'
+      );
+      return insertRowItem?.enabled ?? false;
+    });
+    expect(insertRowEnabled).toBe(true);
+  });
+
+  test('clicking column header selects column and enables Insert Column Before', async ({
+    electronApp,
+    window,
+  }) => {
+    const colHeader = window.locator('.column-header[data-col="1"]');
+    await colHeader.click();
+    await window.waitForTimeout(200);
+
+    const insertColEnabled = await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const insertMenu = menu?.items?.find((item) => item.label === 'Insert');
+      const insertColItem = insertMenu?.submenu?.items?.find(
+        (item) => item.label === 'Insert Column Before'
+      );
+      return insertColItem?.enabled ?? false;
+    });
+    expect(insertColEnabled).toBe(true);
+  });
+
+  test('Insert Row Above inserts empty row and shifts data down', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 2, 0, 'row2');
+    await setCellViaApi(window, 3, 0, 'row3');
+
+    const rowHeader = window.locator('.row-header[data-row="2"]');
+    await rowHeader.click();
+    await window.waitForTimeout(200);
+
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const insertMenu = menu.items.find((item) => item.label === 'Insert');
+      const insertRowItem = insertMenu?.submenu?.items.find(
+        (item) => item.label === 'Insert Row Above'
+      );
+      if (insertRowItem?.click) insertRowItem.click();
+    });
+
+    await window.waitForTimeout(500);
+
+    const cellA2 = window.locator('#cell-2-0');
+    const cellA3 = window.locator('#cell-3-0');
+    const cellA4 = window.locator('#cell-4-0');
+    await expect(cellA2).toHaveText('');
+    await expect(cellA3).toHaveText('row2');
+    await expect(cellA4).toHaveText('row3');
+  });
+
+  test('Insert Column Before inserts empty column and shifts data right', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 1, 'colB');
+    await setCellViaApi(window, 0, 2, 'colC');
+
+    const colHeader = window.locator('.column-header[data-col="1"]');
+    await colHeader.click();
+    await window.waitForTimeout(200);
+
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const insertMenu = menu.items.find((item) => item.label === 'Insert');
+      const insertColItem = insertMenu?.submenu?.items.find(
+        (item) => item.label === 'Insert Column Before'
+      );
+      if (insertColItem?.click) insertColItem.click();
+    });
+
+    await window.waitForTimeout(500);
+
+    const cellB1 = window.locator('#cell-0-1');
+    const cellC1 = window.locator('#cell-0-2');
+    const cellD1 = window.locator('#cell-0-3');
+    await expect(cellB1).toHaveText('');
+    await expect(cellC1).toHaveText('colB');
+    await expect(cellD1).toHaveText('colC');
+  });
+
+  test('Insert Row Above and Insert Column Before disabled when cell selected', async ({
+    electronApp,
+    window,
+  }) => {
+    await selectCellViaApp(window, 0, 0);
+    await window.waitForTimeout(200);
+
+    const menuState = await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const insertMenu = menu?.items?.find((item) => item.label === 'Insert');
+      const insertRowItem = insertMenu?.submenu?.items?.find(
+        (item) => item.label === 'Insert Row Above'
+      );
+      const insertColItem = insertMenu?.submenu?.items?.find(
+        (item) => item.label === 'Insert Column Before'
+      );
+      return {
+        insertRowEnabled: insertRowItem?.enabled ?? false,
+        insertColEnabled: insertColItem?.enabled ?? false,
+      };
+    });
+    expect(menuState.insertRowEnabled).toBe(false);
+    expect(menuState.insertColEnabled).toBe(false);
+  });
+});

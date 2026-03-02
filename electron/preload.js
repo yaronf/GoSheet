@@ -117,6 +117,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('menu-format-cleanup', callback);
   },
 
+  // Story 13.1: Insert row/column
+  onMenuInsertRow: (callback) => {
+    ipcRenderer.on('menu-insert-row', callback);
+  },
+  onMenuInsertColumn: (callback) => {
+    ipcRenderer.on('menu-insert-column', callback);
+  },
+
   // Story 7.5: Recent files management
   addRecentFile: (filePath) => {
     if (DEBUG) console.log('[Preload] addRecentFile called:', filePath);

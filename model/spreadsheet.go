@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 )
 
 // MergeRegion represents a merged cell range. Anchor is (StartRow, StartCol).
@@ -96,6 +97,22 @@ func (s *Spreadsheet) SetCellByRef(ref string, value string) error {
 	}
 	s.SetCell(row, col, value)
 	return nil
+}
+
+// ShouldClearCell returns true if (row,col) should be cleared in a range clear.
+// Returns true for anchors and unmerged cells; false for covered cells.
+func (s *Spreadsheet) ShouldClearCell(row, col int) bool {
+	for i := range s.Merges {
+		m := &s.Merges[i]
+		if m.RowSpan < 1 || m.ColSpan < 1 {
+			continue
+		}
+		if row >= m.StartRow && row < m.StartRow+m.RowSpan &&
+			col >= m.StartCol && col < m.StartCol+m.ColSpan {
+			return m.StartRow == row && m.StartCol == col
+		}
+	}
+	return true
 }
 
 // DeleteCell removes the cell at the given coordinates
@@ -257,6 +274,105 @@ func (s *Spreadsheet) CleanupFormat() {
 			s.DeleteCell(row, col)
 		}
 	}
+}
+
+// InsertRow inserts an empty row at the given index. Cells at row >= insertRow shift down.
+// Merge regions and formula references are updated. Story 13.1.
+func (s *Spreadsheet) InsertRow(insertRow int) error {
+	if insertRow < 0 {
+		return fmt.Errorf("insertRow must be >= 0")
+	}
+	maxRow, _ := s.GetBounds()
+	if maxRow < 0 {
+		s.Modified = true
+		return nil
+	}
+	// Shift cells: process rows from high to low
+	rows := make([]int, 0, len(s.Cells))
+	for r := range s.Cells {
+		rows = append(rows, r)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(rows)))
+	for _, r := range rows {
+		if r >= insertRow {
+			s.Cells[r+1] = s.Cells[r]
+			delete(s.Cells, r)
+		}
+	}
+	// Update merge regions
+	for i := range s.Merges {
+		m := &s.Merges[i]
+		if m.RowSpan < 1 || m.ColSpan < 1 {
+			continue
+		}
+		endRow := m.StartRow + m.RowSpan - 1
+		if m.StartRow >= insertRow {
+			m.StartRow++
+		} else if endRow >= insertRow {
+			m.RowSpan++
+		}
+	}
+	// Update formula refs in all cells
+	for _, rowMap := range s.Cells {
+		for _, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.Value != "" {
+				cell.Value = shiftFormulaRefsForInsertRow(cell.Value, insertRow)
+			}
+		}
+	}
+	s.Modified = true
+	return nil
+}
+
+// InsertColumn inserts an empty column at the given index. Cells at col >= insertCol shift right.
+// Merge regions and formula references are updated. Story 13.1.
+func (s *Spreadsheet) InsertColumn(insertCol int) error {
+	if insertCol < 0 {
+		return fmt.Errorf("insertCol must be >= 0")
+	}
+	_, maxCol := s.GetBounds()
+	if maxCol < 0 {
+		s.Modified = true
+		return nil
+	}
+	// Shift cells: process cols from high to low within each row
+	for _, rowMap := range s.Cells {
+		cols := make([]int, 0, len(rowMap))
+		for c := range rowMap {
+			cols = append(cols, c)
+		}
+		sort.Sort(sort.Reverse(sort.IntSlice(cols)))
+		for _, c := range cols {
+			if c >= insertCol {
+				rowMap[c+1] = rowMap[c]
+				delete(rowMap, c)
+			}
+		}
+		delete(rowMap, insertCol) // Clear the inserted column position
+	}
+	// Update merge regions
+	for i := range s.Merges {
+		m := &s.Merges[i]
+		if m.RowSpan < 1 || m.ColSpan < 1 {
+			continue
+		}
+		endCol := m.StartCol + m.ColSpan - 1
+		if m.StartCol >= insertCol {
+			m.StartCol++
+		} else if endCol >= insertCol {
+			m.ColSpan++
+		}
+	}
+	// Update formula refs in all cells
+	for _, rowMap := range s.Cells {
+		for _, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.Value != "" {
+				cell.Value = shiftFormulaRefsForInsertColumn(cell.Value, insertCol)
+			}
+		}
+	}
+	s.Modified = true
+	return nil
 }
 
 // ApplyStyleToRange applies the given style to all cells in the range [startRow,endRow] x [startCol,endCol].

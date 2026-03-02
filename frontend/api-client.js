@@ -45,7 +45,11 @@ async function fetchUnified(method, path, body = null) {
   try {
     json = text ? JSON.parse(text) : {};
   } catch {
-    throw new Error(res.ok ? 'Invalid JSON response' : `API error (${res.status}): ${text.slice(0, 100)}`);
+    throw new Error(
+      res.ok
+        ? 'Invalid JSON response'
+        : `API error (${res.status}): ${text.slice(0, 100)}`
+    );
   }
   if (!res.ok) {
     throw new Error(json.error || text || `HTTP ${res.status}`);
@@ -98,9 +102,31 @@ const GetAllCells = async () => {
   return cells;
 };
 
+// Story 13.1: Insert row/column
+const InsertRow = async (row) => {
+  const json = await fetchUnified('POST', '/api/row/insert', { row });
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
+const InsertColumn = async (col) => {
+  const json = await fetchUnified('POST', '/api/column/insert', { col });
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
 // Story 12.3: Format cleanup - remove style from empty cells
 const CleanupFormat = async () => {
   const json = await fetchUnified('POST', '/api/format/cleanup');
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
+// Story 13.2: Clear range (batch clear for context menu)
+const ClearRange = async (startRow, startCol, endRow, endCol) => {
+  const json = await fetchUnified('POST', '/api/range/clear', {
+    startRow,
+    startCol,
+    endRow,
+    endCol,
+  });
   return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
 };
 
@@ -289,6 +315,9 @@ export {
   Unmerge,
   ApplyRangeStyle,
   CleanupFormat,
+  ClearRange,
+  InsertRow,
+  InsertColumn,
   NewFile,
   SaveFile,
   SaveAs,

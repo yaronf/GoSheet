@@ -297,7 +297,7 @@ func TestCleanupFormat(t *testing.T) {
 
 func TestCleanupFormat_SkipsMergeAnchors(t *testing.T) {
 	sheet := NewSpreadsheet()
-	_ = sheet.ApplyStyleToCell(0, 0, 1) // empty merge anchor
+	_ = sheet.ApplyStyleToCell(0, 0, 1)                                              // empty merge anchor
 	sheet.Merges = []MergeRegion{{StartRow: 0, StartCol: 0, RowSpan: 1, ColSpan: 2}} // A1:B1 merged
 	sheet.Modified = false
 
@@ -306,4 +306,51 @@ func TestCleanupFormat_SkipsMergeAnchors(t *testing.T) {
 	// Merge anchor (0,0) should not be deleted (would orphan merge)
 	assert.NotNil(t, sheet.GetCell(0, 0))
 	assert.Len(t, sheet.Merges, 1)
+}
+
+func TestInsertRow(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "A1")
+	sheet.SetCell(1, 0, "A2")
+	sheet.SetCell(2, 0, "A3")
+
+	err := sheet.InsertRow(1)
+	assert.NoError(t, err)
+	assert.Equal(t, "A1", sheet.GetCell(0, 0).Value)
+	assert.Nil(t, sheet.GetCell(1, 0))
+	assert.Equal(t, "A2", sheet.GetCell(2, 0).Value)
+	assert.Equal(t, "A3", sheet.GetCell(3, 0).Value)
+	assert.True(t, sheet.Modified)
+}
+
+func TestInsertRow_FormulaRefs(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "1")
+	sheet.SetCell(1, 0, "=A1")
+	sheet.SetCell(2, 0, "=A1+A2")
+
+	err := sheet.InsertRow(1)
+	assert.NoError(t, err)
+	// A1 stays at (0,0), A2 becomes (2,0), A3 becomes (3,0)
+	// Formula in old row 1 (=A1) is now at row 2, refs A1 unchanged (row 0 < 1), A2 -> A3 (row 1 >= 1)
+	cell2 := sheet.GetCell(2, 0)
+	assert.NotNil(t, cell2)
+	assert.Equal(t, "=A1", cell2.Value)
+	cell3 := sheet.GetCell(3, 0)
+	assert.NotNil(t, cell3)
+	assert.Equal(t, "=A1+A3", cell3.Value)
+}
+
+func TestInsertColumn(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "A1")
+	sheet.SetCell(0, 1, "B1")
+	sheet.SetCell(0, 2, "C1")
+
+	err := sheet.InsertColumn(1)
+	assert.NoError(t, err)
+	assert.Equal(t, "A1", sheet.GetCell(0, 0).Value)
+	assert.Nil(t, sheet.GetCell(0, 1))
+	assert.Equal(t, "B1", sheet.GetCell(0, 2).Value)
+	assert.Equal(t, "C1", sheet.GetCell(0, 3).Value)
 }

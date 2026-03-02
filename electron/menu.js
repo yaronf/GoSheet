@@ -40,6 +40,8 @@ let menuState = {
   hasFilePath: false,
   canMerge: false,
   canUnmerge: false,
+  canInsertRow: false,
+  canInsertColumn: false,
 };
 
 /**
@@ -366,6 +368,35 @@ function buildMenu(recentFiles = [], onClearRecent) {
       ],
     },
 
+    // Story 13.1: Insert menu (row/column)
+    {
+      label: 'Insert',
+      submenu: [
+        {
+          id: 'insert-row',
+          label: 'Insert Row Above',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Insert Row triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-insert-row');
+            }
+          },
+        },
+        {
+          id: 'insert-column',
+          label: 'Insert Column Before',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Insert Column triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-insert-column');
+            }
+          },
+        },
+      ],
+    },
+
     // Story 7.3: Help menu | Story 9.6: Formula Reference
     // Note: Don't use role: 'help' - it can prevent custom submenu items from receiving clicks on macOS
     {
@@ -422,7 +453,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
     console.log('[Menu] Template has', template.length, 'top-level menus');
   const fileMenuIndex = process.platform === 'darwin' ? 1 : 0;
   const editMenuIndex = process.platform === 'darwin' ? 2 : 1;
-  const helpMenuIndex = process.platform === 'darwin' ? 4 : 3; // Format at 3/2
+  const helpMenuIndex = process.platform === 'darwin' ? 5 : 4; // Insert added (Story 13.1)
   if (DEBUG)
     console.log(
       '[Menu] File menu has',
@@ -487,6 +518,16 @@ function updateMenuState(state) {
   const unmergeItem = menu.getMenuItemById('unmerge-cells');
   if (unmergeItem && menuState.canUnmerge !== undefined) {
     unmergeItem.enabled = menuState.canUnmerge;
+  }
+
+  // Story 13.1: Update Insert menu based on selection mode
+  const insertRowItem = menu.getMenuItemById('insert-row');
+  if (insertRowItem && menuState.canInsertRow !== undefined) {
+    insertRowItem.enabled = menuState.canInsertRow;
+  }
+  const insertColItem = menu.getMenuItemById('insert-column');
+  if (insertColItem && menuState.canInsertColumn !== undefined) {
+    insertColItem.enabled = menuState.canInsertColumn;
   }
 
   // Save As is always enabled (no state dependency)

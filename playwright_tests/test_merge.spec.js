@@ -6,7 +6,6 @@ const { test, expect } = require('./fixtures');
 const {
   ensureSpreadsheetView,
   setCellViaApi,
-  selectCellByClick,
   selectCellViaApp,
   setMergeViaApi,
   setStyleViaApi,
@@ -269,7 +268,9 @@ test.describe('Format menu styles (Story 12.2)', () => {
     await setCellViaApi(window, 1, 0, '');
     await setStyleViaApi(window, 1, 0, 1, 0, 1); // Title on empty A2
 
+    const cellA1 = window.locator('#cell-0-0');
     const cellA2 = window.locator('#cell-1-0');
+    await expect(cellA1).toHaveText('Keep');
     await expect(cellA2).toHaveClass(/style-title/);
 
     await electronApp.evaluate(({ Menu }) => {
@@ -282,6 +283,7 @@ test.describe('Format menu styles (Story 12.2)', () => {
     });
 
     await window.waitForTimeout(300);
+    await expect(cellA1).toHaveText('Keep'); // Values must be preserved
     await expect(cellA2).not.toHaveClass(/style-title/);
   });
 });

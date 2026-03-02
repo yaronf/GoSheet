@@ -314,3 +314,47 @@ func (c *AppController) ApplyStyleToRange(startRow, startCol, endRow, endCol int
 func (c *AppController) CleanupFormat() {
 	c.Sheet.CleanupFormat()
 }
+
+// ClearRange clears cell values in the range. Only clears anchors for merged regions.
+// Story 13.2: Batch clear for context menu performance.
+func (c *AppController) ClearRange(startRow, startCol, endRow, endCol int) {
+	var changed []string
+	for row := startRow; row <= endRow; row++ {
+		for col := startCol; col <= endCol; col++ {
+			if !c.Sheet.ShouldClearCell(row, col) {
+				continue
+			}
+			cell := c.Sheet.GetCell(row, col)
+			if cell == nil {
+				continue
+			}
+			cellRef := model.CoordsToRef(row, col)
+			c.Sheet.Dependencies.RemoveDependencies(cellRef)
+			c.Sheet.SetCell(row, col, "")
+			changed = append(changed, cellRef)
+		}
+	}
+	if len(changed) > 0 {
+		c.recalculateDependents(changed)
+	}
+}
+
+// InsertRow inserts an empty row at the given index. Story 13.1.
+func (c *AppController) InsertRow(row int) error {
+	if err := c.Sheet.InsertRow(row); err != nil {
+		return err
+	}
+	c.rebuildDependencyGraph()
+	c.recalculateAllFormulas()
+	return nil
+}
+
+// InsertColumn inserts an empty column at the given index. Story 13.1.
+func (c *AppController) InsertColumn(col int) error {
+	if err := c.Sheet.InsertColumn(col); err != nil {
+		return err
+	}
+	c.rebuildDependencyGraph()
+	c.recalculateAllFormulas()
+	return nil
+}

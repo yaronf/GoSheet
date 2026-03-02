@@ -12,6 +12,9 @@ import {
   Unmerge,
   ApplyRangeStyle,
   CleanupFormat,
+  ClearRange,
+  InsertRow,
+  InsertColumn,
   NewFile,
   SaveFile,
   LoadFile,
@@ -36,6 +39,9 @@ let isEditing = false;
 // Story 11.5: Selection range for Merge/Unmerge (startRow, startCol, endRow, endCol)
 // Single cell when startRow===endRow && startCol===endCol
 let selectionRange = { startRow: 0, startCol: 0, endRow: 0, endCol: 0 };
+
+// Story 13.1: Selection mode for Insert row/column ('cell' | 'row' | 'column')
+let selectionMode = 'cell';
 
 // Story 11.3: Cached merge regions (updated by buildSpreadsheet) for getCellElement
 let currentMerges = [];
@@ -277,6 +283,16 @@ document.querySelector('#app').innerHTML = `
         </table>
     </div>
     </main>
+    <div id="context-menu" class="context-menu" role="menu" aria-hidden="true" tabindex="-1">
+        <button type="button" class="context-menu-item" data-action="copy">Copy</button>
+        <button type="button" class="context-menu-item" data-action="paste">Paste</button>
+        <div class="context-menu-separator"></div>
+        <button type="button" class="context-menu-item" data-action="format-title">Title</button>
+        <button type="button" class="context-menu-item" data-action="format-header">Header</button>
+        <button type="button" class="context-menu-item" data-action="format-total">Total</button>
+        <div class="context-menu-separator"></div>
+        <button type="button" class="context-menu-item" data-action="clear">Clear</button>
+    </div>
     <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-message">
         <div class="modal-dialog">
             <div class="modal-message" id="modal-message"></div>
@@ -464,11 +480,44 @@ if (table) {
   table.addEventListener('click', (e) => {
     if (e.target.classList.contains('cell-editor')) return;
     const cell = e.target.closest('.cell');
-    if (!cell) return;
-    const row = parseInt(cell.dataset.row, 10);
-    const col = parseInt(cell.dataset.col, 10);
-    if (!Number.isFinite(row) || !Number.isFinite(col)) return;
-    selectCell(row, col, e.shiftKey);
+    const rowHeader = e.target.closest('.row-header');
+    const colHeader = e.target.closest('.column-header');
+    if (rowHeader && rowHeader.dataset.row !== undefined) {
+      const row = parseInt(rowHeader.dataset.row, 10);
+      if (Number.isFinite(row)) {
+        selectionMode = 'row';
+        applySelectionRange(row, 0, row, COLS - 1);
+        if (window.electronAPI?.updateMenuState) {
+          window.electronAPI.updateMenuState({
+            selectionMode: 'row',
+            selectedRow: row,
+          });
+        }
+        return;
+      }
+    }
+    if (colHeader && colHeader.dataset.col !== undefined) {
+      const col = parseInt(colHeader.dataset.col, 10);
+      if (Number.isFinite(col)) {
+        selectionMode = 'column';
+        applySelectionRange(0, col, ROWS - 1, col);
+        if (window.electronAPI?.updateMenuState) {
+          window.electronAPI.updateMenuState({
+            selectionMode: 'column',
+            selectedCol: col,
+          });
+        }
+        return;
+      }
+    }
+    if (cell) {
+      selectionMode = 'cell';
+      const row = parseInt(cell.dataset.row, 10);
+      const col = parseInt(cell.dataset.col, 10);
+      if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+      selectCell(row, col, e.shiftKey);
+      updateMergeMenuState();
+    }
   });
   table.addEventListener('dblclick', (e) => {
     if (e.target.classList.contains('cell-editor')) return;
@@ -479,6 +528,192 @@ if (table) {
     if (!Number.isFinite(row) || !Number.isFinite(col)) return;
     startEditing(row, col);
   });
+
+  // Story 13.2: Context menu (right-click)
+  table.addEventListener('contextmenu', (e) => {
+    if (e.target.classList.contains('cell-editor')) return;
+    const cell = e.target.closest('.cell');
+    const rowHeader = e.target.closest('.row-header');
+    const colHeader = e.target.closest('.column-header');
+    if (cell) {
+      e.preventDefault();
+      const row = parseInt(cell.dataset.row, 10);
+      const col = parseInt(cell.dataset.col, 10);
+      if (Number.isFinite(row) && Number.isFinite(col)) {
+        const inSelection =
+          row >= selectionRange.startRow &&
+          row <= selectionRange.endRow &&
+          col >= selectionRange.startCol &&
+          col <= selectionRange.endCol;
+        if (!inSelection) {
+          selectionMode = 'cell';
+          selectCell(row, col);
+        }
+        showContextMenu(e.clientX, e.clientY);
+      }
+    } else if (rowHeader && rowHeader.dataset.row !== undefined) {
+      e.preventDefault();
+      const row = parseInt(rowHeader.dataset.row, 10);
+      if (Number.isFinite(row)) {
+        selectionMode = 'row';
+        applySelectionRange(row, 0, row, COLS - 1);
+        if (window.electronAPI?.updateMenuState) {
+          window.electronAPI.updateMenuState({
+            selectionMode: 'row',
+            selectedRow: row,
+          });
+        }
+        showContextMenu(e.clientX, e.clientY);
+      }
+    } else if (colHeader && colHeader.dataset.col !== undefined) {
+      e.preventDefault();
+      const col = parseInt(colHeader.dataset.col, 10);
+      if (Number.isFinite(col)) {
+        selectionMode = 'column';
+        applySelectionRange(0, col, ROWS - 1, col);
+        if (window.electronAPI?.updateMenuState) {
+          window.electronAPI.updateMenuState({
+            selectionMode: 'column',
+            selectedCol: col,
+          });
+        }
+        showContextMenu(e.clientX, e.clientY);
+      }
+    } else if (e.target.closest('.corner-header')) {
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY);
+    }
+  });
+  setupContextMenuHandlers();
+}
+
+// Story 13.2: Context menu show/hide and actions
+function updateContextMenuState() {
+  const menu = document.getElementById('context-menu');
+  if (!menu) return;
+  const hasSelection = !!selectedCell;
+  menu.querySelectorAll('.context-menu-item').forEach((btn) => {
+    const action = btn.dataset.action;
+    if (action === 'copy' || action === 'paste' || action === 'clear') {
+      btn.disabled = !hasSelection;
+    }
+    if (
+      action === 'format-title' ||
+      action === 'format-header' ||
+      action === 'format-total'
+    ) {
+      btn.disabled = !hasSelection;
+    }
+  });
+}
+
+function showContextMenu(x, y) {
+  if (
+    document.querySelector('#app')?.getAttribute('data-view') !== 'spreadsheet'
+  )
+    return;
+  const menu = document.getElementById('context-menu');
+  if (!menu) return;
+  updateContextMenuState();
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  menu.setAttribute('aria-hidden', 'false');
+  menu.focus();
+  // Keep menu in viewport
+  requestAnimationFrame(() => {
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth)
+      menu.style.left = `${window.innerWidth - rect.width - 8}px`;
+    if (rect.bottom > window.innerHeight)
+      menu.style.top = `${window.innerHeight - rect.height - 8}px`;
+  });
+}
+
+function hideContextMenu() {
+  const menu = document.getElementById('context-menu');
+  if (menu) menu.setAttribute('aria-hidden', 'true');
+}
+
+function setupContextMenuHandlers() {
+  const menu = document.getElementById('context-menu');
+  if (!menu) return;
+  menu.addEventListener('click', (e) => {
+    const btn = e.target.closest('.context-menu-item');
+    if (!btn || btn.disabled) return;
+    const action = btn.dataset.action;
+    hideContextMenu();
+    handleContextMenuAction(action);
+  });
+  menu.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideContextMenu();
+  });
+  document.addEventListener('click', (e) => {
+    if (
+      !e.target.closest('#context-menu') &&
+      !e.target.closest('#spreadsheet')
+    ) {
+      hideContextMenu();
+    }
+  });
+}
+
+async function handleContextMenuAction(action) {
+  try {
+    const { startRow, startCol, endRow, endCol } = selectionRange;
+    if (action === 'copy') {
+      if (!selectedCell) return;
+      const value = await GetCellRawValue(selectedCell.row, selectedCell.col);
+      await navigator.clipboard.writeText(value);
+    } else if (action === 'paste') {
+      if (!selectedCell) return;
+      const text = await navigator.clipboard.readText();
+      await SetCellValue(selectedCell.row, selectedCell.col, text);
+      await refreshAllCells();
+      updateFileStatus();
+    } else if (action === 'format-title') {
+      const result = await ApplyRangeStyle(
+        startRow,
+        startCol,
+        endRow,
+        endCol,
+        1
+      );
+      if (result?.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await refreshAllCells();
+    } else if (action === 'format-header') {
+      const result = await ApplyRangeStyle(
+        startRow,
+        startCol,
+        endRow,
+        endCol,
+        2
+      );
+      if (result?.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await refreshAllCells();
+    } else if (action === 'format-total') {
+      const result = await ApplyRangeStyle(
+        startRow,
+        startCol,
+        endRow,
+        endCol,
+        3
+      );
+      if (result?.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await refreshAllCells();
+    } else if (action === 'clear') {
+      const result = await ClearRange(startRow, startCol, endRow, endCol);
+      if (result?.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await refreshAllCells();
+      updateFileStatus();
+    }
+  } catch (err) {
+    console.error('[App] Context menu action error:', err);
+    await showAlert('Error: ' + err.message);
+  }
 }
 
 container.addEventListener('scroll', () => {
@@ -711,6 +946,7 @@ async function buildSpreadsheetImpl() {
     th.className = 'column-header';
     th.setAttribute('role', 'columnheader');
     th.setAttribute('aria-colindex', String(col + 1));
+    th.dataset.col = String(col);
     th.textContent = colToLetter(col);
     headerRow.appendChild(th);
   }
@@ -731,11 +967,12 @@ async function buildSpreadsheetImpl() {
     tr.setAttribute('role', 'row');
     tr.setAttribute('aria-rowindex', String(row + 1));
 
-    // Row header
+    // Row header (Story 13.1: data-row for click-to-select)
     const th = document.createElement('th');
     th.className = 'row-header';
     th.setAttribute('role', 'rowheader');
     th.setAttribute('aria-rowindex', String(row + 1));
+    th.dataset.row = String(row);
     th.textContent = row + 1;
     tr.appendChild(th);
 
@@ -860,6 +1097,31 @@ function computeSelectionRange(row, col, extendSelection) {
   return { startRow: minR, startCol: minC, endRow: maxR, endCol: maxC };
 }
 
+function applySelectionRange(startRow, startCol, endRow, endCol) {
+  selectionRange = { startRow, startCol, endRow, endCol };
+  selectedCell = { row: startRow, col: startCol };
+  document.querySelectorAll('.cell.selected').forEach((el) => {
+    el.classList.remove('selected');
+    el.setAttribute('tabindex', '-1');
+  });
+  for (let r = startRow; r <= endRow; r++) {
+    for (let c = startCol; c <= endCol; c++) {
+      const cell = getCellElement(r, c);
+      if (cell) {
+        cell.classList.add('selected');
+        if (r === startRow && c === startCol)
+          cell.setAttribute('tabindex', '0');
+      }
+    }
+  }
+  updateFormulaBar(startRow, startCol);
+  const cellCount = (endRow - startRow + 1) * (endCol - startCol + 1);
+  announceToScreenReader(
+    buildSelectionAnnouncement(startRow, startCol, endRow, endCol, cellCount)
+  );
+  updateMergeMenuState();
+}
+
 function applyCellSelection(row, col, extendSelection = false) {
   const { startRow, startCol, endRow, endCol } = computeSelectionRange(
     row,
@@ -937,6 +1199,7 @@ function selectionOverlapsMerge(startRow, startCol, endRow, endCol) {
 }
 
 // Story 11.5: Update Format menu Merge/Unmerge enable state
+// Story 13.1: Also update Insert menu (row/column)
 function updateMergeMenuState() {
   if (!window.electronAPI?.updateMenuState) return;
   const { startRow, startCol, endRow, endCol } = selectionRange;
@@ -946,9 +1209,21 @@ function updateMergeMenuState() {
   const isSingleCell = cellCount === 1;
   const { merge, isAnchor } = getMergeInfo(startRow, startCol, currentMerges);
   const canUnmerge = isSingleCell && merge && isAnchor;
+  const canInsertRow =
+    selectionMode === 'row' &&
+    startRow === endRow &&
+    startCol === 0 &&
+    endCol === COLS - 1;
+  const canInsertColumn =
+    selectionMode === 'column' &&
+    startCol === endCol &&
+    startRow === 0 &&
+    endRow === ROWS - 1;
   window.electronAPI.updateMenuState({
     canMerge,
     canUnmerge,
+    canInsertRow,
+    canInsertColumn,
   });
 }
 
@@ -2161,7 +2436,9 @@ if (window.electronAPI) {
         displayFileStatus(result.hasUnsavedChanges);
       await refreshAllCells();
       updateFileStatus();
-      window.dispatchEvent(new CustomEvent('style-applied', { detail: { styleId } }));
+      window.dispatchEvent(
+        new CustomEvent('style-applied', { detail: { styleId } })
+      );
     } catch (error) {
       console.error('[App] Error applying style:', error);
       window.__lastStyleError = String(error.message);
@@ -2169,9 +2446,15 @@ if (window.electronAPI) {
     }
   };
   window.__lastStyleError = null;
-  window.electronAPI.onMenuStyleTitle?.(() => applyStyleToSelection(STYLE_ID.TITLE));
-  window.electronAPI.onMenuStyleHeader?.(() => applyStyleToSelection(STYLE_ID.HEADER));
-  window.electronAPI.onMenuStyleTotal?.(() => applyStyleToSelection(STYLE_ID.TOTAL));
+  window.electronAPI.onMenuStyleTitle?.(() =>
+    applyStyleToSelection(STYLE_ID.TITLE)
+  );
+  window.electronAPI.onMenuStyleHeader?.(() =>
+    applyStyleToSelection(STYLE_ID.HEADER)
+  );
+  window.electronAPI.onMenuStyleTotal?.(() =>
+    applyStyleToSelection(STYLE_ID.TOTAL)
+  );
 
   // Story 12.3: Format Cleanup - remove style from empty cells
   window.electronAPI.onMenuFormatCleanup?.(async () => {
@@ -2183,9 +2466,48 @@ if (window.electronAPI) {
       if (result.hasUnsavedChanges !== undefined)
         displayFileStatus(result.hasUnsavedChanges);
       await buildSpreadsheet();
+      await refreshAllCells();
     } catch (error) {
       console.error('[App] Error during Format Cleanup:', error);
       await showAlert('Error during Format Cleanup: ' + error.message);
+    }
+  });
+
+  // Story 13.1: Insert row above
+  window.electronAPI.onMenuInsertRow?.(async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (selectionMode !== 'row') return;
+    const row = selectionRange.startRow;
+    try {
+      const result = await InsertRow(row);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await buildSpreadsheet();
+      await refreshAllCells();
+      applySelectionRange(row, 0, row, COLS - 1);
+    } catch (error) {
+      console.error('[App] Error inserting row:', error);
+      await showAlert('Error inserting row: ' + error.message);
+    }
+  });
+
+  // Story 13.1: Insert column before
+  window.electronAPI.onMenuInsertColumn?.(async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (selectionMode !== 'column') return;
+    const col = selectionRange.startCol;
+    try {
+      const result = await InsertColumn(col);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await buildSpreadsheet();
+      await refreshAllCells();
+      applySelectionRange(0, col, ROWS - 1, col);
+    } catch (error) {
+      console.error('[App] Error inserting column:', error);
+      await showAlert('Error inserting column: ' + error.message);
     }
   });
 
