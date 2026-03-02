@@ -2,11 +2,17 @@
 // Tests Format → Manage Styles: edit, add, delete styles
 
 const { test, expect } = require('./fixtures');
+const { clickMenuItemById } = require('electron-playwright-helpers');
 const {
   ensureSpreadsheetView,
   setCellViaApi,
   setStyleViaApi,
 } = require('./helpers');
+
+async function openManageStylesModal(electronApp, window) {
+  await clickMenuItemById(electronApp, 'manage-styles');
+  await expect(window.locator('#manage-styles-modal')).toBeVisible();
+}
 
 test.describe('Manage Styles (Story 13.3)', () => {
   test.beforeEach(async ({ window }) => {
@@ -16,22 +22,25 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await window.waitForTimeout(300);
   });
 
-  test('Manage Styles opens and shows style list', async ({ window }) => {
-    await window.evaluate(() => window.showManageStylesModal?.());
-    const modal = window.locator('#manage-styles-modal');
-    await expect(modal).toBeVisible();
+  test('Manage Styles opens and shows style list', async ({
+    window,
+    electronApp,
+  }) => {
+    await openManageStylesModal(electronApp, window);
     const list = window.locator('#manage-styles-list');
     await expect(list).toBeVisible();
     await expect(list.locator('.manage-styles-item')).toHaveCount(3); // Title, Header, Total
   });
 
-  test('edit Title font size updates cells', async ({ window }) => {
+  test('edit Title font size updates cells', async ({
+    window,
+    electronApp,
+  }) => {
     await setCellViaApi(window, 0, 0, 'Title');
     await setStyleViaApi(window, 0, 0, 0, 0, 1); // Title style
     await window.waitForTimeout(200);
 
-    await window.evaluate(() => window.showManageStylesModal?.());
-    await expect(window.locator('#manage-styles-modal')).toBeVisible();
+    await openManageStylesModal(electronApp, window);
     await window.locator('.manage-styles-edit[data-id="1"]').click();
     await window.waitForTimeout(200);
 
@@ -47,9 +56,9 @@ test.describe('Manage Styles (Story 13.3)', () => {
 
   test('add custom style, apply to cell, delete custom style', async ({
     window,
+    electronApp,
   }) => {
-    await window.evaluate(() => window.showManageStylesModal?.());
-    await expect(window.locator('#manage-styles-modal')).toBeVisible();
+    await openManageStylesModal(electronApp, window);
     await window.locator('#manage-styles-add').click();
     await window.waitForTimeout(200);
 
@@ -72,10 +81,9 @@ test.describe('Manage Styles (Story 13.3)', () => {
     const customStyle = styles.find((s) => s.name === 'Custom');
     expect(customStyle).toBeTruthy();
     await setStyleViaApi(window, 0, 0, 0, 0, customStyle.id);
-    await window.waitForTimeout(200);
+    await expect(window.locator('#cell-0-0')).toContainText('Styled');
 
-    await window.evaluate(() => window.showManageStylesModal?.());
-    await expect(window.locator('#manage-styles-modal')).toBeVisible();
+    await openManageStylesModal(electronApp, window);
     await window
       .locator('.manage-styles-item:has-text("Custom") .manage-styles-delete')
       .click();
@@ -90,9 +98,9 @@ test.describe('Manage Styles (Story 13.3)', () => {
 
   test('delete style shows confirmation dialog; Cancel aborts', async ({
     window,
+    electronApp,
   }) => {
-    await window.evaluate(() => window.showManageStylesModal?.());
-    await expect(window.locator('#manage-styles-modal')).toBeVisible();
+    await openManageStylesModal(electronApp, window);
 
     await window.locator('.manage-styles-delete[data-id="1"]').click();
     await expect(window.locator('#modal-overlay.active')).toBeVisible({
