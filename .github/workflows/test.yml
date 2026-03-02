@@ -9,24 +9,24 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.25'
-    
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-    
+
     - name: Install Go dependencies
       run: go mod download
-    
+
     - name: Install system dependencies for Electron
       run: |
         sudo apt-get update
@@ -44,7 +44,7 @@ jobs:
           libgbm1 \
           libasound2t64 \
           xvfb
-    
+
     - name: Install Node dependencies
       run: npm ci
 
@@ -59,13 +59,13 @@ jobs:
 
     - name: Install Playwright browsers with system dependencies
       run: npx playwright install --with-deps chromium
-    
+
     - name: Build Go server
       run: |
         cd server
         go build -o gosheet-server main.go
         cd ..
-    
+
     - name: Run Go unit tests
       run: go test -v ./model/... ./controller/... ./api/...
 
@@ -85,8 +85,9 @@ jobs:
       run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npm test
       env:
         NODE_ENV: test
+        ELECTRON_SHOW_WINDOW: 1
         DEBUG: pw:api
-    
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
@@ -94,7 +95,7 @@ jobs:
         name: playwright-report
         path: playwright-report/
         retention-days: 30
-    
+
     - name: Upload test traces
       if: failure()
       uses: actions/upload-artifact@v4
