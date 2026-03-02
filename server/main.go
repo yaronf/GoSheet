@@ -26,7 +26,7 @@ func main() {
 	cors := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
@@ -60,6 +60,8 @@ func main() {
 	http.HandleFunc("/api/format/cleanup", cors(srv.HandleFormatCleanup))
 	http.HandleFunc("/api/row/insert", cors(srv.HandleInsertRow))
 	http.HandleFunc("/api/column/insert", cors(srv.HandleInsertColumn))
+	http.HandleFunc("/api/styles", cors(srv.HandleStyles))
+	http.HandleFunc("/api/styles/", cors(srv.HandleStyleByID))
 
 	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
 	logutil.Debugf("Open http://localhost:%s in your browser\n", *port)

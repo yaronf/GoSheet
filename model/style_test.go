@@ -56,3 +56,49 @@ func TestStyleRegistry_GetStyleIDByName(t *testing.T) {
 		t.Error("Unknown style should return 0")
 	}
 }
+
+func TestStyleRegistry_UpdateStyle(t *testing.T) {
+	r := NewStyleRegistry()
+	f := r.GetFormat(1)
+	f.Font.Size = 24
+	if err := r.UpdateStyle(1, f); err != nil {
+		t.Fatal(err)
+	}
+	if r.GetFormat(1).Font.Size != 24 {
+		t.Error("UpdateStyle should have updated format")
+	}
+	if err := r.UpdateStyle(0, f); err == nil {
+		t.Error("UpdateStyle(0) should error")
+	}
+}
+
+func TestStyleRegistry_AddStyle(t *testing.T) {
+	r := NewStyleRegistry()
+	id, err := r.AddStyle("Custom", &CellFormat{Font: Font{Size: 14}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != 4 {
+		t.Errorf("Expected id 4, got %d", id)
+	}
+	if r.GetStyleIDByName("Custom") != 4 {
+		t.Error("Custom should be style 4")
+	}
+	if _, err := r.AddStyle("Custom", &CellFormat{}); err == nil {
+		t.Error("AddStyle duplicate name should error")
+	}
+}
+
+func TestStyleRegistry_RemoveStyle(t *testing.T) {
+	r := NewStyleRegistry()
+	_, _ = r.AddStyle("Custom", &CellFormat{Font: Font{Size: 14}})
+	if err := r.RemoveStyle(4); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Formats) != 3 {
+		t.Errorf("After RemoveStyle(4), expected 3 formats, got %d", len(r.Formats))
+	}
+	if r.GetStyleIDByName("Custom") != 0 {
+		t.Error("Custom should be removed")
+	}
+}

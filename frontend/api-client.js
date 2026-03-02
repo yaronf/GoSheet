@@ -130,6 +130,30 @@ const ClearRange = async (startRow, startCol, endRow, endCol) => {
   return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
 };
 
+// Story 13.3: Style management API
+const GetStyles = async () => {
+  const json = await fetchUnified('GET', '/api/styles');
+  return json.data?.styles ?? [];
+};
+
+const UpdateStyle = async (id, format) => {
+  const json = await fetchUnified('PUT', `/api/styles/${id}`, { format });
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
+const AddStyle = async (name, format) => {
+  const json = await fetchUnified('POST', '/api/styles', { name, format });
+  return {
+    id: json.data?.id ?? 0,
+    hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true,
+  };
+};
+
+const DeleteStyle = async (id) => {
+  const json = await fetchUnified('DELETE', `/api/styles/${id}`);
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
 // Story 12.2: Apply style to cell or range
 const ApplyRangeStyle = async (startRow, startCol, endRow, endCol, styleId) => {
   const json = await fetchUnified('POST', '/api/range/style', {
@@ -314,6 +338,10 @@ export {
   SetMerge,
   Unmerge,
   ApplyRangeStyle,
+  GetStyles,
+  UpdateStyle,
+  AddStyle,
+  DeleteStyle,
   CleanupFormat,
   ClearRange,
   InsertRow,

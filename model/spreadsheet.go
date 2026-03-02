@@ -404,3 +404,33 @@ func (s *Spreadsheet) ApplyStyleToRange(startRow, startCol, endRow, endCol int, 
 	}
 	return nil
 }
+
+// DeleteStyle removes a style from the registry and clears it from all cells.
+// Cells using the deleted style get StyleId=0; cells with higher ids get decremented.
+// Story 13.3.
+func (s *Spreadsheet) DeleteStyle(styleID int) error {
+	if s.Styles == nil {
+		return fmt.Errorf("no style registry")
+	}
+	if styleID < 1 || styleID > len(s.Styles.Formats) {
+		return fmt.Errorf("invalid style id %d", styleID)
+	}
+	// Update cells: clear deleted style, decrement higher ids
+	for _, rowMap := range s.Cells {
+		for _, cell := range rowMap {
+			if cell == nil {
+				continue
+			}
+			if cell.StyleId == styleID {
+				cell.StyleId = 0
+			} else if cell.StyleId > styleID {
+				cell.StyleId--
+			}
+		}
+	}
+	if err := s.Styles.RemoveStyle(styleID); err != nil {
+		return err
+	}
+	s.Modified = true
+	return nil
+}

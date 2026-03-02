@@ -358,3 +358,43 @@ func (c *AppController) InsertColumn(col int) error {
 	c.recalculateAllFormulas()
 	return nil
 }
+
+// GetStyles returns all styles from the registry. Story 13.3.
+func (c *AppController) GetStyles() []model.StyleInfo {
+	if c.Sheet.Styles == nil {
+		return nil
+	}
+	var result []model.StyleInfo
+	for i := 1; i <= len(c.Sheet.Styles.Formats); i++ {
+		name := c.Sheet.Styles.GetStyleNameByID(i)
+		format := c.Sheet.Styles.GetFormat(i)
+		if format != nil {
+			result = append(result, model.StyleInfo{ID: i, Name: name, Format: *format})
+		}
+	}
+	return result
+}
+
+// UpdateStyle updates the format for an existing style. Story 13.3.
+func (c *AppController) UpdateStyle(id int, format *model.CellFormat) error {
+	if err := c.Sheet.Styles.UpdateStyle(id, format); err != nil {
+		return err
+	}
+	c.Sheet.Modified = true
+	return nil
+}
+
+// AddStyle adds a new named style. Story 13.3.
+func (c *AppController) AddStyle(name string, format *model.CellFormat) (int, error) {
+	id, err := c.Sheet.Styles.AddStyle(name, format)
+	if err != nil {
+		return 0, err
+	}
+	c.Sheet.Modified = true
+	return id, nil
+}
+
+// DeleteStyle removes a style and clears it from all cells. Story 13.3.
+func (c *AppController) DeleteStyle(id int) error {
+	return c.Sheet.DeleteStyle(id)
+}

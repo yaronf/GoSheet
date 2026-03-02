@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gosheet/api/generated"
 	"gosheet/controller"
+	"gosheet/model"
 )
 
 func newTestServer() *Server {
@@ -912,4 +913,83 @@ func TestHandleClearRange(t *testing.T) {
 	assert.Equal(t, "", srv.Ctrl.GetCellValue(0, 1))
 	assert.Equal(t, "", srv.Ctrl.GetCellValue(1, 0))
 	assert.Equal(t, "", srv.Ctrl.GetCellValue(1, 1))
+}
+
+func TestHandleGetStyles(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/styles", nil)
+	w := httptest.NewRecorder()
+	srv.HandleStyles(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Styles []struct {
+				ID     int      `json:"id"`
+				Name   string   `json:"name"`
+				Format struct{} `json:"format"`
+			} `json:"styles"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.Len(t, resp.Data.Styles, 3)
+	assert.Equal(t, "Title", resp.Data.Styles[0].Name)
+	assert.Equal(t, "Header", resp.Data.Styles[1].Name)
+	assert.Equal(t, "Total", resp.Data.Styles[2].Name)
+}
+
+func TestHandleAddStyle(t *testing.T) {
+	srv := newTestServer()
+	body, _ := json.Marshal(AddStyleRequest{
+		Name: "Custom",
+		Format: model.CellFormat{
+			Font: model.Font{Name: "Arial", Size: 14, Bold: true},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/styles", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleStyles(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			ID int `json:"id"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.Equal(t, 4, resp.Data.ID)
+}
+
+func TestHandleUpdateStyle(t *testing.T) {
+	srv := newTestServer()
+	_ = srv.Ctrl.ApplyStyleToCell(0, 0, 1)
+	body, _ := json.Marshal(UpdateStyleRequest{
+		Format: model.CellFormat{
+			Font: model.Font{Name: "Arial", Size: 24, Bold: true},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPut, "/api/styles/1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleStyleByID(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	format := srv.Ctrl.Sheet.Styles.GetFormat(1)
+	assert.NotNil(t, format)
+	assert.Equal(t, 24, format.Font.Size)
+}
+
+func TestHandleDeleteStyle(t *testing.T) {
+	srv := newTestServer()
+	_ = srv.Ctrl.ApplyStyleToCell(0, 0, 1)
+	_ = srv.Ctrl.ApplyStyleToCell(0, 1, 1)
+	req := httptest.NewRequest(http.MethodDelete, "/api/styles/1", nil)
+	w := httptest.NewRecorder()
+	srv.HandleStyleByID(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, 0, srv.Ctrl.Sheet.GetCell(0, 0).StyleId)
+	assert.Equal(t, 0, srv.Ctrl.Sheet.GetCell(0, 1).StyleId)
+	assert.Len(t, srv.Ctrl.Sheet.Styles.Formats, 2)
 }

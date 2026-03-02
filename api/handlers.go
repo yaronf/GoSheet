@@ -13,6 +13,7 @@ import (
 	"gosheet/api/generated"
 	"gosheet/controller"
 	"gosheet/logutil"
+	"gosheet/model"
 )
 
 // Server holds HTTP handler dependencies and implements all API handlers.
@@ -585,6 +586,119 @@ func (s *Server) HandleInsertColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Ctrl.InsertColumn(req.Col); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+// HandleStyles handles GET /api/styles (list) and POST /api/styles (add). Story 13.3.
+func (s *Server) HandleStyles(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/styles" && r.URL.Path != "/api/styles/" {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetStyles(w, r)
+	case http.MethodPost:
+		s.handleAddStyle(w, r)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleGetStyles(w http.ResponseWriter, r *http.Request) {
+	styles := s.Ctrl.GetStyles()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    map[string]interface{}{"styles": styles},
+	})
+}
+
+// AddStyleRequest is the JSON body for POST /api/styles
+type AddStyleRequest struct {
+	Name   string           `json:"name"`
+	Format model.CellFormat `json:"format"`
+}
+
+func (s *Server) handleAddStyle(w http.ResponseWriter, r *http.Request) {
+	var req AddStyleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	id, err := s.Ctrl.AddStyle(req.Name, &req.Format)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"id":                id,
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+// HandleStyleByID handles PUT /api/styles/:id and DELETE /api/styles/:id. Story 13.3.
+func (s *Server) HandleStyleByID(w http.ResponseWriter, r *http.Request) {
+	// Path is /api/styles/1, /api/styles/2, etc.
+	path := strings.TrimPrefix(r.URL.Path, "/api/styles/")
+	if path == "" || path == r.URL.Path {
+		http.NotFound(w, r)
+		return
+	}
+	id, err := strconv.Atoi(path)
+	if err != nil || id < 1 {
+		http.Error(w, "invalid style id", http.StatusBadRequest)
+		return
+	}
+	switch r.Method {
+	case http.MethodPut:
+		s.handleUpdateStyle(w, r, id)
+	case http.MethodDelete:
+		s.handleDeleteStyle(w, r, id)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// UpdateStyleRequest is the JSON body for PUT /api/styles/:id
+type UpdateStyleRequest struct {
+	Format model.CellFormat `json:"format"`
+}
+
+func (s *Server) handleUpdateStyle(w http.ResponseWriter, r *http.Request, id int) {
+	var req UpdateStyleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.UpdateStyle(id, &req.Format); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+func (s *Server) handleDeleteStyle(w http.ResponseWriter, r *http.Request, id int) {
+	if err := s.Ctrl.DeleteStyle(id); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

@@ -1,5 +1,7 @@
 package model
 
+import "fmt"
+
 // Built-in style IDs. 0 = no style.
 const (
 	StyleIDNone   = 0
@@ -10,46 +12,53 @@ const (
 
 // Font holds font formatting.
 type Font struct {
-	Name   string // e.g. "Helvetica", "Arial"
-	Size   int    // Point size (e.g. 12, 18)
-	Bold   bool
-	Italic bool
-	Color  string // Hex color e.g. "#000000"
+	Name   string `json:"name"`
+	Size   int    `json:"size"`
+	Bold   bool   `json:"bold"`
+	Italic bool   `json:"italic"`
+	Color  string `json:"color"`
 }
 
 // Fill holds fill/background formatting.
 type Fill struct {
-	Pattern string // "none", "solid"
-	FgColor string // Foreground color hex
-	BgColor string // Background color hex
+	Pattern string `json:"pattern"`
+	FgColor string `json:"fgColor"`
+	BgColor string `json:"bgColor"`
 }
 
 // BorderSide describes one side of a border.
 type BorderSide struct {
-	Style string // "none", "thin", "medium", "thick"
-	Color string // Hex color
+	Style string `json:"style"`
+	Color string `json:"color"`
 }
 
 // Border holds border formatting for all four sides.
 type Border struct {
-	Left   BorderSide
-	Right  BorderSide
-	Top    BorderSide
-	Bottom BorderSide
+	Left   BorderSide `json:"left"`
+	Right  BorderSide `json:"right"`
+	Top    BorderSide `json:"top"`
+	Bottom BorderSide `json:"bottom"`
 }
 
 // Alignment holds horizontal and vertical alignment.
 type Alignment struct {
-	Horizontal string // "left", "center", "right"
-	Vertical   string // "top", "center", "bottom"
+	Horizontal string `json:"horizontal"`
+	Vertical   string `json:"vertical"`
 }
 
 // CellFormat groups font, fill, border, and alignment.
 type CellFormat struct {
-	Font      Font
-	Fill      Fill
-	Border    Border
-	Alignment Alignment
+	Font      Font      `json:"font"`
+	Fill      Fill      `json:"fill"`
+	Border    Border    `json:"border"`
+	Alignment Alignment `json:"alignment"`
+}
+
+// StyleInfo is a style with id and name for API responses. Story 13.3.
+type StyleInfo struct {
+	ID     int        `json:"id"`
+	Name   string     `json:"name"`
+	Format CellFormat `json:"format"`
 }
 
 // StyleRegistry holds format definitions indexed by style ID.
@@ -136,4 +145,71 @@ func (r *StyleRegistry) GetStyleIDByName(name string) int {
 		return id
 	}
 	return 0
+}
+
+// GetStyleNameByID returns the style name for the given id, or empty string if not found.
+func (r *StyleRegistry) GetStyleNameByID(styleID int) string {
+	if r == nil || r.Names == nil || styleID < 1 || styleID > len(r.Formats) {
+		return ""
+	}
+	for name, id := range r.Names {
+		if id == styleID {
+			return name
+		}
+	}
+	return ""
+}
+
+// UpdateStyle updates the format at the given style ID. Id must be 1..len(Formats).
+func (r *StyleRegistry) UpdateStyle(id int, format *CellFormat) error {
+	if r == nil || format == nil {
+		return fmt.Errorf("nil registry or format")
+	}
+	if id < 1 || id > len(r.Formats) {
+		return fmt.Errorf("invalid style id %d", id)
+	}
+	r.Formats[id-1] = *format
+	return nil
+}
+
+// AddStyle appends a new style and returns its id. Name must be unique.
+func (r *StyleRegistry) AddStyle(name string, format *CellFormat) (int, error) {
+	if r == nil || format == nil {
+		return 0, fmt.Errorf("nil registry or format")
+	}
+	if name == "" {
+		return 0, fmt.Errorf("style name cannot be empty")
+	}
+	if r.Names == nil {
+		r.Names = make(map[string]int)
+	}
+	if _, exists := r.Names[name]; exists {
+		return 0, fmt.Errorf("style name %q already exists", name)
+	}
+	r.Formats = append(r.Formats, *format)
+	id := len(r.Formats)
+	r.Names[name] = id
+	return id, nil
+}
+
+// RemoveStyle removes the style at id from Formats and updates Names.
+// Caller must ensure cells are updated (StyleId cleared or decremented) before calling.
+func (r *StyleRegistry) RemoveStyle(id int) error {
+	if r == nil {
+		return fmt.Errorf("nil registry")
+	}
+	if id < 1 || id > len(r.Formats) {
+		return fmt.Errorf("invalid style id %d", id)
+	}
+	// Remove from Formats
+	r.Formats = append(r.Formats[:id-1], r.Formats[id:]...)
+	// Remove name for deleted id and decrement ids > id
+	for name, tid := range r.Names {
+		if tid == id {
+			delete(r.Names, name)
+		} else if tid > id {
+			r.Names[name] = tid - 1
+		}
+	}
+	return nil
 }

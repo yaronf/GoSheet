@@ -117,6 +117,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('menu-format-cleanup', callback);
   },
 
+  // Story 13.3: Manage Styles
+  onMenuManageStyles: (callback) => {
+    ipcRenderer.on('menu-manage-styles', callback);
+  },
+
   // Story 13.1: Insert row/column
   onMenuInsertRow: (callback) => {
     ipcRenderer.on('menu-insert-row', callback);

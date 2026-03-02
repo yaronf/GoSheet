@@ -11,6 +11,10 @@ import {
   SetMerge,
   Unmerge,
   ApplyRangeStyle,
+  GetStyles,
+  UpdateStyle,
+  AddStyle,
+  DeleteStyle,
   CleanupFormat,
   ClearRange,
   InsertRow,
@@ -87,12 +91,12 @@ function showConfirmDialog(message) {
     // Set message
     messageEl.textContent = message;
 
-    // Show modal
-    overlay.classList.add('active');
+    // Show modal (z-index above other modals so confirm appears on top)
+    overlay.classList.add('active', 'modal-confirm');
 
     // Handle OK
     const handleOk = () => {
-      overlay.classList.remove('active');
+      overlay.classList.remove('active', 'modal-confirm');
       okBtn.removeEventListener('click', handleOk);
       cancelBtn.removeEventListener('click', handleCancel);
       document.removeEventListener('keydown', handleKeyDown);
@@ -102,7 +106,7 @@ function showConfirmDialog(message) {
 
     // Handle Cancel
     const handleCancel = () => {
-      overlay.classList.remove('active');
+      overlay.classList.remove('active', 'modal-confirm');
       okBtn.removeEventListener('click', handleOk);
       cancelBtn.removeEventListener('click', handleCancel);
       document.removeEventListener('keydown', handleKeyDown);
@@ -339,6 +343,68 @@ document.querySelector('#app').innerHTML = `
             <div class="modal-body user-guide-content" id="user-guide-content"></div>
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-primary" id="user-guide-close">Close</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="manage-styles-modal" role="dialog" aria-modal="true" aria-labelledby="manage-styles-header">
+        <div class="modal-dialog modal-dialog-large">
+            <div class="modal-header">
+                <h2 id="manage-styles-header">Manage Styles</h2>
+            </div>
+            <div class="modal-body">
+                <div class="manage-styles-toolbar">
+                    <button type="button" class="modal-btn modal-btn-primary" id="manage-styles-add">Add Style</button>
+                </div>
+                <div id="manage-styles-list" class="manage-styles-list"></div>
+                <div id="manage-styles-form" class="manage-styles-form" style="display:none">
+                    <h3 id="manage-styles-form-title">Edit Style</h3>
+                    <div class="manage-styles-form-row">
+                        <label for="manage-styles-name">Name</label>
+                        <input type="text" id="manage-styles-name" />
+                    </div>
+                    <div class="manage-styles-form-row">
+                        <label>Font</label>
+                        <div class="manage-styles-form-inline">
+                            <input type="text" id="manage-styles-font-name" placeholder="Font name" />
+                            <input type="number" id="manage-styles-font-size" placeholder="Size" min="8" max="72" />
+                            <label><input type="checkbox" id="manage-styles-font-bold" /> Bold</label>
+                            <label><input type="checkbox" id="manage-styles-font-italic" /> Italic</label>
+                            <input type="text" id="manage-styles-font-color" placeholder="#000000" />
+                        </div>
+                    </div>
+                    <div class="manage-styles-form-row">
+                        <label>Fill</label>
+                        <div class="manage-styles-form-inline">
+                            <select id="manage-styles-fill-pattern">
+                                <option value="none">None</option>
+                                <option value="solid">Solid</option>
+                            </select>
+                            <input type="text" id="manage-styles-fill-color" placeholder="#E0E0E0" />
+                        </div>
+                    </div>
+                    <div class="manage-styles-form-row">
+                        <label>Alignment</label>
+                        <div class="manage-styles-form-inline">
+                            <select id="manage-styles-align-h">
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                            </select>
+                            <select id="manage-styles-align-v">
+                                <option value="top">Top</option>
+                                <option value="center">Center</option>
+                                <option value="bottom">Bottom</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="manage-styles-form-buttons">
+                        <button type="button" class="modal-btn modal-btn-secondary" id="manage-styles-form-cancel">Cancel</button>
+                        <button type="button" class="modal-btn modal-btn-primary" id="manage-styles-form-save">Save</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-primary" id="manage-styles-close">Close</button>
             </div>
         </div>
     </div>
@@ -1437,7 +1503,7 @@ function finishEditing(row, col, value, cell) {
 const STYLE_CLASSES = ['style-title', 'style-header', 'style-total'];
 const STYLE_ID = { TITLE: 1, HEADER: 2, TOTAL: 3 };
 
-function applyCellValue(cell, value, rawValue, styleId) {
+function applyCellValue(cell, value, rawValue, styleId, styleFormats = null) {
   cell.textContent = value;
   cell.classList.toggle('error-cell', !!value && value.startsWith('#ERROR'));
   if ((rawValue ?? '').startsWith('=')) {
@@ -1451,14 +1517,35 @@ function applyCellValue(cell, value, rawValue, styleId) {
   cell.classList.toggle('number-cell', !!isNum);
   // Story 12.2: Apply style classes (1=Title, 2=Header, 3=Total)
   STYLE_CLASSES.forEach((c) => cell.classList.remove(c));
+  cell.style.textAlign = '';
+  cell.style.verticalAlign = '';
   if (styleId >= STYLE_ID.TITLE && styleId <= STYLE_ID.TOTAL) {
     cell.classList.add(STYLE_CLASSES[styleId - 1]);
+    // Apply alignment from style format (overrides CSS class when user edits style)
+    const format = styleFormats?.find((s) => s.id === styleId)?.format;
+    if (format?.alignment) {
+      if (format.alignment.horizontal)
+        cell.style.textAlign = format.alignment.horizontal;
+      if (format.alignment.vertical)
+        cell.style.verticalAlign = format.alignment.vertical;
+    }
+  } else if (styleId > 0 && styleFormats) {
+    // Custom styles (id > 3): apply full format as inline style
+    const style = styleFormats.find((s) => s.id === styleId);
+    const format = style?.format;
+    if (format) {
+      const css = formatToCssPreview(format);
+      for (const [k, v] of Object.entries(css)) {
+        const prop = k.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
+        cell.style.setProperty(prop, v);
+      }
+    }
   }
 }
 
 async function refreshAllCells() {
   try {
-    const cells = await GetAllCells();
+    const [cells, styles] = await Promise.all([GetAllCells(), GetStyles()]);
     const cleared = new Set();
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
@@ -1467,6 +1554,8 @@ async function refreshAllCells() {
           cleared.add(cell);
           cell.textContent = '';
           cell.classList.remove('formula-cell', 'error-cell', ...STYLE_CLASSES);
+          cell.style.textAlign = '';
+          cell.style.verticalAlign = '';
         }
       }
     }
@@ -1482,7 +1571,8 @@ async function refreshAllCells() {
             cell,
             cellData.display,
             cellData.raw ?? '',
-            cellData.styleId
+            cellData.styleId,
+            styles
           );
       }
     }
@@ -1510,7 +1600,7 @@ function cancelEditing(cell, originalContent) {
 
 async function loadCells() {
   try {
-    const cells = await GetAllCells();
+    const [cells, styles] = await Promise.all([GetAllCells(), GetStyles()]);
     for (const [ref, cellData] of Object.entries(cells)) {
       const match = ref.match(/([A-Z]+)(\d+)/);
       if (match) {
@@ -1523,7 +1613,8 @@ async function loadCells() {
             cell,
             cellData.display,
             cellData.raw ?? '',
-            cellData.styleId
+            cellData.styleId,
+            styles
           );
       }
     }
@@ -2049,6 +2140,231 @@ function showFormulaHelpModal() {
   modal.addEventListener('click', handleOverlayClick);
 }
 
+// Story 13.3: Manage Styles modal - preview applies style to the name text
+function formatToCssPreview(f) {
+  if (!f) return {};
+  const font = f.font;
+  const fill = f.fill;
+  const alignment = f.alignment;
+  const css = {};
+  if (font?.name) css.fontFamily = font.name;
+  if (font?.size) css.fontSize = `${font.size}pt`;
+  if (font?.bold) css.fontWeight = 'bold';
+  if (font?.italic) css.fontStyle = 'italic';
+  if (font?.color) css.color = font.color;
+  if (fill?.pattern === 'solid' && fill?.fgColor)
+    css.backgroundColor = fill.fgColor;
+  if (alignment?.horizontal) css.textAlign = alignment.horizontal;
+  if (alignment?.vertical) css.verticalAlign = alignment.vertical;
+  return css;
+}
+
+function formatFromForm() {
+  return {
+    font: {
+      name:
+        document.getElementById('manage-styles-font-name')?.value ||
+        'Helvetica',
+      size:
+        parseInt(
+          document.getElementById('manage-styles-font-size')?.value || '12',
+          10
+        ) || 12,
+      bold:
+        document.getElementById('manage-styles-font-bold')?.checked || false,
+      italic:
+        document.getElementById('manage-styles-font-italic')?.checked || false,
+      color:
+        document.getElementById('manage-styles-font-color')?.value || '#000000',
+    },
+    fill: {
+      pattern:
+        document.getElementById('manage-styles-fill-pattern')?.value || 'none',
+      fgColor:
+        document.getElementById('manage-styles-fill-color')?.value || '#E0E0E0',
+      bgColor:
+        document.getElementById('manage-styles-fill-color')?.value || '#E0E0E0',
+    },
+    border: {
+      left: { style: 'none', color: '' },
+      right: { style: 'none', color: '' },
+      top: { style: 'none', color: '' },
+      bottom: { style: 'none', color: '' },
+    },
+    alignment: {
+      horizontal:
+        document.getElementById('manage-styles-align-h')?.value || 'left',
+      vertical:
+        document.getElementById('manage-styles-align-v')?.value || 'center',
+    },
+  };
+}
+
+function populateFormFromFormat(style) {
+  const f = style?.format || {};
+  const el = (id) => document.getElementById(id);
+  if (el('manage-styles-name'))
+    el('manage-styles-name').value = style?.name || '';
+  if (el('manage-styles-font-name'))
+    el('manage-styles-font-name').value = f.font?.name || 'Helvetica';
+  if (el('manage-styles-font-size'))
+    el('manage-styles-font-size').value = String(f.font?.size || 12);
+  if (el('manage-styles-font-bold'))
+    el('manage-styles-font-bold').checked = f.font?.bold || false;
+  if (el('manage-styles-font-italic'))
+    el('manage-styles-font-italic').checked = f.font?.italic || false;
+  if (el('manage-styles-font-color'))
+    el('manage-styles-font-color').value = f.font?.color || '#000000';
+  if (el('manage-styles-fill-pattern'))
+    el('manage-styles-fill-pattern').value = f.fill?.pattern || 'none';
+  if (el('manage-styles-fill-color'))
+    el('manage-styles-fill-color').value =
+      f.fill?.fgColor || f.fill?.bgColor || '#E0E0E0';
+  if (el('manage-styles-align-h'))
+    el('manage-styles-align-h').value = f.alignment?.horizontal || 'left';
+  if (el('manage-styles-align-v'))
+    el('manage-styles-align-v').value = f.alignment?.vertical || 'center';
+}
+
+async function showManageStylesModal() {
+  const modal = document.getElementById('manage-styles-modal');
+  const listEl = document.getElementById('manage-styles-list');
+  const formEl = document.getElementById('manage-styles-form');
+  const formTitle = document.getElementById('manage-styles-form-title');
+  const addBtn = document.getElementById('manage-styles-add');
+  const closeBtn = document.getElementById('manage-styles-close');
+  const formCancel = document.getElementById('manage-styles-form-cancel');
+  const formSave = document.getElementById('manage-styles-form-save');
+  if (!modal || !listEl) return;
+
+  let editingId = null;
+
+  const renderList = async () => {
+    try {
+      const styles = await GetStyles();
+      listEl.innerHTML = styles
+        .map((s) => {
+          const previewStyle = formatToCssPreview(s.format);
+          const styleStr = Object.entries(previewStyle)
+            .map(
+              ([k, v]) =>
+                `${k.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase())}:${v}`
+            )
+            .join(';');
+          return `
+<div class="manage-styles-item" data-id="${s.id}">
+  <div class="manage-styles-preview" style="${styleStr}">${s.name || 'Style ' + s.id}</div>
+  <div class="manage-styles-actions">
+    <button type="button" class="modal-btn modal-btn-secondary manage-styles-edit" data-id="${s.id}">Edit</button>
+    <button type="button" class="modal-btn modal-btn-secondary manage-styles-delete" data-id="${s.id}">Delete</button>
+  </div>
+</div>`;
+        })
+        .join('');
+      listEl.querySelectorAll('.manage-styles-edit').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = parseInt(btn.dataset.id, 10);
+          const all = await GetStyles();
+          const style = all.find((s) => s.id === id);
+          if (style) {
+            editingId = id;
+            formTitle.textContent = 'Edit Style';
+            document.getElementById('manage-styles-name').disabled = true;
+            populateFormFromFormat(style);
+            formEl.style.display = 'block';
+          }
+        });
+      });
+      listEl.querySelectorAll('.manage-styles-delete').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = parseInt(btn.dataset.id, 10);
+          const all = await GetStyles();
+          const style = all.find((s) => s.id === id);
+          const name = style && style.name ? style.name : 'Style ' + id;
+          const confirmed = await showConfirmDialog(
+            `Delete style "${name}"? Cells using it will lose their formatting.`
+          );
+          if (!confirmed) return;
+          try {
+            await DeleteStyle(id);
+            if (displayFileStatus) displayFileStatus(true);
+            await renderList();
+            await buildSpreadsheet();
+            refreshAllCells();
+          } catch (err) {
+            await showAlert('Error deleting style: ' + err.message);
+          }
+        });
+      });
+    } catch (err) {
+      listEl.innerHTML =
+        '<p class="manage-styles-error">Error loading styles: ' +
+        err.message +
+        '</p>';
+    }
+  };
+
+  const hideForm = () => {
+    formEl.style.display = 'none';
+    editingId = null;
+    const nameEl = document.getElementById('manage-styles-name');
+    if (nameEl) nameEl.disabled = false;
+  };
+
+  const handleAddClick = () => {
+    editingId = null;
+    formTitle.textContent = 'Add Style';
+    document.getElementById('manage-styles-name').disabled = false;
+    populateFormFromFormat({ name: '', format: {} });
+    formEl.style.display = 'block';
+  };
+
+  addBtn?.addEventListener('click', handleAddClick);
+
+  formCancel?.addEventListener('click', hideForm);
+  formSave?.addEventListener('click', async () => {
+    const name = document.getElementById('manage-styles-name')?.value?.trim();
+    const format = formatFromForm();
+    if (!name && !editingId) {
+      await showAlert('Please enter a style name.');
+      return;
+    }
+    try {
+      if (editingId) {
+        await UpdateStyle(editingId, format);
+      } else {
+        await AddStyle(name, format);
+      }
+      if (displayFileStatus) displayFileStatus(true);
+      hideForm();
+      await renderList();
+      await buildSpreadsheet();
+      refreshAllCells();
+    } catch (err) {
+      await showAlert('Error saving style: ' + err.message);
+    }
+  });
+
+  const handleClose = () => {
+    modal.classList.remove('active');
+    removeFocusTrap?.();
+    closeBtn.removeEventListener('click', handleClose);
+    modal.removeEventListener('click', handleOverlayClick);
+    buildSpreadsheet().then(() => refreshAllCells());
+  };
+
+  const removeFocusTrap = setupDialogFocusTrap(modal, handleClose);
+  const handleOverlayClick = (e) => {
+    if (e.target === modal) handleClose();
+  };
+
+  modal.classList.add('active');
+  formEl.style.display = 'none';
+  await renderList();
+  closeBtn.addEventListener('click', handleClose);
+  modal.addEventListener('click', handleOverlayClick);
+}
+
 async function showUserGuideModal() {
   const modal = document.getElementById('user-guide-modal');
   const contentEl = document.getElementById('user-guide-content');
@@ -2140,6 +2456,7 @@ async function handleExportCSV(testPath = '') {
 window.handleExportCSV = handleExportCSV;
 window.showAlert = showAlert;
 window.ExportCSV = ExportCSV;
+window.showManageStylesModal = showManageStylesModal;
 
 // Update file status display
 /**
@@ -2471,6 +2788,13 @@ if (window.electronAPI) {
       console.error('[App] Error during Format Cleanup:', error);
       await showAlert('Error during Format Cleanup: ' + error.message);
     }
+  });
+
+  // Story 13.3: Manage Styles
+  window.electronAPI.onMenuManageStyles?.(() => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    showManageStylesModal();
   });
 
   // Story 13.1: Insert row above

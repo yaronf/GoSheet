@@ -145,6 +145,10 @@ input[type='text'].formula-bar {
   display: flex;
 }
 
+.modal-overlay.modal-confirm {
+  z-index: 10001;
+}
+
 .modal-dialog {
   background: var(--color-bg-primary) !important;
   border-radius: 8px;
@@ -999,4 +1003,89 @@ input:focus-visible,
   height: 1px;
   margin: var(--spacing-xs) 0;
   background: var(--color-border);
+}
+
+/* Story 13.3: Manage Styles modal */
+.manage-styles-toolbar {
+  margin-bottom: var(--spacing-md);
+}
+
+.manage-styles-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.manage-styles-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+}
+
+.manage-styles-preview {
+  padding: 6px 12px;
+  min-width: 120px;
+  min-height: 1.5em;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.manage-styles-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.manage-styles-form {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.manage-styles-form h3 {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: 16px;
+}
+
+.manage-styles-form-row {
+  margin-bottom: var(--spacing-sm);
+}
+
+.manage-styles-form-row label {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+
+.manage-styles-form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.manage-styles-form-inline input[type='text'],
+.manage-styles-form-inline input[type='number'],
+.manage-styles-form-inline select {
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.manage-styles-form-inline input[type='number'] {
+  width: 60px;
+}
+
+.manage-styles-form-buttons {
+  margin-top: var(--spacing-md);
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.manage-styles-error {
+  color: var(--color-error, #c00);
 }

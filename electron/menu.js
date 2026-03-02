@@ -365,6 +365,17 @@ function buildMenu(recentFiles = [], onClearRecent) {
             }
           },
         },
+        { type: 'separator' },
+        {
+          id: 'manage-styles',
+          label: 'Manage Styles...',
+          click: () => {
+            if (DEBUG) console.log('[Menu] Manage Styles triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-manage-styles');
+            }
+          },
+        },
       ],
     },
 
