@@ -14,7 +14,7 @@ async function waitForServer(maxAttempts = 30) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
       await new Promise((resolve, reject) => {
-        const req = http.get(`http://localhost:${PORT}/`, (res) => {
+        const req = http.get(`http://localhost:${PORT}/`, (_res) => {
           resolve();
         });
         req.on('error', reject);
@@ -36,9 +36,7 @@ module.exports = async () => {
   const serverPath = path.join(projectRoot, 'server', 'gosheet-server');
 
   if (!fs.existsSync(serverPath)) {
-    throw new Error(
-      `Go server not found at ${serverPath}. Run: make build`
-    );
+    throw new Error(`Go server not found at ${serverPath}. Run: make build`);
   }
 
   serverProcess = spawn(serverPath, ['--port', String(PORT)], {

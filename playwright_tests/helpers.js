@@ -5,8 +5,12 @@ const { expect } = require('@playwright/test');
 
 async function ensureSpreadsheetView(window) {
   await Promise.race([
-    window.locator('#welcome-screen').waitFor({ state: 'visible', timeout: 5000 }),
-    window.locator('#spreadsheet-view').waitFor({ state: 'visible', timeout: 5000 }),
+    window
+      .locator('#welcome-screen')
+      .waitFor({ state: 'visible', timeout: 5000 }),
+    window
+      .locator('#spreadsheet-view')
+      .waitFor({ state: 'visible', timeout: 5000 }),
   ]);
   if (await window.locator('#welcome-screen').isVisible()) {
     await window.locator('#welcome-btn-new').click();
@@ -178,7 +182,14 @@ async function setMergeViaApi(window, startRow, startCol, rowSpan, colSpan) {
  * Apply style to range via backend API. Story 12.2.
  * Calls refreshAllCells so grid shows the style.
  */
-async function setStyleViaApi(window, startRow, startCol, endRow, endCol, styleId) {
+async function setStyleViaApi(
+  window,
+  startRow,
+  startCol,
+  endRow,
+  endCol,
+  styleId
+) {
   const result = await window.evaluate(
     async (arg) => {
       const { startRow, startCol, endRow, endCol, styleId } = arg;
