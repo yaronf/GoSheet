@@ -75,8 +75,10 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await window.waitForTimeout(200);
 
     await window.evaluate(() => window.showManageStylesModal?.());
-    await window.waitForTimeout(200);
-    await window.locator('.manage-styles-delete[data-id="4"]').click();
+    await expect(window.locator('#manage-styles-modal')).toBeVisible();
+    await window
+      .locator('.manage-styles-item:has-text("Custom") .manage-styles-delete')
+      .click();
     await expect(window.locator('#modal-overlay.active')).toBeVisible({
       timeout: 3000,
     });
