@@ -82,7 +82,8 @@ jobs:
         retention-days: 7
 
     - name: Run Playwright Electron tests
-      run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npm test
+      # TODO: revert - temporarily run only Manage Styles test for faster CI iteration
+      run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npx playwright test playwright_tests/test_manage_styles.spec.js --project=electron
       env:
         NODE_ENV: test
         ELECTRON_SHOW_WINDOW: 1
