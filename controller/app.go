@@ -375,9 +375,9 @@ func (c *AppController) GetStyles() []model.StyleInfo {
 	return result
 }
 
-// UpdateStyle updates the format for an existing style. Story 13.3.
-func (c *AppController) UpdateStyle(id int, format *model.CellFormat) error {
-	if err := c.Sheet.Styles.UpdateStyle(id, format); err != nil {
+// UpdateStyle updates the format (and optionally name) for an existing style. Story 13.3.
+func (c *AppController) UpdateStyle(id int, format *model.CellFormat, name string) error {
+	if err := c.Sheet.Styles.UpdateStyle(id, format, name); err != nil {
 		return err
 	}
 	c.Sheet.Modified = true

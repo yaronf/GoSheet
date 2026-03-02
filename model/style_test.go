@@ -61,13 +61,13 @@ func TestStyleRegistry_UpdateStyle(t *testing.T) {
 	r := NewStyleRegistry()
 	f := r.GetFormat(1)
 	f.Font.Size = 24
-	if err := r.UpdateStyle(1, f); err != nil {
+	if err := r.UpdateStyle(1, f, ""); err != nil {
 		t.Fatal(err)
 	}
 	if r.GetFormat(1).Font.Size != 24 {
 		t.Error("UpdateStyle should have updated format")
 	}
-	if err := r.UpdateStyle(0, f); err == nil {
+	if err := r.UpdateStyle(0, f, ""); err == nil {
 		t.Error("UpdateStyle(0) should error")
 	}
 }

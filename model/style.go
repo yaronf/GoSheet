@@ -1,6 +1,10 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+
+	"gosheet/logutil"
+)
 
 // Built-in style IDs. 0 = no style.
 const (
@@ -161,7 +165,9 @@ func (r *StyleRegistry) GetStyleNameByID(styleID int) string {
 }
 
 // UpdateStyle updates the format at the given style ID. Id must be 1..len(Formats).
-func (r *StyleRegistry) UpdateStyle(id int, format *CellFormat) error {
+// If name is non-empty, also updates the style name in Names. When name equals
+// the current name for this id, it is allowed (no duplicate check).
+func (r *StyleRegistry) UpdateStyle(id int, format *CellFormat, name string) error {
 	if r == nil || format == nil {
 		return fmt.Errorf("nil registry or format")
 	}
@@ -169,6 +175,25 @@ func (r *StyleRegistry) UpdateStyle(id int, format *CellFormat) error {
 		return fmt.Errorf("invalid style id %d", id)
 	}
 	r.Formats[id-1] = *format
+	logutil.Debugf("[UpdateStyle] id=%d name=%q (len=%d) Names=%v", id, name, len(name), r.Names)
+	if name != "" && r.Names != nil {
+		// If name already points to this id, no update needed (format-only edit)
+		if r.Names[name] == id {
+			logutil.Debugf("[UpdateStyle] name %q already points to id %d, skipping Names update", name, id)
+			return nil
+		}
+		if existingID, exists := r.Names[name]; exists && existingID != id {
+			logutil.Debugf("[UpdateStyle] ERROR: name %q exists for id %d, we are id %d", name, existingID, id)
+			return fmt.Errorf("style name %q already exists", name)
+		}
+		for n, tid := range r.Names {
+			if tid == id {
+				delete(r.Names, n)
+				break
+			}
+		}
+		r.Names[name] = id
+	}
 	return nil
 }
 

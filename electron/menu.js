@@ -44,6 +44,10 @@ let menuState = {
   canInsertColumn: false,
 };
 
+// Cache for rebuild when syncing Format menu styles
+let cachedRecentFiles = [];
+let cachedOnClearRecent = null;
+
 /**
  * Initialize menu system
  * @param {BrowserWindow} window - Main application window
@@ -91,19 +95,63 @@ function buildRecentFilesSubmenu(recentFiles, onClear) {
  * @param {Array<string>} [recentFiles] - Recent file paths for Open Recent submenu
  * @param {Function} [onClearRecent] - Callback when Clear Recent is clicked
  */
-function buildMenu(recentFiles = [], onClearRecent) {
+function buildMenu(recentFiles = [], onClearRecent, styles = null) {
   if (DEBUG)
     console.log(
       '[Menu] Building menu, platform:',
       process.platform,
       'recentFiles:',
-      recentFiles?.length
+      recentFiles?.length,
+      'styles:',
+      styles?.length ?? 'default'
     );
 
+  cachedRecentFiles = recentFiles || [];
+  cachedOnClearRecent = onClearRecent;
+
   const recentSubmenu = buildRecentFilesSubmenu(
-    recentFiles || [],
-    onClearRecent
+    cachedRecentFiles,
+    cachedOnClearRecent
   );
+
+  // Build Format style items: Title, Header, Total + custom styles (Story 13.3)
+  const styleItems =
+    styles && styles.length > 0
+      ? styles.map((s) => {
+          const item = {
+            id: `style-${s.id}`,
+            label: s.name || 'Style ' + s.id,
+            click: () => {
+              if (mainWindow) {
+                mainWindow.webContents.send('menu-apply-style', s.id);
+              }
+            },
+          };
+          if (s.id === 1) item.accelerator = 'CmdOrCtrl+Shift+1';
+          if (s.id === 2) item.accelerator = 'CmdOrCtrl+Shift+2';
+          if (s.id === 3) item.accelerator = 'CmdOrCtrl+Shift+3';
+          return item;
+        })
+      : [
+          {
+            id: 'style-title',
+            label: 'Title',
+            accelerator: 'CmdOrCtrl+Shift+1',
+            click: () => mainWindow?.webContents.send('menu-apply-style', 1),
+          },
+          {
+            id: 'style-header',
+            label: 'Header',
+            accelerator: 'CmdOrCtrl+Shift+2',
+            click: () => mainWindow?.webContents.send('menu-apply-style', 2),
+          },
+          {
+            id: 'style-total',
+            label: 'Total',
+            accelerator: 'CmdOrCtrl+Shift+3',
+            click: () => mainWindow?.webContents.send('menu-apply-style', 3),
+          },
+        ];
 
   const template = [
     // macOS app menu (automatically added by Electron on macOS)
@@ -321,39 +369,7 @@ function buildMenu(recentFiles = [], onClearRecent) {
           },
         },
         { type: 'separator' },
-        {
-          id: 'style-title',
-          label: 'Title',
-          accelerator: 'CmdOrCtrl+Shift+1',
-          click: () => {
-            if (DEBUG) console.log('[Menu] Style Title triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-style-title');
-            }
-          },
-        },
-        {
-          id: 'style-header',
-          label: 'Header',
-          accelerator: 'CmdOrCtrl+Shift+2',
-          click: () => {
-            if (DEBUG) console.log('[Menu] Style Header triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-style-header');
-            }
-          },
-        },
-        {
-          id: 'style-total',
-          label: 'Total',
-          accelerator: 'CmdOrCtrl+Shift+3',
-          click: () => {
-            if (DEBUG) console.log('[Menu] Style Total triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-style-total');
-            }
-          },
-        },
+        ...styleItems,
         { type: 'separator' },
         {
           id: 'format-cleanup',
@@ -563,8 +579,21 @@ function updateRecentFiles(recentFiles, options = {}) {
   updateMenuState(menuState);
 }
 
+/**
+ * Story 13.3: Sync Format menu with custom styles from API.
+ * Rebuilds Format submenu with Title, Header, Total + any custom styles.
+ * @param {Array<{id: number, name: string}>} styles - From GET /api/styles
+ */
+function updateFormatMenuStyles(styles) {
+  if (DEBUG)
+    console.log('[Menu] Syncing Format menu with', styles?.length, 'styles');
+  buildMenu(cachedRecentFiles, cachedOnClearRecent, styles || []);
+  updateMenuState(menuState);
+}
+
 module.exports = {
   initializeMenu,
   updateMenuState,
   updateRecentFiles,
+  updateFormatMenuStyles,
 };

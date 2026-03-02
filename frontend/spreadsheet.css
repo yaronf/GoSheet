@@ -1006,6 +1006,40 @@ input:focus-visible,
 }
 
 /* Story 13.3: Manage Styles modal */
+/* Reset Pico form styles inside Manage Styles so our layout controls alignment */
+#manage-styles-modal label,
+#manage-styles-modal input,
+#manage-styles-modal select,
+#manage-styles-modal output {
+  margin: 0;
+  line-height: 1.2;
+}
+
+#manage-styles-modal label {
+  margin-bottom: 0;
+}
+
+/* Override Pico input height - hex inputs and text inputs must not grow, align at 28px */
+#manage-styles-modal input[type='text'],
+#manage-styles-modal .manage-styles-hex {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 1.2 !important;
+  box-sizing: border-box !important;
+}
+
+/* Hex inputs: comfortable width for #000000 */
+#manage-styles-modal .manage-styles-hex {
+  width: 62px !important;
+  min-width: 62px !important;
+  max-width: 62px !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+
 .manage-styles-toolbar {
   margin-bottom: var(--spacing-md);
 }
@@ -1025,7 +1059,7 @@ input:focus-visible,
   padding: var(--spacing-sm);
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: var(--color-bg);
+  background: var(--color-bg-surface);
 }
 
 .manage-styles-preview {
@@ -1052,32 +1086,195 @@ input:focus-visible,
   font-size: 16px;
 }
 
-.manage-styles-form-row {
-  margin-bottom: var(--spacing-sm);
-}
-
-.manage-styles-form-row label {
-  display: block;
-  margin-bottom: 2px;
-  font-size: 13px;
-}
-
-.manage-styles-form-inline {
+.manage-styles-form-body {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* Section: title + content */
+.manage-styles-section {
+  display: flex;
+  flex-direction: column;
   gap: var(--spacing-sm);
+}
+
+.manage-styles-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Row: horizontal layout - all items vertically centered */
+.manage-styles-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 32px;
+}
+
+.manage-styles-row-wrap {
+  flex-wrap: wrap;
+  align-content: center;
+}
+
+/* Alignment row: compact gap between Horizontal and Vertical */
+.manage-styles-align-row {
+  gap: 12px;
+}
+
+/* Borders row: extra space before color section for visual separation */
+.manage-styles-borders-row .manage-styles-field.manage-styles-color {
+  margin-left: 24px;
+}
+
+/* Field: label + control - strict vertical centering */
+.manage-styles-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.manage-styles-label {
+  width: 64px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  margin: 0;
+  line-height: 28px;
+  height: 28px;
+  display: inline-flex;
   align-items: center;
 }
 
-.manage-styles-form-inline input[type='text'],
-.manage-styles-form-inline input[type='number'],
-.manage-styles-form-inline select {
-  padding: 4px 8px;
-  font-size: 13px;
+/* Color label: tight so "Color" sits close to the picker */
+.manage-styles-field.manage-styles-color .manage-styles-label {
+  width: 38px;
 }
 
-.manage-styles-form-inline input[type='number'] {
-  width: 60px;
+.manage-styles-field.manage-styles-color {
+  gap: 4px;
+}
+
+/* Name row: label + input + required marker */
+.manage-styles-row .manage-styles-input {
+  flex: 1;
+  min-width: 120px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.manage-styles-row .manage-styles-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.manage-styles-required {
+  color: var(--color-error, #c00);
+  margin-left: 2px;
+}
+
+/* Checkbox - vertically centered with row */
+.manage-styles-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  margin: 0;
+  cursor: pointer;
+  min-height: 28px;
+}
+
+.manage-styles-check input[type='checkbox'] {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+
+/* Select - match control height */
+.manage-styles-field select {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  min-width: 100px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-primary);
+  box-sizing: border-box;
+}
+
+/* Size: range + output + unit - all 28px tall for alignment */
+.manage-styles-size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+}
+
+/* Pull "pt" closer to the number */
+.manage-styles-size-control output + .manage-styles-unit {
+  margin-left: -4px;
+}
+
+.manage-styles-size-control input[type='range'] {
+  width: 72px;
+  height: 20px;
+  margin: 0;
+  vertical-align: middle;
+}
+
+.manage-styles-size-control output {
+  min-width: 22px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.manage-styles-unit {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* Color: picker + hex - consistent 28px height */
+.manage-styles-color-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+}
+
+.manage-styles-color-control input[type='color'] {
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.manage-styles-hex {
+  width: 62px;
+  height: 28px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-family: var(--font-family-mono);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-sizing: border-box;
 }
 
 .manage-styles-form-buttons {

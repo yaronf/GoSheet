@@ -3,7 +3,7 @@
 **Epic:** 13 - Spreadsheet UX & Polish  
 **Story:** 13.3b  
 **Estimated Effort:** 3–4 hours  
-**Status:** backlog  
+**Status:** done  
 **Depends on:** 13.3 (done)  
 **Created:** 2026-02-27  
 **Source:** sprint-change-proposal-2026-02-27.md

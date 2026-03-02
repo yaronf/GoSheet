@@ -291,9 +291,7 @@ document.querySelector('#app').innerHTML = `
         <button type="button" class="context-menu-item" data-action="copy">Copy</button>
         <button type="button" class="context-menu-item" data-action="paste">Paste</button>
         <div class="context-menu-separator"></div>
-        <button type="button" class="context-menu-item" data-action="format-title">Title</button>
-        <button type="button" class="context-menu-item" data-action="format-header">Header</button>
-        <button type="button" class="context-menu-item" data-action="format-total">Total</button>
+        <div id="context-menu-format-items"></div>
         <div class="context-menu-separator"></div>
         <button type="button" class="context-menu-item" data-action="clear">Clear</button>
     </div>
@@ -358,43 +356,96 @@ document.querySelector('#app').innerHTML = `
                 <div id="manage-styles-list" class="manage-styles-list"></div>
                 <div id="manage-styles-form" class="manage-styles-form" style="display:none">
                     <h3 id="manage-styles-form-title">Edit Style</h3>
-                    <div class="manage-styles-form-row">
-                        <label for="manage-styles-name">Name</label>
-                        <input type="text" id="manage-styles-name" />
-                    </div>
-                    <div class="manage-styles-form-row">
-                        <label>Font</label>
-                        <div class="manage-styles-form-inline">
-                            <input type="text" id="manage-styles-font-name" placeholder="Font name" />
-                            <input type="number" id="manage-styles-font-size" placeholder="Size" min="8" max="72" />
-                            <label><input type="checkbox" id="manage-styles-font-bold" /> Bold</label>
-                            <label><input type="checkbox" id="manage-styles-font-italic" /> Italic</label>
-                            <input type="text" id="manage-styles-font-color" placeholder="#000000" />
+                    <div class="manage-styles-form-body">
+                        <div class="manage-styles-row">
+                            <label for="manage-styles-name" class="manage-styles-label">Name <span class="manage-styles-required" aria-hidden="true">*</span></label>
+                            <input type="text" id="manage-styles-name" class="manage-styles-input" required aria-required="true" placeholder="Style name" />
                         </div>
-                    </div>
-                    <div class="manage-styles-form-row">
-                        <label>Fill</label>
-                        <div class="manage-styles-form-inline">
-                            <select id="manage-styles-fill-pattern">
-                                <option value="none">None</option>
-                                <option value="solid">Solid</option>
-                            </select>
-                            <input type="text" id="manage-styles-fill-color" placeholder="#E0E0E0" />
+                        <div class="manage-styles-section">
+                            <div class="manage-styles-section-title">Font</div>
+                            <div class="manage-styles-row manage-styles-row-wrap">
+                                <div class="manage-styles-field">
+                                    <label for="manage-styles-font-name" class="manage-styles-label">Family</label>
+                                    <select id="manage-styles-font-name" aria-label="Font family">
+                                        <option value="Arial">Arial</option>
+                                        <option value="Helvetica">Helvetica</option>
+                                        <option value="Times New Roman">Times New Roman</option>
+                                        <option value="Courier">Courier</option>
+                                        <option value="Georgia">Georgia</option>
+                                    </select>
+                                </div>
+                                <div class="manage-styles-field">
+                                    <label for="manage-styles-font-size" class="manage-styles-label">Size</label>
+                                    <span class="manage-styles-size-control">
+                                        <input type="range" id="manage-styles-font-size" min="8" max="72" value="12" aria-label="Font size" />
+                                        <output id="manage-styles-font-size-value" for="manage-styles-font-size">12</output>
+                                        <span class="manage-styles-unit">pt</span>
+                                    </span>
+                                </div>
+                                <label class="manage-styles-check"><input type="checkbox" id="manage-styles-font-bold" /> Bold</label>
+                                <label class="manage-styles-check"><input type="checkbox" id="manage-styles-font-italic" /> Italic</label>
+                                <div class="manage-styles-field manage-styles-color">
+                                    <label for="manage-styles-font-color-picker" class="manage-styles-label">Color</label>
+                                    <span class="manage-styles-color-control">
+                                        <input type="color" id="manage-styles-font-color-picker" value="#000000" aria-label="Font color" />
+                                        <input type="text" id="manage-styles-font-color" class="manage-styles-hex" placeholder="#000000" maxlength="7" aria-label="Font color hex" />
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="manage-styles-form-row">
-                        <label>Alignment</label>
-                        <div class="manage-styles-form-inline">
-                            <select id="manage-styles-align-h">
-                                <option value="left">Left</option>
-                                <option value="center">Center</option>
-                                <option value="right">Right</option>
-                            </select>
-                            <select id="manage-styles-align-v">
-                                <option value="top">Top</option>
-                                <option value="center">Center</option>
-                                <option value="bottom">Bottom</option>
-                            </select>
+                        <div class="manage-styles-section">
+                            <div class="manage-styles-section-title">Fill</div>
+                            <div class="manage-styles-row">
+                                <label class="manage-styles-check">
+                                    <input type="checkbox" id="manage-styles-fill-enabled" aria-label="Fill background" />
+                                    Enable
+                                </label>
+                                <div class="manage-styles-field manage-styles-color" id="manage-styles-fill-color-wrap">
+                                    <label for="manage-styles-fill-color-picker" class="manage-styles-label">Color</label>
+                                    <span class="manage-styles-color-control">
+                                        <input type="color" id="manage-styles-fill-color-picker" value="#E0E0E0" aria-label="Fill color" />
+                                        <input type="text" id="manage-styles-fill-color" class="manage-styles-hex" placeholder="#E0E0E0" maxlength="7" aria-label="Fill color hex" />
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="manage-styles-section">
+                            <div class="manage-styles-section-title">Borders</div>
+                            <div class="manage-styles-row manage-styles-row-wrap manage-styles-borders-row">
+                                <label class="manage-styles-check"><input type="checkbox" id="manage-styles-border-left" aria-label="Left border" /> Left</label>
+                                <label class="manage-styles-check"><input type="checkbox" id="manage-styles-border-right" aria-label="Right border" /> Right</label>
+                                <label class="manage-styles-check"><input type="checkbox" id="manage-styles-border-top" aria-label="Top border" /> Top</label>
+                                <label class="manage-styles-check"><input type="checkbox" id="manage-styles-border-bottom" aria-label="Bottom border" /> Bottom</label>
+                                <div class="manage-styles-field manage-styles-color">
+                                    <label for="manage-styles-border-color-picker" class="manage-styles-label">Color</label>
+                                    <span class="manage-styles-color-control">
+                                        <input type="color" id="manage-styles-border-color-picker" value="#000000" aria-label="Border color" />
+                                        <input type="text" id="manage-styles-border-color" class="manage-styles-hex" placeholder="#000000" maxlength="7" aria-label="Border color hex" />
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="manage-styles-section">
+                            <div class="manage-styles-section-title">Alignment</div>
+                            <div class="manage-styles-row manage-styles-align-row">
+                                <div class="manage-styles-field">
+                                    <label for="manage-styles-align-h" class="manage-styles-label">Horizontal</label>
+                                    <select id="manage-styles-align-h" aria-label="Horizontal alignment">
+                                        <option value="">Default</option>
+                                        <option value="left">Left</option>
+                                        <option value="center">Center</option>
+                                        <option value="right">Right</option>
+                                    </select>
+                                </div>
+                                <div class="manage-styles-field">
+                                    <label for="manage-styles-align-v" class="manage-styles-label">Vertical</label>
+                                    <select id="manage-styles-align-v" aria-label="Vertical alignment">
+                                        <option value="top">Top</option>
+                                        <option value="center">Center</option>
+                                        <option value="bottom">Bottom</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="manage-styles-form-buttons">
@@ -474,6 +525,7 @@ async function loadFileByPath(filePath) {
     await loadCells();
     selectCell(0, 0);
     updateFileStatus();
+    window.syncFormatMenuFromApi?.();
   } catch (error) {
     console.error('[App] Error loading file:', error);
     await showAlert('Error loading file: ' + error.message);
@@ -530,6 +582,7 @@ setupWelcomeScreen().then(() => {
       await loadCells();
       if (window.__DEBUG__) console.log('[app.js] Cells loaded successfully');
       selectCell(0, 0);
+      window.syncFormatMenuFromApi?.();
     } catch (err) {
       console.error('[app.js] Failed to load cells:', err);
     }
@@ -596,7 +649,7 @@ if (table) {
   });
 
   // Story 13.2: Context menu (right-click)
-  table.addEventListener('contextmenu', (e) => {
+  table.addEventListener('contextmenu', async (e) => {
     if (e.target.classList.contains('cell-editor')) return;
     const cell = e.target.closest('.cell');
     const rowHeader = e.target.closest('.row-header');
@@ -615,7 +668,7 @@ if (table) {
           selectionMode = 'cell';
           selectCell(row, col);
         }
-        showContextMenu(e.clientX, e.clientY);
+        await showContextMenu(e.clientX, e.clientY);
       }
     } else if (rowHeader && rowHeader.dataset.row !== undefined) {
       e.preventDefault();
@@ -629,7 +682,7 @@ if (table) {
             selectedRow: row,
           });
         }
-        showContextMenu(e.clientX, e.clientY);
+        await showContextMenu(e.clientX, e.clientY);
       }
     } else if (colHeader && colHeader.dataset.col !== undefined) {
       e.preventDefault();
@@ -643,17 +696,35 @@ if (table) {
             selectedCol: col,
           });
         }
-        showContextMenu(e.clientX, e.clientY);
+        await showContextMenu(e.clientX, e.clientY);
       }
     } else if (e.target.closest('.corner-header')) {
       e.preventDefault();
-      showContextMenu(e.clientX, e.clientY);
+      await showContextMenu(e.clientX, e.clientY);
     }
   });
   setupContextMenuHandlers();
 }
 
 // Story 13.2: Context menu show/hide and actions
+// Story 13.3: Custom styles in context menu - populated from GetStyles()
+async function populateContextMenuFormatItems() {
+  const container = document.getElementById('context-menu-format-items');
+  if (!container) return;
+  try {
+    const styles = await GetStyles();
+    container.innerHTML = styles
+      .map(
+        (s) =>
+          `<button type="button" class="context-menu-item" data-action="format-style-${s.id}" disabled>${s.name || 'Style ' + s.id}</button>`
+      )
+      .join('');
+  } catch (err) {
+    console.error('[App] Failed to load styles for context menu:', err);
+    container.innerHTML = '';
+  }
+}
+
 function updateContextMenuState() {
   const menu = document.getElementById('context-menu');
   if (!menu) return;
@@ -663,23 +734,20 @@ function updateContextMenuState() {
     if (action === 'copy' || action === 'paste' || action === 'clear') {
       btn.disabled = !hasSelection;
     }
-    if (
-      action === 'format-title' ||
-      action === 'format-header' ||
-      action === 'format-total'
-    ) {
+    if (action?.startsWith('format-style-')) {
       btn.disabled = !hasSelection;
     }
   });
 }
 
-function showContextMenu(x, y) {
+async function showContextMenu(x, y) {
   if (
     document.querySelector('#app')?.getAttribute('data-view') !== 'spreadsheet'
   )
     return;
   const menu = document.getElementById('context-menu');
   if (!menu) return;
+  await populateContextMenuFormatItems();
   updateContextMenuState();
   menu.style.left = `${x}px`;
   menu.style.top = `${y}px`;
@@ -736,39 +804,20 @@ async function handleContextMenuAction(action) {
       await SetCellValue(selectedCell.row, selectedCell.col, text);
       await refreshAllCells();
       updateFileStatus();
-    } else if (action === 'format-title') {
-      const result = await ApplyRangeStyle(
-        startRow,
-        startCol,
-        endRow,
-        endCol,
-        1
-      );
-      if (result?.hasUnsavedChanges !== undefined)
-        displayFileStatus(result.hasUnsavedChanges);
-      await refreshAllCells();
-    } else if (action === 'format-header') {
-      const result = await ApplyRangeStyle(
-        startRow,
-        startCol,
-        endRow,
-        endCol,
-        2
-      );
-      if (result?.hasUnsavedChanges !== undefined)
-        displayFileStatus(result.hasUnsavedChanges);
-      await refreshAllCells();
-    } else if (action === 'format-total') {
-      const result = await ApplyRangeStyle(
-        startRow,
-        startCol,
-        endRow,
-        endCol,
-        3
-      );
-      if (result?.hasUnsavedChanges !== undefined)
-        displayFileStatus(result.hasUnsavedChanges);
-      await refreshAllCells();
+    } else if (action?.startsWith('format-style-')) {
+      const styleId = parseInt(action.replace('format-style-', ''), 10);
+      if (Number.isFinite(styleId) && styleId > 0) {
+        const result = await ApplyRangeStyle(
+          startRow,
+          startCol,
+          endRow,
+          endCol,
+          styleId
+        );
+        if (result?.hasUnsavedChanges !== undefined)
+          displayFileStatus(result.hasUnsavedChanges);
+        await refreshAllCells();
+      }
     } else if (action === 'clear') {
       const result = await ClearRange(startRow, startCol, endRow, endCol);
       if (result?.hasUnsavedChanges !== undefined)
@@ -1521,23 +1570,24 @@ function applyCellValue(cell, value, rawValue, styleId, styleFormats = null) {
   cell.style.verticalAlign = '';
   if (styleId >= STYLE_ID.TITLE && styleId <= STYLE_ID.TOTAL) {
     cell.classList.add(STYLE_CLASSES[styleId - 1]);
-    // Apply alignment from style format (overrides CSS class when user edits style)
-    const format = styleFormats?.find((s) => s.id === styleId)?.format;
-    if (format?.alignment) {
-      if (format.alignment.horizontal)
-        cell.style.textAlign = format.alignment.horizontal;
-      if (format.alignment.vertical)
-        cell.style.verticalAlign = format.alignment.vertical;
-    }
-  } else if (styleId > 0 && styleFormats) {
-    // Custom styles (id > 3): apply full format as inline style
+  }
+  if (styleId > 0 && styleFormats) {
     const style = styleFormats.find((s) => s.id === styleId);
     const format = style?.format;
     if (format) {
       const css = formatToCssPreview(format);
       for (const [k, v] of Object.entries(css)) {
         const prop = k.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
-        cell.style.setProperty(prop, v);
+        const isBorder = prop.startsWith('border-');
+        cell.style.setProperty(prop, v, isBorder ? 'important' : '');
+      }
+      const align = format.alignment;
+      if (align?.horizontal === '' || align?.horizontal === 'default') {
+        // Use cell-type default: numbers right, text left (overrides style class)
+        cell.style.setProperty('text-align', isNum ? 'right' : 'left');
+      }
+      if (align?.vertical === '' || align?.vertical === 'default') {
+        cell.style.removeProperty('vertical-align');
       }
     }
   }
@@ -1858,6 +1908,7 @@ document.getElementById('new-btn').addEventListener('click', async () => {
     await loadCells();
     selectCell(0, 0);
     updateFileStatus();
+    window.syncFormatMenuFromApi?.();
   } catch (error) {
     await showAlert('Error creating new file: ' + error.message);
   }
@@ -1914,6 +1965,7 @@ document.getElementById('load-btn').addEventListener('click', async () => {
     await loadCells();
     selectCell(0, 0);
     updateFileStatus();
+    window.syncFormatMenuFromApi?.();
 
     if (window.__DEBUG__) console.log('File loaded successfully');
   } catch (error) {
@@ -2023,6 +2075,7 @@ function showCSVPreviewModal(preview) {
       await loadCells();
       selectCell(0, 0);
       updateFileStatus();
+      window.syncFormatMenuFromApi?.();
 
       if (window.__DEBUG__) console.log(`CSV imported: ${result.message}`);
     } catch (error) {
@@ -2154,46 +2207,74 @@ function formatToCssPreview(f) {
   if (font?.color) css.color = font.color;
   if (fill?.pattern === 'solid' && fill?.fgColor)
     css.backgroundColor = fill.fgColor;
+  const border = f.border;
+  if (border) {
+    const sides = [
+      ['left', 'Left'],
+      ['right', 'Right'],
+      ['top', 'Top'],
+      ['bottom', 'Bottom'],
+    ];
+    for (const [side, cap] of sides) {
+      const s = border[side];
+      if (s?.style && s.style !== 'none')
+        css[`border${cap}`] =
+          `${s.style === 'thin' ? '2px' : s.style === 'medium' ? '3px' : '2px'} solid ${s.color || '#000000'}`;
+    }
+  }
   if (alignment?.horizontal) css.textAlign = alignment.horizontal;
   if (alignment?.vertical) css.verticalAlign = alignment.vertical;
   return css;
 }
 
 function formatFromForm() {
+  const fontColorEl = document.getElementById('manage-styles-font-color');
+  const fillColorEl = document.getElementById('manage-styles-fill-color');
+  const sizeEl = document.getElementById('manage-styles-font-size');
+  const fillEnabled = document.getElementById(
+    'manage-styles-fill-enabled'
+  )?.checked;
+  const borderColor =
+    document.getElementById('manage-styles-border-color')?.value || '#000000';
+  const borderSide = (id) =>
+    document.getElementById(id)?.checked ? 'thin' : 'none';
   return {
     font: {
       name:
-        document.getElementById('manage-styles-font-name')?.value ||
+        document.getElementById('manage-styles-font-name')?.value?.trim() ||
         'Helvetica',
-      size:
-        parseInt(
-          document.getElementById('manage-styles-font-size')?.value || '12',
-          10
-        ) || 12,
+      size: parseInt(sizeEl?.value || '12', 10) || 12,
       bold:
         document.getElementById('manage-styles-font-bold')?.checked || false,
       italic:
         document.getElementById('manage-styles-font-italic')?.checked || false,
-      color:
-        document.getElementById('manage-styles-font-color')?.value || '#000000',
+      color: fontColorEl?.value || '#000000',
     },
     fill: {
-      pattern:
-        document.getElementById('manage-styles-fill-pattern')?.value || 'none',
-      fgColor:
-        document.getElementById('manage-styles-fill-color')?.value || '#E0E0E0',
-      bgColor:
-        document.getElementById('manage-styles-fill-color')?.value || '#E0E0E0',
+      pattern: fillEnabled ? 'solid' : 'none',
+      fgColor: fillColorEl?.value || '#E0E0E0',
+      bgColor: fillColorEl?.value || '#E0E0E0',
     },
     border: {
-      left: { style: 'none', color: '' },
-      right: { style: 'none', color: '' },
-      top: { style: 'none', color: '' },
-      bottom: { style: 'none', color: '' },
+      left: {
+        style: borderSide('manage-styles-border-left'),
+        color: borderColor,
+      },
+      right: {
+        style: borderSide('manage-styles-border-right'),
+        color: borderColor,
+      },
+      top: {
+        style: borderSide('manage-styles-border-top'),
+        color: borderColor,
+      },
+      bottom: {
+        style: borderSide('manage-styles-border-bottom'),
+        color: borderColor,
+      },
     },
     alignment: {
-      horizontal:
-        document.getElementById('manage-styles-align-h')?.value || 'left',
+      horizontal: document.getElementById('manage-styles-align-h')?.value || '',
       vertical:
         document.getElementById('manage-styles-align-v')?.value || 'center',
     },
@@ -2202,26 +2283,57 @@ function formatFromForm() {
 
 function populateFormFromFormat(style) {
   const f = style?.format || {};
+  const fontColor = f.font?.color || '#000000';
+  const fillColor = f.fill?.fgColor || f.fill?.bgColor || '#E0E0E0';
+  const size = f.font?.size || 12;
   const el = (id) => document.getElementById(id);
   if (el('manage-styles-name'))
     el('manage-styles-name').value = style?.name || '';
   if (el('manage-styles-font-name'))
     el('manage-styles-font-name').value = f.font?.name || 'Helvetica';
-  if (el('manage-styles-font-size'))
-    el('manage-styles-font-size').value = String(f.font?.size || 12);
+  if (el('manage-styles-font-size')) {
+    el('manage-styles-font-size').value = String(size);
+    const out = el('manage-styles-font-size-value');
+    if (out) out.textContent = String(size);
+  }
   if (el('manage-styles-font-bold'))
     el('manage-styles-font-bold').checked = f.font?.bold || false;
   if (el('manage-styles-font-italic'))
     el('manage-styles-font-italic').checked = f.font?.italic || false;
   if (el('manage-styles-font-color'))
-    el('manage-styles-font-color').value = f.font?.color || '#000000';
-  if (el('manage-styles-fill-pattern'))
-    el('manage-styles-fill-pattern').value = f.fill?.pattern || 'none';
+    el('manage-styles-font-color').value = fontColor;
+  if (el('manage-styles-font-color-picker'))
+    el('manage-styles-font-color-picker').value = fontColor;
+  if (el('manage-styles-fill-enabled'))
+    el('manage-styles-fill-enabled').checked = f.fill?.pattern === 'solid';
   if (el('manage-styles-fill-color'))
-    el('manage-styles-fill-color').value =
-      f.fill?.fgColor || f.fill?.bgColor || '#E0E0E0';
+    el('manage-styles-fill-color').value = fillColor;
+  if (el('manage-styles-fill-color-picker'))
+    el('manage-styles-fill-color-picker').value = fillColor;
+  const border = f.border;
+  if (border) {
+    if (el('manage-styles-border-left'))
+      el('manage-styles-border-left').checked = border.left?.style === 'thin';
+    if (el('manage-styles-border-right'))
+      el('manage-styles-border-right').checked = border.right?.style === 'thin';
+    if (el('manage-styles-border-top'))
+      el('manage-styles-border-top').checked = border.top?.style === 'thin';
+    if (el('manage-styles-border-bottom'))
+      el('manage-styles-border-bottom').checked =
+        border.bottom?.style === 'thin';
+    const bc =
+      border.left?.color ||
+      border.right?.color ||
+      border.top?.color ||
+      border.bottom?.color ||
+      '#000000';
+    if (el('manage-styles-border-color'))
+      el('manage-styles-border-color').value = bc;
+    if (el('manage-styles-border-color-picker'))
+      el('manage-styles-border-color-picker').value = bc;
+  }
   if (el('manage-styles-align-h'))
-    el('manage-styles-align-h').value = f.alignment?.horizontal || 'left';
+    el('manage-styles-align-h').value = f.alignment?.horizontal || '';
   if (el('manage-styles-align-v'))
     el('manage-styles-align-v').value = f.alignment?.vertical || 'center';
 }
@@ -2238,6 +2350,69 @@ async function showManageStylesModal() {
   if (!modal || !listEl) return;
 
   let editingId = null;
+  let editingStyle = null;
+  let initialFormState = null;
+
+  const getFormState = () => ({
+    format: formatFromForm(),
+    name: document.getElementById('manage-styles-name')?.value?.trim() || '',
+  });
+
+  // Story 13.3b: Sync color pickers with hex inputs and font size range with output (one-time setup)
+  if (!modal.dataset.styleFormSetup) {
+    const fontColorPicker = document.getElementById(
+      'manage-styles-font-color-picker'
+    );
+    const fontColorHex = document.getElementById('manage-styles-font-color');
+    const fillColorPicker = document.getElementById(
+      'manage-styles-fill-color-picker'
+    );
+    const fillColorHex = document.getElementById('manage-styles-fill-color');
+    const borderColorPicker = document.getElementById(
+      'manage-styles-border-color-picker'
+    );
+    const borderColorHex = document.getElementById(
+      'manage-styles-border-color'
+    );
+    const fontSizeRange = document.getElementById('manage-styles-font-size');
+    const fontSizeOutput = document.getElementById(
+      'manage-styles-font-size-value'
+    );
+    const hexRe = /^#[0-9A-Fa-f]{6}$/;
+    if (fontColorPicker && fontColorHex) {
+      fontColorPicker.addEventListener('input', () => {
+        fontColorHex.value = fontColorPicker.value;
+      });
+      fontColorHex.addEventListener('input', () => {
+        if (hexRe.test(fontColorHex.value))
+          fontColorPicker.value = fontColorHex.value;
+      });
+    }
+    if (fillColorPicker && fillColorHex) {
+      fillColorPicker.addEventListener('input', () => {
+        fillColorHex.value = fillColorPicker.value;
+      });
+      fillColorHex.addEventListener('input', () => {
+        if (hexRe.test(fillColorHex.value))
+          fillColorPicker.value = fillColorHex.value;
+      });
+    }
+    if (borderColorPicker && borderColorHex) {
+      borderColorPicker.addEventListener('input', () => {
+        borderColorHex.value = borderColorPicker.value;
+      });
+      borderColorHex.addEventListener('input', () => {
+        if (hexRe.test(borderColorHex.value))
+          borderColorPicker.value = borderColorHex.value;
+      });
+    }
+    if (fontSizeRange && fontSizeOutput) {
+      fontSizeRange.addEventListener('input', () => {
+        fontSizeOutput.textContent = fontSizeRange.value;
+      });
+    }
+    modal.dataset.styleFormSetup = '1';
+  }
 
   const renderList = async () => {
     try {
@@ -2268,9 +2443,11 @@ async function showManageStylesModal() {
           const style = all.find((s) => s.id === id);
           if (style) {
             editingId = id;
+            editingStyle = style;
             formTitle.textContent = 'Edit Style';
             document.getElementById('manage-styles-name').disabled = true;
             populateFormFromFormat(style);
+            initialFormState = JSON.stringify(getFormState());
             formEl.style.display = 'block';
           }
         });
@@ -2291,6 +2468,7 @@ async function showManageStylesModal() {
             await renderList();
             await buildSpreadsheet();
             refreshAllCells();
+            window.syncFormatMenuFromApi?.();
           } catch (err) {
             await showAlert('Error deleting style: ' + err.message);
           }
@@ -2307,32 +2485,74 @@ async function showManageStylesModal() {
   const hideForm = () => {
     formEl.style.display = 'none';
     editingId = null;
+    editingStyle = null;
     const nameEl = document.getElementById('manage-styles-name');
     if (nameEl) nameEl.disabled = false;
   };
 
   const handleAddClick = () => {
     editingId = null;
+    editingStyle = null;
     formTitle.textContent = 'Add Style';
-    document.getElementById('manage-styles-name').disabled = false;
+    const nameEl = document.getElementById('manage-styles-name');
+    if (nameEl) nameEl.disabled = false;
     populateFormFromFormat({ name: '', format: {} });
+    initialFormState = JSON.stringify(getFormState());
     formEl.style.display = 'block';
+    requestAnimationFrame(() => nameEl?.focus());
   };
 
-  addBtn?.addEventListener('click', handleAddClick);
-
-  formCancel?.addEventListener('click', hideForm);
-  formSave?.addEventListener('click', async () => {
-    const name = document.getElementById('manage-styles-name')?.value?.trim();
+  const onAddClick = (e) => {
+    e?.stopImmediatePropagation?.();
+    handleAddClick();
+  };
+  const onFormCancel = (e) => {
+    e?.stopImmediatePropagation?.();
+    hideForm();
+  };
+  const onFormSave = async (e) => {
+    e?.stopImmediatePropagation?.();
+    const nameEl = document.getElementById('manage-styles-name');
+    const name = nameEl?.value?.trim();
     const format = formatFromForm();
-    if (!name && !editingId) {
+    const isEditMode = nameEl?.disabled === true;
+    if (!name && !isEditMode) {
       await showAlert('Please enter a style name.');
       return;
     }
     try {
-      if (editingId) {
-        await UpdateStyle(editingId, format);
+      if (isEditMode && editingStyle?.id) {
+        if (window.__DEBUG__)
+          console.log(
+            '[ManageStyles] UpdateStyle id=',
+            editingStyle.id,
+            '(edit mode, name disabled)'
+          );
+        await UpdateStyle(editingStyle.id, format, '');
+      } else if (editingId) {
+        const nameToSend = '';
+        if (window.__DEBUG__)
+          console.log(
+            '[ManageStyles] UpdateStyle id=',
+            editingId,
+            'name=',
+            JSON.stringify(nameToSend)
+          );
+        await UpdateStyle(editingId, format, nameToSend);
       } else {
+        const existing = await GetStyles();
+        if (
+          existing.some(
+            (s) => (s.name || '').toLowerCase() === (name || '').toLowerCase()
+          )
+        ) {
+          await showAlert(
+            `A style named "${name}" already exists. Use Edit to modify it instead.`
+          );
+          return;
+        }
+        if (window.__DEBUG__)
+          console.log('[ManageStyles] AddStyle name=', JSON.stringify(name));
         await AddStyle(name, format);
       }
       if (displayFileStatus) displayFileStatus(true);
@@ -2340,17 +2560,36 @@ async function showManageStylesModal() {
       await renderList();
       await buildSpreadsheet();
       refreshAllCells();
+      window.syncFormatMenuFromApi?.();
     } catch (err) {
       await showAlert('Error saving style: ' + err.message);
     }
-  });
+  };
 
-  const handleClose = () => {
+  addBtn?.addEventListener('click', onAddClick);
+  formCancel?.addEventListener('click', onFormCancel);
+  formSave?.addEventListener('click', onFormSave);
+
+  const handleClose = async () => {
+    const formVisible = formEl.style.display !== 'none';
+    if (formVisible && initialFormState !== null) {
+      const hasChanges = JSON.stringify(getFormState()) !== initialFormState;
+      if (hasChanges) {
+        const confirmed = await showConfirmDialog(
+          'You have unsaved changes to the style. Close anyway?'
+        );
+        if (!confirmed) return;
+      }
+    }
     modal.classList.remove('active');
     removeFocusTrap?.();
     closeBtn.removeEventListener('click', handleClose);
     modal.removeEventListener('click', handleOverlayClick);
+    addBtn?.removeEventListener('click', onAddClick);
+    formCancel?.removeEventListener('click', onFormCancel);
+    formSave?.removeEventListener('click', onFormSave);
     buildSpreadsheet().then(() => refreshAllCells());
+    window.syncFormatMenuFromApi?.();
   };
 
   const removeFocusTrap = setupDialogFocusTrap(modal, handleClose);
@@ -2737,6 +2976,7 @@ if (window.electronAPI) {
   });
 
   // Story 12.2: Apply style (Title=1, Header=2, Total=3) to selection
+  // Story 13.3: Format menu and context menu include custom styles
   const applyStyleToSelection = async (styleId) => {
     if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
       return;
@@ -2763,6 +3003,8 @@ if (window.electronAPI) {
     }
   };
   window.__lastStyleError = null;
+  window.electronAPI.onMenuApplyStyle?.(applyStyleToSelection);
+  // Legacy: keep Title/Header/Total for backwards compatibility (Format menu now uses menu-apply-style)
   window.electronAPI.onMenuStyleTitle?.(() =>
     applyStyleToSelection(STYLE_ID.TITLE)
   );
@@ -2772,6 +3014,21 @@ if (window.electronAPI) {
   window.electronAPI.onMenuStyleTotal?.(() =>
     applyStyleToSelection(STYLE_ID.TOTAL)
   );
+
+  // Sync Format menu with styles from API (Story 13.3 - custom styles in Format menu)
+  window.syncFormatMenuFromApi = async function syncFormatMenuFromApi() {
+    if (
+      document.querySelector('#app')?.getAttribute('data-view') !==
+      'spreadsheet'
+    )
+      return;
+    try {
+      const styles = await GetStyles();
+      window.electronAPI?.syncFormatMenu?.(styles);
+    } catch (err) {
+      console.error('[App] Failed to sync Format menu:', err);
+    }
+  };
 
   // Story 12.3: Format Cleanup - remove style from empty cells
   window.electronAPI.onMenuFormatCleanup?.(async () => {

@@ -102,6 +102,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Story 12.2: Format menu (Style: Title, Header, Total)
+  // Story 13.3: Custom styles - use menu-apply-style with styleId
   onMenuStyleTitle: (callback) => {
     ipcRenderer.on('menu-style-title', callback);
   },
@@ -110,6 +111,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onMenuStyleTotal: (callback) => {
     ipcRenderer.on('menu-style-total', callback);
+  },
+  onMenuApplyStyle: (callback) => {
+    ipcRenderer.on('menu-apply-style', (event, styleId) => callback(styleId));
+  },
+  syncFormatMenu: (styles) => {
+    ipcRenderer.send('menu:syncStyles', styles);
   },
 
   // Story 12.3: Format Cleanup

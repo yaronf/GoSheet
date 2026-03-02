@@ -24,6 +24,10 @@ test.describe('Context menu (Story 13.2)', () => {
     await expect(menu.locator('[data-action="copy"]')).toBeVisible();
     await expect(menu.locator('[data-action="paste"]')).toBeVisible();
     await expect(menu.locator('[data-action="clear"]')).toBeVisible();
+    await expect(menu.locator('[data-action^="format-style-"]')).toHaveCount(
+      3,
+      { timeout: 3000 }
+    );
   });
 
   test('context menu Copy then Paste works', async ({ window }) => {
@@ -60,7 +64,12 @@ test.describe('Context menu (Story 13.2)', () => {
 
     const cell = window.locator('#cell-0-0');
     await cell.click({ button: 'right' });
-    await window.locator('#context-menu [data-action="format-title"]').click();
+    await expect(
+      window.locator('#context-menu [data-action="format-style-1"]')
+    ).toBeVisible({ timeout: 3000 });
+    await window
+      .locator('#context-menu [data-action="format-style-1"]')
+      .click();
 
     const styledCell = window.locator('#cell-0-0');
     await expect(styledCell).toHaveClass(/style-title/);

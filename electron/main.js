@@ -36,6 +36,7 @@ const {
   initializeMenu,
   updateMenuState,
   updateRecentFiles,
+  updateFormatMenuStyles,
 } = require('./menu');
 
 // Story 8.2: Custom recent files storage (app.getRecentDocuments can return empty on macOS)
@@ -693,6 +694,11 @@ function setupIpcHandlers() {
   // Story 8.2: Sync menu when renderer shows welcome screen (keeps menu and welcome in sync)
   ipcMain.on('menu:syncRecentFiles', () => {
     syncRecentFilesMenu();
+  });
+
+  // Story 13.3: Sync Format menu with custom styles from API
+  ipcMain.on('menu:syncStyles', (event, styles) => {
+    updateFormatMenuStyles(styles);
   });
 }
 

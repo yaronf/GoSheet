@@ -32,6 +32,37 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await expect(list.locator('.manage-styles-item')).toHaveCount(3); // Title, Header, Total
   });
 
+  test('Edit form has color pickers, font size slider, and font picker (Story 13.3b)', async ({
+    window,
+    electronApp,
+  }) => {
+    await openManageStylesModal(electronApp, window);
+    await window.locator('.manage-styles-edit[data-id="1"]').click();
+    await expect(window.locator('#manage-styles-form')).toBeVisible();
+
+    await expect(
+      window.locator('#manage-styles-font-color-picker')
+    ).toHaveAttribute('type', 'color');
+    await expect(
+      window.locator('#manage-styles-fill-color-picker')
+    ).toHaveAttribute('type', 'color');
+    await expect(window.locator('#manage-styles-font-size')).toHaveAttribute(
+      'type',
+      'range'
+    );
+    await expect(window.locator('#manage-styles-font-size')).toHaveAttribute(
+      'min',
+      '8'
+    );
+    await expect(window.locator('#manage-styles-font-size')).toHaveAttribute(
+      'max',
+      '72'
+    );
+    const fontSelect = window.locator('#manage-styles-font-name');
+    await expect(fontSelect).toHaveCount(1);
+    await expect(fontSelect.locator('option')).toHaveCount(5);
+  });
+
   test('edit Title font size updates cells', async ({
     window,
     electronApp,
@@ -45,7 +76,10 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await window.waitForTimeout(200);
 
     const sizeInput = window.locator('#manage-styles-font-size');
-    await sizeInput.fill('24');
+    await sizeInput.evaluate((el) => {
+      el.value = '24';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     await window.locator('#manage-styles-form-save').click();
     await window.waitForTimeout(300);
 
@@ -63,7 +97,10 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await window.waitForTimeout(200);
 
     await window.locator('#manage-styles-name').fill('Custom');
-    await window.locator('#manage-styles-font-size').fill('14');
+    await window.locator('#manage-styles-font-size').evaluate((el) => {
+      el.value = '14';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     await window.locator('#manage-styles-form-save').click();
     await window.waitForTimeout(300);
 
@@ -114,5 +151,51 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await expect(
       window.locator('.manage-styles-item[data-id="1"]')
     ).toBeVisible();
+  });
+
+  test('custom style appears in context menu and Format menu', async ({
+    window,
+    electronApp,
+  }) => {
+    await openManageStylesModal(electronApp, window);
+    await window.locator('#manage-styles-add').click();
+    await expect(window.locator('#manage-styles-form')).toBeVisible();
+
+    await window.locator('#manage-styles-name').fill('MyStyle');
+    await window.locator('#manage-styles-font-size').evaluate((el) => {
+      el.value = '16';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await window.locator('#manage-styles-form-save').click();
+    await expect(window.locator('#manage-styles-form')).toBeHidden();
+    await window.locator('#manage-styles-close').click();
+
+    await setCellViaApi(window, 0, 0, 'Test');
+    await window.locator('#cell-0-0').click();
+
+    const cell = window.locator('#cell-0-0');
+    await cell.click({ button: 'right' });
+    await expect(window.locator('#context-menu')).toBeVisible();
+    await expect(
+      window.locator('#context-menu [data-action="format-style-4"]')
+    ).toBeVisible({ timeout: 3000 });
+    await expect(
+      window.locator('#context-menu [data-action="format-style-4"]')
+    ).toContainText('MyStyle');
+    await window
+      .locator('#context-menu [data-action="format-style-4"]')
+      .click();
+
+    await expect(window.locator('#cell-0-0')).toContainText('Test');
+
+    const formatMenu = await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const formatMenu = menu?.items?.find((item) => item.label === 'Format');
+      const submenu = formatMenu?.submenu?.items ?? [];
+      const myStyleItem = submenu.find((item) => item.label === 'MyStyle');
+      return myStyleItem ? { label: myStyleItem.label } : null;
+    });
+    expect(formatMenu).toBeTruthy();
+    expect(formatMenu.label).toBe('MyStyle');
   });
 });

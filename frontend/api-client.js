@@ -136,8 +136,18 @@ const GetStyles = async () => {
   return json.data?.styles ?? [];
 };
 
-const UpdateStyle = async (id, format) => {
-  const json = await fetchUnified('PUT', `/api/styles/${id}`, { format });
+const UpdateStyle = async (id, format, name = '') => {
+  const body = { format };
+  if (name) body.name = name;
+  if (window.__DEBUG__)
+    console.log(
+      '[api-client] UpdateStyle PUT /api/styles/' + id,
+      'body keys:',
+      Object.keys(body),
+      'name in body:',
+      'name' in body ? body.name : '(omitted)'
+    );
+  const json = await fetchUnified('PUT', `/api/styles/${id}`, body);
   return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
 };
 
