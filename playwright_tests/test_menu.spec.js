@@ -4,6 +4,7 @@
 // Story 8.2: Navigate from welcome screen before testing menu
 
 const { test, expect } = require('./fixtures');
+const { stubDialog } = require('electron-playwright-helpers');
 const {
   ensureSpreadsheetView,
   setCellViaApi,
@@ -485,14 +486,10 @@ test.describe('Menu Integration Tests', () => {
     await setCellViaApi(window, 0, 0, 'test');
     await waitForSaveEnabled(window);
 
-    // First save a file normally (Save As would also work; we use Save to open dialog then Escape)
-    const saveBtn = await window.locator('#save-btn');
-    await saveBtn.click();
+    // Stub both dialogs so no native window appears
+    await stubDialog(electronApp, 'showSaveDialog', { canceled: true });
 
-    // Close save dialog with Escape (native dialog - we can't easily assert it appeared)
-    await window.keyboard.press('Escape');
-
-    // Now trigger Save As from menu
+    // Trigger Save As from menu
     await electronApp.evaluate(({ Menu }) => {
       const appMenu = Menu.getApplicationMenu();
       const fileMenu = appMenu.items.find((item) => item.label === 'File');
