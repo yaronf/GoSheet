@@ -39,6 +39,9 @@ const {
   updateFormatMenuStyles,
 } = require('./menu');
 
+// Story 13.10: App settings persistence (RTL mode, future settings)
+const { getSettings, setSetting } = require('./settings');
+
 // Story 8.2: Custom recent files storage (app.getRecentDocuments can return empty on macOS)
 const RECENT_FILES_PATH = path.join(
   app.getPath('userData'),
@@ -699,6 +702,16 @@ function setupIpcHandlers() {
   // Story 13.3: Sync Format menu with custom styles from API
   ipcMain.on('menu:syncStyles', (event, styles) => {
     updateFormatMenuStyles(styles);
+  });
+
+  // Story 13.10: Settings persistence (RTL mode, future settings)
+  ipcMain.handle('get-settings', async () => {
+    return getSettings();
+  });
+
+  ipcMain.handle('set-setting', async (event, key, value) => {
+    setSetting(key, value);
+    return true;
   });
 }
 

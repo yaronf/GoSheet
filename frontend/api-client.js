@@ -97,7 +97,12 @@ const GetAllCells = async () => {
     const ref = colToLetter(c.col) + (c.row + 1);
     const display = c.computed ?? c.value ?? '';
     const raw = c.value ?? '';
-    cells[ref] = { display, raw, styleId: c.styleId };
+    cells[ref] = {
+      display,
+      raw,
+      styleId: c.styleId,
+      alignment: c.alignment ?? '',
+    };
   });
   return cells;
 };
@@ -116,6 +121,33 @@ const InsertColumn = async (col) => {
 // Story 12.3: Format cleanup - remove style from empty cells
 const CleanupFormat = async () => {
   const json = await fetchUnified('POST', '/api/format/cleanup');
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
+// Story 13.8: Set cell-level alignment
+const SetCellAlignment = async (row, col, alignment) => {
+  const json = await fetchUnified('POST', '/api/cell/alignment', {
+    row,
+    col,
+    alignment,
+  });
+  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+};
+
+const SetRangeAlignment = async (
+  startRow,
+  startCol,
+  endRow,
+  endCol,
+  alignment
+) => {
+  const json = await fetchUnified('POST', '/api/range/alignment', {
+    startRow,
+    startCol,
+    endRow,
+    endCol,
+    alignment,
+  });
   return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
 };
 
@@ -336,6 +368,20 @@ const ExportCSV = async (path) => {
   };
 };
 
+// Story 13.10: RTL setting — read/write via Electron IPC
+const GetSettings = async () => {
+  if (isElectronMode) {
+    return await window.electronAPI.getSettings();
+  }
+  return {};
+};
+
+const SetSetting = async (key, value) => {
+  if (isElectronMode) {
+    await window.electronAPI.setSetting(key, value);
+  }
+};
+
 // Export for app.js (now a module)
 export {
   GetCellValue,
@@ -354,6 +400,10 @@ export {
   DeleteStyle,
   CleanupFormat,
   ClearRange,
+  SetCellAlignment,
+  SetRangeAlignment,
+  GetSettings,
+  SetSetting,
   InsertRow,
   InsertColumn,
   NewFile,

@@ -205,10 +205,10 @@ development_status:
   13-3-edit-add-delete-styles: done
   13-3b-style-editor-ux-polish: done
   13-4-ui-layout-compact: done
-  13-5-cell-hover-for-long-content: backlog
-  13-6-bug-fixes-formula-merge-scroll: backlog
-  13-7-quote-prefix-for-text: backlog
-  13-8-alignment-left-right-center: backlog
-  13-9-merge-text-centering: backlog
-  13-10-rtl-support: backlog
+  13-5-cell-hover-for-long-content: done
+  13-6-bug-fixes-formula-merge-scroll: done
+  13-7-quote-prefix-for-text: done
+  13-8-alignment-left-right-center: done
+  13-9-merge-text-centering: done
+  13-10-rtl-support: review
   epic-13-retrospective: optional

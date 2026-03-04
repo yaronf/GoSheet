@@ -693,6 +693,23 @@ input[type='text'].formula-bar {
   text-align: right;
 }
 
+/* Story 13.9: Merged anchor cells - centered by default */
+.cell.merged-anchor {
+  text-align: center;
+}
+
+/* Story 13.10: RTL mode — reverse column flow and default text direction */
+[dir='rtl'] #spreadsheet {
+  direction: rtl;
+}
+[dir='rtl'] .cell {
+  text-align: right;
+}
+[dir='rtl'] .formula-bar {
+  direction: rtl;
+  text-align: right;
+}
+
 .cell:hover {
   background: var(--color-bg-surface);
 }

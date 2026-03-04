@@ -277,6 +277,19 @@ func (c *AppController) SetMerge(startRow, startCol, rowSpan, colSpan int) error
 			return fmt.Errorf("merge overlaps existing region at (%d,%d)", m.StartRow, m.StartCol)
 		}
 	}
+	// Refuse merge if more than one cell in the region has content
+	nonEmpty := 0
+	for r := startRow; r < startRow+rowSpan; r++ {
+		for col := startCol; col < startCol+colSpan; col++ {
+			cell := c.Sheet.GetCell(r, col)
+			if cell != nil && cell.Value != "" {
+				nonEmpty++
+			}
+		}
+	}
+	if nonEmpty > 1 {
+		return fmt.Errorf("only one cell in the selection may have content to merge")
+	}
 	c.Sheet.Merges = append(c.Sheet.Merges, newMerge)
 	c.Sheet.Modified = true
 	return nil
@@ -307,6 +320,16 @@ func (c *AppController) ApplyStyleToCell(row, col int, styleId int) error {
 // ApplyStyleToRange applies a style to a range of cells.
 func (c *AppController) ApplyStyleToRange(startRow, startCol, endRow, endCol int, styleId int) error {
 	return c.Sheet.ApplyStyleToRange(startRow, startCol, endRow, endCol, styleId)
+}
+
+// SetCellAlignment sets horizontal alignment for a single cell.
+func (c *AppController) SetCellAlignment(row, col int, alignment string) error {
+	return c.Sheet.SetCellAlignment(row, col, alignment)
+}
+
+// SetRangeAlignment sets horizontal alignment for a range of cells.
+func (c *AppController) SetRangeAlignment(startRow, startCol, endRow, endCol int, alignment string) error {
+	return c.Sheet.SetRangeAlignment(startRow, startCol, endRow, endCol, alignment)
 }
 
 // CleanupFormat removes style from empty cells and deletes cells with no value and no style.

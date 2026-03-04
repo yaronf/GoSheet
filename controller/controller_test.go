@@ -286,3 +286,101 @@ func TestControllerGetCellValue_CoveredCell(t *testing.T) {
 	assert.Equal(t, "=1+1", ctrl.GetCellRawValue(0, 0))
 	assert.Equal(t, "=1+1", ctrl.GetCellRawValue(0, 1))
 }
+
+func TestSetMerge_RefusesWhenMultipleCellsHaveContent(t *testing.T) {
+	ctrl := NewAppController()
+
+	// Put content in two cells that would be merged
+	ctrl.SetCellValue(0, 0, "hello")
+	ctrl.SetCellValue(0, 1, "world")
+
+	// Try to merge a 1x2 region — both cells have content
+	err := ctrl.SetMerge(0, 0, 1, 2)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "only one cell")
+}
+
+func TestSetMerge_AllowsWhenOneCellHasContent(t *testing.T) {
+	ctrl := NewAppController()
+
+	// Only anchor cell has content
+	ctrl.SetCellValue(0, 0, "hello")
+
+	err := ctrl.SetMerge(0, 0, 1, 2)
+	assert.NoError(t, err)
+}
+
+func TestSetMerge_AllowsWhenNoCellsHaveContent(t *testing.T) {
+	ctrl := NewAppController()
+
+	err := ctrl.SetMerge(0, 0, 2, 2)
+	assert.NoError(t, err)
+}
+
+// Story 13.8: SetCellAlignment / SetRangeAlignment unit tests
+
+func TestSetCellAlignment_ValidValues(t *testing.T) {
+	ctrl := NewAppController()
+	ctrl.SetCellValue(0, 0, "hello")
+
+	for _, alignment := range []string{"left", "center", "right", ""} {
+		err := ctrl.SetCellAlignment(0, 0, alignment)
+		assert.NoError(t, err, "alignment %q should be valid", alignment)
+		cell := ctrl.Sheet.GetCell(0, 0)
+		assert.Equal(t, alignment, cell.Alignment)
+	}
+}
+
+func TestSetCellAlignment_InvalidValue(t *testing.T) {
+	ctrl := NewAppController()
+	err := ctrl.SetCellAlignment(0, 0, "justify")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid alignment")
+}
+
+func TestSetCellAlignment_NegativeCoords(t *testing.T) {
+	ctrl := NewAppController()
+	assert.Error(t, ctrl.SetCellAlignment(-1, 0, "left"))
+	assert.Error(t, ctrl.SetCellAlignment(0, -1, "left"))
+}
+
+func TestSetCellAlignment_CreatesCell(t *testing.T) {
+	ctrl := NewAppController()
+	// Cell doesn't exist yet — SetCellAlignment should create it
+	err := ctrl.SetCellAlignment(5, 5, "right")
+	assert.NoError(t, err)
+	cell := ctrl.Sheet.GetCell(5, 5)
+	assert.NotNil(t, cell)
+	assert.Equal(t, "right", cell.Alignment)
+}
+
+func TestSetRangeAlignment_ValidRange(t *testing.T) {
+	ctrl := NewAppController()
+	ctrl.SetCellValue(0, 0, "A")
+	ctrl.SetCellValue(0, 1, "B")
+	ctrl.SetCellValue(0, 2, "C")
+
+	err := ctrl.SetRangeAlignment(0, 0, 0, 2, "center")
+	assert.NoError(t, err)
+	for col := 0; col <= 2; col++ {
+		cell := ctrl.Sheet.GetCell(0, col)
+		assert.NotNil(t, cell)
+		assert.Equal(t, "center", cell.Alignment)
+	}
+}
+
+func TestSetRangeAlignment_InvalidAlignment(t *testing.T) {
+	ctrl := NewAppController()
+	assert.Error(t, ctrl.SetRangeAlignment(0, 0, 1, 1, "bad"))
+}
+
+func TestSetRangeAlignment_InvertedRange(t *testing.T) {
+	ctrl := NewAppController()
+	assert.Error(t, ctrl.SetRangeAlignment(5, 5, 0, 0, "left"))
+}
+
+func TestSetRangeAlignment_TooLarge(t *testing.T) {
+	ctrl := NewAppController()
+	// 101×100 = 10100 cells > 10000 max
+	assert.Error(t, ctrl.SetRangeAlignment(0, 0, 100, 99, "left"))
+}

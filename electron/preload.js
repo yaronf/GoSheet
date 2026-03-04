@@ -153,6 +153,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onThemeChanged: (callback) => {
     ipcRenderer.on('theme-changed', (event, theme) => callback(theme));
   },
+
+  // Story 13.10: Settings persistence (RTL mode, future settings)
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
 });
 
 if (DEBUG) console.log('[Preload] electronAPI exposed to renderer');

@@ -126,8 +126,28 @@ func (s *Server) HandleGetCellRef(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
 	var cells []map[string]interface{}
-	for row := 0; row < 100; row++ {
-		for col := 0; col < 26; col++ {
+	// Compute actual bounds from stored cells and merges to avoid missing data beyond 100x26
+	maxRow, maxCol := 99, 25
+	for row, cols := range s.Ctrl.Sheet.Cells {
+		if row > maxRow {
+			maxRow = row
+		}
+		for col := range cols {
+			if col > maxCol {
+				maxCol = col
+			}
+		}
+	}
+	for _, m := range s.Ctrl.Sheet.Merges {
+		if end := m.StartRow + m.RowSpan - 1; end > maxRow {
+			maxRow = end
+		}
+		if end := m.StartCol + m.ColSpan - 1; end > maxCol {
+			maxCol = end
+		}
+	}
+	for row := 0; row <= maxRow; row++ {
+		for col := 0; col <= maxCol; col++ {
 			// Story 11.6: Skip covered cells; only include anchor for merged regions
 			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
 			if ar != row || ac != col {
@@ -135,7 +155,7 @@ func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
 			}
 			value := s.Ctrl.GetCellValue(row, col)
 			cell := s.Ctrl.Sheet.GetCell(row, col)
-			if value != "" || (cell != nil && cell.StyleId != 0) {
+			if value != "" || (cell != nil && (cell.StyleId != 0 || cell.Alignment != "")) {
 				entry := map[string]interface{}{
 					"row": row, "col": col,
 					"computed": value,
@@ -143,6 +163,9 @@ func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
 				}
 				if cell != nil && cell.StyleId != 0 {
 					entry["styleId"] = cell.StyleId
+				}
+				if cell != nil && cell.Alignment != "" {
+					entry["alignment"] = cell.Alignment
 				}
 				cells = append(cells, entry)
 			}
@@ -704,6 +727,68 @@ func (s *Server) handleUpdateStyle(w http.ResponseWriter, r *http.Request, id in
 
 func (s *Server) handleDeleteStyle(w http.ResponseWriter, r *http.Request, id int) {
 	if err := s.Ctrl.DeleteStyle(id); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+// SetCellAlignmentRequest is the JSON body for POST /api/cell/alignment
+type SetCellAlignmentRequest struct {
+	Row       int    `json:"row"`
+	Col       int    `json:"col"`
+	Alignment string `json:"alignment"`
+}
+
+// SetRangeAlignmentRequest is the JSON body for POST /api/range/alignment
+type SetRangeAlignmentRequest struct {
+	StartRow  int    `json:"startRow"`
+	StartCol  int    `json:"startCol"`
+	EndRow    int    `json:"endRow"`
+	EndCol    int    `json:"endCol"`
+	Alignment string `json:"alignment"`
+}
+
+func (s *Server) HandleSetCellAlignment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req SetCellAlignmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.SetCellAlignment(req.Row, req.Col, req.Alignment); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+func (s *Server) HandleSetRangeAlignment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req SetRangeAlignmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.SetRangeAlignment(req.StartRow, req.StartCol, req.EndRow, req.EndCol, req.Alignment); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

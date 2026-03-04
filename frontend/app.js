@@ -17,6 +17,10 @@ import {
   DeleteStyle,
   CleanupFormat,
   ClearRange,
+  SetCellAlignment,
+  SetRangeAlignment,
+  GetSettings,
+  SetSetting,
   InsertRow,
   InsertColumn,
   NewFile,
@@ -49,6 +53,9 @@ let selectionMode = 'cell';
 
 // Story 11.3: Cached merge regions (updated by buildSpreadsheet) for getCellElement
 let currentMerges = [];
+
+// Story 13.10: RTL mode flag — set from persisted settings on startup
+let isRTL = false;
 
 // Story 7.11: Track unsaved changes for quit warning dialog
 // Exposed to window so Electron main process can check it via executeJavaScript()
@@ -271,6 +278,28 @@ document.querySelector('#app').innerHTML = `
             <button id="load-btn" class="toolbar-btn" title="Load an existing spreadsheet (⌘O)" aria-label="Load Spreadsheet">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
+                </svg>
+            </button>
+            <!-- Story 13.8: Alignment buttons -->
+            <button id="align-left-btn" class="toolbar-btn" title="Align left" aria-label="Align Left" aria-pressed="false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/>
+                </svg>
+            </button>
+            <button id="align-center-btn" class="toolbar-btn" title="Align center" aria-label="Align Center" aria-pressed="false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/>
+                </svg>
+            </button>
+            <button id="align-right-btn" class="toolbar-btn" title="Align right" aria-label="Align Right" aria-pressed="false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="7" y2="18"/>
+                </svg>
+            </button>
+            <!-- Story 13.10: RTL mode toggle -->
+            <button id="rtl-toggle-btn" class="toolbar-btn" title="Toggle RTL mode" aria-label="Toggle RTL Mode" aria-pressed="false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h12M3 10h8M3 14h12"/><polyline points="17 8 21 12 17 16"/><line x1="21" y1="12" x2="11" y2="12"/>
                 </svg>
             </button>
         </div>
@@ -838,12 +867,14 @@ container.addEventListener('scroll', () => {
   // Debounce scroll events
   clearTimeout(scrollTimeout);
   scrollTimeout = setTimeout(() => {
-    checkScrollPosition();
+    checkScrollPosition().catch((err) =>
+      console.error('[App] Scroll expand error:', err)
+    );
   }, 100);
 });
 
 // Check if we need to expand the grid based on scroll position
-function checkScrollPosition() {
+async function checkScrollPosition() {
   const container = document.querySelector('.spreadsheet-container');
   const table = document.getElementById('spreadsheet');
 
@@ -878,13 +909,11 @@ function checkScrollPosition() {
     const oldScrollLeft = scrollLeft;
     const oldScrollTop = scrollTop;
 
-    buildSpreadsheet().then(() => refreshAllCells());
-
-    // Restore scroll position
-    setTimeout(() => {
-      container.scrollLeft = oldScrollLeft;
-      container.scrollTop = oldScrollTop;
-    }, 0);
+    await buildSpreadsheet();
+    await refreshAllCells();
+    // Restore scroll position after DOM is fully rebuilt
+    container.scrollLeft = oldScrollLeft;
+    container.scrollTop = oldScrollTop;
   }
 }
 
@@ -1103,7 +1132,7 @@ async function buildSpreadsheetImpl() {
       if (merge && isAnchor) {
         // Anchor: create td with colSpan and rowSpan
         const td = document.createElement('td');
-        td.className = 'cell';
+        td.className = 'cell merged-anchor'; // Story 13.9: center text in merged cells by default
         td.id = `cell-${row}-${col}`;
         td.dataset.row = row;
         td.dataset.col = col;
@@ -1554,10 +1583,29 @@ function finishEditing(row, col, value, cell) {
 
 const STYLE_CLASSES = ['style-title', 'style-header', 'style-total'];
 const STYLE_ID = { TITLE: 1, HEADER: 2, TOTAL: 3 };
+const TOOLTIP_LENGTH_THRESHOLD = 25;
 
-function applyCellValue(cell, value, rawValue, styleId, styleFormats = null) {
-  cell.textContent = value;
-  cell.classList.toggle('error-cell', !!value && value.startsWith('#ERROR'));
+function applyCellValue(
+  cell,
+  value,
+  rawValue,
+  styleId,
+  styleFormats = null,
+  alignment = ''
+) {
+  const safeValue = value ?? '';
+  cell.textContent = safeValue;
+  // Story 13.5: Show full content on hover for error cells and long values
+  if (
+    safeValue &&
+    (safeValue.startsWith('#ERROR') ||
+      safeValue.length > TOOLTIP_LENGTH_THRESHOLD)
+  ) {
+    cell.title = safeValue;
+  } else {
+    cell.title = '';
+  }
+  cell.classList.toggle('error-cell', safeValue.startsWith('#ERROR'));
   if ((rawValue ?? '').startsWith('=')) {
     cell.classList.add('formula-cell');
     cell.dataset.formula = rawValue;
@@ -1565,7 +1613,9 @@ function applyCellValue(cell, value, rawValue, styleId, styleFormats = null) {
     cell.classList.remove('formula-cell');
     delete cell.dataset.formula;
   }
-  const isNum = value && !isNaN(value) && value.trim() !== '';
+  const isQuotePrefix = (rawValue ?? '').startsWith("'");
+  const isNum =
+    !isQuotePrefix && safeValue && !isNaN(safeValue) && safeValue.trim() !== '';
   cell.classList.toggle('number-cell', !!isNum);
   // Story 12.2: Apply style classes (1=Title, 2=Header, 3=Total)
   STYLE_CLASSES.forEach((c) => cell.classList.remove(c));
@@ -1594,6 +1644,13 @@ function applyCellValue(cell, value, rawValue, styleId, styleFormats = null) {
       }
     }
   }
+  // Story 13.8: Cell-level alignment overrides style alignment.
+  // Setting explicitly (including '') ensures stale values never persist across calls.
+  if (alignment) {
+    cell.style.textAlign = alignment;
+  } else {
+    cell.style.textAlign = '';
+  }
 }
 
 async function refreshAllCells() {
@@ -1606,6 +1663,7 @@ async function refreshAllCells() {
         if (cell && !cleared.has(cell)) {
           cleared.add(cell);
           cell.textContent = '';
+          cell.title = '';
           cell.classList.remove('formula-cell', 'error-cell', ...STYLE_CLASSES);
           cell.style.textAlign = '';
           cell.style.verticalAlign = '';
@@ -1625,7 +1683,8 @@ async function refreshAllCells() {
             cellData.display,
             cellData.raw ?? '',
             cellData.styleId,
-            styles
+            styles,
+            cellData.alignment ?? ''
           );
       }
     }
@@ -1667,7 +1726,8 @@ async function loadCells() {
             cellData.display,
             cellData.raw ?? '',
             cellData.styleId,
-            styles
+            styles,
+            cellData.alignment ?? ''
           );
       }
     }
@@ -1734,7 +1794,8 @@ function handleKeydownCellNavigation(e, row, col) {
     }
   }
   if (e.key === 'ArrowLeft') {
-    const next = getNextCell(row, col, 'left');
+    // Story 13.10: In RTL mode visual left = logical right (higher col index)
+    const next = getNextCell(row, col, isRTL ? 'right' : 'left');
     if (next) {
       e.preventDefault();
       selectCell(next.row, next.col);
@@ -1742,7 +1803,8 @@ function handleKeydownCellNavigation(e, row, col) {
     }
   }
   if (e.key === 'ArrowRight') {
-    const next = getNextCell(row, col, 'right');
+    // Story 13.10: In RTL mode visual right = logical left (lower col index)
+    const next = getNextCell(row, col, isRTL ? 'left' : 'right');
     if (next) {
       e.preventDefault();
       selectCell(next.row, next.col);
@@ -1975,6 +2037,72 @@ document.getElementById('load-btn').addEventListener('click', async () => {
     await showAlert('Error loading file: ' + error.message);
   }
 });
+
+// Story 13.8: Alignment toolbar button handlers
+function updateAlignmentButtonState(activeAlignment) {
+  const btns = {
+    left: 'align-left-btn',
+    center: 'align-center-btn',
+    right: 'align-right-btn',
+  };
+  for (const [align, id] of Object.entries(btns)) {
+    const btn = document.getElementById(id);
+    if (btn)
+      btn.setAttribute('aria-pressed', String(align === activeAlignment));
+  }
+}
+
+async function applyAlignmentToSelection(alignment) {
+  if (!selectedCell) return;
+  const { startRow, startCol, endRow, endCol } = selectionRange;
+  try {
+    let result;
+    if (startRow === endRow && startCol === endCol) {
+      result = await SetCellAlignment(startRow, startCol, alignment);
+    } else {
+      result = await SetRangeAlignment(
+        startRow,
+        startCol,
+        endRow,
+        endCol,
+        alignment
+      );
+    }
+    if (result.hasUnsavedChanges !== undefined) {
+      displayFileStatus(result.hasUnsavedChanges);
+    }
+    updateAlignmentButtonState(alignment);
+    await refreshAllCells();
+  } catch (err) {
+    console.error('Error applying alignment:', err);
+  }
+}
+
+document
+  .getElementById('align-left-btn')
+  .addEventListener('click', () => applyAlignmentToSelection('left'));
+document
+  .getElementById('align-center-btn')
+  .addEventListener('click', () => applyAlignmentToSelection('center'));
+document
+  .getElementById('align-right-btn')
+  .addEventListener('click', () => applyAlignmentToSelection('right'));
+
+// Story 13.10: RTL toggle handler
+document
+  .getElementById('rtl-toggle-btn')
+  .addEventListener('click', async () => {
+    isRTL = !isRTL;
+    if (isRTL) {
+      document.documentElement.setAttribute('dir', 'rtl');
+    } else {
+      document.documentElement.removeAttribute('dir');
+    }
+    const btn = document.getElementById('rtl-toggle-btn');
+    btn.classList.toggle('active', isRTL);
+    btn.setAttribute('aria-pressed', String(isRTL));
+    await SetSetting('rtl', isRTL);
+  });
 
 // Story 7.12: Extract CSV import logic into function (CSV buttons removed from toolbar)
 async function handleImportCSV() {
@@ -3201,5 +3329,19 @@ if (window.matchMedia) {
 
 // Update file status on load
 updateFileStatus();
+
+// Story 13.10: Load persisted RTL setting and apply
+(async () => {
+  const settings = await GetSettings();
+  if (settings.rtl) {
+    isRTL = true;
+    document.documentElement.setAttribute('dir', 'rtl');
+    const rtlBtn = document.getElementById('rtl-toggle-btn');
+    if (rtlBtn) {
+      rtlBtn.classList.add('active');
+      rtlBtn.setAttribute('aria-pressed', 'true');
+    }
+  }
+})();
 
 if (window.__DEBUG__) console.log('GoSheet initialized');
