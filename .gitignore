@@ -46,8 +46,12 @@ server/server
 server/gosheet-server
 server/gosheet-server-arm64
 server/gosheet-server-x64
+gosheet-server
 gosheet
 web
+
+# Claude Code
+.claude/
 
 # BMAD framework (ignore framework subdirs, keep project BMAD.md)
 _bmad/*
