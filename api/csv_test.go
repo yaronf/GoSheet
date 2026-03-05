@@ -62,7 +62,7 @@ func TestParseCSVFile_Empty(t *testing.T) {
 
 	_, err = ParseCSVFile(tmpfile)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "empty")
+	assert.Contains(t, err.Error(), "no data")
 }
 
 func TestParseCSVFile_NotFound(t *testing.T) {
