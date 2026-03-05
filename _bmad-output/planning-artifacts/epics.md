@@ -2364,84 +2364,55 @@ So that I can work in my language naturally.
 - Verify file dialogs work, no zombie processes
 - Update `package.json` and lock files
 
-### Story 14.1: Pilot — Web Mode Test Infrastructure
+### Story 14.1: Pilot — Electron Upgrade Compatibility
 
 As a developer,
-I want a small set of Playwright tests running against the Go HTTP server in Chromium,
-So that I can validate the web-mode testing approach works from Claude and in CI before committing to a full migration.
+I want to upgrade Electron to the latest stable version in a limited test and verify a representative subset of tests still pass,
+So that I can confirm compatibility before committing to the full upgrade.
 
 **Acceptance Criteria:**
 
-**Given** the Go HTTP server is started on a local port
-**When** `npm run test:chromium` is executed from Claude's environment
-**Then** the Chromium Playwright project runs successfully with no Electron dependency
-**And** at least 3 representative tests (cell editing, formula evaluation, file save/load) pass
+**Given** Electron is bumped to the latest stable version (38+) in `package.json`
+**When** `npm install` completes
+**Then** the app launches without errors (`npm start`)
 
-**Given** the same test command is run in GitHub Actions CI
-**When** the workflow completes
-**Then** all Chromium tests pass with no environment-specific failures
-**And** the CI log shows the Go server started and stopped cleanly
+**Given** the upgraded Electron is installed
+**When** `npm run test:electron` is run from Claude Code CLI in the Cursor terminal
+**Then** a representative subset of tests pass: at least smoke, basic cell editing, file operations, and one menu test
+**And** no `bad option` or CDP timeout errors appear
 
-**Given** the existing `test:chromium` npm script and Chromium project already exist (from 2026-02-28 research)
-**When** this story is implemented
-**Then** any gaps in the current Chromium setup are identified and fixed (server lifecycle, missing test coverage for the 3 representative scenarios)
-**And** a brief note documents which test categories are covered vs still Electron-only
+**Given** the upgraded Electron is installed
+**When** the GitHub Actions CI workflow runs
+**Then** the representative subset of tests passes in CI headlessly
+**And** the CI log shows no version-related errors
 
----
-
-### Story 14.2: Migrate Full Test Suite to Chromium/Web Mode
-
-As a developer,
-I want all spreadsheet UI tests (cell editing, formulas, CSV, styles, merging, RTL, etc.) running in Chromium,
-So that the full suite is runnable from Claude and in CI without Electron.
-
-**Acceptance Criteria:**
-
-**Given** the Chromium project is set up (Story 14.1)
-**When** each existing Electron test spec is reviewed
-**Then** every test that does not require Electron-specific APIs (menus, IPC, native dialogs) is ported to the Chromium project
-
-**Given** the full Chromium test suite runs via `npm run test:chromium`
-**When** executed from Claude's environment
-**Then** all ported tests pass
-
-**Given** the CI GitHub Actions workflow runs `npm test`
-**When** the workflow completes
-**Then** the Chromium suite passes in CI
-**And** total test count in Chromium is ≥ 80% of the current Electron suite count
-
-**Given** Electron-specific tests remain (menus, IPC, native dialogs, file associations)
-**When** the suite is split
-**Then** the Electron project contains only those Electron-specific tests
-**And** this split is documented in a comment in `playwright.config.js`
+**Given** the pilot succeeds
+**When** this story is done
+**Then** a brief note is added to this story documenting any API breakages found and how they were fixed (or deferred to Story 14.2)
 
 ---
 
-### Story 14.3: Upgrade Electron to Supported Version
+### Story 14.2: Complete Electron Upgrade
 
 As a developer,
-I want Electron upgraded from EOL 30.5.1 to 38+,
+I want the full Electron upgrade completed with all tests green,
 So that the app runs on a secure, actively-maintained runtime.
 
 **Acceptance Criteria:**
 
-**Given** the Electron-specific test suite is small (Story 14.2 complete)
-**When** Electron is upgraded to 38+ in `package.json`
-**Then** the app launches successfully with no CDP timeout or `bad option` errors
-
-**Given** the upgraded Electron is installed
-**When** `npm run test:electron` is run in a real terminal (Electron tests cannot run from Claude by design)
-**Then** all Electron-specific tests pass with no zombie processes
-**And** file dialogs (open, save, save-as) work correctly
-
-**Given** the upgraded Electron is installed
-**When** the CI GitHub Actions workflow runs
-**Then** the Electron test suite passes in CI
+**Given** the pilot (Story 14.1) identified any breakages
+**When** all API and behavior changes are addressed
+**Then** `npm run test:electron` passes fully from Claude Code CLI in the Cursor terminal
+**And** `npm run test` passes in CI (GitHub Actions)
 **And** the `package.json` `electron` version is ≥ 38.0.0
+
+**Given** the upgrade is complete
+**When** `npm run build` is run
+**Then** a valid `.app` bundle is produced in `dist/`
 
 ---
 
-### Story 14.4: Update Build and CI Configuration
+### Story 14.3: Update Build and CI Configuration
 
 As a developer,
 I want the build pipeline and CI updated for the new Electron version,
@@ -2449,14 +2420,14 @@ So that packaged `.app` builds and all automated checks reflect the upgrade.
 
 **Acceptance Criteria:**
 
-**Given** Electron 38+ is installed (Story 14.3)
+**Given** Electron 38+ is installed (Story 14.2)
 **When** `npm run build` is run
 **Then** a valid `.app` bundle is produced in `dist/`
 **And** `lipo -info` on the bundled Electron binary confirms the expected architecture(s)
 
 **Given** the GitHub Actions CI workflow
 **When** a PR is opened
-**Then** the workflow installs the correct Electron version, runs `npm run test:chromium` headlessly, runs `npm run test:electron` headlessly, and all pass
+**Then** the workflow installs the correct Electron version, runs `npm test`, and all tests pass
 **And** the workflow does not reference the old Electron 30.5.1 version anywhere
 
 **Given** `package.json` and `package-lock.json` are updated

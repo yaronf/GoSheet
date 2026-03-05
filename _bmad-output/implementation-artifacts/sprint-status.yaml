@@ -214,11 +214,10 @@ development_status:
   epic-13-retrospective: optional
 
   # Epic 14: Electron Platform Upgrade
-  epic-14: backlog
-  14-1-pilot-web-mode-test-infrastructure: backlog
-  14-2-migrate-full-test-suite-to-chromium: backlog
-  14-3-upgrade-electron-to-supported-version: backlog
-  14-4-update-build-and-ci-configuration: backlog
+  epic-14: in-progress
+  14-1-pilot-electron-upgrade-compatibility: review
+  14-2-complete-electron-upgrade: backlog
+  14-3-update-build-and-ci-configuration: backlog
   epic-14-retrospective: optional
 
   # Epic 15: Undo / Redo
