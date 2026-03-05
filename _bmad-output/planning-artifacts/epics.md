@@ -1,12 +1,15 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update', 'epic-9-added', 'epic-11-added']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update', 'epic-9-added', 'epic-11-added', 'epics-14-19-added']
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/architecture.md'
   - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-02-15.md'
   - '_bmad-output/planning-artifacts/electron-migration-analysis.md'
   - '_bmad-output/planning-artifacts/research/technical-cell-merging-research-2026-02-23.md'
-epicCount: 11
+  - '_bmad-output/implementation-artifacts/TECHNICAL-DEBT.md'
+  - '_bmad-output/planning-artifacts/backlog.md'
+  - '_bmad-output/planning-artifacts/research/technical-agent-access-layer-research.md'
+epicCount: 19
 totalFRs: 51
 totalNFRs: 23
 totalStories: 48
@@ -14,8 +17,8 @@ status: 'updated'
 validationStatus: 'passed'
 readyForDevelopment: true
 completedDate: '2026-02-14'
-lastUpdated: '2026-02-23'
-updateReason: 'Added Epic 11 (Cell Merging) with 6 stories from technical research'
+lastUpdated: '2026-03-05'
+updateReason: 'Added Epics 14-19 from backlog and tech debt (2026-03-05)'
 ---
 
 # spreadsheet - Epic Breakdown
@@ -2341,3 +2344,228 @@ So that I can work in my language naturally.
 **Then** columns flow right-to-left
 **And** text alignment respects RTL
 **And** formula bar and UI elements adapt
+
+---
+
+## Epic 14: Electron Platform Upgrade
+
+**Goal:** Upgrade Electron from the EOL 30.5.1 to a current supported version (38+), resolving the security risk and unblocking future platform features.
+
+**User Outcome:** Users run on a secure, actively-maintained runtime. All existing functionality and tests remain intact.
+
+**Requirements covered:**
+- TD1: Upgrade Electron from EOL 30.5.1 to 38+ (blocked by Playwright CDP compat — needs testing)
+
+**Why standalone:** Security upgrade that is self-contained. Unblocks `app.getRecentDocuments()` for dock integration improvements.
+
+**Implementation notes:**
+- Test Electron 38+ with latest stable Playwright for CDP compatibility
+- Verify all Playwright tests pass with no timeouts
+- Verify file dialogs work, no zombie processes
+- Update `package.json` and lock files
+
+### Story 14.1: Pilot — Web Mode Test Infrastructure
+
+As a developer,
+I want a small set of Playwright tests running against the Go HTTP server in Chromium,
+So that I can validate the web-mode testing approach works from Claude and in CI before committing to a full migration.
+
+**Acceptance Criteria:**
+
+**Given** the Go HTTP server is started on a local port
+**When** `npm run test:chromium` is executed from Claude's environment
+**Then** the Chromium Playwright project runs successfully with no Electron dependency
+**And** at least 3 representative tests (cell editing, formula evaluation, file save/load) pass
+
+**Given** the same test command is run in GitHub Actions CI
+**When** the workflow completes
+**Then** all Chromium tests pass with no environment-specific failures
+**And** the CI log shows the Go server started and stopped cleanly
+
+**Given** the existing `test:chromium` npm script and Chromium project already exist (from 2026-02-28 research)
+**When** this story is implemented
+**Then** any gaps in the current Chromium setup are identified and fixed (server lifecycle, missing test coverage for the 3 representative scenarios)
+**And** a brief note documents which test categories are covered vs still Electron-only
+
+---
+
+### Story 14.2: Migrate Full Test Suite to Chromium/Web Mode
+
+As a developer,
+I want all spreadsheet UI tests (cell editing, formulas, CSV, styles, merging, RTL, etc.) running in Chromium,
+So that the full suite is runnable from Claude and in CI without Electron.
+
+**Acceptance Criteria:**
+
+**Given** the Chromium project is set up (Story 14.1)
+**When** each existing Electron test spec is reviewed
+**Then** every test that does not require Electron-specific APIs (menus, IPC, native dialogs) is ported to the Chromium project
+
+**Given** the full Chromium test suite runs via `npm run test:chromium`
+**When** executed from Claude's environment
+**Then** all ported tests pass
+
+**Given** the CI GitHub Actions workflow runs `npm test`
+**When** the workflow completes
+**Then** the Chromium suite passes in CI
+**And** total test count in Chromium is ≥ 80% of the current Electron suite count
+
+**Given** Electron-specific tests remain (menus, IPC, native dialogs, file associations)
+**When** the suite is split
+**Then** the Electron project contains only those Electron-specific tests
+**And** this split is documented in a comment in `playwright.config.js`
+
+---
+
+### Story 14.3: Upgrade Electron to Supported Version
+
+As a developer,
+I want Electron upgraded from EOL 30.5.1 to 38+,
+So that the app runs on a secure, actively-maintained runtime.
+
+**Acceptance Criteria:**
+
+**Given** the Electron-specific test suite is small (Story 14.2 complete)
+**When** Electron is upgraded to 38+ in `package.json`
+**Then** the app launches successfully with no CDP timeout or `bad option` errors
+
+**Given** the upgraded Electron is installed
+**When** `npm run test:electron` is run in a real terminal (Electron tests cannot run from Claude by design)
+**Then** all Electron-specific tests pass with no zombie processes
+**And** file dialogs (open, save, save-as) work correctly
+
+**Given** the upgraded Electron is installed
+**When** the CI GitHub Actions workflow runs
+**Then** the Electron test suite passes in CI
+**And** the `package.json` `electron` version is ≥ 38.0.0
+
+---
+
+### Story 14.4: Update Build and CI Configuration
+
+As a developer,
+I want the build pipeline and CI updated for the new Electron version,
+So that packaged `.app` builds and all automated checks reflect the upgrade.
+
+**Acceptance Criteria:**
+
+**Given** Electron 38+ is installed (Story 14.3)
+**When** `npm run build` is run
+**Then** a valid `.app` bundle is produced in `dist/`
+**And** `lipo -info` on the bundled Electron binary confirms the expected architecture(s)
+
+**Given** the GitHub Actions CI workflow
+**When** a PR is opened
+**Then** the workflow installs the correct Electron version, runs `npm run test:chromium` headlessly, runs `npm run test:electron` headlessly, and all pass
+**And** the workflow does not reference the old Electron 30.5.1 version anywhere
+
+**Given** `package.json` and `package-lock.json` are updated
+**When** `npm install` is run on a clean checkout
+**Then** the installed Electron version is ≥ 38.0.0 with no peer-dependency warnings
+
+---
+
+## Epic 15: Data Safety & File Integrity
+
+**Goal:** Users can trust their data is never lost or corrupted during save, can open files directly from the OS, and can view files safely in read-only mode.
+
+**User Outcome:** Files are written atomically (no partial-write corruption), the app handles OS-level file open (CLI/Finder), and users can open a file without accidentally editing it.
+
+**Requirements covered:**
+- TD2: Fix `RecalculateAll()` stub in `model/spreadsheet.go` (sets #PENDING instead of recalculating)
+- FB1: Open CSV/sheet files from CLI or double-click "Open With…" (saves as .sheet)
+- FB7: Atomic file writes — minimize risk of data loss when modifying/writing files
+- FB2: Read-only / view mode flag
+
+**Why standalone:** Data integrity is foundational. None of these depend on later epics.
+
+**Implementation notes:**
+- Implement atomic write (write to temp file, rename on success)
+- Handle `open-file` Electron event and CLI argv for file paths at launch
+- Fix `RecalculateAll()` to perform actual recalculation
+- Add read-only mode: disable editing UI, show indicator, wire to open dialog option
+
+---
+
+## Epic 16: Selection & Range Operations
+
+**Goal:** Users can select contiguous ranges of cells naturally, copy/paste ranges/rows/columns, and use "Select All" correctly.
+
+**User Outcome:** Multi-cell selection works intuitively. Copy/paste operates on the full selection (not just one cell). Select All selects the entire spreadsheet content.
+
+**Requirements covered:**
+- FB3: Row/column select aesthetics — remove cell borders when row/col is selected
+- FB4: Select range naturally (click-drag or shift-click)
+- FB5: Copy/paste range, row, or column (fixes current single-cell-only bug)
+- FB9: Fix "Select All" menu item (currently does nothing useful)
+
+**Why standalone:** Pure UI/interaction layer improvement. No dependency on later epics.
+
+**Implementation notes:**
+- Implement shift-click and click-drag range selection in `frontend/spreadsheet.js`
+- Update copy/paste handlers to serialize/deserialize full selection
+- Fix Select All to select all populated cells (or entire grid)
+- Update row/col header highlight styles to remove inner cell borders
+
+---
+
+## Epic 17: Formula Editing Enhancements
+
+**Goal:** Users can click cells or drag ranges while editing a formula to insert references naturally.
+
+**User Outcome:** While typing a formula, clicking a cell inserts its reference (e.g., `A3`) at the cursor position — matching the expected spreadsheet UX from Excel/Google Sheets.
+
+**Requirements covered:**
+- FB8: Select cells/ranges for inclusion in formula while editing
+
+**Why standalone:** Isolated interaction enhancement to the formula bar editing flow.
+
+**Implementation notes:**
+- Detect when formula bar / cell is in edit mode with a leading `=`
+- On cell click during edit mode: insert cell reference at cursor instead of navigating
+- Support range selection (drag) during edit mode to insert range reference (e.g., `A1:B3`)
+- Highlight referenced cells/ranges visually while editing
+
+---
+
+## Epic 18: Undo / Redo
+
+**Goal:** Users can undo any reasonable editing operation, eliminating fear of accidental changes.
+
+**User Outcome:** Cmd+Z undoes the last edit (cell value, format, insert/delete row/col). Cmd+Shift+Z redoes it. History is reasonable (e.g., last 100 operations).
+
+**Requirements covered:**
+- FB6: Unlimited undo for "reasonable" operations
+
+**Why standalone:** Architecturally invasive (requires command pattern) but delivers complete, self-contained value. Explicitly deferred from Phase 1 in the PRD.
+
+**Implementation notes:**
+- Implement command pattern in Go backend or frontend (TBD in story design)
+- Track edit operations: set cell, clear cell, insert/delete row/col, paste
+- Expose undo/redo via IPC + keyboard shortcuts Cmd+Z / Cmd+Shift+Z
+- Wire to Edit menu items
+
+---
+
+## Epic 19: Agentic API Access Layer
+
+**Goal:** AI agents (and power users via scripts) can read spreadsheet data and propose changes through a structured, safe API — with the user approving a diff before any change is persisted.
+
+**User Outcome:** Users can invoke an AI action, see a human-readable diff of proposed changes, and approve or reject before anything is written to their file.
+
+**Requirements covered:**
+- Agentic API research (`technical-agent-access-layer-research.md`) — reasonable subset:
+  - Scoped read endpoints (workbook summary, range data)
+  - Patch proposal + validation
+  - Diff preview
+  - Commit with user approval
+  - Basic audit log
+
+**Why standalone:** Builds on existing Go HTTP API. Adds new endpoints without modifying existing ones. Frontend adds approval UI panel.
+
+**Implementation notes:**
+- Scope to a minimal but complete vertical slice (read + propose + preview + commit)
+- No scoped token system needed for v1 (local app, single user)
+- Expose agent-friendly tool endpoints on the existing Go HTTP server
+- Add diff preview panel to Electron frontend
+- Audit log as append-only JSON file in userData directory

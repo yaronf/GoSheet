@@ -3,7 +3,7 @@
 **Epic:** 13 - Spreadsheet UX & Polish
 **Story:** 13.10
 **Estimated Effort:** 4–6 hours
-**Status:** review
+**Status:** done
 **Source:** epics.md, todo-2026-03-01.md
 
 ---

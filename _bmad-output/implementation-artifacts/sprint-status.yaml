@@ -199,7 +199,7 @@ development_status:
   epic-12-retrospective: optional
 
   # Epic 13: Spreadsheet UX & Polish (from todo-2026-03-01.md)
-  epic-13: in-progress
+  epic-13: done
   13-1-row-column-selection-and-insert: done
   13-2-context-menu-right-click: done
   13-3-edit-add-delete-styles: done
@@ -210,5 +210,5 @@ development_status:
   13-7-quote-prefix-for-text: done
   13-8-alignment-left-right-center: done
   13-9-merge-text-centering: done
-  13-10-rtl-support: review
+  13-10-rtl-support: done
   epic-13-retrospective: optional
