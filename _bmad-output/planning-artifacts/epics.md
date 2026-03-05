@@ -2465,7 +2465,151 @@ So that packaged `.app` builds and all automated checks reflect the upgrade.
 
 ---
 
-## Epic 15: Data Safety & File Integrity
+## Epic 15: Undo / Redo
+
+**Goal:** Users can undo any reasonable editing operation, eliminating fear of accidental changes.
+
+**User Outcome:** Cmd+Z undoes the last edit (cell value, format, insert/delete row/col). Cmd+Shift+Z redoes it. History is reasonable (e.g., last 100 operations).
+
+**Requirements covered:**
+- FB6: Unlimited undo for "reasonable" operations
+
+**Why standalone:** Architecturally invasive (requires command pattern) but delivers complete, self-contained value. Explicitly deferred from Phase 1 in the PRD.
+
+**Implementation notes:**
+- Implement command pattern in Go backend or frontend (TBD in story design)
+- Track edit operations: set cell, clear cell, insert/delete row/col, paste
+- Expose undo/redo via IPC + keyboard shortcuts Cmd+Z / Cmd+Shift+Z
+- Wire to Edit menu items
+
+### Story 15.1: Command Pattern Infrastructure
+
+As a developer,
+I want a command pattern with Do/Undo support and a bounded history stack,
+So that all mutating operations can be reversed reliably.
+
+**Acceptance Criteria:**
+
+**Given** the command pattern is implemented
+**When** any mutating operation is executed
+**Then** it is wrapped in a `Command` with `Do()` and `Undo()` methods and pushed onto the history stack
+
+**Given** the history stack has reached its cap (100 operations)
+**When** a new command is pushed
+**Then** the oldest command is dropped from the stack
+
+**Given** a command is undone
+**When** another command is executed (not redo)
+**Then** the redo stack is cleared (standard undo/redo branching behavior)
+
+**Given** the history stack
+**When** the spreadsheet file is closed or a new file is opened
+**Then** the history stack is cleared
+
+**Given** Go unit tests for the command infrastructure
+**When** the tests run
+**Then** push, undo, redo, cap enforcement, and redo-stack-clear behaviors all pass
+
+---
+
+### Story 15.2: Undo/Redo for Cell Edits and Deletion
+
+As a user,
+I want to undo and redo cell value changes and deletions with Cmd+Z / Cmd+Shift+Z,
+So that I can recover from accidental edits or deletions instantly.
+
+**Acceptance Criteria:**
+
+**Given** a user types a new value into a cell and presses Enter
+**When** the user presses Cmd+Z
+**Then** the cell reverts to its previous value
+**And** the grid updates immediately
+
+**Given** a user deletes a cell's contents (Delete or Backspace)
+**When** the user presses Cmd+Z
+**Then** the deleted content is restored in the cell
+
+**Given** a user edits multiple cells in sequence
+**When** the user presses Cmd+Z repeatedly
+**Then** each edit is undone in reverse order, one per key press
+
+**Given** an undo has been performed
+**When** the user presses Cmd+Shift+Z
+**Then** the undone change is reapplied (redo)
+
+**Given** the Edit menu
+**When** undo is available
+**Then** "Undo" is enabled and shows the operation name (e.g. "Undo Set Cell")
+**And** "Redo" is enabled when a redo is available, disabled otherwise
+**And** undo/redo toolbar buttons are visible and reflect the same enabled/disabled state
+
+**Given** the history is empty (no edits made)
+**When** the user presses Cmd+Z
+**Then** nothing happens and "Undo" in the Edit menu is disabled
+
+---
+
+### Story 15.3: Undo/Redo for Structural Operations
+
+As a user,
+I want to undo and redo row/column insertions, deletions, and paste operations,
+So that structural mistakes are as easy to recover from as cell edits.
+
+**Acceptance Criteria:**
+
+**Given** a user inserts a row
+**When** the user presses Cmd+Z
+**Then** the inserted row is removed and all cells return to their pre-insert positions
+
+**Given** a user deletes a row
+**When** the user presses Cmd+Z
+**Then** the deleted row is restored with all its original cell values
+
+**Given** a user inserts or deletes a column
+**When** the user presses Cmd+Z
+**Then** the operation is reversed correctly (column restored or removed)
+
+**Given** a user pastes a rectangular range
+**When** the user presses Cmd+Z
+**Then** all pasted cells revert to their values before the paste
+
+**Given** structural operations are undone/redone
+**When** formula cells reference rows/columns affected by the operation
+**Then** formula results update correctly to reflect the restored state
+
+---
+
+### Story 15.4: Undo/Redo for Formatting
+
+As a user,
+I want to undo and redo formatting changes (styles, alignment, merge/unmerge),
+So that accidental formatting changes are as recoverable as data changes.
+
+**Acceptance Criteria:**
+
+**Given** a user applies a named style to a cell or range
+**When** the user presses Cmd+Z
+**Then** the previous style is restored
+
+**Given** a user changes cell alignment (left/center/right)
+**When** the user presses Cmd+Z
+**Then** the previous alignment is restored
+
+**Given** a user merges cells
+**When** the user presses Cmd+Z
+**Then** the cells are unmerged and their original individual values restored
+
+**Given** a user unmerges cells
+**When** the user presses Cmd+Z
+**Then** the cells are re-merged in their previous state
+
+**Given** a sequence of mixed operations (cell edit, format change, structural change)
+**When** the user presses Cmd+Z repeatedly
+**Then** all operations are undone in correct reverse order regardless of type
+
+---
+
+## Epic 16: Data Safety & File Integrity
 
 **Goal:** Users can trust their data is never lost or corrupted during save, can open files directly from the OS, and can view files safely in read-only mode.
 
@@ -2485,31 +2629,256 @@ So that packaged `.app` builds and all automated checks reflect the upgrade.
 - Fix `RecalculateAll()` to perform actual recalculation
 - Add read-only mode: disable editing UI, show indicator, wire to open dialog option
 
+### Story 16.1: Atomic File Writes
+
+As a user,
+I want my spreadsheet files written safely to disk,
+So that a crash or error during save never leaves a corrupt or incomplete file.
+
+**Acceptance Criteria:**
+
+**Given** a user triggers Save (Cmd+S or Save As)
+**When** the file is written
+**Then** the data is written to a temporary file first, then renamed to the target path atomically
+**And** if the write fails mid-way, the original file remains intact and unmodified
+
+**Given** the save operation completes successfully
+**When** the file is inspected
+**Then** it contains all the expected cell data with no truncation
+
+**Given** a Go unit test simulates a write failure (e.g. disk full)
+**When** the atomic write is attempted
+**Then** the original file is not modified
+**And** an error is returned to the caller
+
 ---
 
-## Epic 16: Selection & Range Operations
+### Story 16.2: Fix RecalculateAll() Stub
 
-**Goal:** Users can select contiguous ranges of cells naturally, copy/paste ranges/rows/columns, and use "Select All" correctly.
+As a user,
+I want all formulas to recalculate correctly when a file is loaded or a full recalc is triggered,
+So that I see accurate computed values rather than `#PENDING` placeholders.
 
-**User Outcome:** Multi-cell selection works intuitively. Copy/paste operates on the full selection (not just one cell). Select All selects the entire spreadsheet content.
+**Acceptance Criteria:**
+
+**Given** a spreadsheet file with formulas is opened
+**When** `RecalculateAll()` is called during load
+**Then** all formula cells display their correct computed values
+**And** no cell shows `#PENDING`
+
+**Given** a spreadsheet with chained formula dependencies (e.g. B1=A1+1, C1=B1+1)
+**When** `RecalculateAll()` is called
+**Then** all dependent cells are evaluated in correct topological order
+**And** results match the values produced by incremental recalculation
+
+**Given** a circular reference exists in the spreadsheet
+**When** `RecalculateAll()` is called
+**Then** the circular reference cells display `#ERROR` (not `#PENDING`)
+**And** non-circular cells still compute correctly
+
+**Given** the existing Go unit tests
+**When** `RecalculateAll()` is invoked in tests
+**Then** all tests pass with no regressions
+
+---
+
+### Story 16.3: Open Files from CLI and Finder "Open With"
+
+As a user,
+I want to open `.sheet` and CSV files by double-clicking them in Finder or passing a path on the command line,
+So that I can launch GoSheet directly into a file without going through the welcome screen.
+
+**Acceptance Criteria:**
+
+**Given** a `.sheet` file is double-clicked in Finder (or opened via "Open With > GoSheet")
+**When** the app launches or is already running
+**Then** the file opens in the spreadsheet view
+**And** the file status bar shows the correct file path
+
+**Given** the app is launched from the terminal with a file path argument (e.g. `open GoSheet.app --args /path/to/file.sheet`)
+**When** the app starts
+**Then** the specified file is loaded directly, bypassing the welcome screen
+
+**Given** a CSV file is opened via CLI or "Open With"
+**When** it loads
+**Then** the CSV data is imported into a new spreadsheet
+**And** the file status shows "Unsaved changes" (since it hasn't been saved as .sheet yet)
+
+**Given** the file path provided does not exist
+**When** the app attempts to open it
+**Then** a clear error message is shown
+**And** the app falls back to the welcome screen
+
+---
+
+### Story 16.4: Read-Only / View Mode
+
+As a user,
+I want to open a file in read-only mode,
+So that I can view its contents without risk of accidentally modifying it.
+
+**Acceptance Criteria:**
+
+**Given** a user opens a file in read-only mode (via an "Open Read-Only" option in the file open dialog or menu)
+**When** the file loads
+**Then** all cell editing is disabled (typing, paste, delete have no effect)
+**And** a visible "Read-Only" indicator is shown in the UI (e.g. in the status bar)
+
+**Given** the app is in read-only mode
+**When** the user attempts to trigger Save (Cmd+S)
+**Then** no save occurs
+**And** a brief notification or tooltip explains the file is read-only
+
+**Given** the app is in read-only mode
+**When** the user selects "Edit > Select All" or navigates cells
+**Then** navigation and selection work normally (read-only does not block viewing)
+
+**Given** a file is opened in read-only mode
+**When** the user chooses "Save As" (Cmd+Shift+S)
+**Then** Save As is permitted (creates a new writable copy)
+**And** the new file opens in normal (editable) mode
+
+---
+
+## Epic 17: Selection & Range Operations
+
+**Goal:** Users can select contiguous rectangular ranges naturally, copy/paste them, and navigate to precise ranges by address.
+
+**User Outcome:** Multi-cell selection works intuitively via shift-click, drag, or typed address. Copy/paste operates on the full selection. "Select All" is replaced by a proper range address box.
 
 **Requirements covered:**
 - FB3: Row/column select aesthetics — remove cell borders when row/col is selected
 - FB4: Select range naturally (click-drag or shift-click)
 - FB5: Copy/paste range, row, or column (fixes current single-cell-only bug)
-- FB9: Fix "Select All" menu item (currently does nothing useful)
+- FB9: Replace useless "Select All" with range address box (type e.g. A1:D7 to select)
 
 **Why standalone:** Pure UI/interaction layer improvement. No dependency on later epics.
 
 **Implementation notes:**
 - Implement shift-click and click-drag range selection in `frontend/spreadsheet.js`
-- Update copy/paste handlers to serialize/deserialize full selection
-- Fix Select All to select all populated cells (or entire grid)
+- Update copy/paste handlers to serialize/deserialize full rectangular selection as TSV
+- Add range address box (name box) to toolbar/formula bar area
+- Remove or repurpose "Select All" menu item
 - Update row/col header highlight styles to remove inner cell borders
+
+### Story 17.1: Range Selection (Shift-Click and Click-Drag)
+
+As a user,
+I want to select a rectangular range of cells by shift-clicking or dragging,
+So that I can work with multiple cells at once without clicking each one individually.
+
+**Acceptance Criteria:**
+
+**Given** a user clicks a cell then shift-clicks another cell
+**When** the shift-click is registered
+**Then** the rectangular range between the two cells is selected and visually highlighted
+**And** the range address is shown in the address box (e.g. `A1:D7`)
+
+**Given** a user clicks and drags across cells
+**When** the drag completes
+**Then** the rectangle swept by the drag is selected
+**And** the selection updates live as the drag proceeds
+
+**Given** a range is selected
+**When** the user presses an arrow key (without Shift)
+**Then** the selection collapses to a single cell in the arrow direction
+
+**Given** a row or column header is clicked
+**When** the click is registered
+**Then** the entire row or column is selected
+**And** shift-clicking a second header extends the selection to cover both rows/columns
 
 ---
 
-## Epic 17: Formula Editing Enhancements
+### Story 17.2: Row/Column Select Aesthetics
+
+As a user,
+I want the selected row or column to look clean and intentional,
+So that I can clearly see what is selected without visual noise from cell borders.
+
+**Acceptance Criteria:**
+
+**Given** a full row is selected (via row header click)
+**When** the grid renders
+**Then** inner vertical cell borders within the selected row are suppressed
+**And** the row highlight is a solid band, not a grid of individual boxes
+
+**Given** a full column is selected (via column header click)
+**When** the grid renders
+**Then** inner horizontal cell borders within the selected column are suppressed
+**And** the column highlight is a solid band
+
+**Given** a rectangular range (not full row/col) is selected
+**When** the grid renders
+**Then** cell borders within the selection remain visible (only full row/col gets the clean look)
+
+**Given** the selection is cleared (single cell clicked)
+**When** the grid renders
+**Then** all cell borders return to their normal appearance
+
+---
+
+### Story 17.3: Copy/Paste Rectangular Range
+
+As a user,
+I want to copy a selected range and paste it to another location,
+So that I can duplicate blocks of data efficiently.
+
+**Acceptance Criteria:**
+
+**Given** a rectangular range is selected
+**When** the user presses Cmd+C
+**Then** all cell values in the range are copied to the clipboard as tab-separated values (TSV) with newlines between rows
+
+**Given** the clipboard contains a copied range
+**When** the user selects a target cell and presses Cmd+V
+**Then** the range is pasted starting at the target cell, filling rightward and downward to match the copied dimensions
+
+**Given** a single row is selected and copied
+**When** pasted at a target cell
+**Then** the row data fills horizontally from the target cell
+
+**Given** a single column is selected and copied
+**When** pasted at a target cell
+**Then** the column data fills vertically from the target cell
+
+**Given** the pasted range would extend beyond the current grid dimensions
+**When** the paste occurs
+**Then** the grid expands to accommodate the pasted data
+
+---
+
+### Story 17.4: Range Address Box — Type to Select
+
+As a user,
+I want to type a range address (e.g. `A1:D7`) to instantly select that rectangle,
+So that I can navigate to and select precise ranges without dragging.
+
+**Acceptance Criteria:**
+
+**Given** a range address box is visible in the toolbar area
+**When** the user clicks it and types a valid range address (e.g. `B3:F10`) and presses Enter
+**Then** the specified range is selected and the grid scrolls to show it
+
+**Given** the user types a single cell address (e.g. `C5`) in the address box and presses Enter
+**When** Enter is pressed
+**Then** the grid navigates to that cell and selects it
+
+**Given** the user types an invalid address (e.g. `ZZZ999:ABC`) and presses Enter
+**When** Enter is pressed
+**Then** the input is highlighted as invalid and the current selection is unchanged
+
+**Given** a range is selected (via click, drag, or shift-click)
+**When** the selection changes
+**Then** the address box updates to show the current range (e.g. `A1:D7` or just `B3` for a single cell)
+
+**Given** the "Select All" menu item previously existed in Edit menu
+**When** this story is complete
+**Then** it is removed or replaced with a "Go to Range…" menu item that focuses the address box
+
+---
+
+## Epic 18: Formula Editing Enhancements
 
 **Goal:** Users can click cells or drag ranges while editing a formula to insert references naturally.
 
@@ -2526,24 +2895,60 @@ So that packaged `.app` builds and all automated checks reflect the upgrade.
 - Support range selection (drag) during edit mode to insert range reference (e.g., `A1:B3`)
 - Highlight referenced cells/ranges visually while editing
 
+### Story 18.1: Click-to-Insert Cell Reference While Editing Formula
+
+As a user,
+I want to click a cell while editing a formula to insert its reference at the cursor,
+So that I can build formulas by pointing rather than typing cell addresses manually.
+
+**Acceptance Criteria:**
+
+**Given** a cell is in edit mode with a formula starting with `=`
+**When** the user clicks any other cell
+**Then** the clicked cell's address (e.g. `B3`) is inserted at the current cursor position in the formula
+**And** the formula edit mode remains active (the click does not commit or cancel the formula)
+
+**Given** a formula is being edited and a cell reference is inserted by clicking
+**When** the user clicks a different cell
+**Then** the previously inserted reference is replaced with the new cell's address
+**And** if the cursor has moved past the reference (e.g. user typed an operator after it), a new reference is appended at the cursor
+
+**Given** a cell is in edit mode without a leading `=` (plain text entry)
+**When** the user clicks another cell
+**Then** normal navigation occurs (edit is committed, new cell is selected)
+
+**Given** a cell reference is inserted by clicking
+**When** the formula is committed (Enter or Tab)
+**Then** the formula evaluates correctly using the clicked cell's value
+
 ---
 
-## Epic 18: Undo / Redo
+### Story 18.2: Drag-to-Insert Range Reference While Editing Formula
 
-**Goal:** Users can undo any reasonable editing operation, eliminating fear of accidental changes.
+As a user,
+I want to drag across cells while editing a formula to insert a range reference,
+So that I can reference ranges like `B2:D5` without typing the address manually.
 
-**User Outcome:** Cmd+Z undoes the last edit (cell value, format, insert/delete row/col). Cmd+Shift+Z redoes it. History is reasonable (e.g., last 100 operations).
+**Acceptance Criteria:**
 
-**Requirements covered:**
-- FB6: Unlimited undo for "reasonable" operations
+**Given** a cell is in edit mode with a formula starting with `=`
+**When** the user clicks and drags across a rectangular range of cells
+**Then** the range address (e.g. `B2:D5`) is inserted at the cursor position in the formula
+**And** the dragged cells are highlighted with a distinct "reference selection" color (different from normal selection)
 
-**Why standalone:** Architecturally invasive (requires command pattern) but delivers complete, self-contained value. Explicitly deferred from Phase 1 in the PRD.
+**Given** a range reference is inserted by dragging
+**When** the drag ends
+**Then** the formula editor cursor is positioned immediately after the inserted range reference
+**And** the user can continue typing (e.g. add `+` or `)`)
 
-**Implementation notes:**
-- Implement command pattern in Go backend or frontend (TBD in story design)
-- Track edit operations: set cell, clear cell, insert/delete row/col, paste
-- Expose undo/redo via IPC + keyboard shortcuts Cmd+Z / Cmd+Shift+Z
-- Wire to Edit menu items
+**Given** a range reference has been inserted and the user drags again
+**When** the second drag completes
+**Then** the previous range reference at the cursor is replaced with the new range
+**And** if the cursor has moved past the reference, a new range reference is inserted at the new cursor position
+
+**Given** a range reference is inserted by dragging
+**When** the formula is committed (Enter or Tab)
+**Then** the formula evaluates correctly using the full range
 
 ---
 
