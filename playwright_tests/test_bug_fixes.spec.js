@@ -184,7 +184,11 @@ test.describe('Bug Fix: Scroll position preserved after grid expansion (Story 13
     const finalRowCount = await table.locator('tr[role="row"]').count();
     expect(finalRowCount).toBeGreaterThan(initialRowCount);
 
-    // Scroll position should be close to scrollHeight (not reset to top)
+    // Scroll position should be preserved (not reset to top after rebuild)
+    await window.waitForFunction(
+      () => document.querySelector('.spreadsheet-container').scrollTop > 0,
+      { timeout: 3000 }
+    );
     const scrollTop = await window.evaluate(
       () => document.querySelector('.spreadsheet-container').scrollTop
     );
