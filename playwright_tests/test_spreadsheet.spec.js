@@ -203,14 +203,16 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     await expect(cellC5).toHaveText('99');
   });
 
-  test('empty cell reference shows error', async ({ window }) => {
+  test('empty cell reference coerces to 0 in arithmetic', async ({
+    window,
+  }) => {
     await expect(window.locator('#cell-0-0')).toBeVisible();
 
+    // Z99 is empty — =Z99+1 should give 1 (empty coerces to 0), not an error
     await setCellViaApi(window, 9, 1, '=Z99+1');
     const cellB10 = window.locator('#cell-9-1');
-    const cellText = await cellB10.textContent();
-    expect(cellText).toContain('#ERROR');
-    expect(cellText.toLowerCase()).toContain('empty cell');
+    await expect(cellB10).not.toHaveClass(/error-cell/);
+    await expect(cellB10).toHaveText('1');
   });
 
   test('infinite scroll expands grid', async ({ window }) => {
@@ -336,7 +338,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     await expect(formulaBar).toHaveValue('99');
   });
 
-  test('SUM with empty cells shows error', async ({ window }) => {
+  test('SUM with empty cells treats empties as 0', async ({ window }) => {
     await window.evaluate(async () => {
       const response = await fetch('/api/file/new', {
         method: 'POST',
@@ -353,10 +355,11 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     await setCellViaApi(window, 2, 4, '10');
     await setCellViaApi(window, 0, 5, '=SUM(E1:E3)');
 
+    // E2 is empty — SUM treats it as 0, result should be 15
     const cellF1 = window.locator('#cell-0-5');
+    await expect(cellF1).not.toHaveClass(/error-cell/);
     const cellText = await cellF1.textContent();
-    expect(cellText).toContain('#ERROR');
-    expect(cellText.toLowerCase()).toContain('empty cell');
+    expect(cellText).toBe('15');
   });
 
   test('circular reference detection', async ({ window }) => {

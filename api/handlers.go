@@ -68,11 +68,13 @@ func GetFrontendDir() string {
 func (s *Server) HandleGetCellValue(w http.ResponseWriter, r *http.Request) {
 	row, _ := strconv.Atoi(r.URL.Query().Get("row"))
 	col, _ := strconv.Atoi(r.URL.Query().Get("col"))
+	cell := s.Ctrl.Sheet.GetCell(row, col)
 	value := s.Ctrl.GetCellValue(row, col)
+	isError := cell != nil && cell.IsError
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"data":    map[string]interface{}{"computed": value},
+		"data":    map[string]interface{}{"computed": value, "isError": isError},
 	})
 }
 
@@ -100,9 +102,9 @@ func (s *Server) HandleSetCellValue(w http.ResponseWriter, r *http.Request) {
 	}
 	cell := s.Ctrl.Sheet.GetCell(req.Row, req.Col)
 	var value, displayValue string
-	var isFormula bool
+	var isFormula, isError bool
 	if cell != nil {
-		value, displayValue, isFormula = cell.Value, cell.Computed, cell.IsFormula
+		value, displayValue, isFormula, isError = cell.RawValue(), cell.Computed, cell.IsFormula, cell.IsError
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -111,6 +113,7 @@ func (s *Server) HandleSetCellValue(w http.ResponseWriter, r *http.Request) {
 			"value":             value,
 			"displayValue":      displayValue,
 			"isFormula":         isFormula,
+			"isError":           isError,
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -159,6 +162,7 @@ func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
 				entry := map[string]interface{}{
 					"row": row, "col": col,
 					"computed": value,
+					"isError":  cell != nil && cell.IsError,
 					"value":    s.Ctrl.GetCellRawValue(row, col),
 				}
 				if cell != nil && cell.StyleId != 0 {

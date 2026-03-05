@@ -100,6 +100,7 @@ const GetAllCells = async () => {
     cells[ref] = {
       display,
       raw,
+      isError: c.isError ?? false,
       styleId: c.styleId,
       alignment: c.alignment ?? '',
     };

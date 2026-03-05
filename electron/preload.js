@@ -154,6 +154,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('theme-changed', (event, theme) => callback(theme));
   },
 
+  // View menu: RTL and alignment
+  onMenuToggleRTL: (callback) => {
+    ipcRenderer.on('menu-toggle-rtl', (event, checked) =>
+      callback(event, checked)
+    );
+  },
+  onMenuAlignLeft: (callback) => {
+    ipcRenderer.on('menu-align-left', callback);
+  },
+  onMenuAlignCenter: (callback) => {
+    ipcRenderer.on('menu-align-center', callback);
+  },
+  onMenuAlignRight: (callback) => {
+    ipcRenderer.on('menu-align-right', callback);
+  },
+
   // Story 13.10: Settings persistence (RTL mode, future settings)
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),

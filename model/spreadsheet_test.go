@@ -53,7 +53,7 @@ func TestSetCellFormula(t *testing.T) {
 
 	cell := sheet.GetCell(0, 0)
 	assert.NotNil(t, cell)
-	assert.Equal(t, "=A2+A3", cell.Value)
+	assert.Equal(t, "=A2+A3", cell.RawValue())
 	assert.True(t, cell.IsFormula)
 }
 
@@ -335,10 +335,10 @@ func TestInsertRow_FormulaRefs(t *testing.T) {
 	// Formula in old row 1 (=A1) is now at row 2, refs A1 unchanged (row 0 < 1), A2 -> A3 (row 1 >= 1)
 	cell2 := sheet.GetCell(2, 0)
 	assert.NotNil(t, cell2)
-	assert.Equal(t, "=A1", cell2.Value)
+	assert.Equal(t, "=A1", cell2.RawValue())
 	cell3 := sheet.GetCell(3, 0)
 	assert.NotNil(t, cell3)
-	assert.Equal(t, "=A1+A3", cell3.Value)
+	assert.Equal(t, "=A1+A3", cell3.RawValue())
 }
 
 func TestInsertColumn(t *testing.T) {

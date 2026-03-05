@@ -73,8 +73,9 @@ func TestCellSetValue_InvalidFormula(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			cell := NewCell(tt.input)
 			assert.True(t, cell.IsFormula, "should be marked as formula, not plain text")
-			assert.Equal(t, tt.input, cell.Value, "raw value should be preserved")
-			assert.Equal(t, "#ERROR: invalid formula", cell.Computed, "computed should show error")
+			assert.Equal(t, tt.input, cell.RawValue(), "raw value should be preserved")
+			assert.Equal(t, "#ERROR invalid formula", cell.Computed, "computed should show error")
+			assert.True(t, cell.IsError, "IsError should be true for invalid formula")
 		})
 	}
 }

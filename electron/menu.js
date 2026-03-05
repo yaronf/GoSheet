@@ -42,6 +42,7 @@ let menuState = {
   canUnmerge: false,
   canInsertRow: false,
   canInsertColumn: false,
+  isRTL: false,
 };
 
 // Cache for rebuild when syncing Format menu styles
@@ -395,6 +396,50 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
       ],
     },
 
+    // View menu: alignment and RTL
+    {
+      label: 'View',
+      submenu: [
+        {
+          id: 'toggle-rtl',
+          label: 'RTL Mode',
+          type: 'checkbox',
+          checked: menuState.isRTL,
+          click: (menuItem) => {
+            if (DEBUG)
+              console.log(
+                '[Menu] RTL Mode clicked, checked:',
+                menuItem.checked
+              );
+            if (mainWindow)
+              mainWindow.webContents.send('menu-toggle-rtl', menuItem.checked);
+          },
+        },
+        { type: 'separator' },
+        {
+          id: 'align-left',
+          label: 'Align Left',
+          click: () => {
+            if (mainWindow) mainWindow.webContents.send('menu-align-left');
+          },
+        },
+        {
+          id: 'align-center',
+          label: 'Align Center',
+          click: () => {
+            if (mainWindow) mainWindow.webContents.send('menu-align-center');
+          },
+        },
+        {
+          id: 'align-right',
+          label: 'Align Right',
+          click: () => {
+            if (mainWindow) mainWindow.webContents.send('menu-align-right');
+          },
+        },
+      ],
+    },
+
     // Story 13.1: Insert menu (row/column)
     {
       label: 'Insert',
@@ -480,7 +525,7 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
     console.log('[Menu] Template has', template.length, 'top-level menus');
   const fileMenuIndex = process.platform === 'darwin' ? 1 : 0;
   const editMenuIndex = process.platform === 'darwin' ? 2 : 1;
-  const helpMenuIndex = process.platform === 'darwin' ? 5 : 4; // Insert added (Story 13.1)
+  const helpMenuIndex = process.platform === 'darwin' ? 6 : 5; // View + Insert added
   if (DEBUG)
     console.log(
       '[Menu] File menu has',
@@ -555,6 +600,12 @@ function updateMenuState(state) {
   const insertColItem = menu.getMenuItemById('insert-column');
   if (insertColItem && menuState.canInsertColumn !== undefined) {
     insertColItem.enabled = menuState.canInsertColumn;
+  }
+
+  // RTL mode checkbox
+  const rtlItem = menu.getMenuItemById('toggle-rtl');
+  if (rtlItem && menuState.isRTL !== undefined) {
+    rtlItem.checked = menuState.isRTL;
   }
 
   // Save As is always enabled (no state dependency)

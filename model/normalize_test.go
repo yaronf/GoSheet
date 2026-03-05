@@ -98,8 +98,8 @@ func TestCellNormalizesFormulas(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cell := NewCell(tt.input)
 
-			if cell.Value != tt.expected {
-				t.Errorf("Expected cell.Value %q, got %q", tt.expected, cell.Value)
+			if cell.RawValue() != tt.expected {
+				t.Errorf("Expected cell.RawValue() %q, got %q", tt.expected, cell.RawValue())
 			}
 		})
 	}
@@ -117,8 +117,8 @@ func TestSpreadsheetNormalizesFormulas(t *testing.T) {
 	}
 
 	expected := "=A1+B2"
-	if cell.Value != expected {
-		t.Errorf("Expected normalized formula %q, got %q", expected, cell.Value)
+	if cell.RawValue() != expected {
+		t.Errorf("Expected normalized formula %q, got %q", expected, cell.RawValue())
 	}
 
 	if !cell.IsFormula {

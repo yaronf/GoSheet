@@ -93,8 +93,8 @@ func TestSaveAndLoadWithData(t *testing.T) {
 			t.Errorf("Cell at (%d, %d) is nil", tt.row, tt.col)
 			continue
 		}
-		if cell.Value != tt.expected {
-			t.Errorf("Cell at (%d, %d): expected %q, got %q", tt.row, tt.col, tt.expected, cell.Value)
+		if cell.RawValue() != tt.expected {
+			t.Errorf("Cell at (%d, %d): expected %q, got %q", tt.row, tt.col, tt.expected, cell.RawValue())
 		}
 	}
 }
@@ -129,8 +129,8 @@ func TestSaveAndLoadFormulas(t *testing.T) {
 	if cell1 == nil || !cell1.IsFormula {
 		t.Error("Cell C1 should be a formula")
 	}
-	if cell1.Value != "=A1+B1" {
-		t.Errorf("Cell C1: expected formula '=A1+B1', got %q", cell1.Value)
+	if cell1.RawValue() != "=A1+B1" {
+		t.Errorf("Cell C1: expected formula '=A1+B1', got %q", cell1.RawValue())
 	}
 	if cell1.Computed != "30" {
 		t.Errorf("Cell C1: expected computed value '30', got %q", cell1.Computed)
@@ -140,8 +140,8 @@ func TestSaveAndLoadFormulas(t *testing.T) {
 	if cell2 == nil || !cell2.IsFormula {
 		t.Error("Cell A2 should be a formula")
 	}
-	if cell2.Value != "=SUM(A1:B1)" {
-		t.Errorf("Cell A2: expected formula '=SUM(A1:B1)', got %q", cell2.Value)
+	if cell2.RawValue() != "=SUM(A1:B1)" {
+		t.Errorf("Cell A2: expected formula '=SUM(A1:B1)', got %q", cell2.RawValue())
 	}
 }
 

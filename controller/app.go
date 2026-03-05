@@ -48,16 +48,45 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 					}
 					cycleStr += c
 				}
-				errorMsg := "#ERROR: Circular reference: " + cycleStr
+
 				logutil.Debugf("Circular reference detected: %s", cycleStr)
 
-				// Set cell to show error without modifying Modified flag or dependencies
+				// Set cell to show error
+				c.Sheet.Dependencies.RemoveDependencies(cellRef)
 				c.Sheet.SetCell(row, col, value)
 				cell := c.Sheet.GetCell(row, col)
 				if cell != nil {
-					cell.SetComputed(errorMsg)
+					cell.SetError("circular reference: " + cycleStr)
 				}
-				return nil // Don't add dependencies or recalculate
+				// Record dependencies even for cycle cells so that clearing them later
+				// triggers recalculation of their dependents.
+				for _, r := range refs {
+					c.Sheet.Dependencies.AddDependency(cellRef, r)
+				}
+				// Propagate error to cells that already depend on this cell.
+				// Can't use recalculateDependents (cycle in graph), so walk immediate dependents directly.
+				// Skip the cell itself (self-reference case).
+				for _, dep := range c.Sheet.Dependencies.GetDependents(cellRef) {
+					if dep == cellRef {
+						continue
+					}
+					depRow, depCol, err := model.RefToCoords(dep)
+					if err != nil {
+						continue
+					}
+					depCell := c.Sheet.GetCell(depRow, depCol)
+					if depCell != nil && depCell.IsFormula {
+						result, isErr, evalErr := model.EvaluateFormula("="+depCell.Value, c.Sheet)
+						if evalErr != nil {
+							depCell.SetError(evalErr.Error())
+						} else if isErr {
+							depCell.SetError(result)
+						} else {
+							depCell.SetComputed(result)
+						}
+					}
+				}
+				return nil
 			}
 		}
 	}
@@ -80,10 +109,12 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 
 		// Evaluate the formula
 		logutil.Debugf("Evaluating formula: %s", cell.Value)
-		result, err := model.EvaluateFormula(cell.Value, c.Sheet)
+		result, isErr, err := model.EvaluateFormula("="+cell.Value, c.Sheet)
 		if err != nil {
 			log.Printf("Formula error: %v", err)
-			cell.SetComputed("#ERROR: " + err.Error())
+			cell.SetError(err.Error())
+		} else if isErr {
+			cell.SetError(result)
 		} else {
 			logutil.Debugf("Formula result: %s", result)
 			cell.SetComputed(result)
@@ -97,14 +128,20 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 }
 
 // recalculateDependents recalculates cells that depend on the changed cells
-// Uses dependency graph for efficient recalculation in topological order
-func (c *AppController) recalculateDependents(changedCells []string) {
+// Uses dependency graph for efficient recalculation in topological order.
+// skip is an optional set of cell refs to leave untouched (already handled by caller).
+func (c *AppController) recalculateDependents(changedCells []string, skip ...string) {
+	skipSet := make(map[string]bool, len(skip))
+	for _, s := range skip {
+		skipSet[s] = true
+	}
+
 	// Get calculation order (topologically sorted)
 	order, err := c.Sheet.Dependencies.GetCalculationOrder(changedCells)
 	if err != nil {
-		log.Printf("Error getting calculation order: %v", err)
-		// Fall back to recalculating all formulas
-		c.recalculateAllFormulas()
+		// Cycle detected in the dependency graph. Evaluate only the changed cells'
+		// direct dependents by inspecting the graph manually, leaving cycle cells alone.
+		log.Printf("Cycle in dependency graph during recalculation: %v", err)
 		return
 	}
 
@@ -117,6 +154,9 @@ func (c *AppController) recalculateDependents(changedCells []string) {
 
 	// Recalculate in topological order
 	for _, cellRef := range order {
+		if skipSet[cellRef] {
+			continue
+		}
 		row, col, err := model.RefToCoords(cellRef)
 		if err != nil {
 			log.Printf("Error converting ref %s to coords: %v", cellRef, err)
@@ -125,9 +165,11 @@ func (c *AppController) recalculateDependents(changedCells []string) {
 		cell := c.Sheet.GetCell(row, col)
 
 		if cell != nil && cell.IsFormula {
-			result, err := model.EvaluateFormula(cell.Value, c.Sheet)
+			result, isErr, err := model.EvaluateFormula("="+cell.Value, c.Sheet)
 			if err != nil {
-				cell.SetComputed("#ERROR: " + err.Error())
+				cell.SetError(err.Error())
+			} else if isErr {
+				cell.SetError(result)
 			} else {
 				cell.SetComputed(result)
 			}
@@ -140,16 +182,36 @@ func (c *AppController) recalculateDependents(changedCells []string) {
 func (c *AppController) recalculateAllFormulas() {
 	logutil.Debugln("Recalculating all formulas...")
 
-	// Iterate through all cells
-	for _, rowMap := range c.Sheet.Cells {
-		for _, cell := range rowMap {
+	// Collect all formula cell refs
+	var allRefs []string
+	for row, rowMap := range c.Sheet.Cells {
+		for col, cell := range rowMap {
 			if cell != nil && cell.IsFormula {
-				result, err := model.EvaluateFormula(cell.Value, c.Sheet)
-				if err != nil {
-					cell.SetComputed("#ERROR: " + err.Error())
-				} else {
-					cell.SetComputed(result)
-				}
+				allRefs = append(allRefs, model.CoordsToRef(row, col))
+			}
+		}
+	}
+
+	// Try to get a dependency-ordered list; fall back to unordered on cycle
+	order, err := c.Sheet.Dependencies.GetCalculationOrder(allRefs)
+	if err != nil {
+		order = allRefs // cycle present — best effort unordered
+	}
+
+	for _, cellRef := range order {
+		row, col, err := model.RefToCoords(cellRef)
+		if err != nil {
+			continue
+		}
+		cell := c.Sheet.GetCell(row, col)
+		if cell != nil && cell.IsFormula {
+			result, isErr, evalErr := model.EvaluateFormula("="+cell.Value, c.Sheet)
+			if evalErr != nil {
+				cell.SetError(evalErr.Error())
+			} else if isErr {
+				cell.SetError(result)
+			} else {
+				cell.SetComputed(result)
 			}
 		}
 	}
@@ -174,7 +236,7 @@ func (c *AppController) GetCellRawValue(row, col int) string {
 	if cell == nil {
 		return ""
 	}
-	return cell.Value
+	return cell.RawValue()
 }
 
 // GetCellRef returns the cell reference (e.g., "A1", "B5") for the given row and column
@@ -232,7 +294,7 @@ func (c *AppController) rebuildDependencyGraph() {
 		for col, cell := range rowMap {
 			if cell != nil && cell.IsFormula {
 				cellRef := model.CoordsToRef(row, col)
-				refs := model.ExtractCellReferences(cell.Value)
+				refs := model.ExtractCellReferences("=" + cell.Value)
 
 				for _, ref := range refs {
 					c.Sheet.Dependencies.AddDependency(cellRef, ref)

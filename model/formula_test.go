@@ -53,7 +53,7 @@ func TestEvaluateSimpleArithmetic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -79,7 +79,7 @@ func TestEvaluateComparison(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -106,7 +106,7 @@ func TestEvaluateCellReference(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -116,10 +116,10 @@ func TestEvaluateCellReference(t *testing.T) {
 func TestEvaluateEmptyCell(t *testing.T) {
 	sheet := NewSpreadsheet()
 
-	// Empty cell should produce an error
-	result, err := EvaluateFormula("=A1+5", sheet)
+	// Empty cell coerces to 0 in numeric context
+	result, _, err := EvaluateFormula("=A1+5", sheet)
 	assert.NoError(t, err)
-	assert.Contains(t, result, "#ERROR")
+	assert.Equal(t, "5", result)
 }
 
 func TestEvaluateSumFunction(t *testing.T) {
@@ -144,7 +144,7 @@ func TestEvaluateSumFunction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -171,7 +171,7 @@ func TestEvaluateAvgFunction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -199,7 +199,7 @@ func TestEvaluateMinMaxFunction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -226,7 +226,7 @@ func TestEvaluateCountFunction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -253,7 +253,7 @@ func TestEvaluateComplexFormula(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -270,12 +270,12 @@ func TestEvaluateLargeRange(t *testing.T) {
 	}
 
 	// SUM should be 100
-	result, err := EvaluateFormula("=SUM(A1:A100)", sheet)
+	result, _, err := EvaluateFormula("=SUM(A1:A100)", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "100", result)
 
 	// COUNT should be 100
-	result, err = EvaluateFormula("=COUNT(A1:A100)", sheet)
+	result, _, err = EvaluateFormula("=COUNT(A1:A100)", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "100", result)
 }
@@ -294,11 +294,11 @@ func TestEvaluateErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			_, isErr, err := EvaluateFormula(tt.formula, sheet)
 			if tt.hasErr {
 				// Should either return error or error value
 				if err == nil {
-					assert.Contains(t, result, "#ERROR")
+					assert.True(t, isErr)
 				}
 			}
 		})
@@ -338,7 +338,7 @@ func TestStringFunctions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -351,7 +351,7 @@ func TestRangeWithEmptyCells(t *testing.T) {
 	// Set up a range with some empty cells
 	sheet.SetCell(0, 0, "10") // A1 = 10
 	sheet.SetCell(1, 0, "20") // A2 = 20
-	// A3 is empty
+	// A3 is empty - treated as 0
 	sheet.SetCell(3, 0, "30") // A4 = 30
 
 	sheet.GetCell(0, 0).SetComputed("10")
@@ -359,22 +359,22 @@ func TestRangeWithEmptyCells(t *testing.T) {
 	sheet.GetCell(3, 0).SetComputed("30")
 
 	tests := []struct {
-		name    string
-		formula string
+		name     string
+		formula  string
+		expected string
 	}{
-		{"=SUM(A1:A4)", "=SUM(A1:A4)"},
-		{"=AVG(A1:A4)", "=AVG(A1:A4)"},
-		{"=MIN(A1:A4)", "=MIN(A1:A4)"},
-		{"=MAX(A1:A4)", "=MAX(A1:A4)"},
-		{"=COUNT(A1:A4)", "=COUNT(A1:A4)"},
+		{"=SUM(A1:A4)", "=SUM(A1:A4)", "60"},
+		{"=AVG(A1:A4)", "=AVG(A1:A4)", "20"},
+		{"=MIN(A1:A4)", "=MIN(A1:A4)", "10"},
+		{"=MAX(A1:A4)", "=MAX(A1:A4)", "30"},
+		{"=COUNT(A1:A4)", "=COUNT(A1:A4)", "3"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
-			assert.Contains(t, result, "#ERROR", "Range with empty cells should produce error")
-			assert.Contains(t, result, "empty cell", "Error should mention empty cell")
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -401,7 +401,7 @@ func TestFormulaNumericEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -414,7 +414,7 @@ func TestFormulaStringToNumber(t *testing.T) {
 	sheet.SetCell(0, 0, "5") // Plain text "5"
 	sheet.GetCell(0, 0).SetComputed("5")
 
-	result, err := EvaluateFormula("=A1+1", sheet)
+	result, _, err := EvaluateFormula("=A1+1", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "6", result)
 }
@@ -446,7 +446,7 @@ func TestFormulaStringFunctions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, _, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -467,9 +467,9 @@ func TestFormulaStringFunctions_ArgCountErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			_, isErr, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
-			assert.Contains(t, result, "#ERROR")
+			assert.True(t, isErr)
 		})
 	}
 }
@@ -499,7 +499,7 @@ func TestCellRefToCoords(t *testing.T) {
 
 func TestFormulaParseError(t *testing.T) {
 	sheet := NewSpreadsheet()
-	_, err := EvaluateFormula("=1+", sheet)
+	_, _, err := EvaluateFormula("=1+", sheet)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "parse")
 }
@@ -507,33 +507,33 @@ func TestFormulaParseError(t *testing.T) {
 // TestFormulaEvalError exercises the eval error path (err propagation from toNumber in unary)
 func TestFormulaEvalError(t *testing.T) {
 	sheet := NewSpreadsheet()
-	// =--A1 with empty A1: inner -A1 returns ErrorValue, toNumber fails, err propagates
-	_, err := EvaluateFormula("=--A1", sheet)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "eval")
+	// =--A1 with empty A1: empty coerces to 0, double negation gives 0
+	result, _, err := EvaluateFormula("=--A1", sheet)
+	assert.NoError(t, err)
+	assert.Equal(t, "0", result)
 }
 
 func TestFormulaDivisionByZero(t *testing.T) {
 	sheet := NewSpreadsheet()
-	result, err := EvaluateFormula("=10/0", sheet)
+	result, isErr, err := EvaluateFormula("=10/0", sheet)
 	assert.NoError(t, err)
-	assert.Contains(t, result, "#ERROR")
+	assert.True(t, isErr)
 	assert.Contains(t, result, "division by zero")
 }
 
 func TestFormulaModuloByZero(t *testing.T) {
 	sheet := NewSpreadsheet()
-	result, err := EvaluateFormula("=10%0", sheet)
+	result, isErr, err := EvaluateFormula("=10%0", sheet)
 	assert.NoError(t, err)
-	assert.Contains(t, result, "#ERROR")
+	assert.True(t, isErr)
 	assert.Contains(t, result, "modulo")
 }
 
 func TestFormulaUnknownFunction(t *testing.T) {
 	sheet := NewSpreadsheet()
-	result, err := EvaluateFormula("=FOOBAR(1)", sheet)
+	result, isErr, err := EvaluateFormula("=FOOBAR(1)", sheet)
 	assert.NoError(t, err)
-	assert.Contains(t, result, "#ERROR")
+	assert.True(t, isErr)
 	assert.Contains(t, result, "unknown function")
 }
 
@@ -542,9 +542,9 @@ func TestFormulaToNumberInvalidString(t *testing.T) {
 	sheet.SetCell(0, 0, "abc")
 	sheet.GetCell(0, 0).SetComputed("abc")
 
-	result, err := EvaluateFormula("=A1+1", sheet)
+	result, isErr, err := EvaluateFormula("=A1+1", sheet)
 	assert.NoError(t, err)
-	assert.Contains(t, result, "#ERROR")
+	assert.True(t, isErr)
 	assert.Contains(t, result, "cannot convert")
 }
 
@@ -555,7 +555,7 @@ func TestFormulaCONCATWithRange(t *testing.T) {
 	sheet.GetCell(0, 0).SetComputed("a")
 	sheet.GetCell(0, 1).SetComputed("b")
 
-	result, err := EvaluateFormula("=CONCAT(A1:B1)", sheet)
+	result, _, err := EvaluateFormula("=CONCAT(A1:B1)", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "ab", result)
 }
@@ -568,16 +568,16 @@ func TestFormulaRangeAsValue(t *testing.T) {
 	sheet.GetCell(0, 1).SetComputed("2")
 
 	// Bare range A1:B1 evaluates to VectorValue; valueToString yields "[N values]"
-	result, err := EvaluateFormula("=A1:B1", sheet)
+	result, _, err := EvaluateFormula("=A1:B1", sheet)
 	assert.NoError(t, err)
 	assert.Contains(t, result, "values")
 }
 
 func TestFormulaAVGNoNumericValues(t *testing.T) {
 	sheet := NewSpreadsheet()
-	result, err := EvaluateFormula("=AVG(\"a\",\"b\")", sheet)
+	result, isErr, err := EvaluateFormula("=AVG(\"a\",\"b\")", sheet)
 	assert.NoError(t, err)
-	assert.Contains(t, result, "#ERROR")
+	assert.True(t, isErr)
 	assert.Contains(t, result, "at least one numeric")
 }
 
@@ -586,11 +586,11 @@ func TestFormulaRightEdgeCases(t *testing.T) {
 	sheet.SetCell(0, 0, "hi")
 	sheet.GetCell(0, 0).SetComputed("hi")
 	// length < 0 -> clamped to 0
-	result, err := EvaluateFormula("=RIGHT(\"hi\",-1)", sheet)
+	result, _, err := EvaluateFormula("=RIGHT(\"hi\",-1)", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "", result)
 	// length > len(str) -> clamped to len(str)
-	result, err = EvaluateFormula("=RIGHT(\"hi\",10)", sheet)
+	result, _, err = EvaluateFormula("=RIGHT(\"hi\",10)", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "hi", result)
 }
@@ -598,7 +598,7 @@ func TestFormulaRightEdgeCases(t *testing.T) {
 func TestFormulaMidEdgeCases(t *testing.T) {
 	sheet := NewSpreadsheet()
 	// startIdx >= len(str) -> return ""
-	result, err := EvaluateFormula("=MID(\"hi\",5,2)", sheet)
+	result, _, err := EvaluateFormula("=MID(\"hi\",5,2)", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "", result)
 }
@@ -618,9 +618,9 @@ func TestFormulaFunctionArgErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.formula, func(t *testing.T) {
-			result, err := EvaluateFormula(tt.formula, sheet)
+			result, isErr, err := EvaluateFormula(tt.formula, sheet)
 			assert.NoError(t, err)
-			assert.Contains(t, result, "#ERROR")
+			assert.True(t, isErr)
 			assert.Contains(t, result, tt.contains)
 		})
 	}
@@ -633,7 +633,7 @@ func TestFormulaSerializeUnaryWithOp(t *testing.T) {
 	assert.Equal(t, "=--5", result)
 	// Verify evaluation works
 	sheet := NewSpreadsheet()
-	val, err := EvaluateFormula("=--5", sheet)
+	val, _, err := EvaluateFormula("=--5", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "5", val)
 }
@@ -641,38 +641,37 @@ func TestFormulaSerializeUnaryWithOp(t *testing.T) {
 func TestFormulaNumberFormatting(t *testing.T) {
 	sheet := NewSpreadsheet()
 	// Integer formatting (no decimal)
-	result, err := EvaluateFormula("=1", sheet)
+	result, _, err := EvaluateFormula("=1", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "1", result)
 
 	// Float formatting
-	result, err = EvaluateFormula("=1.5", sheet)
+	result, _, err = EvaluateFormula("=1.5", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "1.5", result)
 }
 
-func TestFormulaSUMWithErrorInRange(t *testing.T) {
+func TestFormulaSUMWithEmptyInRange(t *testing.T) {
 	sheet := NewSpreadsheet()
 	sheet.SetCell(0, 0, "1")
 	sheet.SetCell(1, 0, "2")
-	// A3 is empty - range A1:A3 contains error
+	// A3 is empty - treated as 0, sum should be 3
 	sheet.GetCell(0, 0).SetComputed("1")
 	sheet.GetCell(1, 0).SetComputed("2")
 
-	result, err := EvaluateFormula("=SUM(A1:A3)", sheet)
+	result, _, err := EvaluateFormula("=SUM(A1:A3)", sheet)
 	assert.NoError(t, err)
-	assert.Contains(t, result, "#ERROR")
-	assert.Contains(t, result, "empty cell")
+	assert.Equal(t, "3", result)
 }
 
 func TestFormulaInvalidPrimary(t *testing.T) {
 	sheet := NewSpreadsheet()
 	// =() may parse as empty subexpr; if so, hits "invalid primary expression"
-	result, err := EvaluateFormula("=()", sheet)
+	_, isErr, err := EvaluateFormula("=()", sheet)
 	if err != nil {
 		assert.Contains(t, err.Error(), "parse")
 	} else {
-		assert.Contains(t, result, "#ERROR")
+		assert.True(t, isErr)
 	}
 }
 
@@ -684,9 +683,9 @@ func TestFormulaToNumberVectorValue(t *testing.T) {
 	sheet.GetCell(0, 0).SetComputed("1")
 	sheet.GetCell(0, 1).SetComputed("2")
 	// Bare range A1:B1 in arithmetic hits toNumber default
-	result, err := EvaluateFormula("=A1:B1+1", sheet)
+	result, isErr, err := EvaluateFormula("=A1:B1+1", sheet)
 	assert.NoError(t, err)
-	assert.Contains(t, result, "#ERROR")
+	assert.True(t, isErr)
 	assert.Contains(t, result, "cannot convert")
 }
 
@@ -697,7 +696,7 @@ func TestFormulaValueToStrDefault(t *testing.T) {
 	sheet.SetCell(0, 1, "x")
 	sheet.GetCell(0, 1).SetComputed("x")
 	// CONCAT(A1:B1) gets VectorValue with ErrorValue for A1, StringValue for B1
-	result, err := EvaluateFormula("=CONCAT(A1:B1)", sheet)
+	result, _, err := EvaluateFormula("=CONCAT(A1:B1)", sheet)
 	assert.NoError(t, err)
 	assert.Equal(t, "x", result) // valueToStr(ErrorValue) -> "" so "" + "x"
 }

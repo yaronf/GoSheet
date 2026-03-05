@@ -89,24 +89,26 @@ func NormalizeFormula(formula string) (string, error) {
 	return "=" + serializeComparison(ast.Expr.Comparison), nil
 }
 
-// EvaluateFormula evaluates a formula and returns the result as a string
-func EvaluateFormula(formula string, sheet *Spreadsheet) (string, error) {
+// EvaluateFormula evaluates a formula and returns the result as a string and whether it is an error value.
+func EvaluateFormula(formula string, sheet *Spreadsheet) (string, bool, error) {
 	// Normalize formula to uppercase for cell references
 	formula = normalizeFormula(formula)
 	// Parse the formula
 	ast, err := ParseFormula(formula)
 	if err != nil {
-		return "", fmt.Errorf("parse error: %w", err)
+		return "", false, fmt.Errorf("parse error: %w", err)
 	}
 
 	// Evaluate the AST
 	result, err := evaluateExpression(ast.Expr, sheet)
 	if err != nil {
-		return "", fmt.Errorf("eval error: %w", err)
+		return "", false, fmt.Errorf("eval error: %w", err)
 	}
 
-	// Convert result to string
-	return valueToString(result), nil
+	if ev, isErr := result.(ErrorValue); isErr {
+		return ev.Error.Error(), true, nil
+	}
+	return valueToString(result), false, nil
 }
 
 // serializeComparison converts a Comparison AST back to a string
@@ -238,7 +240,7 @@ func valueToString(v Value) string {
 	case StringValue:
 		return val.Value
 	case ErrorValue:
-		return fmt.Sprintf("#ERROR: %v", val.Error)
+		return fmt.Sprintf("#ERROR %v", val.Error)
 	case VectorValue:
 		return fmt.Sprintf("[%d values]", len(val.Values))
 	default:
@@ -252,7 +254,9 @@ func toNumber(v Value) (float64, error) {
 	case NumberValue:
 		return val.Value, nil
 	case StringValue:
-		// Try to parse string as number
+		if val.Value == "" {
+			return 0, nil
+		}
 		var num float64
 		_, err := fmt.Sscanf(val.Value, "%f", &num)
 		if err != nil {
@@ -493,20 +497,16 @@ func evaluateCellRef(ref *CellRef, sheet *Spreadsheet) (Value, error) {
 	ar, ac := sheet.ResolveToAnchor(row, col)
 	cell := sheet.GetCell(ar, ac)
 
-	if cell == nil {
-		return ErrorValue{fmt.Errorf("reference to empty cell")}, nil
-	}
-
-	// Check if cell has no value (truly empty)
-	if cell.Value == "" {
-		return ErrorValue{fmt.Errorf("reference to empty cell")}, nil
+	if cell == nil || cell.Value == "" {
+		return StringValue{""}, nil
 	}
 
 	// Use the computed value (for formulas, this is the result; for values, it's the same as Value)
 	computed := cell.Computed
-	if computed == "" {
-		// If Computed is not set, use Value (shouldn't happen with proper cell initialization)
-		computed = cell.Value
+
+	// If the referenced cell itself contains an error, propagate with a clear message
+	if cell.IsError {
+		return ErrorValue{fmt.Errorf("referenced cell has error")}, nil
 	}
 
 	// Try to parse as number
@@ -536,12 +536,9 @@ func evaluateRange(rng *Range, sheet *Spreadsheet) (Value, error) {
 				continue
 			}
 			cell := sheet.GetCell(row, col)
-			if cell == nil {
-				// Empty cell in range - return error
-				values = append(values, ErrorValue{fmt.Errorf("reference to empty cell")})
-			} else if cell.Value == "" {
-				// Cell exists but has no value - return error
-				values = append(values, ErrorValue{fmt.Errorf("reference to empty cell")})
+			if cell == nil || cell.Value == "" {
+				// Empty cell in range - treat as empty string (coerces to 0 in numeric context)
+				values = append(values, StringValue{""})
 			} else {
 				// Use computed value
 				computed := cell.Computed
