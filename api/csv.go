@@ -49,8 +49,8 @@ func HandleCSVPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read file
-	content, err := os.ReadFile(req.Path)
+	// Open and parse file
+	f, err := os.Open(req.Path)
 	if err != nil {
 		_ = json.NewEncoder(w).Encode(CSVPreviewResponse{
 			Success: false,
@@ -59,19 +59,9 @@ func HandleCSVPreview(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer f.Close()
 
-	// Check if file is empty
-	if len(content) == 0 {
-		_ = json.NewEncoder(w).Encode(CSVPreviewResponse{
-			Success: false,
-			Error:   "CSV file is empty",
-			Code:    "EMPTY_FILE",
-		})
-		return
-	}
-
-	// Parse CSV
-	reader := csv.NewReader(strings.NewReader(string(content)))
+	reader := csv.NewReader(f)
 	reader.FieldsPerRecord = -1 // Allow variable number of fields
 
 	records, err := reader.ReadAll()
@@ -133,19 +123,13 @@ type CSVImportResponse struct {
 
 // ParseCSVFile reads and parses a CSV file, returning the records
 func ParseCSVFile(path string) ([][]string, error) {
-	// Read file
-	content, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
+	defer f.Close()
 
-	// Check if file is empty
-	if len(content) == 0 {
-		return nil, fmt.Errorf("CSV file is empty")
-	}
-
-	// Parse CSV
-	reader := csv.NewReader(strings.NewReader(string(content)))
+	reader := csv.NewReader(f)
 	reader.FieldsPerRecord = -1 // Allow variable number of fields
 
 	records, err := reader.ReadAll()

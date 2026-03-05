@@ -23,6 +23,10 @@ func main() {
 	ctrl := controller.NewAppController()
 	srv := api.NewServer(ctrl)
 
+	// cors wraps handlers with permissive CORS headers. The wildcard origin is
+	// intentional: this server runs locally and is accessed only by the Electron
+	// renderer (or a local browser for development). There is no cross-origin
+	// threat model for a localhost-only service.
 	cors := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "*")

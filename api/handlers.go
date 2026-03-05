@@ -20,17 +20,18 @@ import (
 // Server holds HTTP handler dependencies and implements all API handlers.
 // Testable: inject a controller (or mock) for unit tests.
 type Server struct {
-	Ctrl *controller.AppController
+	Ctrl        *controller.AppController
+	frontendDir string // cached at construction time
 }
 
 // NewServer creates a Server with the given controller.
 func NewServer(ctrl *controller.AppController) *Server {
-	return &Server{Ctrl: ctrl}
+	return &Server{Ctrl: ctrl, frontendDir: GetFrontendDir()}
 }
 
 // ServeStatic serves frontend files (index.html, JS, CSS).
 func (s *Server) ServeStatic(w http.ResponseWriter, r *http.Request) {
-	frontendDir := GetFrontendDir()
+	frontendDir := s.frontendDir
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")

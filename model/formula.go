@@ -772,13 +772,12 @@ func countFunction(args []Value) (Value, error) {
 	return NumberValue{float64(count)}, nil
 }
 
-// Helper function to convert Value to string
+// valueToStr converts a Value to string, returning "" for non-string/number types.
+// Used in string functions where errors and vectors should produce empty strings.
 func valueToStr(v Value) string {
-	switch val := v.(type) {
-	case StringValue:
-		return val.Value
-	case NumberValue:
-		return valueToString(val)
+	switch v.(type) {
+	case StringValue, NumberValue:
+		return valueToString(v)
 	default:
 		return ""
 	}
