@@ -1,5 +1,5 @@
 # generated: 2026-02-23
-# last_updated: 2026-03-02 (13-3 story created, ready-for-dev)
+# last_updated: 2026-03-05 (sprint-planning: added epics 14-19, corrected epic 10/11 status)
 # project: spreadsheet
 # project_key: NOKEY
 # tracking_system: file-system
@@ -167,7 +167,7 @@ development_status:
   9-5-organize-project-structure: done
   9-6-add-in-app-formula-reference: done
   epic-9-retrospective: optional  # Epic 10: Code Quality & Technical Debt (DEFERRED)
-  epic-10: in-progress
+  epic-10: done
   10-1-rename-wails-references: done
   10-2-setup-linting-and-formatting: done
   10-3-add-code-complexity-analysis: done
@@ -182,7 +182,7 @@ development_status:
   epic-10-retrospective: optional
   
   # Epic 11: Cell Merging (from technical research 2026-02-23)
-  epic-11: in-progress
+  epic-11: done
   11-1-add-merge-regions-to-backend: done
   11-2-add-merge-api-endpoints: done
   11-3-implement-merge-aware-grid-rendering: done
@@ -219,6 +219,7 @@ development_status:
   14-2-migrate-full-test-suite-to-chromium: backlog
   14-3-upgrade-electron-to-supported-version: backlog
   14-4-update-build-and-ci-configuration: backlog
+  epic-14-retrospective: optional
 
   # Epic 15: Undo / Redo
   epic-15: backlog
@@ -226,6 +227,7 @@ development_status:
   15-2-undo-redo-cell-edits-and-deletion: backlog
   15-3-undo-redo-structural-operations: backlog
   15-4-undo-redo-formatting: backlog
+  epic-15-retrospective: optional
 
   # Epic 16: Data Safety & File Integrity
   epic-16: backlog
@@ -233,6 +235,7 @@ development_status:
   16-2-fix-recalculateall-stub: backlog
   16-3-open-files-from-cli-and-finder: backlog
   16-4-read-only-view-mode: backlog
+  epic-16-retrospective: optional
 
   # Epic 17: Selection & Range Operations
   epic-17: backlog
@@ -240,11 +243,14 @@ development_status:
   17-2-row-column-select-aesthetics: backlog
   17-3-copy-paste-rectangular-range: backlog
   17-4-range-address-box-type-to-select: backlog
+  epic-17-retrospective: optional
 
   # Epic 18: Formula Editing Enhancements
   epic-18: backlog
   18-1-click-to-insert-cell-reference: backlog
   18-2-drag-to-insert-range-reference: backlog
+  epic-18-retrospective: optional
 
   # Epic 19: Agentic API Access Layer (stories TBD)
   epic-19: backlog
+  epic-19-retrospective: optional
