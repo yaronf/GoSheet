@@ -280,7 +280,8 @@ document.querySelector('#app').innerHTML = `
                     <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
                 </svg>
             </button>
-            <!-- Story 13.8: Alignment buttons -->
+            <!-- Alignment buttons (with gap from file buttons) -->
+            <span class="toolbar-separator" aria-hidden="true"></span>
             <button id="align-left-btn" class="toolbar-btn" title="Align left" aria-label="Align Left" aria-pressed="false">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/>
@@ -294,12 +295,6 @@ document.querySelector('#app').innerHTML = `
             <button id="align-right-btn" class="toolbar-btn" title="Align right" aria-label="Align Right" aria-pressed="false">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="7" y2="18"/>
-                </svg>
-            </button>
-            <!-- Story 13.10: RTL mode toggle -->
-            <button id="rtl-toggle-btn" class="toolbar-btn" title="Toggle RTL mode" aria-label="Toggle RTL Mode" aria-pressed="false">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M3 6h12M3 10h8M3 14h12"/><polyline points="17 8 21 12 17 16"/><line x1="21" y1="12" x2="11" y2="12"/>
                 </svg>
             </button>
         </div>
@@ -320,12 +315,42 @@ document.querySelector('#app').innerHTML = `
     </div>
     </main>
     <div id="context-menu" class="context-menu" role="menu" aria-hidden="true" tabindex="-1">
-        <button type="button" class="context-menu-item" data-action="copy">Copy</button>
-        <button type="button" class="context-menu-item" data-action="paste">Paste</button>
+        <button type="button" class="context-menu-item" data-action="copy">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+        </button>
+        <button type="button" class="context-menu-item" data-action="paste">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+            Paste
+        </button>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-submenu-wrapper">
+            <button type="button" class="context-menu-item context-menu-submenu-trigger" aria-haspopup="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+                Alignment ▶
+            </button>
+            <div class="context-menu-submenu" role="menu">
+                <button type="button" class="context-menu-item" data-action="align-left">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+                    Align Left
+                </button>
+                <button type="button" class="context-menu-item" data-action="align-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/></svg>
+                    Align Center
+                </button>
+                <button type="button" class="context-menu-item" data-action="align-right">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="7" y2="18"/></svg>
+                    Align Right
+                </button>
+            </div>
+        </div>
         <div class="context-menu-separator"></div>
         <div id="context-menu-format-items"></div>
         <div class="context-menu-separator"></div>
-        <button type="button" class="context-menu-item" data-action="clear">Clear</button>
+        <button type="button" class="context-menu-item" data-action="clear">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Clear
+        </button>
     </div>
     <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-message">
         <div class="modal-dialog">
@@ -746,10 +771,17 @@ async function populateContextMenuFormatItems() {
   try {
     const styles = await GetStyles();
     container.innerHTML = styles
-      .map(
-        (s) =>
-          `<button type="button" class="context-menu-item" data-action="format-style-${s.id}" disabled>${s.name || 'Style ' + s.id}</button>`
-      )
+      .map((s) => {
+        const css = formatToCssPreview(s.format);
+        const styleStr = Object.entries(css)
+          .map(
+            ([k, v]) =>
+              `${k.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase())}:${v}`
+          )
+          .join(';');
+        const label = s.name || 'Style ' + s.id;
+        return `<button type="button" class="context-menu-item" data-action="format-style-${s.id}" disabled><span style="${styleStr}">${label}</span></button>`;
+      })
       .join('');
   } catch (err) {
     console.error('[App] Failed to load styles for context menu:', err);
@@ -806,6 +838,7 @@ function setupContextMenuHandlers() {
   menu.addEventListener('click', (e) => {
     const btn = e.target.closest('.context-menu-item');
     if (!btn || btn.disabled) return;
+    if (btn.classList.contains('context-menu-submenu-trigger')) return;
     const action = btn.dataset.action;
     hideContextMenu();
     handleContextMenuAction(action);
@@ -814,10 +847,7 @@ function setupContextMenuHandlers() {
     if (e.key === 'Escape') hideContextMenu();
   });
   document.addEventListener('click', (e) => {
-    if (
-      !e.target.closest('#context-menu') &&
-      !e.target.closest('#spreadsheet')
-    ) {
+    if (!e.target.closest('#context-menu')) {
       hideContextMenu();
     }
   });
@@ -850,6 +880,12 @@ async function handleContextMenuAction(action) {
           displayFileStatus(result.hasUnsavedChanges);
         await refreshAllCells();
       }
+    } else if (action === 'align-left') {
+      await applyAlignmentToSelection('left');
+    } else if (action === 'align-center') {
+      await applyAlignmentToSelection('center');
+    } else if (action === 'align-right') {
+      await applyAlignmentToSelection('right');
     } else if (action === 'clear') {
       const result = await ClearRange(startRow, startCol, endRow, endCol);
       if (result?.hasUnsavedChanges !== undefined)
@@ -1497,10 +1533,10 @@ function setupEditorHandlers(input, row, col, cell, originalContent) {
       e.preventDefault();
       e.stopPropagation();
       finish();
-      // Move to next cell
+      // Move to next cell (select, don't start editing)
       const nextCol = e.shiftKey ? col - 1 : col + 1;
       if (nextCol >= 0 && nextCol < COLS) {
-        setTimeout(() => startEditing(row, nextCol), 100);
+        setTimeout(() => selectCell(row, nextCol), 100);
       }
     }
   });
@@ -1591,21 +1627,18 @@ function applyCellValue(
   rawValue,
   styleId,
   styleFormats = null,
-  alignment = ''
+  alignment = '',
+  isError = false
 ) {
   const safeValue = value ?? '';
   cell.textContent = safeValue;
   // Story 13.5: Show full content on hover for error cells and long values
-  if (
-    safeValue &&
-    (safeValue.startsWith('#ERROR') ||
-      safeValue.length > TOOLTIP_LENGTH_THRESHOLD)
-  ) {
+  if (safeValue && (isError || safeValue.length > TOOLTIP_LENGTH_THRESHOLD)) {
     cell.title = safeValue;
   } else {
     cell.title = '';
   }
-  cell.classList.toggle('error-cell', safeValue.startsWith('#ERROR'));
+  cell.classList.toggle('error-cell', isError);
   if ((rawValue ?? '').startsWith('=')) {
     cell.classList.add('formula-cell');
     cell.dataset.formula = rawValue;
@@ -1684,7 +1717,8 @@ async function refreshAllCells() {
             cellData.raw ?? '',
             cellData.styleId,
             styles,
-            cellData.alignment ?? ''
+            cellData.alignment ?? '',
+            cellData.isError ?? false
           );
       }
     }
@@ -1727,7 +1761,8 @@ async function loadCells() {
             cellData.raw ?? '',
             cellData.styleId,
             styles,
-            cellData.alignment ?? ''
+            cellData.alignment ?? '',
+            cellData.isError ?? false
           );
       }
     }
@@ -2088,21 +2123,17 @@ document
   .getElementById('align-right-btn')
   .addEventListener('click', () => applyAlignmentToSelection('right'));
 
-// Story 13.10: RTL toggle handler
-document
-  .getElementById('rtl-toggle-btn')
-  .addEventListener('click', async () => {
-    isRTL = !isRTL;
-    if (isRTL) {
-      document.documentElement.setAttribute('dir', 'rtl');
-    } else {
-      document.documentElement.removeAttribute('dir');
-    }
-    const btn = document.getElementById('rtl-toggle-btn');
-    btn.classList.toggle('active', isRTL);
-    btn.setAttribute('aria-pressed', String(isRTL));
-    await SetSetting('rtl', isRTL);
-  });
+// RTL toggle logic — newValue is the desired state (boolean)
+async function setRTL(newValue) {
+  isRTL = newValue;
+  if (isRTL) {
+    document.documentElement.setAttribute('dir', 'rtl');
+  } else {
+    document.documentElement.removeAttribute('dir');
+  }
+  await SetSetting('rtl', isRTL);
+  window.electronAPI?.updateMenuState?.({ isRTL });
+}
 
 // Story 7.12: Extract CSV import logic into function (CSV buttons removed from toolbar)
 async function handleImportCSV() {
@@ -2129,6 +2160,7 @@ window.startEditing = startEditing;
 window.handleImportCSV = handleImportCSV;
 window.selectCell = selectCell;
 window.refreshAllCells = refreshAllCells;
+window.setRTL = setRTL;
 window.buildSpreadsheet = buildSpreadsheet;
 window.displayFileStatus = displayFileStatus;
 
@@ -3289,6 +3321,20 @@ if (window.electronAPI) {
     }
   });
 
+  // View menu: RTL Mode checkbox
+  window.electronAPI.onMenuToggleRTL?.((event, checked) => {
+    setRTL(checked);
+  });
+
+  // View menu: Alignment shortcuts
+  window.electronAPI.onMenuAlignLeft?.(() => applyAlignmentToSelection('left'));
+  window.electronAPI.onMenuAlignCenter?.(() =>
+    applyAlignmentToSelection('center')
+  );
+  window.electronAPI.onMenuAlignRight?.(() =>
+    applyAlignmentToSelection('right')
+  );
+
   if (window.__DEBUG__)
     console.log('[App] Electron menu event listeners registered (File + Edit)');
 }
@@ -3330,17 +3376,13 @@ if (window.matchMedia) {
 // Update file status on load
 updateFileStatus();
 
-// Story 13.10: Load persisted RTL setting and apply
+// Load persisted RTL setting and apply
 (async () => {
   const settings = await GetSettings();
   if (settings.rtl) {
     isRTL = true;
     document.documentElement.setAttribute('dir', 'rtl');
-    const rtlBtn = document.getElementById('rtl-toggle-btn');
-    if (rtlBtn) {
-      rtlBtn.classList.add('active');
-      rtlBtn.setAttribute('aria-pressed', 'true');
-    }
+    window.electronAPI?.updateMenuState?.({ isRTL: true });
   }
 })();
 
