@@ -162,19 +162,9 @@ func (s *Spreadsheet) GetCellCount() int {
 	return count
 }
 
-// RecalculateAll recalculates all formulas in the spreadsheet
-// This is a placeholder - will be implemented with the formula engine
+// RecalculateAll is intentionally not implemented at the model layer.
+// Use AppController.recalculateAllFormulas() for full recalculation via the dependency graph.
 func (s *Spreadsheet) RecalculateAll() error {
-	// TODO: Implement with formula engine
-	// For now, just iterate through cells and mark formulas for recalculation
-	for _, rowMap := range s.Cells {
-		for _, cell := range rowMap {
-			if cell.IsFormula {
-				// Formula evaluation will be implemented in formula.go
-				cell.SetComputed("#PENDING")
-			}
-		}
-	}
 	return nil
 }
 

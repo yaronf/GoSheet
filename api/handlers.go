@@ -66,8 +66,16 @@ func GetFrontendDir() string {
 }
 
 func (s *Server) HandleGetCellValue(w http.ResponseWriter, r *http.Request) {
-	row, _ := strconv.Atoi(r.URL.Query().Get("row"))
-	col, _ := strconv.Atoi(r.URL.Query().Get("col"))
+	row, err := strconv.Atoi(r.URL.Query().Get("row"))
+	if err != nil {
+		http.Error(w, "invalid row parameter", http.StatusBadRequest)
+		return
+	}
+	col, err := strconv.Atoi(r.URL.Query().Get("col"))
+	if err != nil {
+		http.Error(w, "invalid col parameter", http.StatusBadRequest)
+		return
+	}
 	cell := s.Ctrl.Sheet.GetCell(row, col)
 	value := s.Ctrl.GetCellValue(row, col)
 	isError := cell != nil && cell.IsError
@@ -79,8 +87,16 @@ func (s *Server) HandleGetCellValue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleGetCellRawValue(w http.ResponseWriter, r *http.Request) {
-	row, _ := strconv.Atoi(r.URL.Query().Get("row"))
-	col, _ := strconv.Atoi(r.URL.Query().Get("col"))
+	row, err := strconv.Atoi(r.URL.Query().Get("row"))
+	if err != nil {
+		http.Error(w, "invalid row parameter", http.StatusBadRequest)
+		return
+	}
+	col, err := strconv.Atoi(r.URL.Query().Get("col"))
+	if err != nil {
+		http.Error(w, "invalid col parameter", http.StatusBadRequest)
+		return
+	}
 	value := s.Ctrl.GetCellRawValue(row, col)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -250,15 +266,23 @@ func (s *Server) HandleFileStatus(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	logutil.Debugln("Downloading file")
-	tmpFile := "/tmp/gosheet_download.gosheet"
-	if err := s.Ctrl.SaveFile(tmpFile); err != nil {
+	tmpFile, err := os.CreateTemp("", "gosheet-download-*.gosheet")
+	if err != nil {
+		log.Printf("Download error creating temp file: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(tmpPath)
+	if err := s.Ctrl.SaveFile(tmpPath); err != nil {
 		log.Printf("Download error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename=spreadsheet.gosheet")
-	http.ServeFile(w, r, tmpFile)
+	http.ServeFile(w, r, tmpPath)
 }
 
 func (s *Server) HandleUploadFile(w http.ResponseWriter, r *http.Request) {
@@ -269,13 +293,21 @@ func (s *Server) HandleUploadFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	tmpFile := "/tmp/gosheet_upload.gosheet"
-	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
+	tmpFile, err := os.CreateTemp("", "gosheet-upload-*.gosheet")
+	if err != nil {
+		log.Printf("Upload temp file error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(tmpPath)
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
 		log.Printf("Upload write error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := s.Ctrl.LoadFile(tmpFile); err != nil {
+	if err := s.Ctrl.LoadFile(tmpPath); err != nil {
 		log.Printf("Upload load error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -355,8 +387,8 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	for row := 0; row < 1000; row++ {
-		for col := 0; col < 100; col++ {
+	for row, cols := range s.Ctrl.Sheet.Cells {
+		for col := range cols {
 			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
 			if ar != row || ac != col {
 				continue
