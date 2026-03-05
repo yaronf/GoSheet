@@ -85,6 +85,12 @@ complexity:
 	@echo "Functions with complexity >15:"
 	@go run github.com/fzipp/gocyclo/cmd/gocyclo@latest -over 15 . 2>/dev/null || true
 
+# Build and install app to /Applications
+install: build-electron
+	@echo "Installing GoSheet to /Applications..."
+	@APP=$$([ -d "dist/mac-arm64/GoSheet.app" ] && echo "dist/mac-arm64/GoSheet.app" || echo "dist/mac/GoSheet.app"); \
+	sudo cp -r "$$APP" /Applications/GoSheet.app && echo "Installed $$APP to /Applications/GoSheet.app"
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."

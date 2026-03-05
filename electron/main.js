@@ -231,6 +231,36 @@ const GO_SERVER_PORT = 3000;
 // Story 7.7: Store file path to open when app is launched by double-clicking a file
 let pendingFileToOpen = null;
 
+// Support command-line file argument: `npm start -- /path/to/file.sheet`
+// Also handles Electron's argv where the app path is argv[1] in packaged mode.
+const cliArgs = process.argv.slice(2);
+
+if (cliArgs.includes('--help') || cliArgs.includes('-h')) {
+  console.log(`
+GoSheet — Lightweight spreadsheet for macOS
+
+Usage:
+  gosheet [options] [file.sheet]
+
+Arguments:
+  file.sheet        Open the specified spreadsheet file on launch
+
+Options:
+  --verbose         Enable verbose debug logging
+  --help, -h        Show this help message
+`);
+  app.quit();
+  process.exit(0);
+}
+
+const argFilePath = cliArgs.find(
+  (a) => !a.startsWith('-') && a.endsWith('.sheet')
+);
+if (argFilePath && fs.existsSync(argFilePath)) {
+  pendingFileToOpen = argFilePath;
+  if (DEBUG) console.log('[Electron] CLI file to open:', argFilePath);
+}
+
 // Story 7.6: Store dock menu action when app has no window (macOS)
 let pendingDockAction = null;
 
