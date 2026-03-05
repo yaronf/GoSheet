@@ -39,7 +39,10 @@ build-server-x64:
 	GOOS=darwin GOARCH=amd64 go build -o server/gosheet-server-x64 ./server
 
 build-server-universal: generate build-server-arm64 build-server-x64
-	@echo "Universal Go server binaries ready."
+	@which lipo > /dev/null 2>&1 || (echo "Error: lipo not found. Install Xcode Command Line Tools: xcode-select --install" && exit 1)
+	@echo "Merging into universal fat binary..."
+	lipo -create -output server/gosheet-server-universal server/gosheet-server-arm64 server/gosheet-server-x64
+	@echo "Universal Go server binary ready."
 
 # Generate Go types from OpenAPI schema (Story 10.10)
 generate:
@@ -88,11 +91,12 @@ complexity:
 # Build and install app to /Applications
 install: build-electron
 	@echo "Installing GoSheet to /Applications..."
-	@APP=$$([ -d "dist/mac-arm64/GoSheet.app" ] && echo "dist/mac-arm64/GoSheet.app" || echo "dist/mac/GoSheet.app"); \
+	@APP=$$([ -d "dist/mac-universal/GoSheet.app" ] && echo "dist/mac-universal/GoSheet.app" || \
+	       ([ -d "dist/mac-arm64/GoSheet.app" ] && echo "dist/mac-arm64/GoSheet.app" || echo "dist/mac/GoSheet.app")); \
 	sudo cp -r "$$APP" /Applications/GoSheet.app && echo "Installed $$APP to /Applications/GoSheet.app"
 
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	rm -f server/gosheet-server server/gosheet-server-arm64 server/gosheet-server-x64
+	rm -f server/gosheet-server server/gosheet-server-arm64 server/gosheet-server-x64 server/gosheet-server-universal
 	rm -rf dist/ node_modules/

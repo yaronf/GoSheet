@@ -20,7 +20,7 @@ Currently on **Electron 30.5.1** (EOL). Blocked by Playwright CDP compatibility:
 
 ## 2. Build Universal macOS Executable
 
-**Status:** Deferred
+**Status:** Resolved (2026-03-05)
 **Priority:** Low
 **Discovered:** 2026-02-16 (Post Epic 6)
 

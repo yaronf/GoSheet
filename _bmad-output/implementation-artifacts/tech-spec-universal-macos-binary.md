@@ -2,7 +2,7 @@
 title: 'Universal macOS Binary'
 slug: 'universal-macos-binary'
 created: '2026-03-05'
-status: 'ready-for-dev'
+status: 'Implementation Complete'
 stepsCompleted: [1, 2, 3, 4]
 tech_stack: ['Go', 'Electron', 'electron-builder', 'lipo']
 files_to_modify: ['Makefile', 'package.json', '_bmad-output/implementation-artifacts/TECHNICAL-DEBT.md']
@@ -66,7 +66,7 @@ Use `lipo` to merge the two cross-compiled Go server binaries into a single fat 
 
 ### Tasks
 
-- [ ] Task 1: Add `lipo` merge step to `build-server-universal` in `Makefile`
+- [x] Task 1: Add `lipo` merge step to `build-server-universal` in `Makefile`
   - File: `Makefile`
   - Action: After the `build-server-x64` dependency, add:
     ```
@@ -75,11 +75,11 @@ Use `lipo` to merge the two cross-compiled Go server binaries into a single fat 
     ```
   - Notes: Keep the existing `generate`, `build-server-arm64`, `build-server-x64` dependencies unchanged
 
-- [ ] Task 2: Add `server/gosheet-server-universal` to `clean` target in `Makefile`
+- [x] Task 2: Add `server/gosheet-server-universal` to `clean` target in `Makefile`
   - File: `Makefile`
   - Action: Append `server/gosheet-server-universal` to the `rm -f` line in the `clean` target
 
-- [ ] Task 3: Update electron-builder target to `universal` in `package.json`
+- [x] Task 3: Update electron-builder target to `universal` in `package.json`
   - File: `package.json`
   - Action: In `build.mac.target[0]`, change `"target": "default"` to `"target": "universal"` and remove the `"arch"` array entirely (the `universal` target implies both arches). The result should be:
     ```json
@@ -90,11 +90,11 @@ Use `lipo` to merge the two cross-compiled Go server binaries into a single fat 
     ]
     ```
 
-- [ ] Task 4: Update `extraResources` to reference fat binary in `package.json`
+- [x] Task 4: Update `extraResources` to reference fat binary in `package.json`
   - File: `package.json`
   - Action: Change the first `extraResources` entry from `"from": "server/gosheet-server-${arch}"` to `"from": "server/gosheet-server-universal"`
 
-- [ ] Task 5: Update the `/Applications` install target (line 89 in `Makefile`) to handle `dist/mac-universal/` path
+- [x] Task 5: Update the `/Applications` install target (line 89 in `Makefile`) to handle `dist/mac-universal/` path
   - File: `Makefile`
   - Action: Update the `APP` variable assignment to check `dist/mac-universal/GoSheet.app` first, then fall back to `dist/mac-arm64/` and `dist/mac/`. Result:
     ```makefile
@@ -103,7 +103,7 @@ Use `lipo` to merge the two cross-compiled Go server binaries into a single fat 
     ```
   - Notes: This is the `install:` target at line 89, not the `install:` at line 7 (which runs `npm install`)
 
-- [ ] Task 6: Mark tech debt item 2 resolved
+- [x] Task 6: Mark tech debt item 2 resolved
   - File: `_bmad-output/implementation-artifacts/TECHNICAL-DEBT.md`
   - Action: Update item 2 status line to `Resolved (2026-03-05)`
 
