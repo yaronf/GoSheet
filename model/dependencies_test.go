@@ -2,6 +2,8 @@ package model
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDependencyGraph_ExtractCellReferences(t *testing.T) {
@@ -426,6 +428,24 @@ func TestExtractCellReferences_RangeExpandError(t *testing.T) {
 	if !refMap["C1"] {
 		t.Errorf("Expected C1 in refs, got %v", refs)
 	}
+}
+
+// TestGetCalculationOrder_SourceCellIncluded documents that GetCalculationOrder includes
+// the source (changed) cells themselves in its output, not just their dependents.
+// This is acceptable behaviour: callers must skip already-evaluated cells if needed.
+func TestGetCalculationOrder_SourceCellIncluded(t *testing.T) {
+	dg := NewDependencyGraph()
+	dg.AddDependency("B1", "A1") // B1 depends on A1
+
+	order, err := dg.GetCalculationOrder([]string{"A1"})
+	assert.NoError(t, err)
+	// Order should contain both A1 (source) and B1 (dependent)
+	found := make(map[string]bool)
+	for _, c := range order {
+		found[c] = true
+	}
+	assert.True(t, found["A1"], "source cell A1 should be in order")
+	assert.True(t, found["B1"], "dependent B1 should be in order")
 }
 
 func TestDependencyGraph_IntegrationWithSpreadsheet(t *testing.T) {

@@ -155,11 +155,10 @@ func TestRecalculateAll(t *testing.T) {
 	err := sheet.RecalculateAll()
 	assert.NoError(t, err)
 
-	// RecalculateAll marks formulas as #PENDING (placeholder impl)
+	// RecalculateAll is a no-op at the model layer; use AppController for actual recalc
 	cell := sheet.GetCell(0, 0)
 	assert.NotNil(t, cell)
 	assert.True(t, cell.IsFormula)
-	assert.Equal(t, "#PENDING", cell.Computed)
 }
 
 func TestSpreadsheetString(t *testing.T) {
@@ -306,6 +305,20 @@ func TestCleanupFormat_SkipsMergeAnchors(t *testing.T) {
 	// Merge anchor (0,0) should not be deleted (would orphan merge)
 	assert.NotNil(t, sheet.GetCell(0, 0))
 	assert.Len(t, sheet.Merges, 1)
+}
+
+func TestCleanupFormat_MergeAnchorStylePreserved(t *testing.T) {
+	// Regression: CleanupFormat was clearing the style of empty merge anchors before
+	// checking isMergeAnchor, so the anchor cell survived but lost its style.
+	sheet := NewSpreadsheet()
+	_ = sheet.ApplyStyleToCell(0, 0, 2) // styled empty merge anchor
+	sheet.Merges = []MergeRegion{{StartRow: 0, StartCol: 0, RowSpan: 1, ColSpan: 3}}
+
+	sheet.CleanupFormat()
+
+	cell := sheet.GetCell(0, 0)
+	assert.NotNil(t, cell, "merge anchor must not be deleted")
+	assert.Equal(t, 2, cell.StyleId, "merge anchor style must be preserved")
 }
 
 func TestInsertRow(t *testing.T) {

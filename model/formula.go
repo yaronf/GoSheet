@@ -43,22 +43,27 @@ var formulaParser = participle.MustBuild[Formula](
 
 // normalizeFormula converts cell references to uppercase while preserving function names
 func normalizeFormula(formula string) string {
-	// Uppercase everything EXCEPT string literals (inside quotes)
-	// This preserves case in strings while making cell refs and functions case-insensitive
+	// Uppercase everything EXCEPT string literals (inside quotes).
+	// Handles \" escape sequences inside string literals correctly.
 	var result strings.Builder
 	inString := false
 
 	for i := 0; i < len(formula); i++ {
 		ch := formula[i]
 
-		if ch == '"' {
-			inString = !inString
+		if inString {
 			result.WriteByte(ch)
-		} else if inString {
-			// Inside string literal - preserve case
+			if ch == '\\' && i+1 < len(formula) {
+				// Consume the escaped character so \" doesn't toggle inString
+				i++
+				result.WriteByte(formula[i])
+			} else if ch == '"' {
+				inString = false
+			}
+		} else if ch == '"' {
+			inString = true
 			result.WriteByte(ch)
 		} else {
-			// Outside string literal - uppercase
 			result.WriteByte(byte(strings.ToUpper(string(ch))[0]))
 		}
 	}

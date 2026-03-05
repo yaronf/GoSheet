@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -246,10 +247,7 @@ func (s *Server) HandleFileStatus(w http.ResponseWriter, r *http.Request) {
 	filePath := s.Ctrl.GetFilePath()
 	filename := "Untitled"
 	if filePath != "" {
-		parts := strings.Split(filePath, "/")
-		if len(parts) > 0 {
-			filename = parts[len(parts)-1]
-		}
+		filename = filepath.Base(filePath)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

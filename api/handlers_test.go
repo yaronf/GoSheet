@@ -299,6 +299,53 @@ func TestHandleLoadFile_EmptyPath(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestHandleFileStatus_FilepathBase(t *testing.T) {
+	// Regression: filename extraction previously used strings.Split("/") which
+	// fails on Windows paths. Now uses filepath.Base.
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "x")
+	// Use a real temp file so SaveFile sets the path
+	tmpfile := filepath.Join(t.TempDir(), "my spreadsheet.gosheet")
+	assert.NoError(t, srv.Ctrl.SaveFile(tmpfile))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/file/status", nil)
+	w := httptest.NewRecorder()
+	srv.HandleFileStatus(w, req)
+
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Filename string `json:"filename"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.Equal(t, "my spreadsheet.gosheet", resp.Data.Filename)
+}
+
+func TestHandleGetCellValue_BadParams(t *testing.T) {
+	srv := newTestServer()
+	// Non-numeric row
+	req := httptest.NewRequest(http.MethodGet, "/api/cell/value?row=abc&col=0", nil)
+	w := httptest.NewRecorder()
+	srv.HandleGetCellValue(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Non-numeric col
+	req2 := httptest.NewRequest(http.MethodGet, "/api/cell/value?row=0&col=xyz", nil)
+	w2 := httptest.NewRecorder()
+	srv.HandleGetCellValue(w2, req2)
+	assert.Equal(t, http.StatusBadRequest, w2.Code)
+}
+
+func TestHandleGetCellRawValue_BadParams(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/cell/raw?row=bad&col=0", nil)
+	w := httptest.NewRecorder()
+	srv.HandleGetCellRawValue(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestHandleCSVPreview(t *testing.T) {
 	srv := newTestServer()
 	tmpfile := filepath.Join(t.TempDir(), "preview.csv")

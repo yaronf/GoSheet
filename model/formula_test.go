@@ -718,6 +718,25 @@ func TestValueToStringDefault(t *testing.T) {
 	assert.Equal(t, "#UNKNOWN", result)
 }
 
+// TestNormalizeFormulaEscapedQuote ensures backslash-escaped quotes inside string
+// literals do not toggle the inString flag and corrupt cell-ref uppercasing.
+func TestNormalizeFormulaEscapedQuote(t *testing.T) {
+	// The literal value contains an escaped quote; cell ref a1 must be uppercased.
+	result, err := NormalizeFormula(`=CONCAT("say \"hi\"",a1)`)
+	assert.NoError(t, err)
+	// Cell ref should be uppercased; string content preserved.
+	assert.Contains(t, result, "A1")
+	assert.Contains(t, result, `"say \"hi\""`)
+}
+
+// TestNormalizeFormulaStringPreservesCase ensures non-ref text inside strings is not uppercased.
+func TestNormalizeFormulaStringPreservesCase(t *testing.T) {
+	result, err := NormalizeFormula(`=CONCAT("hello",A1)`)
+	assert.NoError(t, err)
+	assert.Contains(t, result, `"hello"`)
+	assert.Contains(t, result, "A1")
+}
+
 func TestValueToStrDefault(t *testing.T) {
 	// valueToStr returns "" for non-StringValue, non-NumberValue
 	result := valueToStr(testUnknownValue{})

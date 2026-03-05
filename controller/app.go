@@ -3,13 +3,17 @@ package controller
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"gosheet/logutil"
 	"gosheet/model"
 )
 
-// AppController manages the application state and coordinates between UI and model
+// AppController manages the application state and coordinates between UI and model.
+// mu protects Sheet and all operations that read or write spreadsheet state,
+// since multiple HTTP handlers may execute concurrently.
 type AppController struct {
+	mu    sync.RWMutex
 	Sheet *model.Spreadsheet
 }
 
@@ -22,6 +26,8 @@ func NewAppController() *AppController {
 
 // SetCellValue sets a cell value and triggers recalculation if needed
 func (c *AppController) SetCellValue(row, col int, value string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	logutil.Debugf("SetCellValue: row=%d, col=%d, value=%q", row, col, value)
 
 	cellRef := model.CoordsToRef(row, col)
@@ -220,6 +226,8 @@ func (c *AppController) recalculateAllFormulas() {
 // GetCellValue returns the computed value of a cell.
 // Story 11.6: If (row,col) is covered by a merge, returns anchor's value.
 func (c *AppController) GetCellValue(row, col int) string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	ar, ac := c.Sheet.ResolveToAnchor(row, col)
 	cell := c.Sheet.GetCell(ar, ac)
 	if cell == nil {
@@ -231,6 +239,8 @@ func (c *AppController) GetCellValue(row, col int) string {
 // GetCellRawValue returns the raw value (formula) of a cell.
 // Story 11.6: If (row,col) is covered by a merge, returns anchor's value.
 func (c *AppController) GetCellRawValue(row, col int) string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	ar, ac := c.Sheet.ResolveToAnchor(row, col)
 	cell := c.Sheet.GetCell(ar, ac)
 	if cell == nil {
@@ -246,17 +256,23 @@ func (c *AppController) GetCellRef(row, col int) string {
 
 // NewFile creates a new empty spreadsheet
 func (c *AppController) NewFile() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.Sheet = model.NewSpreadsheet()
 }
 
 // SaveFile saves the spreadsheet to a file
 func (c *AppController) SaveFile(path string) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	logutil.Debugf("Saving spreadsheet to: %s", path)
 	return c.Sheet.SaveToFile(path)
 }
 
 // LoadFile loads a spreadsheet from a file
 func (c *AppController) LoadFile(path string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	logutil.Debugf("Loading spreadsheet from: %s", path)
 	sheet, err := model.LoadFromFile(path)
 	if err != nil {
@@ -267,6 +283,8 @@ func (c *AppController) LoadFile(path string) error {
 
 // LoadFromBytes loads a spreadsheet from gob-encoded bytes (e.g., from FileService.ReadFile).
 func (c *AppController) LoadFromBytes(data []byte, path string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	logutil.Debugf("Loading spreadsheet from bytes, path: %s", path)
 	sheet, err := model.LoadFromBytes(data, path)
 	if err != nil {
@@ -306,11 +324,15 @@ func (c *AppController) rebuildDependencyGraph() {
 
 // HasUnsavedChanges returns true if the spreadsheet has unsaved changes
 func (c *AppController) HasUnsavedChanges() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.Sheet.HasUnsavedChanges()
 }
 
 // GetMerges returns all merge regions.
 func (c *AppController) GetMerges() []model.MergeRegion {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.Sheet.Merges == nil {
 		return []model.MergeRegion{}
 	}
@@ -330,6 +352,8 @@ func rectanglesOverlap(a, b model.MergeRegion) bool {
 
 // SetMerge adds a merge region. Validates no overlap and bounds.
 func (c *AppController) SetMerge(startRow, startCol, rowSpan, colSpan int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if startRow < 0 || startCol < 0 || rowSpan < 1 || colSpan < 1 {
 		return fmt.Errorf("invalid merge: startRow and startCol must be >= 0, rowSpan and colSpan must be >= 1")
 	}
@@ -359,6 +383,8 @@ func (c *AppController) SetMerge(startRow, startCol, rowSpan, colSpan int) error
 
 // Unmerge removes the merge region containing the anchor (startRow, startCol).
 func (c *AppController) Unmerge(startRow, startCol int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for i, m := range c.Sheet.Merges {
 		if m.StartRow == startRow && m.StartCol == startCol {
 			c.Sheet.Merges = append(c.Sheet.Merges[:i], c.Sheet.Merges[i+1:]...)
@@ -371,38 +397,52 @@ func (c *AppController) Unmerge(startRow, startCol int) error {
 
 // GetFilePath returns the current file path
 func (c *AppController) GetFilePath() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.Sheet.FilePath
 }
 
 // ApplyStyleToCell applies a style to a single cell.
 func (c *AppController) ApplyStyleToCell(row, col int, styleId int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.Sheet.ApplyStyleToCell(row, col, styleId)
 }
 
 // ApplyStyleToRange applies a style to a range of cells.
 func (c *AppController) ApplyStyleToRange(startRow, startCol, endRow, endCol int, styleId int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.Sheet.ApplyStyleToRange(startRow, startCol, endRow, endCol, styleId)
 }
 
 // SetCellAlignment sets horizontal alignment for a single cell.
 func (c *AppController) SetCellAlignment(row, col int, alignment string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.Sheet.SetCellAlignment(row, col, alignment)
 }
 
 // SetRangeAlignment sets horizontal alignment for a range of cells.
 func (c *AppController) SetRangeAlignment(startRow, startCol, endRow, endCol int, alignment string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.Sheet.SetRangeAlignment(startRow, startCol, endRow, endCol, alignment)
 }
 
 // CleanupFormat removes style from empty cells and deletes cells with no value and no style.
 // Story 12.3: Reduces used range and file size.
 func (c *AppController) CleanupFormat() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.Sheet.CleanupFormat()
 }
 
 // ClearRange clears cell values in the range. Only clears anchors for merged regions.
 // Story 13.2: Batch clear for context menu performance.
 func (c *AppController) ClearRange(startRow, startCol, endRow, endCol int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	var changed []string
 	for row := startRow; row <= endRow; row++ {
 		for col := startCol; col <= endCol; col++ {
@@ -426,6 +466,8 @@ func (c *AppController) ClearRange(startRow, startCol, endRow, endCol int) {
 
 // InsertRow inserts an empty row at the given index. Story 13.1.
 func (c *AppController) InsertRow(row int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if err := c.Sheet.InsertRow(row); err != nil {
 		return err
 	}
@@ -436,6 +478,8 @@ func (c *AppController) InsertRow(row int) error {
 
 // InsertColumn inserts an empty column at the given index. Story 13.1.
 func (c *AppController) InsertColumn(col int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if err := c.Sheet.InsertColumn(col); err != nil {
 		return err
 	}
@@ -446,6 +490,8 @@ func (c *AppController) InsertColumn(col int) error {
 
 // GetStyles returns all styles from the registry. Story 13.3.
 func (c *AppController) GetStyles() []model.StyleInfo {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.Sheet.Styles == nil {
 		return nil
 	}
@@ -462,6 +508,8 @@ func (c *AppController) GetStyles() []model.StyleInfo {
 
 // UpdateStyle updates the format (and optionally name) for an existing style. Story 13.3.
 func (c *AppController) UpdateStyle(id int, format *model.CellFormat, name string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if err := c.Sheet.Styles.UpdateStyle(id, format, name); err != nil {
 		return err
 	}
@@ -471,6 +519,8 @@ func (c *AppController) UpdateStyle(id int, format *model.CellFormat, name strin
 
 // AddStyle adds a new named style. Story 13.3.
 func (c *AppController) AddStyle(name string, format *model.CellFormat) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	id, err := c.Sheet.Styles.AddStyle(name, format)
 	if err != nil {
 		return 0, err
@@ -481,5 +531,7 @@ func (c *AppController) AddStyle(name string, format *model.CellFormat) (int, er
 
 // DeleteStyle removes a style and clears it from all cells. Story 13.3.
 func (c *AppController) DeleteStyle(id int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.Sheet.DeleteStyle(id)
 }

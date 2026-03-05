@@ -309,6 +309,10 @@ func (s *Spreadsheet) CleanupFormat() {
 				continue
 			}
 			if cell.Value == "" {
+				if s.isMergeAnchor(row, col) {
+					// Preserve merge anchor cells entirely — deleting them orphans merge regions.
+					continue
+				}
 				if cell.StyleId != 0 {
 					cell.StyleId = 0
 					s.Modified = true
@@ -319,9 +323,6 @@ func (s *Spreadsheet) CleanupFormat() {
 	}
 	for _, rc := range toDelete {
 		row, col := rc[0], rc[1]
-		if s.isMergeAnchor(row, col) {
-			continue
-		}
 		cell := s.GetCell(row, col)
 		if cell != nil && cell.Value == "" && cell.StyleId == 0 {
 			s.DeleteCell(row, col)
