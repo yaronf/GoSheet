@@ -672,7 +672,7 @@ func (s *Server) HandleStyles(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleGetStyles(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetStyles(w http.ResponseWriter, _ *http.Request) {
 	styles := s.Ctrl.GetStyles()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -760,7 +760,7 @@ func (s *Server) handleUpdateStyle(w http.ResponseWriter, r *http.Request, id in
 	})
 }
 
-func (s *Server) handleDeleteStyle(w http.ResponseWriter, r *http.Request, id int) {
+func (s *Server) handleDeleteStyle(w http.ResponseWriter, _ *http.Request, id int) {
 	if err := s.Ctrl.DeleteStyle(id); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
