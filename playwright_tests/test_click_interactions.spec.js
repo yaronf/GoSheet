@@ -14,6 +14,19 @@ test.describe('Click interactions (Electron - real clicks)', () => {
 
   test.beforeEach(async ({ window }) => {
     await ensureSpreadsheetView(window);
+    const newBtn = window.locator('#new-btn');
+    await newBtn.click();
+    // Handle unsaved changes modal if it appears (previous test may have left unsaved data)
+    const modal = window.locator('#modal-overlay');
+    if (await modal.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await window.locator('#modal-ok').click();
+      await expect(modal).toBeHidden();
+    }
+    await expect(window.locator('#cell-0-0')).toBeVisible();
+    // Wait for the new-file flow to fully complete before running tests
+    await expect(window.locator('#file-status')).toContainText('Saved', {
+      timeout: 3000,
+    });
   });
 
   test('single click selects cell', async ({ window }) => {
@@ -37,7 +50,7 @@ test.describe('Click interactions (Electron - real clicks)', () => {
     await cell.dblclick();
     const editor = window.locator('.cell-editor');
     await expect(editor).toBeVisible({ timeout: 2000 });
-    await editor.type('X');
+    await window.keyboard.type('X');
     await window.keyboard.press('Enter');
     await expect(cell).toHaveText('edit-meX');
   });

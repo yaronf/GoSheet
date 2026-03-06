@@ -21,7 +21,7 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await newBtn.click();
     // Handle unsaved changes modal if it appears (previous test may have left unsaved data)
     const modal = window.locator('#modal-overlay');
-    if (await modal.isVisible({ timeout: 500 }).catch(() => false)) {
+    if (await modal.isVisible({ timeout: 1000 }).catch(() => false)) {
       await window.locator('#modal-ok').click();
       await expect(modal).toBeHidden();
     }

@@ -42,10 +42,7 @@ test_data.csv
 *.out
 coverage.out
 coverage.html
-server/server
-server/gosheet-server
-server/gosheet-server-arm64
-server/gosheet-server-x64
+server/
 gosheet-server
 gosheet
 web

@@ -361,6 +361,31 @@ function createWindow() {
   const serverUrl = `http://localhost:${GO_SERVER_PORT}${DEBUG ? '?debug=1' : ''}`;
   if (DEBUG) console.log(`[Electron] Loading frontend from: ${serverUrl}`);
 
+  // Grant clipboard permissions in test mode — navigator.clipboard requires
+  // explicit permission grant when the window is hidden (NODE_ENV=test).
+  if (isTest) {
+    mainWindow.webContents.session.setPermissionRequestHandler(
+      (_webContents, permission, callback) => {
+        if (
+          permission === 'clipboard-read' ||
+          permission === 'clipboard-sanitized-write'
+        ) {
+          callback(true);
+        } else {
+          callback(false);
+        }
+      }
+    );
+    mainWindow.webContents.session.setPermissionCheckHandler(
+      (_webContents, permission) => {
+        return (
+          permission === 'clipboard-read' ||
+          permission === 'clipboard-sanitized-write'
+        );
+      }
+    );
+  }
+
   // Clear cache in development mode to ensure latest code is loaded
   if (process.env.NODE_ENV !== 'production') {
     mainWindow.webContents.session.clearCache().then(() => {

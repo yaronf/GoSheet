@@ -15,7 +15,7 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
     await newBtn.click();
     // Handle unsaved changes modal if it appears (previous test may have left unsaved data)
     const modal = window.locator('#modal-overlay');
-    if (await modal.isVisible({ timeout: 500 }).catch(() => false)) {
+    if (await modal.isVisible({ timeout: 1000 }).catch(() => false)) {
       await window.locator('#modal-ok').click();
       await expect(modal).toBeHidden();
     }
@@ -69,6 +69,7 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
   });
 
   test('Insert Row Above inserts empty row and shifts data down', async ({
+    electronApp,
     window,
   }) => {
     await setCellViaApi(window, 2, 0, 'row2');
@@ -80,16 +81,16 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
       timeout: 2000,
     });
 
-    // Trigger insert row via the renderer's IPC handler directly
-    await window.evaluate(async () => {
-      const res = await fetch('/api/row/insert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row: 2 }),
-      });
-      await res.json();
-      await window.buildSpreadsheet();
-      await window.refreshAllCells();
+    // Trigger insert row via the menu IPC path (main process → renderer).
+    // After evaluate returns, the IPC is dispatched asynchronously to the renderer,
+    // so we wait for the DOM to reflect the insert rather than asserting immediately.
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const insertMenu = menu.items.find((item) => item.label === 'Insert');
+      const insertRowItem = insertMenu?.submenu?.items.find(
+        (item) => item.label === 'Insert Row Above'
+      );
+      if (insertRowItem?.click) insertRowItem.click();
     });
 
     const cellA2 = window.locator('#cell-2-0');
@@ -101,6 +102,7 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
   });
 
   test('Insert Column Before inserts empty column and shifts data right', async ({
+    electronApp,
     window,
   }) => {
     await setCellViaApi(window, 0, 1, 'colB');
@@ -112,16 +114,14 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
       timeout: 2000,
     });
 
-    // Trigger insert column via the renderer's IPC handler directly
-    await window.evaluate(async () => {
-      const res = await fetch('/api/column/insert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ col: 1 }),
-      });
-      await res.json();
-      await window.buildSpreadsheet();
-      await window.refreshAllCells();
+    // Trigger insert column via the menu IPC path (main process → renderer).
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const insertMenu = menu.items.find((item) => item.label === 'Insert');
+      const insertColItem = insertMenu?.submenu?.items.find(
+        (item) => item.label === 'Insert Column Before'
+      );
+      if (insertColItem?.click) insertColItem.click();
     });
 
     const cellB1 = window.locator('#cell-0-1');

@@ -36,8 +36,8 @@ So that the app runs on a secure, actively-maintained runtime.
 - [x] Task 2: Fix any failures found in Task 1 (AC: 1)
   - [x] Root cause: `beforeEach` new-btn click didn't wait for `loadCells()` to complete — race with `setCellViaApi`
   - [x] Fix: wait for `#file-status` to contain "Saved" + handle unsaved-changes modal in beforeEach
-  - [x] test_insert_row_column: also refactored insert trigger from `electronApp.evaluate` (menu IPC, unreliable state) to direct fetch + `buildSpreadsheet` + `refreshAllCells`
-  - [x] test_context_menu copy/paste: `navigator.clipboard.writeText` requires user-gesture in Electron 40; test seeds clipboard directly
+  - [x] test_insert_row_column: `electronApp.evaluate` menu IPC path retained; race was due to loadCells not completing before setCellViaApi
+  - [x] test_context_menu copy/paste: `navigator.clipboard.writeText` silently failed in test mode; fixed by adding `setPermissionRequestHandler`/`setPermissionCheckHandler` in `electron/main.js` for test mode (clipboard-read + clipboard-sanitized-write)
   - [x] test_spreadsheet new-file-clears-data: modal check changed from racy `if (isVisible)` to `await expect(modal).toBeVisible()`
   - [x] 201/201 pass locally after fixes
 
@@ -168,6 +168,8 @@ claude-sonnet-4-6
 - `playwright_tests/test_manage_styles.spec.js` — beforeEach fix
 - `playwright_tests/test_spreadsheet.spec.js` — new-file modal wait fix
 - `playwright_tests/test_click_interactions.spec.js` — added (Story 14.3)
+- `electron/main.js` — clipboard permission handlers added for test mode
+- `_bmad-output/planning-artifacts/epics.md` — Epic 14 stories updated
 - `playwright_tests/test_ui_interactions.spec.js` — deleted (Story 14.3)
 - `playwright_tests/global-setup.js` — deleted (Story 14.3)
 - `playwright_tests/global-teardown.js` — deleted (Story 14.3)
