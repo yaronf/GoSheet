@@ -13,23 +13,54 @@ import (
 // mu protects Sheet and all operations that read or write spreadsheet state,
 // since multiple HTTP handlers may execute concurrently.
 type AppController struct {
-	mu    sync.RWMutex
-	Sheet *model.Spreadsheet
+	mu      sync.RWMutex
+	Sheet   *model.Spreadsheet
+	History *History
 }
 
 // NewAppController creates a new application controller
 func NewAppController() *AppController {
 	return &AppController{
-		Sheet: model.NewSpreadsheet(),
+		Sheet:   model.NewSpreadsheet(),
+		History: NewHistory(),
 	}
 }
 
-// SetCellValue sets a cell value and triggers recalculation if needed
+// SetCellValue sets a cell value, records the operation in undo history, and triggers recalculation.
 func (c *AppController) SetCellValue(row, col int, value string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	logutil.Debugf("SetCellValue: row=%d, col=%d, value=%q", row, col, value)
 
+	// Snapshot the previous cell state before mutation (for undo)
+	prev := c.Sheet.GetCell(row, col)
+	var prevCopy *model.Cell
+	if prev != nil {
+		cp := *prev
+		prevCopy = &cp
+	}
+
+	cmd := &SetCellCommand{ctrl: c, row: row, col: col, newValue: value, prevCell: prevCopy}
+	return c.History.Push(cmd)
+}
+
+// Undo reverses the most recent undoable operation. Safe for concurrent callers.
+func (c *AppController) Undo() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.History.Undo()
+}
+
+// Redo reapplies the most recently undone operation. Safe for concurrent callers.
+func (c *AppController) Redo() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.History.Redo()
+}
+
+// setCellValueInternal is the raw mutator used by SetCellCommand.Do() and Undo().
+// It must only be called while c.mu is held by the caller.
+func (c *AppController) setCellValueInternal(row, col int, value string) error {
 	cellRef := model.CoordsToRef(row, col)
 
 	// Check if this is a formula and extract dependencies BEFORE modifying state
@@ -48,11 +79,11 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 		for _, ref := range refs {
 			if hasCycle, cyclePath := c.Sheet.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
 				cycleStr := ""
-				for i, c := range cyclePath {
+				for i, node := range cyclePath {
 					if i > 0 {
 						cycleStr += " → "
 					}
-					cycleStr += c
+					cycleStr += node
 				}
 
 				logutil.Debugf("Circular reference detected: %s", cycleStr)
@@ -254,11 +285,12 @@ func (c *AppController) GetCellRef(row, col int) string {
 	return model.CoordsToRef(row, col)
 }
 
-// NewFile creates a new empty spreadsheet
+// NewFile creates a new empty spreadsheet and clears undo/redo history.
 func (c *AppController) NewFile() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.Sheet = model.NewSpreadsheet()
+	c.History.Clear()
 }
 
 // SaveFile saves the spreadsheet to a file
@@ -293,9 +325,10 @@ func (c *AppController) LoadFromBytes(data []byte, path string) error {
 	return c.loadSheet(sheet)
 }
 
-// loadSheet sets the sheet and rebuilds dependency graph and recalculates formulas.
+// loadSheet sets the sheet, rebuilds dependency graph, recalculates formulas, and clears history.
 func (c *AppController) loadSheet(sheet *model.Spreadsheet) error {
 	c.Sheet = sheet
+	c.History.Clear()
 	c.rebuildDependencyGraph()
 	c.recalculateAllFormulas()
 	return nil
