@@ -2601,6 +2601,45 @@ So that accidental formatting changes are as recoverable as data changes.
 **When** the user presses Cmd+Z repeatedly
 **Then** all operations are undone in correct reverse order regardless of type
 
+### Story 15.5: Fix #REF! Handling via AST-Based Formula Shift
+
+As a user,
+I want formulas that reference deleted rows or columns to display `#REF!` correctly,
+So that I can see which references became invalid and undo the deletion to restore them.
+
+**Background / Bug:**
+When a row or column is deleted, `formula_shift.go` rewrites formula strings by substituting `#REF!` as text (e.g. `=A1+B2` → `=A1+#REF!`). The formula lexer has no token for `#REF!`, so re-parsing fails with a lexer error. The cell displays a parse error string instead of the standard `#REF!` indicator. Undo of the delete also cannot restore the original reference because the original coordinates are gone.
+
+**Acceptance Criteria:**
+
+**Given** a formula references a cell in a row that is then deleted
+**When** the formula is evaluated
+**Then** the cell displays `#REF!` (not a parse error string)
+**And** `#REF!` propagates through arithmetic — e.g. `=1+#REF!` displays `#REF!`
+
+**Given** a formula references a range where one boundary row/column is deleted and the range collapses to zero size
+**When** the formula is evaluated
+**Then** the cell displays `#REF!`
+
+**Given** a formula references a range where a row/column *within* the range (not a boundary) is deleted
+**When** the formula is evaluated
+**Then** the range shrinks by one (end coordinate decrements) and the formula evaluates correctly — no `#REF!`
+
+**Given** a formula contains a `#REF!` reference
+**When** the user presses Cmd+Z to undo the deletion
+**Then** the formula is fully restored to its original text with valid cell references
+
+**Acceptance Criteria — Implementation:**
+
+**Given** the formula engine
+**When** a formula is shifted for row/column insert or delete
+**Then** the operation works on the parsed AST (coordinates), not on raw formula strings
+**And** the formula string is re-serialized from the AST after shifting
+
+**Given** a cell reference that has become invalid due to deletion
+**When** the formula evaluator encounters it
+**Then** it returns a `RefErrorValue` (new Value type) which renders as `#REF!` and propagates through all operators and functions the same way `ErrorValue` does
+
 ---
 
 ## Epic 16: Data Safety & File Integrity
@@ -2652,6 +2691,9 @@ So that a crash or error during save never leaves a corrupt or incomplete file.
 As a user,
 I want all formulas to recalculate correctly when a file is loaded or a full recalc is triggered,
 So that I see accurate computed values rather than `#PENDING` placeholders.
+
+**Research Reference:** `_bmad-output/planning-artifacts/research/algorithmic-research-chatgpt.md`
+Covers: dependency DAG construction, topological sort for calculation chain, dirty-cell incremental recomputation, and parallel evaluation (not immediately relevant — only at very large scale). HyperFormula source and IronCalc are the most useful open-source references for the topsort implementation.
 
 **Acceptance Criteria:**
 
