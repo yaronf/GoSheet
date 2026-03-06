@@ -1,6 +1,6 @@
 # Story 14.3: Port Chromium Click Tests to Electron
 
-**Status:** review
+**Status:** done
 **Epic:** 14 — Electron Platform Upgrade
 
 ---

@@ -1,7 +1,7 @@
 # Story 14.1: Pilot — Electron Upgrade Compatibility
 
 **Epic:** 14 — Electron Platform Upgrade
-**Status:** review
+**Status:** done
 
 ---
 

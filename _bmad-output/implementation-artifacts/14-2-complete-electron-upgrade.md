@@ -1,6 +1,6 @@
 # Story 14.2: Complete Electron Upgrade
 
-**Status:** review
+**Status:** done
 **Epic:** 14 — Electron Platform Upgrade
 
 ---
