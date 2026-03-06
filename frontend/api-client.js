@@ -383,6 +383,29 @@ const SetSetting = async (key, value) => {
   }
 };
 
+// Story 15.2: Undo/Redo via HTTP API
+const Undo = async () => {
+  const json = await fetchUnified('POST', '/api/undo');
+  return {
+    canUndo: json.data?.canUndo ?? false,
+    canRedo: json.data?.canRedo ?? false,
+    undoDescription: json.data?.undoDescription ?? '',
+    redoDescription: json.data?.redoDescription ?? '',
+    hasUnsavedChanges: json.data?.hasUnsavedChanges ?? false,
+  };
+};
+
+const Redo = async () => {
+  const json = await fetchUnified('POST', '/api/redo');
+  return {
+    canUndo: json.data?.canUndo ?? false,
+    canRedo: json.data?.canRedo ?? false,
+    undoDescription: json.data?.undoDescription ?? '',
+    redoDescription: json.data?.redoDescription ?? '',
+    hasUnsavedChanges: json.data?.hasUnsavedChanges ?? false,
+  };
+};
+
 // Export for app.js (now a module)
 export {
   GetCellValue,
@@ -414,4 +437,6 @@ export {
   PreviewCSV,
   ImportCSV,
   ExportCSV,
+  Undo,
+  Redo,
 };

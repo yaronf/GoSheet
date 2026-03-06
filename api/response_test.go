@@ -33,7 +33,7 @@ func TestErrorCodeConstants(t *testing.T) {
 }
 
 func TestResponseJSONSerialization(t *testing.T) {
-	resp := NewSuccessResponse(map[string]interface{}{"computed": "100"})
+	resp := NewSuccessResponse(map[string]any{"computed": "100"})
 	data, err := json.Marshal(resp)
 	assert.NoError(t, err)
 	assert.Contains(t, string(data), `"success":true`)

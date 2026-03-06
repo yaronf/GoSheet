@@ -8,14 +8,14 @@ import "log"
 var Verbose bool
 
 // Debugf logs when Verbose is true (like log.Printf).
-func Debugf(format string, v ...interface{}) {
+func Debugf(format string, v ...any) {
 	if Verbose {
 		log.Printf(format, v...)
 	}
 }
 
 // Debugln logs when Verbose is true (like log.Println).
-func Debugln(v ...interface{}) {
+func Debugln(v ...any) {
 	if Verbose {
 		log.Println(v...)
 	}

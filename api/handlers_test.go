@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gosheet/api/generated"
 	"gosheet/controller"
 	"gosheet/model"
@@ -122,8 +123,8 @@ func TestHandleGetAllCells(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp struct {
-		Success bool                     `json:"success"`
-		Data    []map[string]interface{} `json:"data"`
+		Success bool             `json:"success"`
+		Data    []map[string]any `json:"data"`
 	}
 	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 	assert.True(t, resp.Success)
@@ -142,8 +143,8 @@ func TestHandleGetAllCells_WithMerges(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp struct {
-		Success bool                     `json:"success"`
-		Data    []map[string]interface{} `json:"data"`
+		Success bool             `json:"success"`
+		Data    []map[string]any `json:"data"`
 	}
 	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 	assert.True(t, resp.Success)
@@ -700,7 +701,7 @@ func TestHandleGetMerges(t *testing.T) {
 	var resp struct {
 		Success bool `json:"success"`
 		Data    struct {
-			Merges []map[string]interface{} `json:"merges"`
+			Merges []map[string]any `json:"merges"`
 		} `json:"data"`
 	}
 	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
@@ -1039,4 +1040,116 @@ func TestHandleDeleteStyle(t *testing.T) {
 	assert.Equal(t, 0, srv.Ctrl.Sheet.GetCell(0, 0).StyleId)
 	assert.Equal(t, 0, srv.Ctrl.Sheet.GetCell(0, 1).StyleId)
 	assert.Len(t, srv.Ctrl.Sheet.Styles.Formats, 2)
+}
+
+// --- Undo/Redo handler tests ---
+
+func TestHandleUndo_EmptyStack(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/undo", nil)
+	w := httptest.NewRecorder()
+	srv.HandleUndo(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			CanUndo bool `json:"canUndo"`
+			CanRedo bool `json:"canRedo"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.False(t, resp.Data.CanUndo)
+	assert.False(t, resp.Data.CanRedo)
+}
+
+func TestHandleUndo_RevertsCellEdit(t *testing.T) {
+	srv := newTestServer()
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "hello"))
+	assert.Equal(t, "hello", srv.Ctrl.GetCellValue(0, 0))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/undo", nil)
+	w := httptest.NewRecorder()
+	srv.HandleUndo(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(0, 0))
+
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			CanUndo  bool   `json:"canUndo"`
+			CanRedo  bool   `json:"canRedo"`
+			RedoDesc string `json:"redoDescription"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.False(t, resp.Data.CanUndo)
+	assert.True(t, resp.Data.CanRedo)
+	assert.Equal(t, "Set Cell A1", resp.Data.RedoDesc)
+}
+
+func TestHandleRedo_ReappliesCellEdit(t *testing.T) {
+	srv := newTestServer()
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "hello"))
+	require.NoError(t, srv.Ctrl.Undo())
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(0, 0))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/redo", nil)
+	w := httptest.NewRecorder()
+	srv.HandleRedo(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "hello", srv.Ctrl.GetCellValue(0, 0))
+
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			CanUndo bool `json:"canUndo"`
+			CanRedo bool `json:"canRedo"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.True(t, resp.Data.CanUndo)
+	assert.False(t, resp.Data.CanRedo)
+}
+
+func TestHandleUndo_MethodNotAllowed(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/undo", nil)
+	w := httptest.NewRecorder()
+	srv.HandleUndo(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleRedo_MethodNotAllowed(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/redo", nil)
+	w := httptest.NewRecorder()
+	srv.HandleRedo(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleSetCellValue_IncludesUndoState(t *testing.T) {
+	srv := newTestServer()
+	body, _ := json.Marshal(map[string]any{"row": 0, "col": 0, "value": "test"})
+	req := httptest.NewRequest(http.MethodPost, "/api/cell/set", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	srv.HandleSetCellValue(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			CanUndo bool `json:"canUndo"`
+			CanRedo bool `json:"canRedo"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.True(t, resp.Data.CanUndo)
+	assert.False(t, resp.Data.CanRedo)
 }

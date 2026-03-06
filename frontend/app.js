@@ -29,6 +29,8 @@ import {
   PreviewCSV,
   ImportCSV,
   ExportCSV,
+  Undo,
+  Redo,
 } from './api-client.js';
 
 // Spreadsheet configuration
@@ -278,6 +280,18 @@ document.querySelector('#app').innerHTML = `
             <button id="load-btn" class="toolbar-btn" title="Load an existing spreadsheet (⌘O)" aria-label="Load Spreadsheet">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
+                </svg>
+            </button>
+            <!-- Story 15.2: Undo/Redo buttons -->
+            <span class="toolbar-separator" aria-hidden="true"></span>
+            <button id="undo-btn" class="toolbar-btn" title="Undo (⌘Z)" aria-label="Undo" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>
+                </svg>
+            </button>
+            <button id="redo-btn" class="toolbar-btn" title="Redo (⌘⇧Z)" aria-label="Redo" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>
                 </svg>
             </button>
             <!-- Alignment buttons (with gap from file buttons) -->
@@ -1248,6 +1262,8 @@ function saveCurrentEditOnCellSwitch() {
     .then((result) => {
       if (result.hasUnsavedChanges !== undefined)
         displayFileStatus(result.hasUnsavedChanges);
+      // Story 15.2: update undo/redo toolbar and menu after every cell edit
+      applyUndoRedoState(result);
       return refreshAllCells();
     })
     .catch((err) => console.error('Error saving on cell switch:', err));
@@ -1788,6 +1804,17 @@ function ensureSpreadsheetView() {
 // Handle Cmd/Ctrl + O, S, N (file operations)
 function handleKeydownFileOps(e) {
   if (!(e.metaKey || e.ctrlKey)) return false;
+  // Story 15.2: Undo (Cmd+Z) and Redo (Cmd+Shift+Z) — skip if actively editing a cell
+  if (e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    performUndo();
+    return true;
+  }
+  if (e.key === 'z' && e.shiftKey) {
+    e.preventDefault();
+    performRedo();
+    return true;
+  }
   if (e.key === 'o') {
     e.preventDefault();
     ensureSpreadsheetView();
@@ -1967,6 +1994,8 @@ if (formulaBar) {
       if (result.hasUnsavedChanges !== undefined) {
         displayFileStatus(result.hasUnsavedChanges);
       }
+      // Story 15.2: update undo/redo toolbar and menu after formula bar commit
+      applyUndoRedoState(result);
       await refreshAllCells();
 
       // Move to next row (like Excel)
@@ -2071,6 +2100,14 @@ document.getElementById('load-btn').addEventListener('click', async () => {
   } catch (error) {
     await showAlert('Error loading file: ' + error.message);
   }
+});
+
+// Story 15.2: Undo/Redo toolbar button handlers
+document.getElementById('undo-btn').addEventListener('click', async () => {
+  await performUndo();
+});
+document.getElementById('redo-btn').addEventListener('click', async () => {
+  await performRedo();
 });
 
 // Story 13.8: Alignment toolbar button handlers
@@ -2918,6 +2955,46 @@ async function updateFileStatus() {
   }
 }
 
+// Story 15.2: Update undo/redo state in menu and toolbar from a pre-fetched result.
+function applyUndoRedoState(state) {
+  const undoBtn = document.getElementById('undo-btn');
+  const redoBtn = document.getElementById('redo-btn');
+  if (undoBtn) undoBtn.disabled = !state.canUndo;
+  if (redoBtn) redoBtn.disabled = !state.canRedo;
+  if (window.electronAPI?.updateMenuState) {
+    window.electronAPI.updateMenuState({
+      canUndo: state.canUndo,
+      canRedo: state.canRedo,
+      undoDescription: state.undoDescription,
+      redoDescription: state.redoDescription,
+    });
+  }
+}
+
+// Story 15.2: Perform undo — call API, refresh grid and all state.
+async function performUndo() {
+  try {
+    const result = await Undo();
+    await refreshAllCells();
+    displayFileStatus(result.hasUnsavedChanges);
+    applyUndoRedoState(result);
+  } catch (error) {
+    console.error('[App] Error during Undo:', error);
+  }
+}
+
+// Story 15.2: Perform redo — call API, refresh grid and all state.
+async function performRedo() {
+  try {
+    const result = await Redo();
+    await refreshAllCells();
+    displayFileStatus(result.hasUnsavedChanges);
+    applyUndoRedoState(result);
+  } catch (error) {
+    console.error('[App] Error during Redo:', error);
+  }
+}
+
 // Story 7.1: Setup menu event listeners for Electron
 if (window.electronAPI) {
   if (window.__DEBUG__)
@@ -2998,6 +3075,20 @@ if (window.electronAPI) {
     window.electronAPI.onMenuUserGuide(() => {
       if (window.__DEBUG__) console.log('[App] Menu User Guide triggered');
       showUserGuideModal();
+    });
+  }
+
+  // Story 15.2: Undo/Redo from Edit menu
+  if (window.electronAPI.onMenuUndo) {
+    window.electronAPI.onMenuUndo(async () => {
+      if (window.__DEBUG__) console.log('[App] Menu Undo triggered');
+      await performUndo();
+    });
+  }
+  if (window.electronAPI.onMenuRedo) {
+    window.electronAPI.onMenuRedo(async () => {
+      if (window.__DEBUG__) console.log('[App] Menu Redo triggered');
+      await performRedo();
     });
   }
 

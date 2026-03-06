@@ -471,12 +471,16 @@ func (c *AppController) CleanupFormat() {
 	c.Sheet.CleanupFormat()
 }
 
-// ClearRange clears cell values in the range. Only clears anchors for merged regions.
+// ClearRange clears cell values in the range, recording the operation in undo history.
+// Only clears anchors for merged regions (covered cells are skipped).
 // Story 13.2: Batch clear for context menu performance.
+// Story 15.2: Wrapped in ClearRangeCommand for undo/redo support.
 func (c *AppController) ClearRange(startRow, startCol, endRow, endCol int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	var changed []string
+
+	// Snapshot all clearable cells before mutation
+	prev := make(map[int]map[int]*model.Cell)
 	for row := startRow; row <= endRow; row++ {
 		for col := startCol; col <= endCol; col++ {
 			if !c.Sheet.ShouldClearCell(row, col) {
@@ -486,15 +490,27 @@ func (c *AppController) ClearRange(startRow, startCol, endRow, endCol int) {
 			if cell == nil {
 				continue
 			}
-			cellRef := model.CoordsToRef(row, col)
-			c.Sheet.Dependencies.RemoveDependencies(cellRef)
-			c.Sheet.SetCell(row, col, "")
-			changed = append(changed, cellRef)
+			if prev[row] == nil {
+				prev[row] = make(map[int]*model.Cell)
+			}
+			cp := *cell
+			prev[row][col] = &cp
 		}
 	}
-	if len(changed) > 0 {
-		c.recalculateDependents(changed)
+
+	if len(prev) == 0 {
+		return // nothing to clear
 	}
+
+	cmd := &ClearRangeCommand{
+		ctrl:      c,
+		startRow:  startRow,
+		startCol:  startCol,
+		endRow:    endRow,
+		endCol:    endCol,
+		prevCells: prev,
+	}
+	_ = c.History.Push(cmd)
 }
 
 // InsertRow inserts an empty row at the given index. Story 13.1.

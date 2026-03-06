@@ -68,6 +68,8 @@ func main() {
 	http.HandleFunc("/api/column/insert", cors(srv.HandleInsertColumn))
 	http.HandleFunc("/api/styles", cors(srv.HandleStyles))
 	http.HandleFunc("/api/styles/", cors(srv.HandleStyleByID))
+	http.HandleFunc("/api/undo", cors(srv.HandleUndo))
+	http.HandleFunc("/api/redo", cors(srv.HandleRedo))
 
 	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
 	logutil.Debugf("Open http://localhost:%s in your browser\n", *port)

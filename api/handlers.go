@@ -82,9 +82,9 @@ func (s *Server) HandleGetCellValue(w http.ResponseWriter, r *http.Request) {
 	value := s.Ctrl.GetCellValue(row, col)
 	isError := cell != nil && cell.IsError
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data":    map[string]interface{}{"computed": value, "isError": isError},
+		"data":    map[string]any{"computed": value, "isError": isError},
 	})
 }
 
@@ -101,9 +101,9 @@ func (s *Server) HandleGetCellRawValue(w http.ResponseWriter, r *http.Request) {
 	}
 	value := s.Ctrl.GetCellRawValue(row, col)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data":    map[string]interface{}{"value": value},
+		"data":    map[string]any{"value": value},
 	})
 }
 
@@ -125,14 +125,18 @@ func (s *Server) HandleSetCellValue(w http.ResponseWriter, r *http.Request) {
 		value, displayValue, isFormula, isError = cell.RawValue(), cell.Computed, cell.IsFormula, cell.IsError
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"value":             value,
 			"displayValue":      displayValue,
 			"isFormula":         isFormula,
 			"isError":           isError,
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           s.Ctrl.History.CanUndo(),
+			"canRedo":           s.Ctrl.History.CanRedo(),
+			"undoDescription":   s.Ctrl.History.UndoDescription(),
+			"redoDescription":   s.Ctrl.History.RedoDescription(),
 		},
 	})
 }
@@ -146,7 +150,7 @@ func (s *Server) HandleGetCellRef(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
-	var cells []map[string]interface{}
+	var cells []map[string]any
 	// Compute actual bounds from stored cells and merges to avoid missing data beyond 100x26
 	maxRow, maxCol := 99, 25
 	for row, cols := range s.Ctrl.Sheet.Cells {
@@ -177,7 +181,7 @@ func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
 			value := s.Ctrl.GetCellValue(row, col)
 			cell := s.Ctrl.Sheet.GetCell(row, col)
 			if value != "" || (cell != nil && (cell.StyleId != 0 || cell.Alignment != "")) {
-				entry := map[string]interface{}{
+				entry := map[string]any{
 					"row": row, "col": col,
 					"computed": value,
 					"isError":  cell != nil && cell.IsError,
@@ -194,7 +198,7 @@ func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "data": cells})
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": cells})
 }
 
 func (s *Server) HandleSaveFile(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +218,7 @@ func (s *Server) HandleSaveFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "path": req.Path})
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "path": req.Path})
 }
 
 func (s *Server) HandleLoadFile(w http.ResponseWriter, r *http.Request) {
@@ -234,14 +238,14 @@ func (s *Server) HandleLoadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "path": req.Path})
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "path": req.Path})
 }
 
 func (s *Server) HandleNewFile(w http.ResponseWriter, r *http.Request) {
 	logutil.Debugln("Creating new file")
 	s.Ctrl.NewFile()
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
 }
 
 func (s *Server) HandleFileStatus(w http.ResponseWriter, r *http.Request) {
@@ -251,9 +255,9 @@ func (s *Server) HandleFileStatus(w http.ResponseWriter, r *http.Request) {
 		filename = filepath.Base(filePath)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"path":              filePath,
 			"saved":             !s.Ctrl.HasUnsavedChanges(),
 			"modified":          s.Ctrl.HasUnsavedChanges(),
@@ -312,7 +316,7 @@ func (s *Server) HandleUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
 }
 
 func (s *Server) HandleCSVPreview(w http.ResponseWriter, r *http.Request) {
@@ -449,9 +453,9 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleGetMerges(w http.ResponseWriter, r *http.Request) {
 	merges := s.Ctrl.GetMerges()
 	// Convert to API format
-	mergeData := make([]map[string]interface{}, 0, len(merges))
+	mergeData := make([]map[string]any, 0, len(merges))
 	for _, m := range merges {
-		mergeData = append(mergeData, map[string]interface{}{
+		mergeData = append(mergeData, map[string]any{
 			"startRow": m.StartRow,
 			"startCol": m.StartCol,
 			"rowSpan":  m.RowSpan,
@@ -459,9 +463,9 @@ func (s *Server) HandleGetMerges(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data":    map[string]interface{}{"merges": mergeData},
+		"data":    map[string]any{"merges": mergeData},
 	})
 }
 
@@ -476,9 +480,9 @@ func (s *Server) HandleSetMerge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -495,9 +499,9 @@ func (s *Server) HandleUnmerge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -521,9 +525,9 @@ func (s *Server) HandleApplyCellStyle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -557,9 +561,9 @@ func (s *Server) HandleApplyRangeStyle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -573,9 +577,9 @@ func (s *Server) HandleClearRange(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Ctrl.ClearRange(req.StartRow, req.StartCol, req.EndRow, req.EndCol)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -590,9 +594,9 @@ func (s *Server) HandleFormatCleanup(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Ctrl.CleanupFormat()
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -624,9 +628,9 @@ func (s *Server) HandleInsertRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -648,9 +652,9 @@ func (s *Server) HandleInsertColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -675,9 +679,9 @@ func (s *Server) HandleStyles(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetStyles(w http.ResponseWriter, _ *http.Request) {
 	styles := s.Ctrl.GetStyles()
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data":    map[string]interface{}{"styles": styles},
+		"data":    map[string]any{"styles": styles},
 	})
 }
 
@@ -701,9 +705,9 @@ func (s *Server) handleAddStyle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"id":                id,
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
@@ -752,9 +756,9 @@ func (s *Server) handleUpdateStyle(w http.ResponseWriter, r *http.Request, id in
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -766,9 +770,9 @@ func (s *Server) handleDeleteStyle(w http.ResponseWriter, _ *http.Request, id in
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})
@@ -805,10 +809,64 @@ func (s *Server) HandleSetCellAlignment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+		},
+	})
+}
+
+// undoRedoState returns a map with canUndo, canRedo, undoDescription, redoDescription
+// for inclusion in API responses that modify undo history.
+func (s *Server) undoRedoState() map[string]any {
+	return map[string]any{
+		"canUndo":         s.Ctrl.History.CanUndo(),
+		"canRedo":         s.Ctrl.History.CanRedo(),
+		"undoDescription": s.Ctrl.History.UndoDescription(),
+		"redoDescription": s.Ctrl.History.RedoDescription(),
+	}
+}
+
+// HandleUndo reverses the most recent undoable operation.
+// POST /api/undo — returns 200 with canUndo/canRedo state even if nothing to undo.
+func (s *Server) HandleUndo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// Undo returns an error only when the stack is empty — treat as a no-op, not an error.
+	_ = s.Ctrl.Undo()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"data": map[string]any{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           s.Ctrl.History.CanUndo(),
+			"canRedo":           s.Ctrl.History.CanRedo(),
+			"undoDescription":   s.Ctrl.History.UndoDescription(),
+			"redoDescription":   s.Ctrl.History.RedoDescription(),
+		},
+	})
+}
+
+// HandleRedo reapplies the most recently undone operation.
+// POST /api/redo — returns 200 with canUndo/canRedo state even if nothing to redo.
+func (s *Server) HandleRedo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	_ = s.Ctrl.Redo()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"data": map[string]any{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           s.Ctrl.History.CanUndo(),
+			"canRedo":           s.Ctrl.History.CanRedo(),
+			"undoDescription":   s.Ctrl.History.UndoDescription(),
+			"redoDescription":   s.Ctrl.History.RedoDescription(),
 		},
 	})
 }
@@ -828,9 +886,9 @@ func (s *Server) HandleSetRangeAlignment(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
 		},
 	})

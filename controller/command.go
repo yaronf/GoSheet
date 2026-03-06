@@ -162,3 +162,82 @@ func (cmd *SetCellCommand) Undo() error {
 func (cmd *SetCellCommand) Description() string {
 	return "Set Cell " + model.CoordsToRef(cmd.row, cmd.col)
 }
+
+// ClearRangeCommand is a reversible clear-range operation.
+// It snapshots all clearable cells in the range before clearing them so Undo
+// can restore them exactly (values, formulas, styles, alignment, error state).
+type ClearRangeCommand struct {
+	ctrl               *AppController
+	startRow, startCol int
+	endRow, endCol     int
+	prevCells          map[int]map[int]*model.Cell // deep copies keyed by [row][col]
+}
+
+func (cmd *ClearRangeCommand) Do() error {
+	var changed []string
+	for row := cmd.startRow; row <= cmd.endRow; row++ {
+		for col := cmd.startCol; col <= cmd.endCol; col++ {
+			if !cmd.ctrl.Sheet.ShouldClearCell(row, col) {
+				continue
+			}
+			cell := cmd.ctrl.Sheet.GetCell(row, col)
+			if cell == nil {
+				continue
+			}
+			cellRef := model.CoordsToRef(row, col)
+			cmd.ctrl.Sheet.Dependencies.RemoveDependencies(cellRef)
+			cmd.ctrl.Sheet.SetCell(row, col, "")
+			changed = append(changed, cellRef)
+		}
+	}
+	if len(changed) > 0 {
+		cmd.ctrl.Sheet.Modified = true
+		cmd.ctrl.recalculateDependents(changed)
+	}
+	return nil
+}
+
+func (cmd *ClearRangeCommand) Undo() error {
+	var restored []string
+	for row, colMap := range cmd.prevCells {
+		if cmd.ctrl.Sheet.Cells[row] == nil {
+			cmd.ctrl.Sheet.Cells[row] = make(map[int]*model.Cell)
+		}
+		for col, prev := range colMap {
+			cp := *prev
+			cellRef := model.CoordsToRef(row, col)
+			cmd.ctrl.Sheet.Dependencies.RemoveDependencies(cellRef)
+			if cp.IsFormula {
+				refs := model.ExtractCellReferences("=" + cp.Value)
+				for _, ref := range refs {
+					cmd.ctrl.Sheet.Dependencies.AddDependency(cellRef, ref)
+				}
+				// Re-evaluate to get fresh Computed (snapshot may be stale)
+				result, isErr, err := model.EvaluateFormula("="+cp.Value, cmd.ctrl.Sheet)
+				if err != nil {
+					cp.SetError(err.Error())
+				} else if isErr {
+					cp.SetError(result)
+				} else {
+					cp.SetComputed(result)
+				}
+			}
+			cmd.ctrl.Sheet.Cells[row][col] = &cp
+			restored = append(restored, cellRef)
+		}
+	}
+	if len(restored) > 0 {
+		cmd.ctrl.Sheet.Modified = true
+		cmd.ctrl.recalculateDependents(restored)
+	}
+	return nil
+}
+
+func (cmd *ClearRangeCommand) Description() string {
+	start := model.CoordsToRef(cmd.startRow, cmd.startCol)
+	end := model.CoordsToRef(cmd.endRow, cmd.endCol)
+	if start == end {
+		return "Clear " + start
+	}
+	return "Clear Range " + start + ":" + end
+}

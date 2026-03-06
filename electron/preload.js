@@ -79,6 +79,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getUserGuideContent: () => ipcRenderer.invoke('get-user-guide'),
 
+  // Story 15.2: Undo/Redo menu event listeners
+  onMenuUndo: (callback) => {
+    ipcRenderer.on('menu-undo', callback);
+  },
+  onMenuRedo: (callback) => {
+    ipcRenderer.on('menu-redo', callback);
+  },
+
   // Story 7.2: Edit menu event listeners
   onMenuCut: (callback) => {
     ipcRenderer.on('menu-cut', callback);

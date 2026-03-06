@@ -217,6 +217,73 @@ func TestHistoryClearedOnLoadFile(t *testing.T) {
 	assert.False(t, ctrl.History.CanRedo())
 }
 
+// --- ClearRangeCommand tests ---
+
+func TestClearRangeCommand_UndoRestoresValues(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "A"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "B"))
+	require.NoError(t, ctrl.SetCellValue(1, 0, "C"))
+
+	ctrl.ClearRange(0, 0, 1, 1)
+	assert.Equal(t, "", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "", ctrl.GetCellValue(1, 0))
+
+	require.NoError(t, ctrl.Undo())
+	assert.Equal(t, "A", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "B", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "C", ctrl.GetCellValue(1, 0))
+}
+
+func TestClearRangeCommand_UndoRestoresFormula(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "10"))
+	require.NoError(t, ctrl.SetCellValue(1, 0, "=A1*2"))
+	assert.Equal(t, "20", ctrl.GetCellValue(1, 0))
+
+	ctrl.ClearRange(1, 0, 1, 0)
+	assert.Equal(t, "", ctrl.GetCellValue(1, 0))
+
+	require.NoError(t, ctrl.Undo())
+	assert.Equal(t, "20", ctrl.GetCellValue(1, 0))
+}
+
+func TestClearRangeCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
+
+	ctrl.ClearRange(0, 0, 0, 0)
+	assert.Equal(t, "", ctrl.GetCellValue(0, 0))
+
+	require.NoError(t, ctrl.Undo())
+	assert.Equal(t, "hello", ctrl.GetCellValue(0, 0))
+
+	require.NoError(t, ctrl.Redo())
+	assert.Equal(t, "", ctrl.GetCellValue(0, 0))
+}
+
+func TestClearRangeCommand_EmptyRange_NoHistoryEntry(t *testing.T) {
+	ctrl := NewAppController()
+	// No cells set — clearing an empty range should not push to history
+	ctrl.ClearRange(0, 0, 2, 2)
+	assert.False(t, ctrl.History.CanUndo())
+}
+
+func TestClearRangeCommand_Description(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "x"))
+	ctrl.ClearRange(0, 0, 2, 3)
+	assert.Equal(t, "Clear Range A1:D3", ctrl.History.UndoDescription())
+}
+
+func TestClearRangeCommand_SingleCell_Description(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(1, 1, "x"))
+	ctrl.ClearRange(1, 1, 1, 1)
+	assert.Equal(t, "Clear B2", ctrl.History.UndoDescription())
+}
+
 func TestSetCellCommandDescription(t *testing.T) {
 	ctrl := NewAppController()
 	require.NoError(t, ctrl.SetCellValue(0, 0, "x"))

@@ -19,7 +19,7 @@ type Response struct {
 	//   - GetCellValue: map with "value" and "computed" fields
 	//   - GetAllCells: array of cell objects
 	//   - GetFileStatus: map with "path", "saved", "modified" fields
-	Data interface{} `json:"data,omitempty"`
+	Data any `json:"data,omitempty"`
 
 	// Error contains a human-readable error message when Success is false.
 	// Should be clear and actionable for users (NFR-U4).
@@ -72,7 +72,7 @@ const (
 )
 
 // NewSuccessResponse creates a success response with optional data.
-func NewSuccessResponse(data interface{}) Response {
+func NewSuccessResponse(data any) Response {
 	return Response{
 		Success: true,
 		Data:    data,

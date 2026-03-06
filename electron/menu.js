@@ -284,6 +284,36 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
     {
       label: 'Edit',
       submenu: [
+        // Story 15.2: Undo/Redo — disabled on startup (no history), enabled dynamically
+        {
+          id: 'undo',
+          label: 'Undo',
+          accelerator: 'CmdOrCtrl+Z',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Undo triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-undo');
+            } else {
+              console.error('[Menu] Cannot trigger Undo - mainWindow is null');
+            }
+          },
+        },
+        {
+          id: 'redo',
+          label: 'Redo',
+          accelerator: 'CmdOrCtrl+Shift+Z',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Redo triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-redo');
+            } else {
+              console.error('[Menu] Cannot trigger Redo - mainWindow is null');
+            }
+          },
+        },
+        { type: 'separator' },
         {
           id: 'cut',
           label: 'Cut',
@@ -570,6 +600,22 @@ function updateMenuState(state) {
   if (!menu) {
     console.warn('[Menu] No application menu found');
     return;
+  }
+
+  // Story 15.2: Update Undo/Redo menu items
+  const undoItem = menu.getMenuItemById('undo');
+  if (undoItem && menuState.canUndo !== undefined) {
+    undoItem.enabled = !!menuState.canUndo;
+    undoItem.label = menuState.undoDescription
+      ? `Undo ${menuState.undoDescription}`
+      : 'Undo';
+  }
+  const redoItem = menu.getMenuItemById('redo');
+  if (redoItem && menuState.canRedo !== undefined) {
+    redoItem.enabled = !!menuState.canRedo;
+    redoItem.label = menuState.redoDescription
+      ? `Redo ${menuState.redoDescription}`
+      : 'Redo';
   }
 
   // Update Save menu item based on unsaved changes

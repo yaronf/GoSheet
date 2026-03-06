@@ -55,7 +55,7 @@ type SpreadsheetAPI interface {
 	//
 	//	response := api.GetCellValue(0, 0)
 	//	if response.Success {
-	//	  data := response.Data.(map[string]interface{})
+	//	  data := response.Data.(map[string]any)
 	//	  fmt.Printf("Value: %s, Computed: %s\n", data["value"], data["computed"])
 	//	}
 	GetCellValue(row, col int) Response
@@ -151,7 +151,7 @@ type SpreadsheetAPI interface {
 	// Example:
 	//
 	//	response := api.GetFileStatus()
-	//	data := response.Data.(map[string]interface{})
+	//	data := response.Data.(map[string]any)
 	//	if data["modified"].(bool) {
 	//	  fmt.Println("You have unsaved changes!")
 	//	}
