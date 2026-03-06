@@ -368,6 +368,103 @@ func TestInsertColumn(t *testing.T) {
 	assert.Equal(t, "C1", sheet.GetCell(0, 3).Value)
 }
 
+func TestInsertRow_InvalidIndex(t *testing.T) {
+	sheet := NewSpreadsheet()
+	err := sheet.InsertRow(-1)
+	assert.Error(t, err)
+}
+
+func TestInsertRow_EmptySheet(t *testing.T) {
+	sheet := NewSpreadsheet()
+	err := sheet.InsertRow(0)
+	assert.NoError(t, err)
+	assert.True(t, sheet.Modified)
+}
+
+func TestInsertRow_MergeRegions(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "x") // ensure sheet is non-empty so InsertRow doesn't return early
+	// Merge spanning rows 1-2 (anchor at row 1, rowSpan 2)
+	sheet.Merges = []MergeRegion{
+		{StartRow: 1, StartCol: 0, RowSpan: 2, ColSpan: 1}, // anchor shifts
+		{StartRow: 0, StartCol: 0, RowSpan: 2, ColSpan: 1}, // spans insertRow → expands
+		{StartRow: 0, StartCol: 1, RowSpan: 1, ColSpan: 1}, // below insertRow, unaffected
+		{StartRow: 0, StartCol: 2, RowSpan: 0, ColSpan: 0}, // invalid — skipped
+	}
+
+	err := sheet.InsertRow(1)
+	assert.NoError(t, err)
+
+	// Anchor at row 1 shifts to row 2
+	assert.Equal(t, 2, sheet.Merges[0].StartRow)
+	assert.Equal(t, 2, sheet.Merges[0].RowSpan)
+
+	// Anchor at row 0, spans row 0-1 (insertRow=1 falls inside) → rowSpan expands
+	assert.Equal(t, 0, sheet.Merges[1].StartRow)
+	assert.Equal(t, 3, sheet.Merges[1].RowSpan)
+
+	// Unaffected
+	assert.Equal(t, 0, sheet.Merges[2].StartRow)
+	assert.Equal(t, 1, sheet.Merges[2].RowSpan)
+}
+
+func TestInsertColumn_InvalidIndex(t *testing.T) {
+	sheet := NewSpreadsheet()
+	err := sheet.InsertColumn(-1)
+	assert.Error(t, err)
+}
+
+func TestInsertColumn_EmptySheet(t *testing.T) {
+	sheet := NewSpreadsheet()
+	err := sheet.InsertColumn(0)
+	assert.NoError(t, err)
+	assert.True(t, sheet.Modified)
+}
+
+func TestInsertColumn_MergeRegions(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "x") // ensure sheet is non-empty so InsertColumn doesn't return early
+	sheet.Merges = []MergeRegion{
+		{StartRow: 0, StartCol: 1, RowSpan: 1, ColSpan: 2}, // anchor shifts
+		{StartRow: 0, StartCol: 0, RowSpan: 1, ColSpan: 2}, // spans insertCol → expands
+		{StartRow: 1, StartCol: 0, RowSpan: 1, ColSpan: 1}, // unaffected
+		{StartRow: 2, StartCol: 0, RowSpan: 0, ColSpan: 0}, // invalid — skipped
+	}
+
+	err := sheet.InsertColumn(1)
+	assert.NoError(t, err)
+
+	// Anchor at col 1 shifts to col 2
+	assert.Equal(t, 2, sheet.Merges[0].StartCol)
+	assert.Equal(t, 2, sheet.Merges[0].ColSpan)
+
+	// Anchor at col 0, spans cols 0-1 (insertCol=1 falls inside) → colSpan expands
+	assert.Equal(t, 0, sheet.Merges[1].StartCol)
+	assert.Equal(t, 3, sheet.Merges[1].ColSpan)
+
+	// Unaffected
+	assert.Equal(t, 0, sheet.Merges[2].StartCol)
+	assert.Equal(t, 1, sheet.Merges[2].ColSpan)
+}
+
+func TestInsertColumn_FormulaRefs(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "1")
+	sheet.SetCell(0, 1, "=A1")
+	sheet.SetCell(0, 2, "=A1+B1")
+
+	err := sheet.InsertColumn(1)
+	assert.NoError(t, err)
+	// Old col 1 (=A1) moves to col 2; A1 ref unchanged (col 0 < 1)
+	cell2 := sheet.GetCell(0, 2)
+	assert.NotNil(t, cell2)
+	assert.Equal(t, "=A1", cell2.RawValue())
+	// Old col 2 (=A1+B1) moves to col 3; B1 ref shifts to C1
+	cell3 := sheet.GetCell(0, 3)
+	assert.NotNil(t, cell3)
+	assert.Equal(t, "=A1+C1", cell3.RawValue())
+}
+
 func TestDeleteRow(t *testing.T) {
 	sheet := NewSpreadsheet()
 	sheet.SetCell(0, 0, "A1")

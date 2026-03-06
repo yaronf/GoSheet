@@ -11,12 +11,16 @@ func TestShiftFormulaRefsForInsertRow(t *testing.T) {
 	assert.Equal(t, "=A2", shiftFormulaRefsForInsertRow("=A1", 0))
 	assert.Equal(t, "=A1", shiftFormulaRefsForInsertRow("=A1", 1)) // row 0 < 1, unchanged
 	assert.Equal(t, "=A3+B4", shiftFormulaRefsForInsertRow("=A2+B3", 1))
+	// Negative index: formula unchanged
+	assert.Equal(t, "=A1", shiftFormulaRefsForInsertRow("=A1", -1))
 }
 
 func TestShiftFormulaRefsForInsertColumn(t *testing.T) {
 	assert.Equal(t, "=B1", shiftFormulaRefsForInsertColumn("=A1", 0))
 	assert.Equal(t, "=A1", shiftFormulaRefsForInsertColumn("=A1", 1)) // col 0 < 1, unchanged
 	assert.Equal(t, "=C1+D2", shiftFormulaRefsForInsertColumn("=B1+C2", 1))
+	// Negative index: formula unchanged
+	assert.Equal(t, "=A1", shiftFormulaRefsForInsertColumn("=A1", -1))
 }
 
 // --- Unshift (delete) helpers ---
@@ -35,6 +39,8 @@ func TestUnshiftFormulaRefsForDeleteRow(t *testing.T) {
 	assert.Equal(t, "=A1+A2", unshiftFormulaRefsForDeleteRow("=A1+A3", 1))
 	// ref far above: unchanged
 	assert.Equal(t, "=A4", unshiftFormulaRefsForDeleteRow("=A5", 1))
+	// Negative index: formula unchanged
+	assert.Equal(t, "=A2", unshiftFormulaRefsForDeleteRow("=A2", -1))
 }
 
 func TestUnshiftFormulaRefsForDeleteColumn(t *testing.T) {
@@ -49,4 +55,6 @@ func TestUnshiftFormulaRefsForDeleteColumn(t *testing.T) {
 	assert.Equal(t, "=A1+#REF!", unshiftFormulaRefsForDeleteColumn("=A1+B1", 1))
 	// ref shifts
 	assert.Equal(t, "=A1+B1", unshiftFormulaRefsForDeleteColumn("=A1+C1", 1))
+	// Negative index: formula unchanged
+	assert.Equal(t, "=B1", unshiftFormulaRefsForDeleteColumn("=B1", -1))
 }
