@@ -46,7 +46,7 @@ So that the app runs on a secure, actively-maintained runtime.
 
 - [x] Task 4: Push and verify CI passes (AC: 1)
   - [x] Pushed commit 54c60c4
-  - [ ] CI result pending
+  - [x] CI green — all subsequent pushes pass (confirmed 2026-03-06)
 
 - [x] Task 5: Document findings (AC: 1)
   - [x] See Completion Notes below

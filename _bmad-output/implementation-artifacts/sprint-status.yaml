@@ -1,5 +1,5 @@
 # generated: 2026-02-23
-# last_updated: 2026-03-06 (stories 14.1, 14.2, 14.3 marked done)
+# last_updated: 2026-03-06 (stories 14.1, 14.2, 14.3 done; 14.4 ready-for-dev)
 # project: spreadsheet
 # project_key: NOKEY
 # tracking_system: file-system
@@ -214,11 +214,11 @@ development_status:
   epic-13-retrospective: optional
 
   # Epic 14: Electron Platform Upgrade
-  epic-14: in-progress
+  epic-14: done
   14-1-pilot-electron-upgrade-compatibility: done
   14-2-complete-electron-upgrade: done
   14-3-port-chromium-click-tests-to-electron: done
-  14-4-update-build-and-ci-configuration: backlog
+  14-4-update-build-and-ci-configuration: review
   epic-14-retrospective: optional
 
   # Epic 15: Undo / Redo

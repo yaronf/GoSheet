@@ -62,7 +62,8 @@
       "category": "public.app-category.productivity",
       "target": [
         {
-          "target": "universal"
+          "target": "dmg",
+          "arch": ["universal"]
         }
       ],
       "icon": "assets/Icon.png",
