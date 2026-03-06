@@ -23,6 +23,8 @@ import {
   SetSetting,
   InsertRow,
   InsertColumn,
+  DeleteRow,
+  DeleteColumn,
   NewFile,
   SaveFile,
   LoadFile,
@@ -3319,6 +3321,7 @@ if (window.electronAPI) {
       const result = await InsertRow(row);
       if (result.hasUnsavedChanges !== undefined)
         displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
       await buildSpreadsheet();
       await refreshAllCells();
       applySelectionRange(row, 0, row, COLS - 1);
@@ -3338,12 +3341,51 @@ if (window.electronAPI) {
       const result = await InsertColumn(col);
       if (result.hasUnsavedChanges !== undefined)
         displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
       await buildSpreadsheet();
       await refreshAllCells();
       applySelectionRange(0, col, ROWS - 1, col);
     } catch (error) {
       console.error('[App] Error inserting column:', error);
       await showAlert('Error inserting column: ' + error.message);
+    }
+  });
+
+  // Story 15.3: Delete row
+  window.electronAPI.onMenuDeleteRow?.(async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (selectionMode !== 'row') return;
+    const row = selectionRange.startRow;
+    try {
+      const result = await DeleteRow(row);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
+      await buildSpreadsheet();
+      await refreshAllCells();
+    } catch (error) {
+      console.error('[App] Error deleting row:', error);
+      await showAlert('Error deleting row: ' + error.message);
+    }
+  });
+
+  // Story 15.3: Delete column
+  window.electronAPI.onMenuDeleteColumn?.(async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (selectionMode !== 'column') return;
+    const col = selectionRange.startCol;
+    try {
+      const result = await DeleteColumn(col);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
+      await buildSpreadsheet();
+      await refreshAllCells();
+    } catch (error) {
+      console.error('[App] Error deleting column:', error);
+      await showAlert('Error deleting column: ' + error.message);
     }
   });
 

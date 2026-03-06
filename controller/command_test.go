@@ -354,3 +354,147 @@ func TestSetCellCommandDescription(t *testing.T) {
 	require.NoError(t, ctrl.SetCellValue(2, 3, "y"))
 	assert.Equal(t, "Set Cell D3", ctrl.History.UndoDescription())
 }
+
+// --- Structural command tests (Story 15.3) ---
+
+func TestInsertRowCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "A1"))
+	require.NoError(t, ctrl.SetCellValue(1, 0, "A2"))
+	// Clear history so only structural ops are tracked
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.InsertRow(1))
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "", ctrl.GetCellValue(1, 0))   // empty row inserted
+	assert.Equal(t, "A2", ctrl.GetCellValue(2, 0)) // shifted down
+	assert.Equal(t, "Insert Row 2", ctrl.History.UndoDescription())
+
+	// Undo: remove inserted row
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "A2", ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "", ctrl.GetCellValue(2, 0))
+
+	// Redo: re-insert
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "", ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "A2", ctrl.GetCellValue(2, 0))
+}
+
+func TestDeleteRowCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "A1"))
+	require.NoError(t, ctrl.SetCellValue(1, 0, "A2"))
+	require.NoError(t, ctrl.SetCellValue(2, 0, "A3"))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.DeleteRow(1))
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "A3", ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "", ctrl.GetCellValue(2, 0))
+	assert.Equal(t, "Delete Row 2", ctrl.History.UndoDescription())
+
+	// Undo: restore deleted row
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "A2", ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "A3", ctrl.GetCellValue(2, 0))
+
+	// Redo: re-delete
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "A3", ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "", ctrl.GetCellValue(2, 0))
+}
+
+func TestInsertColumnCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "A1"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "B1"))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.InsertColumn(1))
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "", ctrl.GetCellValue(0, 1))   // empty col inserted
+	assert.Equal(t, "B1", ctrl.GetCellValue(0, 2)) // shifted right
+	assert.Equal(t, "Insert Column B", ctrl.History.UndoDescription())
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "B1", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "", ctrl.GetCellValue(0, 2))
+
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "B1", ctrl.GetCellValue(0, 2))
+}
+
+func TestDeleteColumnCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "A1"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "B1"))
+	require.NoError(t, ctrl.SetCellValue(0, 2, "C1"))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.DeleteColumn(1))
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "C1", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "", ctrl.GetCellValue(0, 2))
+	assert.Equal(t, "Delete Column B", ctrl.History.UndoDescription())
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "B1", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "C1", ctrl.GetCellValue(0, 2))
+
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Equal(t, "A1", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "C1", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "", ctrl.GetCellValue(0, 2))
+}
+
+func TestDeleteRowCommand_RefBecomesError(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "10"))
+	require.NoError(t, ctrl.SetCellValue(1, 0, "20"))
+	require.NoError(t, ctrl.SetCellValue(2, 0, "=A1+A2")) // A2 = deleted row
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.DeleteRow(1))
+	// Formula at new row 1 contains #REF! because A2 referenced the deleted row
+	cell := ctrl.Sheet.GetCell(1, 0)
+	require.NotNil(t, cell)
+	assert.True(t, cell.IsError, "formula referencing deleted row should produce an error cell")
+	assert.Contains(t, cell.RawValue(), "#REF!")
+}
+
+func TestDeleteRowCommand_FormulaRefRestored(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "10"))
+	require.NoError(t, ctrl.SetCellValue(1, 0, "20"))
+	require.NoError(t, ctrl.SetCellValue(2, 0, "=A1+A2"))
+	assert.Equal(t, "30", ctrl.GetCellValue(2, 0))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.DeleteRow(1)) // delete row 1 (A2=20), formula shifts to =A1+A1
+	// After delete, formula is at row 1 referencing A1+A1 (both refs shift down)
+	// A1=10, so formula result = 20 (=A1+A1 where A1=10 and old A2 is gone)
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	// After undo, A1=10, A2=20, A3=A1+A2=30
+	assert.Equal(t, "10", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "20", ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "30", ctrl.GetCellValue(2, 0))
+}

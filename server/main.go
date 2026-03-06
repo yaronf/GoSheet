@@ -66,6 +66,8 @@ func main() {
 	http.HandleFunc("/api/format/cleanup", cors(srv.HandleFormatCleanup))
 	http.HandleFunc("/api/row/insert", cors(srv.HandleInsertRow))
 	http.HandleFunc("/api/column/insert", cors(srv.HandleInsertColumn))
+	http.HandleFunc("/api/row/delete", cors(srv.HandleDeleteRow))
+	http.HandleFunc("/api/column/delete", cors(srv.HandleDeleteColumn))
 	http.HandleFunc("/api/styles", cors(srv.HandleStyles))
 	http.HandleFunc("/api/styles/", cors(srv.HandleStyleByID))
 	http.HandleFunc("/api/undo", cors(srv.HandleUndo))

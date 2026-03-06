@@ -367,3 +367,100 @@ func TestInsertColumn(t *testing.T) {
 	assert.Equal(t, "B1", sheet.GetCell(0, 2).Value)
 	assert.Equal(t, "C1", sheet.GetCell(0, 3).Value)
 }
+
+func TestDeleteRow(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "A1")
+	sheet.SetCell(1, 0, "A2")
+	sheet.SetCell(2, 0, "A3")
+
+	_, err := sheet.DeleteRow(1)
+	assert.NoError(t, err)
+	assert.Equal(t, "A1", sheet.GetCell(0, 0).Value)
+	assert.Equal(t, "A3", sheet.GetCell(1, 0).Value)
+	assert.Nil(t, sheet.GetCell(2, 0))
+	assert.True(t, sheet.Modified)
+}
+
+func TestDeleteRow_FormulaRefs(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "1")
+	sheet.SetCell(1, 0, "2")
+	sheet.SetCell(2, 0, "=A3") // references row that will shift after delete of row 0
+	sheet.Cells[2][0].IsFormula = true
+
+	_, err := sheet.DeleteRow(1) // delete row index 1 (A2)
+	assert.NoError(t, err)
+	// formula was =A3 (row 2), row 2 > 1 so ref becomes A2
+	cell := sheet.GetCell(1, 0)
+	assert.NotNil(t, cell)
+	assert.Equal(t, "=A2", cell.RawValue())
+}
+
+func TestDeleteRow_InvalidIndex(t *testing.T) {
+	sheet := NewSpreadsheet()
+	_, err := sheet.DeleteRow(-1)
+	assert.Error(t, err)
+}
+
+func TestDeleteColumn(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "A1")
+	sheet.SetCell(0, 1, "B1")
+	sheet.SetCell(0, 2, "C1")
+
+	_, err := sheet.DeleteColumn(1)
+	assert.NoError(t, err)
+	assert.Equal(t, "A1", sheet.GetCell(0, 0).Value)
+	assert.Equal(t, "C1", sheet.GetCell(0, 1).Value)
+	assert.Nil(t, sheet.GetCell(0, 2))
+	assert.True(t, sheet.Modified)
+}
+
+func TestDeleteColumn_FormulaRefs(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "1")
+	sheet.SetCell(0, 1, "2")
+	sheet.SetCell(0, 2, "=C1") // col 2 > 1, will shift to B1 after col 1 deleted
+	sheet.Cells[0][2].IsFormula = true
+
+	_, err := sheet.DeleteColumn(1)
+	assert.NoError(t, err)
+	cell := sheet.GetCell(0, 1)
+	assert.NotNil(t, cell)
+	assert.Equal(t, "=B1", cell.RawValue())
+}
+
+func TestDeleteRow_MergeRegions(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "anchor")
+	// Merge spanning rows 2–3 (StartRow=2, RowSpan=2)
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 2, StartCol: 0, RowSpan: 2, ColSpan: 1})
+	// Merge at row 1 (anchor = deleted row)
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 1, StartCol: 0, RowSpan: 1, ColSpan: 1})
+
+	_, err := sheet.DeleteRow(1)
+	assert.NoError(t, err)
+	// First merge (was rows 2-3) should shift to rows 1-2
+	assert.Equal(t, 1, sheet.Merges[0].StartRow)
+	assert.Equal(t, 2, sheet.Merges[0].RowSpan)
+	// Second merge (anchor at deleted row 1) should be removed
+	assert.Equal(t, 1, len(sheet.Merges))
+}
+
+func TestDeleteColumn_MergeRegions(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "anchor")
+	// Merge spanning cols 2–3 (StartCol=2, ColSpan=2)
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 0, StartCol: 2, RowSpan: 1, ColSpan: 2})
+	// Merge at col 1 (anchor = deleted col)
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 0, StartCol: 1, RowSpan: 1, ColSpan: 1})
+
+	_, err := sheet.DeleteColumn(1)
+	assert.NoError(t, err)
+	// First merge (was cols 2-3) should shift to cols 1-2
+	assert.Equal(t, 1, sheet.Merges[0].StartCol)
+	assert.Equal(t, 2, sheet.Merges[0].ColSpan)
+	// Second merge (anchor at deleted col 1) should be removed
+	assert.Equal(t, 1, len(sheet.Merges))
+}

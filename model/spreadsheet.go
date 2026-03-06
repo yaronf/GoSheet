@@ -429,6 +429,138 @@ func (s *Spreadsheet) InsertColumn(insertCol int) error {
 	return nil
 }
 
+// DeleteRow removes the row at the given index. Cells at row > deleteRow shift up by 1.
+// Merge regions and formula references are updated. Returns the deleted row's cells (for undo).
+func (s *Spreadsheet) DeleteRow(deleteRow int) (map[int]*Cell, error) {
+	if deleteRow < 0 {
+		return nil, fmt.Errorf("deleteRow must be >= 0")
+	}
+	// Snapshot deleted row cells (for undo)
+	snapshot := make(map[int]*Cell)
+	if rowMap, ok := s.Cells[deleteRow]; ok {
+		for col, cell := range rowMap {
+			if cell != nil {
+				cp := *cell
+				snapshot[col] = &cp
+			}
+		}
+	}
+	// Remove deleted row
+	delete(s.Cells, deleteRow)
+	// Shift rows above down
+	rows := make([]int, 0, len(s.Cells))
+	for r := range s.Cells {
+		rows = append(rows, r)
+	}
+	sort.Ints(rows)
+	for _, r := range rows {
+		if r > deleteRow {
+			s.Cells[r-1] = s.Cells[r]
+			delete(s.Cells, r)
+		}
+	}
+	// Update merge regions
+	kept := s.Merges[:0]
+	for _, m := range s.Merges {
+		if m.RowSpan < 1 || m.ColSpan < 1 {
+			continue
+		}
+		if m.StartRow == deleteRow {
+			// Anchor is in deleted row — remove the merge
+			continue
+		}
+		if m.StartRow > deleteRow {
+			m.StartRow--
+		} else {
+			// Anchor is above deleteRow; check if merge spans deleteRow
+			endRow := m.StartRow + m.RowSpan - 1
+			if endRow >= deleteRow {
+				m.RowSpan--
+				if m.RowSpan < 1 {
+					continue
+				}
+			}
+		}
+		kept = append(kept, m)
+	}
+	s.Merges = kept
+	// Update formula refs in all cells
+	for _, rowMap := range s.Cells {
+		for _, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.Value != "" {
+				cell.Value = unshiftFormulaRefsForDeleteRow(cell.Value, deleteRow)
+			}
+		}
+	}
+	s.Modified = true
+	return snapshot, nil
+}
+
+// DeleteColumn removes the column at the given index. Cells at col > deleteCol shift left by 1.
+// Merge regions and formula references are updated. Returns the deleted column's cells (for undo).
+func (s *Spreadsheet) DeleteColumn(deleteCol int) (map[int]*Cell, error) {
+	if deleteCol < 0 {
+		return nil, fmt.Errorf("deleteCol must be >= 0")
+	}
+	// Snapshot deleted column cells (for undo)
+	snapshot := make(map[int]*Cell)
+	for r, rowMap := range s.Cells {
+		if cell, ok := rowMap[deleteCol]; ok && cell != nil {
+			cp := *cell
+			snapshot[r] = &cp
+		}
+	}
+	// Remove deleted column and shift remaining cells left
+	for _, rowMap := range s.Cells {
+		delete(rowMap, deleteCol)
+		cols := make([]int, 0, len(rowMap))
+		for c := range rowMap {
+			cols = append(cols, c)
+		}
+		sort.Ints(cols)
+		for _, c := range cols {
+			if c > deleteCol {
+				rowMap[c-1] = rowMap[c]
+				delete(rowMap, c)
+			}
+		}
+	}
+	// Update merge regions
+	kept := s.Merges[:0]
+	for _, m := range s.Merges {
+		if m.RowSpan < 1 || m.ColSpan < 1 {
+			continue
+		}
+		if m.StartCol == deleteCol {
+			// Anchor is in deleted column — remove the merge
+			continue
+		}
+		if m.StartCol > deleteCol {
+			m.StartCol--
+		} else {
+			endCol := m.StartCol + m.ColSpan - 1
+			if endCol >= deleteCol {
+				m.ColSpan--
+				if m.ColSpan < 1 {
+					continue
+				}
+			}
+		}
+		kept = append(kept, m)
+	}
+	s.Merges = kept
+	// Update formula refs in all cells
+	for _, rowMap := range s.Cells {
+		for _, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.Value != "" {
+				cell.Value = unshiftFormulaRefsForDeleteColumn(cell.Value, deleteCol)
+			}
+		}
+	}
+	s.Modified = true
+	return snapshot, nil
+}
+
 // ApplyStyleToRange applies the given style to all cells in the range [startRow,endRow] x [startCol,endCol].
 // No-op if styleId is 0. Returns error if styleId is invalid.
 func (s *Spreadsheet) ApplyStyleToRange(startRow, startCol, endRow, endCol int, styleId int) error {

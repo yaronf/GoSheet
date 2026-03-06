@@ -613,7 +613,7 @@ type InsertColumnRequest struct {
 	Col int `json:"col"`
 }
 
-// HandleInsertRow inserts an empty row at the given index. Story 13.1.
+// HandleInsertRow inserts an empty row at the given index. Story 13.1 / 15.3.
 func (s *Server) HandleInsertRow(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -628,16 +628,21 @@ func (s *Server) HandleInsertRow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }
 
-// HandleInsertColumn inserts an empty column at the given index. Story 13.1.
+// HandleInsertColumn inserts an empty column at the given index. Story 13.1 / 15.3.
 func (s *Server) HandleInsertColumn(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -652,11 +657,84 @@ func (s *Server) HandleInsertColumn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
+		},
+	})
+}
+
+// DeleteRowRequest is the JSON body for POST /api/row/delete
+type DeleteRowRequest struct {
+	Row int `json:"row"`
+}
+
+// DeleteColumnRequest is the JSON body for POST /api/column/delete
+type DeleteColumnRequest struct {
+	Col int `json:"col"`
+}
+
+// HandleDeleteRow deletes the row at the given index. Story 15.3.
+func (s *Server) HandleDeleteRow(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req DeleteRowRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.DeleteRow(req.Row); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	urState := s.Ctrl.UndoRedoState()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"data": map[string]any{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
+		},
+	})
+}
+
+// HandleDeleteColumn deletes the column at the given index. Story 15.3.
+func (s *Server) HandleDeleteColumn(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req DeleteColumnRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.DeleteColumn(req.Col); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	urState := s.Ctrl.UndoRedoState()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"data": map[string]any{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }

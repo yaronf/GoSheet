@@ -266,3 +266,194 @@ func (cmd *ClearRangeCommand) Description() string {
 	}
 	return "Clear Range " + start + ":" + end
 }
+
+// InsertRowCommand is a reversible insert-row operation.
+type InsertRowCommand struct {
+	ctrl *AppController
+	row  int
+}
+
+func (cmd *InsertRowCommand) Do() error {
+	if err := cmd.ctrl.Sheet.InsertRow(cmd.row); err != nil {
+		return err
+	}
+	cmd.ctrl.rebuildDependencyGraph()
+	cmd.ctrl.recalculateAllFormulas()
+	return nil
+}
+
+func (cmd *InsertRowCommand) Undo() error {
+	if _, err := cmd.ctrl.Sheet.DeleteRow(cmd.row); err != nil {
+		return err
+	}
+	cmd.ctrl.rebuildDependencyGraph()
+	cmd.ctrl.recalculateAllFormulas()
+	return nil
+}
+
+func (cmd *InsertRowCommand) Description() string {
+	return fmt.Sprintf("Insert Row %d", cmd.row+1)
+}
+
+// DeleteRowCommand is a reversible delete-row operation.
+// Snapshots: the deleted row's cells, all formula texts in the sheet (formula
+// text is rewritten by both DeleteRow and InsertRow; restoring originals avoids
+// double-shift without snapshotting non-formula cell data).
+type DeleteRowCommand struct {
+	ctrl            *AppController
+	row             int
+	snapshot        map[int]*model.Cell    // col → cell copy of deleted row, captured before Do()
+	formulaSnapshot map[int]map[int]string // [row][col] → original formula text for all formula cells
+	merges          []model.MergeRegion    // merge regions captured before Do()
+}
+
+func (cmd *DeleteRowCommand) Do() error {
+	// Snapshot merges and formula texts before delete rewrites them
+	mergesCopy := make([]model.MergeRegion, len(cmd.ctrl.Sheet.Merges))
+	copy(mergesCopy, cmd.ctrl.Sheet.Merges)
+	cmd.merges = mergesCopy
+	cmd.formulaSnapshot = snapshotFormulas(cmd.ctrl.Sheet)
+	snapshot, err := cmd.ctrl.Sheet.DeleteRow(cmd.row)
+	if err != nil {
+		return err
+	}
+	cmd.snapshot = snapshot
+	cmd.ctrl.rebuildDependencyGraph()
+	cmd.ctrl.recalculateAllFormulas()
+	return nil
+}
+
+func (cmd *DeleteRowCommand) Undo() error {
+	// Re-insert the empty row (shifts cells back down, also rewrites formula refs)
+	if err := cmd.ctrl.Sheet.InsertRow(cmd.row); err != nil {
+		return err
+	}
+	// Restore deleted row's cells
+	if cmd.ctrl.Sheet.Cells[cmd.row] == nil {
+		cmd.ctrl.Sheet.Cells[cmd.row] = make(map[int]*model.Cell)
+	}
+	for col, cell := range cmd.snapshot {
+		cp := *cell
+		cmd.ctrl.Sheet.Cells[cmd.row][col] = &cp
+	}
+	// Restore original formula texts (InsertRow re-shifted them; use pre-delete originals)
+	restoreFormulas(cmd.ctrl.Sheet, cmd.formulaSnapshot)
+	// Restore merge regions
+	if cmd.merges != nil {
+		cmd.ctrl.Sheet.Merges = cmd.merges
+	}
+	cmd.ctrl.rebuildDependencyGraph()
+	cmd.ctrl.recalculateAllFormulas()
+	return nil
+}
+
+func (cmd *DeleteRowCommand) Description() string {
+	return fmt.Sprintf("Delete Row %d", cmd.row+1)
+}
+
+// InsertColumnCommand is a reversible insert-column operation.
+type InsertColumnCommand struct {
+	ctrl *AppController
+	col  int
+}
+
+func (cmd *InsertColumnCommand) Do() error {
+	if err := cmd.ctrl.Sheet.InsertColumn(cmd.col); err != nil {
+		return err
+	}
+	cmd.ctrl.rebuildDependencyGraph()
+	cmd.ctrl.recalculateAllFormulas()
+	return nil
+}
+
+func (cmd *InsertColumnCommand) Undo() error {
+	if _, err := cmd.ctrl.Sheet.DeleteColumn(cmd.col); err != nil {
+		return err
+	}
+	cmd.ctrl.rebuildDependencyGraph()
+	cmd.ctrl.recalculateAllFormulas()
+	return nil
+}
+
+func (cmd *InsertColumnCommand) Description() string {
+	return "Insert Column " + model.ColIndexToLetter(cmd.col)
+}
+
+// DeleteColumnCommand is a reversible delete-column operation.
+// Same formula-snapshot strategy as DeleteRowCommand.
+type DeleteColumnCommand struct {
+	ctrl            *AppController
+	col             int
+	snapshot        map[int]*model.Cell    // row → cell copy of deleted col, captured before Do()
+	formulaSnapshot map[int]map[int]string // [row][col] → original formula text
+	merges          []model.MergeRegion    // merge regions captured before Do()
+}
+
+func (cmd *DeleteColumnCommand) Do() error {
+	// Snapshot merges and formula texts before delete rewrites them
+	mergesCopy := make([]model.MergeRegion, len(cmd.ctrl.Sheet.Merges))
+	copy(mergesCopy, cmd.ctrl.Sheet.Merges)
+	cmd.merges = mergesCopy
+	cmd.formulaSnapshot = snapshotFormulas(cmd.ctrl.Sheet)
+	snapshot, err := cmd.ctrl.Sheet.DeleteColumn(cmd.col)
+	if err != nil {
+		return err
+	}
+	cmd.snapshot = snapshot
+	cmd.ctrl.rebuildDependencyGraph()
+	cmd.ctrl.recalculateAllFormulas()
+	return nil
+}
+
+func (cmd *DeleteColumnCommand) Undo() error {
+	if err := cmd.ctrl.Sheet.InsertColumn(cmd.col); err != nil {
+		return err
+	}
+	for row, cell := range cmd.snapshot {
+		if cmd.ctrl.Sheet.Cells[row] == nil {
+			cmd.ctrl.Sheet.Cells[row] = make(map[int]*model.Cell)
+		}
+		cp := *cell
+		cmd.ctrl.Sheet.Cells[row][cmd.col] = &cp
+	}
+	restoreFormulas(cmd.ctrl.Sheet, cmd.formulaSnapshot)
+	if cmd.merges != nil {
+		cmd.ctrl.Sheet.Merges = cmd.merges
+	}
+	cmd.ctrl.rebuildDependencyGraph()
+	cmd.ctrl.recalculateAllFormulas()
+	return nil
+}
+
+func (cmd *DeleteColumnCommand) Description() string {
+	return "Delete Column " + model.ColIndexToLetter(cmd.col)
+}
+
+// snapshotFormulas captures the formula text of all formula cells in the sheet.
+// Only formula cells are captured since non-formula cell values don't change
+// during row/column insert/delete operations.
+func snapshotFormulas(sheet *model.Spreadsheet) map[int]map[int]string {
+	snap := make(map[int]map[int]string)
+	for r, rowMap := range sheet.Cells {
+		for c, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.Value != "" {
+				if snap[r] == nil {
+					snap[r] = make(map[int]string)
+				}
+				snap[r][c] = cell.Value
+			}
+		}
+	}
+	return snap
+}
+
+// restoreFormulas writes formula texts back from a snapshot produced by snapshotFormulas.
+func restoreFormulas(sheet *model.Spreadsheet, snap map[int]map[int]string) {
+	for r, colMap := range snap {
+		for c, formula := range colMap {
+			if cell := sheet.GetCell(r, c); cell != nil && cell.IsFormula {
+				cell.Value = formula
+			}
+		}
+	}
+}

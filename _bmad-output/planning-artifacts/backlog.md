@@ -73,3 +73,14 @@ While editing a formula, click a cell/range to include a reference in the formul
 Say no more.
 **Epic: 17**
 
+### User doc
+
+Ensure user documentation is updated once per story, when applicable.
+
+### Toolbar
+
+Remove the alignment buttons, add style buttons. And make them dynamic: new styles add buttons etc. And of course rendered as the style.
+
+### Text wrapping
+
+At least a toggle. Does it also require control of row/column width?

@@ -943,6 +943,64 @@ func TestHandleInsertColumn(t *testing.T) {
 	assert.Equal(t, "B1", srv.Ctrl.GetCellValue(0, 2))
 }
 
+func TestHandleInsertRow_IncludesUndoState(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "A1")
+	body, _ := json.Marshal(InsertRowRequest{Row: 0})
+	req := httptest.NewRequest(http.MethodPost, "/api/row/insert", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleInsertRow(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Insert Row 1", data["undoDescription"])
+}
+
+func TestHandleDeleteRow(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "A1")
+	srv.Ctrl.SetCellValue(1, 0, "A2")
+	srv.Ctrl.SetCellValue(2, 0, "A3")
+	body, _ := json.Marshal(DeleteRowRequest{Row: 1})
+	req := httptest.NewRequest(http.MethodPost, "/api/row/delete", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleDeleteRow(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "A1", srv.Ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "A3", srv.Ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(2, 0))
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Delete Row 2", data["undoDescription"])
+}
+
+func TestHandleDeleteColumn(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "A1")
+	srv.Ctrl.SetCellValue(0, 1, "B1")
+	srv.Ctrl.SetCellValue(0, 2, "C1")
+	body, _ := json.Marshal(DeleteColumnRequest{Col: 1})
+	req := httptest.NewRequest(http.MethodPost, "/api/column/delete", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleDeleteColumn(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "A1", srv.Ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "C1", srv.Ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "", srv.Ctrl.GetCellValue(0, 2))
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Delete Column B", data["undoDescription"])
+}
+
 func TestHandleClearRange(t *testing.T) {
 	srv := newTestServer()
 	srv.Ctrl.SetCellValue(0, 0, "a")

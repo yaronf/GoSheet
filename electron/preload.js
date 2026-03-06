@@ -144,6 +144,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuInsertColumn: (callback) => {
     ipcRenderer.on('menu-insert-column', callback);
   },
+  onMenuDeleteRow: (callback) => {
+    ipcRenderer.on('menu-delete-row', callback);
+  },
+  onMenuDeleteColumn: (callback) => {
+    ipcRenderer.on('menu-delete-column', callback);
+  },
 
   // Story 7.5: Recent files management
   addRecentFile: (filePath) => {

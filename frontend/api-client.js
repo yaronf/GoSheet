@@ -114,15 +114,49 @@ const GetAllCells = async () => {
   return cells;
 };
 
-// Story 13.1: Insert row/column
+// Story 13.1 / 15.3: Insert / delete row/column
 const InsertRow = async (row) => {
   const json = await fetchUnified('POST', '/api/row/insert', { row });
-  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+  return {
+    hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true,
+    canUndo: json.data?.canUndo ?? false,
+    canRedo: json.data?.canRedo ?? false,
+    undoDescription: json.data?.undoDescription ?? '',
+    redoDescription: json.data?.redoDescription ?? '',
+  };
 };
 
 const InsertColumn = async (col) => {
   const json = await fetchUnified('POST', '/api/column/insert', { col });
-  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+  return {
+    hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true,
+    canUndo: json.data?.canUndo ?? false,
+    canRedo: json.data?.canRedo ?? false,
+    undoDescription: json.data?.undoDescription ?? '',
+    redoDescription: json.data?.redoDescription ?? '',
+  };
+};
+
+const DeleteRow = async (row) => {
+  const json = await fetchUnified('POST', '/api/row/delete', { row });
+  return {
+    hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true,
+    canUndo: json.data?.canUndo ?? false,
+    canRedo: json.data?.canRedo ?? false,
+    undoDescription: json.data?.undoDescription ?? '',
+    redoDescription: json.data?.redoDescription ?? '',
+  };
+};
+
+const DeleteColumn = async (col) => {
+  const json = await fetchUnified('POST', '/api/column/delete', { col });
+  return {
+    hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true,
+    canUndo: json.data?.canUndo ?? false,
+    canRedo: json.data?.canRedo ?? false,
+    undoDescription: json.data?.undoDescription ?? '',
+    redoDescription: json.data?.redoDescription ?? '',
+  };
 };
 
 // Story 12.3: Format cleanup - remove style from empty cells
@@ -436,6 +470,8 @@ export {
   SetSetting,
   InsertRow,
   InsertColumn,
+  DeleteRow,
+  DeleteColumn,
   NewFile,
   SaveFile,
   SaveAs,

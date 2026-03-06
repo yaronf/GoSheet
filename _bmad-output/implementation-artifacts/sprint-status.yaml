@@ -225,7 +225,7 @@ development_status:
   epic-15: in-progress
   15-1-command-pattern-infrastructure: done
   15-2-undo-redo-cell-edits-and-deletion: done
-  15-3-undo-redo-structural-operations: backlog
+  15-3-undo-redo-structural-operations: review
   15-4-undo-redo-formatting: backlog
   epic-15-retrospective: optional
 

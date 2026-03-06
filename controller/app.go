@@ -557,28 +557,32 @@ func (c *AppController) ClearRange(startRow, startCol, endRow, endCol int) {
 	_ = c.History.Push(cmd)
 }
 
-// InsertRow inserts an empty row at the given index. Story 13.1.
+// InsertRow inserts an empty row at the given index. Story 13.1 / 15.3.
 func (c *AppController) InsertRow(row int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.Sheet.InsertRow(row); err != nil {
-		return err
-	}
-	c.rebuildDependencyGraph()
-	c.recalculateAllFormulas()
-	return nil
+	return c.History.Push(&InsertRowCommand{ctrl: c, row: row})
 }
 
-// InsertColumn inserts an empty column at the given index. Story 13.1.
+// InsertColumn inserts an empty column at the given index. Story 13.1 / 15.3.
 func (c *AppController) InsertColumn(col int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.Sheet.InsertColumn(col); err != nil {
-		return err
-	}
-	c.rebuildDependencyGraph()
-	c.recalculateAllFormulas()
-	return nil
+	return c.History.Push(&InsertColumnCommand{ctrl: c, col: col})
+}
+
+// DeleteRow deletes the row at the given index. Story 15.3.
+func (c *AppController) DeleteRow(row int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.History.Push(&DeleteRowCommand{ctrl: c, row: row})
+}
+
+// DeleteColumn deletes the column at the given index. Story 15.3.
+func (c *AppController) DeleteColumn(col int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.History.Push(&DeleteColumnCommand{ctrl: c, col: col})
 }
 
 // GetStyles returns all styles from the registry. Story 13.3.

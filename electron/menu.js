@@ -496,6 +496,29 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
             }
           },
         },
+        { type: 'separator' },
+        {
+          id: 'delete-row',
+          label: 'Delete Row',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Delete Row triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-delete-row');
+            }
+          },
+        },
+        {
+          id: 'delete-column',
+          label: 'Delete Column',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Delete Column triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-delete-column');
+            }
+          },
+        },
       ],
     },
 
@@ -638,7 +661,7 @@ function updateMenuState(state) {
     unmergeItem.enabled = menuState.canUnmerge;
   }
 
-  // Story 13.1: Update Insert menu based on selection mode
+  // Story 13.1 / 15.3: Update Insert/Delete menu based on selection mode
   const insertRowItem = menu.getMenuItemById('insert-row');
   if (insertRowItem && menuState.canInsertRow !== undefined) {
     insertRowItem.enabled = menuState.canInsertRow;
@@ -646,6 +669,14 @@ function updateMenuState(state) {
   const insertColItem = menu.getMenuItemById('insert-column');
   if (insertColItem && menuState.canInsertColumn !== undefined) {
     insertColItem.enabled = menuState.canInsertColumn;
+  }
+  const deleteRowItem = menu.getMenuItemById('delete-row');
+  if (deleteRowItem && menuState.canInsertRow !== undefined) {
+    deleteRowItem.enabled = menuState.canInsertRow;
+  }
+  const deleteColItem = menu.getMenuItemById('delete-column');
+  if (deleteColItem && menuState.canInsertColumn !== undefined) {
+    deleteColItem.enabled = menuState.canInsertColumn;
   }
 
   // RTL mode checkbox
