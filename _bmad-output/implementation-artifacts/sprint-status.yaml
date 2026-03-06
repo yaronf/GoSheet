@@ -216,8 +216,8 @@ development_status:
   # Epic 14: Electron Platform Upgrade
   epic-14: in-progress
   14-1-pilot-electron-upgrade-compatibility: review
-  14-2-complete-electron-upgrade: in-progress
-  14-3-port-chromium-click-tests-to-electron: in-progress
+  14-2-complete-electron-upgrade: review
+  14-3-port-chromium-click-tests-to-electron: review
   14-4-update-build-and-ci-configuration: backlog
   epic-14-retrospective: optional
 
