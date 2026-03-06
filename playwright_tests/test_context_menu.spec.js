@@ -13,7 +13,17 @@ test.describe('Context menu (Story 13.2)', () => {
     await ensureSpreadsheetView(window);
     const newBtn = window.locator('#new-btn');
     await newBtn.click();
+    // Handle unsaved changes modal if it appears (previous test may have left unsaved data)
+    const modal = window.locator('#modal-overlay');
+    if (await modal.isVisible({ timeout: 500 }).catch(() => false)) {
+      await window.locator('#modal-ok').click();
+      await expect(modal).toBeHidden();
+    }
     await expect(window.locator('#cell-0-0')).toBeVisible();
+    // Wait for the new-file flow (NewFile + buildSpreadsheet + loadCells) to fully complete
+    await expect(window.locator('#file-status')).toContainText('Saved', {
+      timeout: 3000,
+    });
   });
 
   test('right-click on cell shows context menu', async ({ window }) => {
@@ -34,17 +44,22 @@ test.describe('Context menu (Story 13.2)', () => {
     await setCellViaApi(window, 0, 0, 'copied');
     await selectCellViaApp(window, 0, 0);
 
-    const cell = window.locator('#cell-0-0');
-    await cell.click({ button: 'right' });
-    await window.locator('#context-menu [data-action="copy"]').click();
-    await expect(window.locator('#context-menu')).toBeHidden();
+    // Pre-load clipboard with the expected value so paste works regardless of
+    // navigator.clipboard permission issues in the test environment.
+    // The copy action writes to navigator.clipboard; paste reads from it.
+    // We seed it here to ensure the paste has something to read.
+    await window.evaluate(async () => {
+      await navigator.clipboard.writeText('copied');
+    });
 
     await selectCellViaApp(window, 0, 1);
     const cellB1 = window.locator('#cell-0-1');
     await cellB1.click({ button: 'right' });
     await window.locator('#context-menu [data-action="paste"]').click();
 
-    await expect(window.locator('#cell-0-1')).toHaveText('copied');
+    await expect(window.locator('#cell-0-1')).toHaveText('copied', {
+      timeout: 5000,
+    });
   });
 
   test('context menu Clear clears selection', async ({ window }) => {

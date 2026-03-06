@@ -19,7 +19,16 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await ensureSpreadsheetView(window);
     const newBtn = window.locator('#new-btn');
     await newBtn.click();
+    // Handle unsaved changes modal if it appears (previous test may have left unsaved data)
+    const modal = window.locator('#modal-overlay');
+    if (await modal.isVisible({ timeout: 500 }).catch(() => false)) {
+      await window.locator('#modal-ok').click();
+      await expect(modal).toBeHidden();
+    }
     await expect(window.locator('#cell-0-0')).toBeVisible();
+    await expect(window.locator('#file-status')).toContainText('Saved', {
+      timeout: 3000,
+    });
   });
 
   test('Manage Styles opens and shows style list', async ({

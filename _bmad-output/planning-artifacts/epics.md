@@ -2412,7 +2412,30 @@ So that the app runs on a secure, actively-maintained runtime.
 
 ---
 
-### Story 14.3: Update Build and CI Configuration
+### Story 14.3: Port Chromium Click Tests to Electron
+
+As a developer,
+I want the 5 real-click tests (select, double-click edit, shift+click range) ported from the Chromium project to the Electron project,
+So that the `chromium-web` project and `test_ui_interactions.spec.js` can be removed entirely.
+
+**Acceptance Criteria:**
+
+**Given** the 5 tests in `test_ui_interactions.spec.js` (single click selects, click updates formula bar, double click enters edit mode, shift+click extends selection, click away saves edit)
+**When** each is ported to the Electron project
+**Then** all 5 pass reliably in `npm run test:electron` with no flakiness (passes on 3 consecutive runs)
+
+**Given** the Chromium project is removed from `playwright.config.js`
+**When** `npm test` is run
+**Then** only the electron project runs and all tests pass
+**And** `test_ui_interactions.spec.js` and `playwright_tests/global-setup.js` and `playwright_tests/global-teardown.js` are deleted (or repurposed if still needed)
+
+**Given** the CI workflow references `chromium` browser install
+**When** the Chromium project is removed
+**Then** the CI step `npx playwright install --with-deps chromium` is removed or replaced with Electron-only setup
+
+---
+
+### Story 14.4: Update Build and CI Configuration
 
 As a developer,
 I want the build pipeline and CI updated for the new Electron version,
@@ -2420,7 +2443,7 @@ So that packaged `.app` builds and all automated checks reflect the upgrade.
 
 **Acceptance Criteria:**
 
-**Given** Electron 38+ is installed (Story 14.2)
+**Given** Electron 38+ is installed and all tests ported (Stories 14.2, 14.3)
 **When** `npm run build` is run
 **Then** a valid `.app` bundle is produced in `dist/`
 **And** `lipo -info` on the bundled Electron binary confirms the expected architecture(s)

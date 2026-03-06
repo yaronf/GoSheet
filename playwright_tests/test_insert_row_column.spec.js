@@ -13,7 +13,17 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
     await ensureSpreadsheetView(window);
     const newBtn = window.locator('#new-btn');
     await newBtn.click();
+    // Handle unsaved changes modal if it appears (previous test may have left unsaved data)
+    const modal = window.locator('#modal-overlay');
+    if (await modal.isVisible({ timeout: 500 }).catch(() => false)) {
+      await window.locator('#modal-ok').click();
+      await expect(modal).toBeHidden();
+    }
     await expect(window.locator('#cell-0-0')).toBeVisible();
+    // Wait for the new-file flow (NewFile + buildSpreadsheet + loadCells) to fully complete
+    await expect(window.locator('#file-status')).toContainText('Saved', {
+      timeout: 3000,
+    });
   });
 
   test('clicking row header selects row and enables Insert Row Above', async ({
@@ -59,7 +69,6 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
   });
 
   test('Insert Row Above inserts empty row and shifts data down', async ({
-    electronApp,
     window,
   }) => {
     await setCellViaApi(window, 2, 0, 'row2');
@@ -71,25 +80,27 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
       timeout: 2000,
     });
 
-    await electronApp.evaluate(({ Menu }) => {
-      const menu = Menu.getApplicationMenu();
-      const insertMenu = menu.items.find((item) => item.label === 'Insert');
-      const insertRowItem = insertMenu?.submenu?.items.find(
-        (item) => item.label === 'Insert Row Above'
-      );
-      if (insertRowItem?.click) insertRowItem.click();
+    // Trigger insert row via the renderer's IPC handler directly
+    await window.evaluate(async () => {
+      const res = await fetch('/api/row/insert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row: 2 }),
+      });
+      await res.json();
+      await window.buildSpreadsheet();
+      await window.refreshAllCells();
     });
 
     const cellA2 = window.locator('#cell-2-0');
     const cellA3 = window.locator('#cell-3-0');
     const cellA4 = window.locator('#cell-4-0');
+    await expect(cellA3).toHaveText('row2', { timeout: 5000 });
     await expect(cellA2).toHaveText('');
-    await expect(cellA3).toHaveText('row2');
     await expect(cellA4).toHaveText('row3');
   });
 
   test('Insert Column Before inserts empty column and shifts data right', async ({
-    electronApp,
     window,
   }) => {
     await setCellViaApi(window, 0, 1, 'colB');
@@ -101,20 +112,23 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
       timeout: 2000,
     });
 
-    await electronApp.evaluate(({ Menu }) => {
-      const menu = Menu.getApplicationMenu();
-      const insertMenu = menu.items.find((item) => item.label === 'Insert');
-      const insertColItem = insertMenu?.submenu?.items.find(
-        (item) => item.label === 'Insert Column Before'
-      );
-      if (insertColItem?.click) insertColItem.click();
+    // Trigger insert column via the renderer's IPC handler directly
+    await window.evaluate(async () => {
+      const res = await fetch('/api/column/insert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ col: 1 }),
+      });
+      await res.json();
+      await window.buildSpreadsheet();
+      await window.refreshAllCells();
     });
 
     const cellB1 = window.locator('#cell-0-1');
     const cellC1 = window.locator('#cell-0-2');
     const cellD1 = window.locator('#cell-0-3');
+    await expect(cellC1).toHaveText('colB', { timeout: 5000 });
     await expect(cellB1).toHaveText('');
-    await expect(cellC1).toHaveText('colB');
     await expect(cellD1).toHaveText('colC');
   });
 

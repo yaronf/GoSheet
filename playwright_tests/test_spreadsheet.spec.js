@@ -415,12 +415,12 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     await window.locator('#new-btn').click();
 
     const modal = window.locator('#modal-overlay');
-    if (await modal.isVisible()) {
-      await window.locator('#modal-ok').click();
-      await expect(modal).toBeHidden();
-    }
+    // setCellViaApi marks unsaved changes, so modal always appears — wait for it
+    await expect(modal).toBeVisible({ timeout: 3000 });
+    await window.locator('#modal-ok').click();
+    await expect(modal).toBeHidden();
 
-    await expect(cellA1).toHaveText('');
+    await expect(cellA1).toHaveText('', { timeout: 5000 });
   });
 
   test('new file warns on unsaved changes', async ({ window }) => {
