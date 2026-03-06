@@ -1606,6 +1606,7 @@ function finishEditing(row, col, value, cell) {
       if (result.hasUnsavedChanges !== undefined) {
         displayFileStatus(result.hasUnsavedChanges);
       }
+      applyUndoRedoState(result);
       // Refresh ALL cells to pick up dependent formula changes
       return refreshAllCells();
     })

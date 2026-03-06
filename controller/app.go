@@ -48,14 +48,26 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 func (c *AppController) Undo() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.History.Undo()
+	if err := c.History.Undo(); err != nil {
+		return err
+	}
+	if c.History.AtSavePoint() {
+		c.Sheet.Modified = false
+	}
+	return nil
 }
 
 // Redo reapplies the most recently undone operation. Safe for concurrent callers.
 func (c *AppController) Redo() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.History.Redo()
+	if err := c.History.Redo(); err != nil {
+		return err
+	}
+	if c.History.AtSavePoint() {
+		c.Sheet.Modified = false
+	}
+	return nil
 }
 
 // setCellValueInternal is the raw mutator used by SetCellCommand.Do() and Undo().
@@ -295,10 +307,14 @@ func (c *AppController) NewFile() {
 
 // SaveFile saves the spreadsheet to a file
 func (c *AppController) SaveFile(path string) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	logutil.Debugf("Saving spreadsheet to: %s", path)
-	return c.Sheet.SaveToFile(path)
+	if err := c.Sheet.SaveToFile(path); err != nil {
+		return err
+	}
+	c.History.MarkSaved()
+	return nil
 }
 
 // LoadFile loads a spreadsheet from a file

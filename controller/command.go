@@ -22,13 +22,15 @@ const HistoryCap = 100
 // History manages the undo/redo stacks for a spreadsheet session.
 // It is not safe for concurrent use; callers must hold the controller lock.
 type History struct {
-	undoStack []Command
-	redoStack []Command
+	undoStack       []Command
+	redoStack       []Command
+	savedUndoDepth  int  // undo stack depth at last save
+	savedDepthValid bool // false if the save point was pushed off by the cap
 }
 
 // NewHistory creates an empty History.
 func NewHistory() *History {
-	return &History{}
+	return &History{savedDepthValid: true}
 }
 
 // Push executes cmd.Do() and, if successful, appends it to the undo stack.
@@ -41,8 +43,25 @@ func (h *History) Push(cmd Command) error {
 	h.redoStack = nil
 	if len(h.undoStack) > HistoryCap {
 		h.undoStack = h.undoStack[1:]
+		// The saved depth was pushed off the bottom of the stack; it's unreachable.
+		if h.savedDepthValid && h.savedUndoDepth < len(h.undoStack) {
+			h.savedDepthValid = false
+		}
 	}
 	return nil
+}
+
+// MarkSaved records the current undo stack depth as the last-saved state.
+// Call this immediately after a successful file save.
+func (h *History) MarkSaved() {
+	h.savedUndoDepth = len(h.undoStack)
+	h.savedDepthValid = true
+}
+
+// AtSavePoint reports whether the current undo stack depth matches the last
+// saved state, meaning no net changes exist relative to the saved file.
+func (h *History) AtSavePoint() bool {
+	return h.savedDepthValid && len(h.undoStack) == h.savedUndoDepth
 }
 
 // Undo reverses the most recent command. Returns an error if the undo stack is empty.
@@ -73,10 +92,12 @@ func (h *History) Redo() error {
 	return nil
 }
 
-// Clear empties both stacks. Called on NewFile and LoadFile.
+// Clear empties both stacks and resets the save point. Called on NewFile and LoadFile.
 func (h *History) Clear() {
 	h.undoStack = nil
 	h.redoStack = nil
+	h.savedUndoDepth = 0
+	h.savedDepthValid = true
 }
 
 // CanUndo reports whether there is an operation available to undo.

@@ -184,6 +184,31 @@ test.describe('Undo/Redo (Story 15.2)', () => {
     await expect(window.locator('#redo-btn')).toBeDisabled({ timeout: 3000 });
   });
 
+  // File status returns to "Saved" when undo reverts to the last-saved state
+  test('file status shows Saved after undo reverts all changes on a new sheet', async ({
+    window,
+  }) => {
+    // Fresh sheet starts as Saved
+    await expect(window.locator('#file-status')).toContainText('Saved');
+
+    // Make an edit — should become Unsaved
+    const cell = window.locator('#cell-0-0');
+    await cell.click();
+    await cell.dblclick();
+    await waitForEditModeReady(window);
+    await window.keyboard.type('hello');
+    await window.keyboard.press('Enter');
+    await expect(window.locator('#undo-btn')).toBeEnabled({ timeout: 3000 });
+    await expect(window.locator('#file-status')).toContainText('Unsaved');
+
+    // Undo — should revert to Saved
+    await window.keyboard.press('Meta+z');
+    await expect(window.locator('#cell-0-0')).toHaveText('', { timeout: 3000 });
+    await expect(window.locator('#file-status')).toContainText('Saved', {
+      timeout: 3000,
+    });
+  });
+
   // AC7: Cmd+Z does nothing when history is empty (no crash, no state change)
   test('Cmd+Z is a no-op on empty history', async ({ window }) => {
     // Fresh sheet — pressing Cmd+Z should not crash or alter anything

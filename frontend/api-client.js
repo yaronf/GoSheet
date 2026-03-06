@@ -80,7 +80,13 @@ const GetCellRawValue = async (row, col) => {
 const SetCellValue = async (row, col, value) => {
   // Story 3.5: Electron uses HTTP API for spreadsheet operations
   const json = await fetchUnified('POST', '/api/cell/set', { row, col, value });
-  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+  return {
+    hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true,
+    canUndo: json.data?.canUndo ?? false,
+    canRedo: json.data?.canRedo ?? false,
+    undoDescription: json.data?.undoDescription ?? '',
+    redoDescription: json.data?.redoDescription ?? '',
+  };
 };
 
 const GetCellRef = async (row, col) => {
