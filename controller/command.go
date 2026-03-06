@@ -429,6 +429,258 @@ func (cmd *DeleteColumnCommand) Description() string {
 	return "Delete Column " + model.ColIndexToLetter(cmd.col)
 }
 
+// ApplyCellStyleCommand is a reversible apply-style-to-cell operation.
+type ApplyCellStyleCommand struct {
+	ctrl        *AppController
+	row, col    int
+	newStyleId  int
+	prevStyleId int // captured in Do()
+}
+
+func (cmd *ApplyCellStyleCommand) Do() error {
+	cell := cmd.ctrl.Sheet.GetCell(cmd.row, cmd.col)
+	if cell != nil {
+		cmd.prevStyleId = cell.StyleId
+	}
+	return cmd.ctrl.Sheet.ApplyStyleToCell(cmd.row, cmd.col, cmd.newStyleId)
+}
+
+func (cmd *ApplyCellStyleCommand) Undo() error {
+	if cmd.prevStyleId == 0 {
+		cell := cmd.ctrl.Sheet.GetCell(cmd.row, cmd.col)
+		if cell != nil {
+			cell.StyleId = 0
+			cmd.ctrl.Sheet.Modified = true
+		}
+		return nil
+	}
+	return cmd.ctrl.Sheet.ApplyStyleToCell(cmd.row, cmd.col, cmd.prevStyleId)
+}
+
+func (cmd *ApplyCellStyleCommand) Description() string {
+	return "Apply Style to " + model.CoordsToRef(cmd.row, cmd.col)
+}
+
+// ApplyRangeStyleCommand is a reversible apply-style-to-range operation.
+type ApplyRangeStyleCommand struct {
+	ctrl               *AppController
+	startRow, startCol int
+	endRow, endCol     int
+	newStyleId         int
+	prevStyles         map[int]map[int]int // [row][col] → prevStyleId
+}
+
+func (cmd *ApplyRangeStyleCommand) Do() error {
+	// Snapshot per-cell previous styles
+	cmd.prevStyles = make(map[int]map[int]int)
+	for r := cmd.startRow; r <= cmd.endRow; r++ {
+		for c := cmd.startCol; c <= cmd.endCol; c++ {
+			cell := cmd.ctrl.Sheet.GetCell(r, c)
+			if cell != nil && cell.StyleId != 0 {
+				if cmd.prevStyles[r] == nil {
+					cmd.prevStyles[r] = make(map[int]int)
+				}
+				cmd.prevStyles[r][c] = cell.StyleId
+			}
+		}
+	}
+	return cmd.ctrl.Sheet.ApplyStyleToRange(cmd.startRow, cmd.startCol, cmd.endRow, cmd.endCol, cmd.newStyleId)
+}
+
+func (cmd *ApplyRangeStyleCommand) Undo() error {
+	for r := cmd.startRow; r <= cmd.endRow; r++ {
+		for c := cmd.startCol; c <= cmd.endCol; c++ {
+			cell := cmd.ctrl.Sheet.GetCell(r, c)
+			if cell == nil {
+				continue
+			}
+			prev := 0
+			if cmd.prevStyles[r] != nil {
+				prev = cmd.prevStyles[r][c]
+			}
+			cell.StyleId = prev
+		}
+	}
+	cmd.ctrl.Sheet.Modified = true
+	return nil
+}
+
+func (cmd *ApplyRangeStyleCommand) Description() string {
+	start := model.CoordsToRef(cmd.startRow, cmd.startCol)
+	end := model.CoordsToRef(cmd.endRow, cmd.endCol)
+	if start == end {
+		return "Apply Style to " + start
+	}
+	return "Apply Style to " + start + ":" + end
+}
+
+// SetCellAlignmentCommand is a reversible set-alignment-on-cell operation.
+type SetCellAlignmentCommand struct {
+	ctrl          *AppController
+	row, col      int
+	newAlignment  string
+	prevAlignment string // captured in Do()
+}
+
+func (cmd *SetCellAlignmentCommand) Do() error {
+	cell := cmd.ctrl.Sheet.GetCell(cmd.row, cmd.col)
+	if cell != nil {
+		cmd.prevAlignment = cell.Alignment
+	}
+	return cmd.ctrl.Sheet.SetCellAlignment(cmd.row, cmd.col, cmd.newAlignment)
+}
+
+func (cmd *SetCellAlignmentCommand) Undo() error {
+	cell := cmd.ctrl.Sheet.GetCell(cmd.row, cmd.col)
+	if cell != nil {
+		cell.Alignment = cmd.prevAlignment
+		cmd.ctrl.Sheet.Modified = true
+	}
+	return nil
+}
+
+func (cmd *SetCellAlignmentCommand) Description() string {
+	return "Set Alignment " + model.CoordsToRef(cmd.row, cmd.col)
+}
+
+// SetRangeAlignmentCommand is a reversible set-alignment-on-range operation.
+type SetRangeAlignmentCommand struct {
+	ctrl               *AppController
+	startRow, startCol int
+	endRow, endCol     int
+	newAlignment       string
+	prevAlignments     map[int]map[int]string // [row][col] → prevAlignment
+}
+
+func (cmd *SetRangeAlignmentCommand) Do() error {
+	cmd.prevAlignments = make(map[int]map[int]string)
+	for r := cmd.startRow; r <= cmd.endRow; r++ {
+		for c := cmd.startCol; c <= cmd.endCol; c++ {
+			cell := cmd.ctrl.Sheet.GetCell(r, c)
+			if cell != nil && cell.Alignment != "" {
+				if cmd.prevAlignments[r] == nil {
+					cmd.prevAlignments[r] = make(map[int]string)
+				}
+				cmd.prevAlignments[r][c] = cell.Alignment
+			}
+		}
+	}
+	return cmd.ctrl.Sheet.SetRangeAlignment(cmd.startRow, cmd.startCol, cmd.endRow, cmd.endCol, cmd.newAlignment)
+}
+
+func (cmd *SetRangeAlignmentCommand) Undo() error {
+	for r := cmd.startRow; r <= cmd.endRow; r++ {
+		for c := cmd.startCol; c <= cmd.endCol; c++ {
+			cell := cmd.ctrl.Sheet.GetCell(r, c)
+			if cell == nil {
+				continue
+			}
+			prev := ""
+			if cmd.prevAlignments[r] != nil {
+				prev = cmd.prevAlignments[r][c]
+			}
+			cell.Alignment = prev
+		}
+	}
+	cmd.ctrl.Sheet.Modified = true
+	return nil
+}
+
+func (cmd *SetRangeAlignmentCommand) Description() string {
+	start := model.CoordsToRef(cmd.startRow, cmd.startCol)
+	end := model.CoordsToRef(cmd.endRow, cmd.endCol)
+	if start == end {
+		return "Set Alignment " + start
+	}
+	return "Set Alignment " + start + ":" + end
+}
+
+// SetMergeCommand is a reversible merge operation.
+// Validation (overlap check, nonEmpty check) runs inside Do() so that invalid
+// merges are rejected before being pushed onto the undo stack.
+type SetMergeCommand struct {
+	ctrl               *AppController
+	startRow, startCol int
+	rowSpan, colSpan   int
+}
+
+func (cmd *SetMergeCommand) Do() error {
+	if cmd.startRow < 0 || cmd.startCol < 0 || cmd.rowSpan < 1 || cmd.colSpan < 1 {
+		return fmt.Errorf("invalid merge: startRow and startCol must be >= 0, rowSpan and colSpan must be >= 1")
+	}
+	newMerge := model.MergeRegion{StartRow: cmd.startRow, StartCol: cmd.startCol, RowSpan: cmd.rowSpan, ColSpan: cmd.colSpan}
+	for _, m := range cmd.ctrl.Sheet.Merges {
+		if rectanglesOverlap(newMerge, m) {
+			return fmt.Errorf("merge overlaps existing region at (%d,%d)", m.StartRow, m.StartCol)
+		}
+	}
+	nonEmpty := 0
+	for r := cmd.startRow; r < cmd.startRow+cmd.rowSpan; r++ {
+		for c := cmd.startCol; c < cmd.startCol+cmd.colSpan; c++ {
+			cell := cmd.ctrl.Sheet.GetCell(r, c)
+			if cell != nil && cell.Value != "" {
+				nonEmpty++
+			}
+		}
+	}
+	if nonEmpty > 1 {
+		return fmt.Errorf("only one cell in the selection may have content to merge")
+	}
+	cmd.ctrl.Sheet.Merges = append(cmd.ctrl.Sheet.Merges, newMerge)
+	cmd.ctrl.Sheet.Modified = true
+	return nil
+}
+
+func (cmd *SetMergeCommand) Undo() error {
+	for i, m := range cmd.ctrl.Sheet.Merges {
+		if m.StartRow == cmd.startRow && m.StartCol == cmd.startCol &&
+			m.RowSpan == cmd.rowSpan && m.ColSpan == cmd.colSpan {
+			cmd.ctrl.Sheet.Merges = append(cmd.ctrl.Sheet.Merges[:i], cmd.ctrl.Sheet.Merges[i+1:]...)
+			cmd.ctrl.Sheet.Modified = true
+			return nil
+		}
+	}
+	return fmt.Errorf("merge region not found during undo")
+}
+
+func (cmd *SetMergeCommand) Description() string {
+	start := model.CoordsToRef(cmd.startRow, cmd.startCol)
+	endRow := cmd.startRow + cmd.rowSpan - 1
+	endCol := cmd.startCol + cmd.colSpan - 1
+	end := model.CoordsToRef(endRow, endCol)
+	return "Merge " + start + ":" + end
+}
+
+// UnmergeCommand is a reversible unmerge operation.
+// The removed MergeRegion is captured inside Do() for restoration in Undo().
+type UnmergeCommand struct {
+	ctrl               *AppController
+	startRow, startCol int
+	snapshot           model.MergeRegion // captured in Do()
+}
+
+func (cmd *UnmergeCommand) Do() error {
+	for i, m := range cmd.ctrl.Sheet.Merges {
+		if m.StartRow == cmd.startRow && m.StartCol == cmd.startCol {
+			cmd.snapshot = m
+			cmd.ctrl.Sheet.Merges = append(cmd.ctrl.Sheet.Merges[:i], cmd.ctrl.Sheet.Merges[i+1:]...)
+			cmd.ctrl.Sheet.Modified = true
+			return nil
+		}
+	}
+	return fmt.Errorf("no merge region with anchor at (%d,%d)", cmd.startRow, cmd.startCol)
+}
+
+func (cmd *UnmergeCommand) Undo() error {
+	cmd.ctrl.Sheet.Merges = append(cmd.ctrl.Sheet.Merges, cmd.snapshot)
+	cmd.ctrl.Sheet.Modified = true
+	return nil
+}
+
+func (cmd *UnmergeCommand) Description() string {
+	return "Unmerge " + model.CoordsToRef(cmd.startRow, cmd.startCol)
+}
+
 // snapshotFormulas captures the formula text of all formula cells in the sheet.
 // Only formula cells are captured since non-formula cell values don't change
 // during row/column insert/delete operations.

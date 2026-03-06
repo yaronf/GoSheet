@@ -892,8 +892,7 @@ async function handleContextMenuAction(action) {
           endCol,
           styleId
         );
-        if (result?.hasUnsavedChanges !== undefined)
-          displayFileStatus(result.hasUnsavedChanges);
+        applyUndoRedoState(result);
         await refreshAllCells();
       }
     } else if (action === 'align-left') {
@@ -2143,9 +2142,7 @@ async function applyAlignmentToSelection(alignment) {
         alignment
       );
     }
-    if (result.hasUnsavedChanges !== undefined) {
-      displayFileStatus(result.hasUnsavedChanges);
-    }
+    applyUndoRedoState(result);
     updateAlignmentButtonState(alignment);
     await refreshAllCells();
   } catch (err) {
@@ -3193,11 +3190,9 @@ if (window.electronAPI) {
       const rowSpan = endRow - startRow + 1;
       const colSpan = endCol - startCol + 1;
       const result = await SetMerge(startRow, startCol, rowSpan, colSpan);
-      if (result.hasUnsavedChanges !== undefined)
-        displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
       await buildSpreadsheet();
       await refreshAllCells();
-      updateFileStatus();
     } catch (error) {
       console.error('[App] Error during Merge:', error);
       await showAlert('Error merging cells: ' + error.message);
@@ -3221,11 +3216,9 @@ if (window.electronAPI) {
     }
     try {
       const result = await Unmerge(startRow, startCol);
-      if (result.hasUnsavedChanges !== undefined)
-        displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
       await buildSpreadsheet();
       await refreshAllCells();
-      updateFileStatus();
     } catch (error) {
       console.error('[App] Error during Unmerge:', error);
       await showAlert('Error unmerging cells: ' + error.message);
@@ -3246,10 +3239,8 @@ if (window.electronAPI) {
         endCol,
         styleId
       );
-      if (result.hasUnsavedChanges !== undefined)
-        displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
       await refreshAllCells();
-      updateFileStatus();
       window.dispatchEvent(
         new CustomEvent('style-applied', { detail: { styleId } })
       );

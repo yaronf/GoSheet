@@ -226,7 +226,8 @@ development_status:
   15-1-command-pattern-infrastructure: done
   15-2-undo-redo-cell-edits-and-deletion: done
   15-3-undo-redo-structural-operations: review
-  15-4-undo-redo-formatting: backlog
+  15-4-undo-redo-formatting: review
+  15-5-fix-ref-error-ast-formula-shift: backlog
   epic-15-retrospective: optional
 
   # Epic 16: Data Safety & File Integrity

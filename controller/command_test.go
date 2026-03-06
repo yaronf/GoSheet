@@ -479,6 +479,155 @@ func TestDeleteRowCommand_RefBecomesError(t *testing.T) {
 	assert.Contains(t, cell.RawValue(), "#REF!")
 }
 
+// --- Formatting command tests (Story 15.4) ---
+
+func TestApplyCellStyleCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
+	ctrl.History.Clear()
+
+	// Apply style 1 (Title) to A1
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 1))
+	assert.Equal(t, 1, ctrl.Sheet.GetCell(0, 0).StyleId)
+	assert.Equal(t, "Apply Style to A1", ctrl.History.UndoDescription())
+
+	// Undo → style reverts to 0
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, 0, ctrl.Sheet.GetCell(0, 0).StyleId)
+
+	// Redo → style back to 1
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Equal(t, 1, ctrl.Sheet.GetCell(0, 0).StyleId)
+}
+
+func TestApplyCellStyleCommand_NoStylePrev(t *testing.T) {
+	ctrl := NewAppController()
+	// Cell doesn't exist yet; apply style to empty position
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 2))
+	cell := ctrl.Sheet.GetCell(0, 0)
+	require.NotNil(t, cell)
+	assert.Equal(t, 2, cell.StyleId)
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	// Cell may exist (created by ApplyStyleToCell) but StyleId must be 0
+	cell = ctrl.Sheet.GetCell(0, 0)
+	if cell != nil {
+		assert.Equal(t, 0, cell.StyleId)
+	}
+}
+
+func TestApplyRangeStyleCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "A"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "B"))
+	ctrl.Sheet.GetCell(0, 0).StyleId = 2 // existing style on A1
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.ApplyStyleToRange(0, 0, 0, 1, 3))
+	assert.Equal(t, 3, ctrl.Sheet.GetCell(0, 0).StyleId)
+	assert.Equal(t, 3, ctrl.Sheet.GetCell(0, 1).StyleId)
+	assert.Equal(t, "Apply Style to A1:B1", ctrl.History.UndoDescription())
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, 2, ctrl.Sheet.GetCell(0, 0).StyleId) // restored to 2
+	assert.Equal(t, 0, ctrl.Sheet.GetCell(0, 1).StyleId) // B1 had no style → 0
+
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Equal(t, 3, ctrl.Sheet.GetCell(0, 0).StyleId)
+	assert.Equal(t, 3, ctrl.Sheet.GetCell(0, 1).StyleId)
+}
+
+func TestSetCellAlignmentCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.SetCellAlignment(0, 0, "center"))
+	assert.Equal(t, "center", ctrl.Sheet.GetCell(0, 0).Alignment)
+	assert.Equal(t, "Set Alignment A1", ctrl.History.UndoDescription())
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "", ctrl.Sheet.GetCell(0, 0).Alignment)
+
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Equal(t, "center", ctrl.Sheet.GetCell(0, 0).Alignment)
+}
+
+func TestSetRangeAlignmentCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "A"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "B"))
+	ctrl.Sheet.GetCell(0, 0).Alignment = "left"
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.SetRangeAlignment(0, 0, 0, 1, "right"))
+	assert.Equal(t, "right", ctrl.Sheet.GetCell(0, 0).Alignment)
+	assert.Equal(t, "right", ctrl.Sheet.GetCell(0, 1).Alignment)
+	assert.Equal(t, "Set Alignment A1:B1", ctrl.History.UndoDescription())
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "left", ctrl.Sheet.GetCell(0, 0).Alignment) // restored to "left"
+	assert.Equal(t, "", ctrl.Sheet.GetCell(0, 1).Alignment)     // B1 had no alignment → ""
+
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Equal(t, "right", ctrl.Sheet.GetCell(0, 0).Alignment)
+	assert.Equal(t, "right", ctrl.Sheet.GetCell(0, 1).Alignment)
+}
+
+func TestSetMergeCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "anchor"))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.SetMerge(0, 0, 1, 2))
+	assert.Len(t, ctrl.Sheet.Merges, 1)
+	assert.Equal(t, "Merge A1:B1", ctrl.History.UndoDescription())
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Empty(t, ctrl.Sheet.Merges)
+
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Len(t, ctrl.Sheet.Merges, 1)
+	assert.Equal(t, 0, ctrl.Sheet.Merges[0].StartRow)
+	assert.Equal(t, 0, ctrl.Sheet.Merges[0].StartCol)
+	assert.Equal(t, 1, ctrl.Sheet.Merges[0].RowSpan)
+	assert.Equal(t, 2, ctrl.Sheet.Merges[0].ColSpan)
+}
+
+func TestUnmergeCommand_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "anchor"))
+	require.NoError(t, ctrl.SetMerge(0, 0, 2, 2))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.Unmerge(0, 0))
+	assert.Empty(t, ctrl.Sheet.Merges)
+	assert.Equal(t, "Unmerge A1", ctrl.History.UndoDescription())
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Len(t, ctrl.Sheet.Merges, 1)
+	assert.Equal(t, 0, ctrl.Sheet.Merges[0].StartRow)
+	assert.Equal(t, 0, ctrl.Sheet.Merges[0].StartCol)
+	assert.Equal(t, 2, ctrl.Sheet.Merges[0].RowSpan)
+	assert.Equal(t, 2, ctrl.Sheet.Merges[0].ColSpan)
+
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	assert.Empty(t, ctrl.Sheet.Merges)
+}
+
 func TestDeleteRowCommand_FormulaRefRestored(t *testing.T) {
 	ctrl := NewAppController()
 	require.NoError(t, ctrl.SetCellValue(0, 0, "10"))

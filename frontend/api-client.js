@@ -172,7 +172,7 @@ const SetCellAlignment = async (row, col, alignment) => {
     col,
     alignment,
   });
-  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+  return json.data ?? { hasUnsavedChanges: true };
 };
 
 const SetRangeAlignment = async (
@@ -189,7 +189,7 @@ const SetRangeAlignment = async (
     endCol,
     alignment,
   });
-  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+  return json.data ?? { hasUnsavedChanges: true };
 };
 
 // Story 13.2: Clear range (batch clear for context menu)
@@ -246,7 +246,7 @@ const ApplyRangeStyle = async (startRow, startCol, endRow, endCol, styleId) => {
     endCol,
     styleId,
   });
-  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+  return json.data ?? { hasUnsavedChanges: true };
 };
 
 const GetFileStatus = async () => {
@@ -360,7 +360,7 @@ const SetMerge = async (startRow, startCol, rowSpan, colSpan) => {
     rowSpan,
     colSpan,
   });
-  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+  return json.data ?? { hasUnsavedChanges: true };
 };
 
 const Unmerge = async (startRow, startCol) => {
@@ -368,7 +368,7 @@ const Unmerge = async (startRow, startCol) => {
     startRow,
     startCol,
   });
-  return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
+  return json.data ?? { hasUnsavedChanges: true };
 };
 
 const ExportCSV = async (path) => {

@@ -1212,3 +1212,88 @@ func TestHandleSetCellValue_IncludesUndoState(t *testing.T) {
 	assert.True(t, resp.Data.CanUndo)
 	assert.False(t, resp.Data.CanRedo)
 }
+
+// --- Formatting handler undo state tests (Story 15.4) ---
+
+func TestHandleApplyCellStyle_IncludesUndoState(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "hello")
+	body, _ := json.Marshal(ApplyCellStyleRequest{Row: 0, Col: 0, StyleId: 1})
+	req := httptest.NewRequest(http.MethodPost, "/api/cell/style", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleApplyCellStyle(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Apply Style to A1", data["undoDescription"])
+}
+
+func TestHandleApplyRangeStyle_IncludesUndoState(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "A")
+	srv.Ctrl.SetCellValue(0, 1, "B")
+	body, _ := json.Marshal(ApplyRangeStyleRequest{StartRow: 0, StartCol: 0, EndRow: 0, EndCol: 1, StyleId: 2})
+	req := httptest.NewRequest(http.MethodPost, "/api/range/style", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleApplyRangeStyle(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Apply Style to A1:B1", data["undoDescription"])
+}
+
+func TestHandleSetCellAlignment_IncludesUndoState(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "hello")
+	body, _ := json.Marshal(SetCellAlignmentRequest{Row: 0, Col: 0, Alignment: "center"})
+	req := httptest.NewRequest(http.MethodPost, "/api/cell/alignment", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleSetCellAlignment(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Set Alignment A1", data["undoDescription"])
+}
+
+func TestHandleSetMerge_IncludesUndoState(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "anchor")
+	body, _ := json.Marshal(map[string]any{"startRow": 0, "startCol": 0, "rowSpan": 1, "colSpan": 2})
+	req := httptest.NewRequest(http.MethodPost, "/api/merge", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleSetMerge(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Merge A1:B1", data["undoDescription"])
+}
+
+func TestHandleUnmerge_IncludesUndoState(t *testing.T) {
+	srv := newTestServer()
+	srv.Ctrl.SetCellValue(0, 0, "anchor")
+	require.NoError(t, srv.Ctrl.SetMerge(0, 0, 2, 2))
+	srv.Ctrl.History.Clear()
+	body, _ := json.Marshal(map[string]any{"startRow": 0, "startCol": 0})
+	req := httptest.NewRequest(http.MethodPost, "/api/unmerge", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleUnmerge(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Unmerge A1", data["undoDescription"])
+}

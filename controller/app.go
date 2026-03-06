@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"log"
 	"sync"
 
@@ -431,45 +430,14 @@ func rectanglesOverlap(a, b model.MergeRegion) bool {
 func (c *AppController) SetMerge(startRow, startCol, rowSpan, colSpan int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if startRow < 0 || startCol < 0 || rowSpan < 1 || colSpan < 1 {
-		return fmt.Errorf("invalid merge: startRow and startCol must be >= 0, rowSpan and colSpan must be >= 1")
-	}
-	newMerge := model.MergeRegion{StartRow: startRow, StartCol: startCol, RowSpan: rowSpan, ColSpan: colSpan}
-	for _, m := range c.Sheet.Merges {
-		if rectanglesOverlap(newMerge, m) {
-			return fmt.Errorf("merge overlaps existing region at (%d,%d)", m.StartRow, m.StartCol)
-		}
-	}
-	// Refuse merge if more than one cell in the region has content
-	nonEmpty := 0
-	for r := startRow; r < startRow+rowSpan; r++ {
-		for col := startCol; col < startCol+colSpan; col++ {
-			cell := c.Sheet.GetCell(r, col)
-			if cell != nil && cell.Value != "" {
-				nonEmpty++
-			}
-		}
-	}
-	if nonEmpty > 1 {
-		return fmt.Errorf("only one cell in the selection may have content to merge")
-	}
-	c.Sheet.Merges = append(c.Sheet.Merges, newMerge)
-	c.Sheet.Modified = true
-	return nil
+	return c.History.Push(&SetMergeCommand{ctrl: c, startRow: startRow, startCol: startCol, rowSpan: rowSpan, colSpan: colSpan})
 }
 
 // Unmerge removes the merge region containing the anchor (startRow, startCol).
 func (c *AppController) Unmerge(startRow, startCol int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for i, m := range c.Sheet.Merges {
-		if m.StartRow == startRow && m.StartCol == startCol {
-			c.Sheet.Merges = append(c.Sheet.Merges[:i], c.Sheet.Merges[i+1:]...)
-			c.Sheet.Modified = true
-			return nil
-		}
-	}
-	return fmt.Errorf("no merge region with anchor at (%d,%d)", startRow, startCol)
+	return c.History.Push(&UnmergeCommand{ctrl: c, startRow: startRow, startCol: startCol})
 }
 
 // GetFilePath returns the current file path
@@ -479,32 +447,32 @@ func (c *AppController) GetFilePath() string {
 	return c.Sheet.FilePath
 }
 
-// ApplyStyleToCell applies a style to a single cell.
+// ApplyStyleToCell applies a style to a single cell, recording the operation in undo history.
 func (c *AppController) ApplyStyleToCell(row, col int, styleId int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.Sheet.ApplyStyleToCell(row, col, styleId)
+	return c.History.Push(&ApplyCellStyleCommand{ctrl: c, row: row, col: col, newStyleId: styleId})
 }
 
-// ApplyStyleToRange applies a style to a range of cells.
+// ApplyStyleToRange applies a style to a range of cells, recording the operation in undo history.
 func (c *AppController) ApplyStyleToRange(startRow, startCol, endRow, endCol int, styleId int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.Sheet.ApplyStyleToRange(startRow, startCol, endRow, endCol, styleId)
+	return c.History.Push(&ApplyRangeStyleCommand{ctrl: c, startRow: startRow, startCol: startCol, endRow: endRow, endCol: endCol, newStyleId: styleId})
 }
 
-// SetCellAlignment sets horizontal alignment for a single cell.
+// SetCellAlignment sets horizontal alignment for a single cell, recording the operation in undo history.
 func (c *AppController) SetCellAlignment(row, col int, alignment string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.Sheet.SetCellAlignment(row, col, alignment)
+	return c.History.Push(&SetCellAlignmentCommand{ctrl: c, row: row, col: col, newAlignment: alignment})
 }
 
-// SetRangeAlignment sets horizontal alignment for a range of cells.
+// SetRangeAlignment sets horizontal alignment for a range of cells, recording the operation in undo history.
 func (c *AppController) SetRangeAlignment(startRow, startCol, endRow, endCol int, alignment string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.Sheet.SetRangeAlignment(startRow, startCol, endRow, endCol, alignment)
+	return c.History.Push(&SetRangeAlignmentCommand{ctrl: c, startRow: startRow, startCol: startCol, endRow: endRow, endCol: endCol, newAlignment: alignment})
 }
 
 // CleanupFormat removes style from empty cells and deletes cells with no value and no style.

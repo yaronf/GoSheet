@@ -480,11 +480,16 @@ func (s *Server) HandleSetMerge(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }
@@ -499,11 +504,16 @@ func (s *Server) HandleUnmerge(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }
@@ -525,11 +535,16 @@ func (s *Server) HandleApplyCellStyle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }
@@ -561,11 +576,16 @@ func (s *Server) HandleApplyRangeStyle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }
@@ -887,11 +907,16 @@ func (s *Server) HandleSetCellAlignment(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }
@@ -954,11 +979,16 @@ func (s *Server) HandleSetRangeAlignment(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }

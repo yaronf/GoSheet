@@ -14,7 +14,19 @@ async function ensureSpreadsheetView(window) {
   ]);
   if (await window.locator('#welcome-screen').isVisible()) {
     await window.locator('#welcome-btn-new').click();
-    await expect(window.locator('#cell-0-0')).toBeVisible({ timeout: 15000 });
+    // After clicking new, either the grid appears or an unsaved-changes dialog blocks it.
+    // Race between the two outcomes and dismiss the dialog if it wins.
+    const cell = window.locator('#cell-0-0');
+    const modal = window.locator('#modal-overlay.active');
+    const which = await Promise.race([
+      cell.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'cell'),
+      modal.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'modal'),
+    ]);
+    if (which === 'modal') {
+      await window.locator('#modal-ok').click();
+      await expect(modal).toBeHidden();
+      await expect(cell).toBeVisible({ timeout: 10000 });
+    }
   } else {
     await expect(window.locator('#cell-0-0')).toBeVisible({ timeout: 3000 });
   }
