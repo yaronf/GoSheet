@@ -44,30 +44,58 @@ func (c *AppController) SetCellValue(row, col int, value string) error {
 	return c.History.Push(cmd)
 }
 
+// UndoRedoState holds a snapshot of undo/redo availability, read atomically under the lock.
+type UndoRedoState struct {
+	CanUndo         bool
+	CanRedo         bool
+	UndoDescription string
+	RedoDescription string
+}
+
+// undoRedoStateUnlocked reads history state. Must be called with c.mu held.
+func (c *AppController) undoRedoStateUnlocked() UndoRedoState {
+	return UndoRedoState{
+		CanUndo:         c.History.CanUndo(),
+		CanRedo:         c.History.CanRedo(),
+		UndoDescription: c.History.UndoDescription(),
+		RedoDescription: c.History.RedoDescription(),
+	}
+}
+
+// UndoRedoState returns a consistent snapshot of undo/redo availability.
+// Safe for concurrent callers.
+func (c *AppController) UndoRedoState() UndoRedoState {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.undoRedoStateUnlocked()
+}
+
 // Undo reverses the most recent undoable operation. Safe for concurrent callers.
-func (c *AppController) Undo() error {
+// Returns the post-undo state snapshot so callers don't need a second lock acquisition.
+func (c *AppController) Undo() (UndoRedoState, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if err := c.History.Undo(); err != nil {
-		return err
+		return c.undoRedoStateUnlocked(), err
 	}
 	if c.History.AtSavePoint() {
 		c.Sheet.Modified = false
 	}
-	return nil
+	return c.undoRedoStateUnlocked(), nil
 }
 
 // Redo reapplies the most recently undone operation. Safe for concurrent callers.
-func (c *AppController) Redo() error {
+// Returns the post-redo state snapshot so callers don't need a second lock acquisition.
+func (c *AppController) Redo() (UndoRedoState, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if err := c.History.Redo(); err != nil {
-		return err
+		return c.undoRedoStateUnlocked(), err
 	}
 	if c.History.AtSavePoint() {
 		c.Sheet.Modified = false
 	}
-	return nil
+	return c.undoRedoStateUnlocked(), nil
 }
 
 // setCellValueInternal is the raw mutator used by SetCellCommand.Do() and Undo().

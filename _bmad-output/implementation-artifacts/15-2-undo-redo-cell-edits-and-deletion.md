@@ -1,6 +1,6 @@
 # Story 15.2: Undo/Redo for Cell Edits and Deletion
 
-**Status:** review
+**Status:** done
 **Epic:** 15 — Undo / Redo
 
 ---
@@ -268,7 +268,7 @@ claude-sonnet-4-6
 - `controller/app.go` — refactored `ClearRange` to push `ClearRangeCommand`
 - `api/handlers.go` — added `HandleUndo`, `HandleRedo`, `undoRedoState`; extended `HandleSetCellValue` response
 - `api/handlers_test.go` — 5 new handler tests
-- `server/main.go` — registered `/api/undo` and `/api/redo` routes
+- `server/main.go` — registered `/api/undo` and `/api/redo` routes (was missing from File List)
 - `electron/menu.js` — added Undo/Redo menu items; extended `updateMenuState`
 - `electron/main.js` — added IPC forwarding for `menu-undo`, `menu-redo`
 - `electron/preload.js` — exposed `onMenuUndo`, `onMenuRedo`
@@ -280,4 +280,5 @@ claude-sonnet-4-6
 
 - 2026-03-06: Story created
 - 2026-03-06: Implemented — all 6 tasks complete, all Go tests pass, Playwright E2E tests written
+- 2026-03-06: Code review fixes — H1 (lock safety: UndoRedoState returned atomically from Undo/Redo), H2 (cap invalidation logic corrected), M1 (dead undoRedoState() helper removed), M2 (dead ipcMain.on menu:triggerUndo/Redo removed), M3 (3 new unit tests for MarkSaved/AtSavePoint), L1 (server/main.go added to File List)
 

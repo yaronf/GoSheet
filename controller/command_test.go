@@ -102,6 +102,59 @@ func TestHistoryCapEnforcement(t *testing.T) {
 	assert.False(t, h.CanUndo())
 }
 
+func TestHistoryMarkSaved_AtSavePoint(t *testing.T) {
+	h := NewHistory()
+	counter := 0
+
+	// Fresh history is at save point (depth 0 == savedUndoDepth 0)
+	assert.True(t, h.AtSavePoint())
+
+	require.NoError(t, h.Push(newMockCmd(&counter, "op1")))
+	assert.False(t, h.AtSavePoint())
+
+	h.MarkSaved()
+	assert.True(t, h.AtSavePoint())
+
+	require.NoError(t, h.Undo())
+	assert.False(t, h.AtSavePoint())
+
+	require.NoError(t, h.Redo())
+	assert.True(t, h.AtSavePoint())
+}
+
+func TestHistoryMarkSaved_CapInvalidation(t *testing.T) {
+	h := NewHistory()
+	counter := 0
+
+	// Save at depth 0
+	h.MarkSaved()
+	assert.True(t, h.AtSavePoint())
+
+	// Push enough to overflow the cap — save point should be invalidated
+	for range HistoryCap + 1 {
+		require.NoError(t, h.Push(newMockCmd(&counter, "op")))
+	}
+	assert.False(t, h.AtSavePoint(), "save point should be invalidated after cap overflow")
+}
+
+func TestHistoryMarkSaved_SaveMidHistory(t *testing.T) {
+	h := NewHistory()
+	counter := 0
+
+	require.NoError(t, h.Push(newMockCmd(&counter, "op1")))
+	require.NoError(t, h.Push(newMockCmd(&counter, "op2")))
+	h.MarkSaved() // saved at depth 2
+
+	require.NoError(t, h.Undo()) // depth 1
+	assert.False(t, h.AtSavePoint())
+
+	require.NoError(t, h.Redo()) // depth 2
+	assert.True(t, h.AtSavePoint())
+
+	require.NoError(t, h.Push(newMockCmd(&counter, "op3"))) // depth 3, redo cleared
+	assert.False(t, h.AtSavePoint())
+}
+
 func TestHistoryRedoStackClear(t *testing.T) {
 	h := NewHistory()
 	counter := 0
@@ -138,11 +191,13 @@ func TestSetCellCommandRoundTrip_PlainValue(t *testing.T) {
 	assert.Equal(t, "hello", ctrl.GetCellValue(0, 0))
 
 	// Undo should restore empty cell
-	require.NoError(t, ctrl.Undo())
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
 	assert.Equal(t, "", ctrl.GetCellValue(0, 0))
 
 	// Redo should restore "hello"
-	require.NoError(t, ctrl.Redo())
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
 	assert.Equal(t, "hello", ctrl.GetCellValue(0, 0))
 }
 
@@ -154,7 +209,8 @@ func TestSetCellCommandRoundTrip_OverwriteExisting(t *testing.T) {
 	assert.Equal(t, "updated", ctrl.GetCellValue(0, 0))
 
 	// Undo most recent edit → back to "original"
-	require.NoError(t, ctrl.Undo())
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
 	assert.Equal(t, "original", ctrl.GetCellValue(0, 0))
 }
 
@@ -167,7 +223,8 @@ func TestSetCellCommandRoundTrip_Formula(t *testing.T) {
 	assert.Equal(t, "30", ctrl.GetCellValue(2, 0))
 
 	// Undo formula cell → cell should be gone
-	require.NoError(t, ctrl.Undo())
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
 	assert.Equal(t, "", ctrl.GetCellValue(2, 0))
 }
 
@@ -185,7 +242,8 @@ func TestSetCellCommandUndo_FormulaDependencyChanged(t *testing.T) {
 	assert.Equal(t, "119", ctrl.GetCellValue(2, 0))
 
 	// Undo the A1 change — A3 formula should re-evaluate with A1=10, so A3=30
-	require.NoError(t, ctrl.Undo())
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
 	assert.Equal(t, "10", ctrl.GetCellValue(0, 0))
 	assert.Equal(t, "30", ctrl.GetCellValue(2, 0))
 }
@@ -230,7 +288,8 @@ func TestClearRangeCommand_UndoRestoresValues(t *testing.T) {
 	assert.Equal(t, "", ctrl.GetCellValue(0, 1))
 	assert.Equal(t, "", ctrl.GetCellValue(1, 0))
 
-	require.NoError(t, ctrl.Undo())
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
 	assert.Equal(t, "A", ctrl.GetCellValue(0, 0))
 	assert.Equal(t, "B", ctrl.GetCellValue(0, 1))
 	assert.Equal(t, "C", ctrl.GetCellValue(1, 0))
@@ -245,7 +304,8 @@ func TestClearRangeCommand_UndoRestoresFormula(t *testing.T) {
 	ctrl.ClearRange(1, 0, 1, 0)
 	assert.Equal(t, "", ctrl.GetCellValue(1, 0))
 
-	require.NoError(t, ctrl.Undo())
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
 	assert.Equal(t, "20", ctrl.GetCellValue(1, 0))
 }
 
@@ -256,10 +316,12 @@ func TestClearRangeCommand_UndoRedo(t *testing.T) {
 	ctrl.ClearRange(0, 0, 0, 0)
 	assert.Equal(t, "", ctrl.GetCellValue(0, 0))
 
-	require.NoError(t, ctrl.Undo())
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
 	assert.Equal(t, "hello", ctrl.GetCellValue(0, 0))
 
-	require.NoError(t, ctrl.Redo())
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
 	assert.Equal(t, "", ctrl.GetCellValue(0, 0))
 }
 

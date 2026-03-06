@@ -716,16 +716,6 @@ function setupIpcHandlers() {
     updateMenuState(state);
   });
 
-  // Story 15.2: Forward menu Undo/Redo events to the renderer
-  ipcMain.on('menu:triggerUndo', () => {
-    if (DEBUG) console.log('[Electron] Menu Undo forwarded to renderer');
-    if (mainWindow) mainWindow.webContents.send('menu-undo');
-  });
-  ipcMain.on('menu:triggerRedo', () => {
-    if (DEBUG) console.log('[Electron] Menu Redo forwarded to renderer');
-    if (mainWindow) mainWindow.webContents.send('menu-redo');
-  });
-
   // Story 7.5 & 8.2: Add file to recent documents (custom storage + menu only)
   // Skip app.addRecentDocument - it duplicates recent files in dock menu (macOS adds its own section)
   ipcMain.handle('file:addRecent', async (event, filePath) => {

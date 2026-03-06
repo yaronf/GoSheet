@@ -124,6 +124,7 @@ func (s *Server) HandleSetCellValue(w http.ResponseWriter, r *http.Request) {
 	if cell != nil {
 		value, displayValue, isFormula, isError = cell.RawValue(), cell.Computed, cell.IsFormula, cell.IsError
 	}
+	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
@@ -133,10 +134,10 @@ func (s *Server) HandleSetCellValue(w http.ResponseWriter, r *http.Request) {
 			"isFormula":         isFormula,
 			"isError":           isError,
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           s.Ctrl.History.CanUndo(),
-			"canRedo":           s.Ctrl.History.CanRedo(),
-			"undoDescription":   s.Ctrl.History.UndoDescription(),
-			"redoDescription":   s.Ctrl.History.RedoDescription(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }
@@ -817,17 +818,6 @@ func (s *Server) HandleSetCellAlignment(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// undoRedoState returns a map with canUndo, canRedo, undoDescription, redoDescription
-// for inclusion in API responses that modify undo history.
-func (s *Server) undoRedoState() map[string]any {
-	return map[string]any{
-		"canUndo":         s.Ctrl.History.CanUndo(),
-		"canRedo":         s.Ctrl.History.CanRedo(),
-		"undoDescription": s.Ctrl.History.UndoDescription(),
-		"redoDescription": s.Ctrl.History.RedoDescription(),
-	}
-}
-
 // HandleUndo reverses the most recent undoable operation.
 // POST /api/undo — returns 200 with canUndo/canRedo state even if nothing to undo.
 func (s *Server) HandleUndo(w http.ResponseWriter, r *http.Request) {
@@ -835,17 +825,18 @@ func (s *Server) HandleUndo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	// Undo returns an error only when the stack is empty — treat as a no-op, not an error.
-	_ = s.Ctrl.Undo()
+	// Undo returns (state, error); error means empty stack — treat as no-op.
+	// State is captured inside the lock so it's always consistent.
+	urState, _ := s.Ctrl.Undo()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           s.Ctrl.History.CanUndo(),
-			"canRedo":           s.Ctrl.History.CanRedo(),
-			"undoDescription":   s.Ctrl.History.UndoDescription(),
-			"redoDescription":   s.Ctrl.History.RedoDescription(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }
@@ -857,16 +848,16 @@ func (s *Server) HandleRedo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	_ = s.Ctrl.Redo()
+	urState, _ := s.Ctrl.Redo()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
 		"data": map[string]any{
 			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           s.Ctrl.History.CanUndo(),
-			"canRedo":           s.Ctrl.History.CanRedo(),
-			"undoDescription":   s.Ctrl.History.UndoDescription(),
-			"redoDescription":   s.Ctrl.History.RedoDescription(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
 		},
 	})
 }

@@ -1094,7 +1094,8 @@ func TestHandleUndo_RevertsCellEdit(t *testing.T) {
 func TestHandleRedo_ReappliesCellEdit(t *testing.T) {
 	srv := newTestServer()
 	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "hello"))
-	require.NoError(t, srv.Ctrl.Undo())
+	_, err := srv.Ctrl.Undo()
+	require.NoError(t, err)
 	assert.Equal(t, "", srv.Ctrl.GetCellValue(0, 0))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/redo", nil)

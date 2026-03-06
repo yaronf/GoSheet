@@ -43,9 +43,13 @@ func (h *History) Push(cmd Command) error {
 	h.redoStack = nil
 	if len(h.undoStack) > HistoryCap {
 		h.undoStack = h.undoStack[1:]
-		// The saved depth was pushed off the bottom of the stack; it's unreachable.
-		if h.savedDepthValid && h.savedUndoDepth < len(h.undoStack) {
-			h.savedDepthValid = false
+		// Trimming the oldest entry shifts all depths down by one.
+		// If the save point was at or below the dropped entry, it's now unreachable.
+		if h.savedDepthValid {
+			h.savedUndoDepth--
+			if h.savedUndoDepth < 0 {
+				h.savedDepthValid = false
+			}
 		}
 	}
 	return nil
