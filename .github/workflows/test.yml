@@ -58,10 +58,7 @@ jobs:
       run: make complexity || true
 
     - name: Build Go server
-      run: |
-        cd server
-        go build -o gosheet-server main.go
-        cd ..
+      run: make build
 
     - name: Run Go unit tests
       run: go test -v ./model/... ./controller/... ./api/...
