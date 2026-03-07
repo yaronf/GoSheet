@@ -222,13 +222,13 @@ development_status:
   epic-14-retrospective: optional
 
   # Epic 15: Undo / Redo
-  epic-15: in-progress
+  epic-15: done
   15-1-command-pattern-infrastructure: done
   15-2-undo-redo-cell-edits-and-deletion: done
   15-3-undo-redo-structural-operations: done
   15-4-undo-redo-formatting: done
   15-5-fix-ref-error-ast-formula-shift: done
-  15-6-evaluate-formula-returns-value: review
+  15-6-evaluate-formula-returns-value: done
   epic-15-retrospective: optional
 
   # Epic 16: Data Safety & File Integrity
