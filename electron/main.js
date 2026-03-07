@@ -848,7 +848,10 @@ app.on('open-file', (event, filePath) => {
     );
 
   if (mainWindow && mainWindow.webContents) {
-    if (filePath.endsWith('.csv')) {
+    if (!fs.existsSync(filePath)) {
+      console.warn('[Electron] open-file: file does not exist:', filePath);
+      mainWindow.webContents.send('open-file-error', filePath);
+    } else if (filePath.endsWith('.csv')) {
       mainWindow.webContents.send('menu-open-csv', filePath);
     } else {
       mainWindow.webContents.send('menu-open-recent', filePath);

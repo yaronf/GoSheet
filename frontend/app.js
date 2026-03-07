@@ -2213,6 +2213,7 @@ async function handleImportCSVByPath(filePath) {
     if (window.__DEBUG__) console.log('[App] CSV imported by path:', filePath);
   } catch (error) {
     console.error('[App] Error importing CSV by path:', error);
+    showWelcome();
     await showAlert('Error importing CSV: ' + error.message);
   }
 }
@@ -3101,18 +3102,20 @@ if (window.electronAPI) {
   }
 
   // Story 16.3: File-not-found error when pending file is gone at launch
+  const handleOpenFileError = async (filePath) => {
+    if (window.__DEBUG__)
+      console.log('[App] Open file error — file not found:', filePath);
+    showWelcome();
+    await showAlert(
+      'File not found: ' +
+        filePath +
+        '\n\nThe file may have been moved or deleted.'
+    );
+  };
   if (window.electronAPI.onOpenFileError) {
-    window.electronAPI.onOpenFileError(async (filePath) => {
-      if (window.__DEBUG__)
-        console.log('[App] Open file error — file not found:', filePath);
-      showWelcome();
-      await showAlert(
-        'File not found: ' +
-          filePath +
-          '\n\nThe file may have been moved or deleted.'
-      );
-    });
+    window.electronAPI.onOpenFileError(handleOpenFileError);
   }
+  window.__testOpenFileError = handleOpenFileError;
 
   // Story 9.6: Formula Reference from Help menu
   if (window.electronAPI.onMenuFormulaReference) {

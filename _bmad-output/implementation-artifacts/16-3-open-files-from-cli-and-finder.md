@@ -1,6 +1,6 @@
 # Story 16.3: Open Files from CLI and Finder "Open With"
 
-Status: review
+Status: done
 
 ## Story
 
@@ -111,7 +111,7 @@ On macOS, `open-file` can fire **before** `app.whenReady()`. The existing handle
 - Window exists → send IPC immediately
 - Window not ready → set `pendingFileToOpen` (dispatched on `did-finish-load`)
 
-This is already correct for `.sheet`. The `.csv` path needs the same pattern with `pendingCSVToOpen` (a separate variable to distinguish from `.sheet`).
+This is already correct for `.sheet`. The `.csv` path uses the same `pendingFileToOpen` variable — routing to `menu-open-csv` vs `menu-open-recent` is done at dispatch time based on `.endsWith('.csv')`, so no separate variable is needed.
 
 ### Single-Instance Constraint (Known Limitation)
 
@@ -157,6 +157,11 @@ claude-sonnet-4-6
 - 3 Playwright tests added in `test_open_from_cli.spec.js`; all pass. Sequential launch pattern used to respect single-instance lock.
 - Bug fix: `model/cell.go` `GobEncode` changed from value receiver to pointer receiver — map stores `*Cell` so gob must find `GobEncode` on `*Cell`, not `Cell`. Previous value receiver caused "decoding into local type *map[int]map[int]*model.Cell, received remote" on any save/load round-trip.
 - Bug fix: `loadFileByPath` in `app.js` now calls `showSpreadsheet()` only after successful load; on error calls `showWelcome()` so user is not left on a blank grid.
+- CR fix (M1): `open-file` live path now guards with `fs.existsSync` before sending IPC — previously only the `did-finish-load` path checked existence.
+- CR fix (M2): `handleImportCSVByPath` now calls `showWelcome()` in catch block — previously a failed import left the user on a blank spreadsheet.
+- CR fix (L1): Added test `shows welcome screen when open-file-error IPC fires` — calls `__testOpenFileError` hook directly to cover the IPC path without relying on race condition timing.
+- CR fix (L2): Corrected stale dev note about `pendingCSVToOpen` — implementation correctly uses single `pendingFileToOpen` with routing at dispatch time.
+- CR fix (L3): Removed polling sleep loop waiting for file write — `saveSheetToFile` awaits the API response so file is guaranteed written after the call.
 
 ### File List
 

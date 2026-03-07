@@ -235,7 +235,7 @@ development_status:
   epic-16: in-progress
   16-1-atomic-file-writes: done
   16-2-fix-recalculateall-stub: done
-  16-3-open-files-from-cli-and-finder: review
+  16-3-open-files-from-cli-and-finder: done
   16-4-read-only-view-mode: backlog
   16-5-remove-fixed-port-dependency: backlog
   16-6-refactor-complexity-violations: backlog

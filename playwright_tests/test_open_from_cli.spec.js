@@ -118,11 +118,7 @@ base.test.describe('Open file from CLI', () => {
     await saveSheetToFile(setupWindow, sheetPath);
     // Close setup app fully before launching the second instance
     await setupApp.close();
-    // Brief condition-based wait: verify the file exists before proceeding
-    const deadline = Date.now() + 5000;
-    while (!fs.existsSync(sheetPath) && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 50));
-    }
+    // saveSheetToFile awaits the API response, so the file is written before this line
     expect(fs.existsSync(sheetPath)).toBe(true);
 
     // Step 2: Launch with the .sheet file as CLI arg
@@ -222,4 +218,59 @@ base.test.describe('Open file from CLI', () => {
       }
     }
   );
+
+  base.test('shows welcome screen when open-file-error IPC fires', async () => {
+    // Test the open-file-error IPC path: simulates a file that existed at CLI parse time
+    // but was deleted before did-finish-load (race condition not easily reproduced via CLI).
+    // We call the exposed handler directly via window.__testOpenFileError.
+    const testApp = await launchNormal();
+    try {
+      const testWindow = await testApp.firstWindow();
+      await testWindow.waitForLoadState('domcontentloaded');
+
+      // Wait for app to be ready (welcome or spreadsheet)
+      await Promise.race([
+        testWindow
+          .locator('#welcome-screen')
+          .waitFor({ state: 'visible', timeout: 8000 })
+          .catch(() => {}),
+        testWindow
+          .locator('#spreadsheet-view')
+          .waitFor({ state: 'visible', timeout: 8000 })
+          .catch(() => {}),
+      ]);
+
+      // Navigate to spreadsheet first so we can verify showWelcome() is called
+      if (await testWindow.locator('#welcome-screen').isVisible()) {
+        await testWindow.locator('#welcome-btn-new').click();
+        await testWindow
+          .locator('#spreadsheet-view')
+          .waitFor({ state: 'visible', timeout: 8000 });
+      }
+
+      // Trigger the open-file-error handler directly (bypasses IPC, tests handler logic)
+      await testWindow.waitForFunction(
+        () => typeof window.__testOpenFileError === 'function',
+        { timeout: 5000 }
+      );
+      // Fire handler without awaiting — it blocks on showAlert modal
+      testWindow.evaluate(() => window.__testOpenFileError('/tmp/ghost.sheet'));
+
+      // Dismiss the alert modal
+      await testWindow
+        .locator('#modal-overlay.active')
+        .waitFor({ state: 'visible', timeout: 5000 });
+      await testWindow.locator('#modal-ok').click();
+
+      // showWelcome() should have been called — welcome screen visible
+      await testWindow
+        .locator('#welcome-screen')
+        .waitFor({ state: 'visible', timeout: 5000 });
+      expect(await testWindow.locator('#welcome-screen').isVisible()).toBe(
+        true
+      );
+    } finally {
+      await testApp.close();
+    }
+  });
 });
