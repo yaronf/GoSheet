@@ -5,6 +5,9 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"path/filepath"
+
+	"gosheet/logutil"
 )
 
 // FileHeader contains metadata about the saved spreadsheet file
@@ -13,50 +16,94 @@ type FileHeader struct {
 	CellCount int    // Number of cells in the file
 }
 
-// SaveToFile saves the spreadsheet to a binary file using gob encoding
-func (s *Spreadsheet) SaveToFile(filepath string) error {
-	// Create the file
-	file, err := os.Create(filepath)
+// atomicWriteFile writes content via writeContent to a temp file in the same
+// directory as targetPath, then renames it atomically to targetPath.
+// On POSIX systems (including macOS), os.Rename within the same filesystem is
+// atomic, so a crash mid-write never leaves targetPath in a partial state.
+func atomicWriteFile(targetPath string, writeContent func(f *os.File) error) error {
+	dir := filepath.Dir(targetPath)
+	tmp, err := os.CreateTemp(dir, ".gosheet-tmp-*")
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer file.Close()
+	tmpName := tmp.Name()
 
-	// Create gob encoder
-	encoder := gob.NewEncoder(file)
+	// closeAndRemove closes the temp file (if still open) and removes it.
+	// Used on all failure paths to avoid leaking file handles or temp files.
+	closeAndRemove := func() {
+		tmp.Close()
+		if removeErr := os.Remove(tmpName); removeErr != nil && !os.IsNotExist(removeErr) {
+			logutil.Debugf("atomicWriteFile: failed to remove temp file %s: %v", tmpName, removeErr)
+		}
+	}
 
-	// Write file header (v1.2 includes styles)
+	if err := writeContent(tmp); err != nil {
+		closeAndRemove()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		closeAndRemove()
+		return fmt.Errorf("failed to sync temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		// Close failed; attempt removal (handle may or may not be valid).
+		if removeErr := os.Remove(tmpName); removeErr != nil && !os.IsNotExist(removeErr) {
+			logutil.Debugf("atomicWriteFile: failed to remove temp file %s after close error: %v", tmpName, removeErr)
+		}
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+	if err := os.Rename(tmpName, targetPath); err != nil {
+		if removeErr := os.Remove(tmpName); removeErr != nil && !os.IsNotExist(removeErr) {
+			logutil.Debugf("atomicWriteFile: failed to remove temp file %s after rename error: %v", tmpName, removeErr)
+		}
+		return fmt.Errorf("failed to rename temp file to target: %w", err)
+	}
+
+	return nil
+}
+
+// encodeSpreadsheet writes header, cells, merges, and styles to enc in the
+// canonical v1.2 order. Shared by SaveToFile and SaveToBytes.
+func encodeSpreadsheet(enc *gob.Encoder, s *Spreadsheet, styles *StyleRegistry) error {
 	header := FileHeader{
 		Version:   "1.2",
 		CellCount: s.GetCellCount(),
 	}
-	if err := encoder.Encode(header); err != nil {
+	if err := enc.Encode(header); err != nil {
 		return fmt.Errorf("failed to encode header: %w", err)
 	}
-
-	// Write the cells map
-	if err := encoder.Encode(s.Cells); err != nil {
+	if err := enc.Encode(s.Cells); err != nil {
 		return fmt.Errorf("failed to encode cells: %w", err)
 	}
-
-	// Write merges
-	if err := encoder.Encode(s.Merges); err != nil {
+	if err := enc.Encode(s.Merges); err != nil {
 		return fmt.Errorf("failed to encode merges: %w", err)
 	}
+	if err := enc.Encode(styles); err != nil {
+		return fmt.Errorf("failed to encode styles: %w", err)
+	}
+	return nil
+}
 
-	// Write styles (v1.2)
+// SaveToFile saves the spreadsheet to a binary file using gob encoding.
+// The write is performed atomically: content is written to a temp file in the
+// same directory, then renamed to the target path, so a crash mid-write never
+// corrupts an existing file.
+func (s *Spreadsheet) SaveToFile(filePath string) error {
 	styles := s.Styles
 	if styles == nil {
 		styles = NewStyleRegistry()
 	}
-	if err := encoder.Encode(styles); err != nil {
-		return fmt.Errorf("failed to encode styles: %w", err)
+
+	err := atomicWriteFile(filePath, func(f *os.File) error {
+		return encodeSpreadsheet(gob.NewEncoder(f), s, styles)
+	})
+	if err != nil {
+		return err
 	}
 
-	// Update spreadsheet metadata
-	s.FilePath = filepath
+	// Update spreadsheet metadata only after successful write.
+	s.FilePath = filePath
 	s.Modified = false
-
 	return nil
 }
 
@@ -101,18 +148,18 @@ func decodeSpreadsheet(decoder *gob.Decoder, filePath string) (*Spreadsheet, err
 }
 
 // LoadFromFile loads a spreadsheet from a binary file using gob decoding
-func LoadFromFile(filepath string) (*Spreadsheet, error) {
-	file, err := os.Open(filepath)
+func LoadFromFile(filePath string) (*Spreadsheet, error) {
+	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
-	return decodeSpreadsheet(gob.NewDecoder(file), filepath)
+	return decodeSpreadsheet(gob.NewDecoder(file), filePath)
 }
 
 // SaveAs saves the spreadsheet to a new file path
-func (s *Spreadsheet) SaveAs(filepath string) error {
-	return s.SaveToFile(filepath)
+func (s *Spreadsheet) SaveAs(filePath string) error {
+	return s.SaveToFile(filePath)
 }
 
 // HasUnsavedChanges returns true if the spreadsheet has been modified since last save
@@ -122,36 +169,20 @@ func (s *Spreadsheet) HasUnsavedChanges() bool {
 
 // LoadFromBytes loads a spreadsheet from gob-encoded bytes.
 // Used when reading via FileService.ReadFile (e.g., native Open dialog flow).
-func LoadFromBytes(data []byte, filepath string) (*Spreadsheet, error) {
-	return decodeSpreadsheet(gob.NewDecoder(bytes.NewReader(data)), filepath)
+func LoadFromBytes(data []byte, filePath string) (*Spreadsheet, error) {
+	return decodeSpreadsheet(gob.NewDecoder(bytes.NewReader(data)), filePath)
 }
 
 // SaveToBytes serializes the spreadsheet to gob-encoded bytes.
 // Used when writing via FileService.WriteFile (e.g., native Save dialog flow).
 func (s *Spreadsheet) SaveToBytes() ([]byte, error) {
-	var buf bytes.Buffer
-	encoder := gob.NewEncoder(&buf)
-
-	header := FileHeader{
-		Version:   "1.2",
-		CellCount: s.GetCellCount(),
-	}
-	if err := encoder.Encode(header); err != nil {
-		return nil, fmt.Errorf("failed to encode header: %w", err)
-	}
-	if err := encoder.Encode(s.Cells); err != nil {
-		return nil, fmt.Errorf("failed to encode cells: %w", err)
-	}
-	if err := encoder.Encode(s.Merges); err != nil {
-		return nil, fmt.Errorf("failed to encode merges: %w", err)
-	}
 	styles := s.Styles
 	if styles == nil {
 		styles = NewStyleRegistry()
 	}
-	if err := encoder.Encode(styles); err != nil {
-		return nil, fmt.Errorf("failed to encode styles: %w", err)
+	var buf bytes.Buffer
+	if err := encodeSpreadsheet(gob.NewEncoder(&buf), s, styles); err != nil {
+		return nil, err
 	}
-
 	return buf.Bytes(), nil
 }

@@ -448,6 +448,116 @@ func TestLoadFromBytes_V1_1BackwardCompat(t *testing.T) {
 	}
 }
 
+func TestAtomicWrite_SuccessLeavesNoTempFile(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "test.gosheet")
+
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "hello")
+	if err := s.SaveToFile(target); err != nil {
+		t.Fatalf("SaveToFile failed: %v", err)
+	}
+
+	// No .gosheet-tmp-* files should remain
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir failed: %v", err)
+	}
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".gosheet-tmp-") {
+			t.Errorf("Temp file left behind after successful save: %s", e.Name())
+		}
+	}
+
+	// Target file must exist and be loadable
+	loaded, err := LoadFromFile(target)
+	if err != nil {
+		t.Fatalf("LoadFromFile after atomic write failed: %v", err)
+	}
+	cell := loaded.GetCell(0, 0)
+	if cell == nil || cell.Value != "hello" {
+		t.Errorf("Expected cell value 'hello', got %v", cell)
+	}
+}
+
+func TestAtomicWrite_FailurePreservesOriginal(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "original.gosheet")
+
+	// Write original content
+	s1 := NewSpreadsheet()
+	s1.SetCell(0, 0, "original")
+	if err := s1.SaveToFile(target); err != nil {
+		t.Fatalf("initial SaveToFile failed: %v", err)
+	}
+
+	// Attempt save to a path whose parent directory doesn't exist.
+	// This fails at os.CreateTemp (pre-write), so the original is never touched.
+	// Note: this exercises the pre-write failure path; a mid-write crash cannot
+	// be reliably simulated in a unit test.
+	badTarget := filepath.Join(dir, "nonexistent", "file.gosheet")
+	s2 := NewSpreadsheet()
+	s2.SetCell(0, 0, "overwrite")
+	err := s2.SaveToFile(badTarget)
+	if err == nil {
+		t.Fatal("Expected error saving to non-existent directory, got nil")
+	}
+
+	// Original file must still be intact
+	loaded, err := LoadFromFile(target)
+	if err != nil {
+		t.Fatalf("Original file corrupted or missing: %v", err)
+	}
+	cell := loaded.GetCell(0, 0)
+	if cell == nil || cell.Value != "original" {
+		t.Errorf("Original content lost; expected 'original', got %v", cell)
+	}
+}
+
+func TestAtomicWrite_OverwriteExistingFile(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "data.gosheet")
+
+	// Write initial content
+	s1 := NewSpreadsheet()
+	s1.SetCell(0, 0, "v1")
+	if err := s1.SaveToFile(target); err != nil {
+		t.Fatalf("initial SaveToFile failed: %v", err)
+	}
+
+	// Overwrite with new content
+	s2 := NewSpreadsheet()
+	s2.SetCell(0, 0, "v2")
+	s2.SetCell(1, 0, "extra")
+	if err := s2.SaveToFile(target); err != nil {
+		t.Fatalf("overwrite SaveToFile failed: %v", err)
+	}
+
+	// Verify new content is present and old content is gone
+	loaded, err := LoadFromFile(target)
+	if err != nil {
+		t.Fatalf("LoadFromFile after overwrite failed: %v", err)
+	}
+	if loaded.GetCellCount() != 2 {
+		t.Errorf("Expected 2 cells after overwrite, got %d", loaded.GetCellCount())
+	}
+	cell := loaded.GetCell(0, 0)
+	if cell == nil || cell.Value != "v2" {
+		t.Errorf("Expected 'v2' after overwrite, got %v", cell)
+	}
+
+	// No temp files left behind
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir failed: %v", err)
+	}
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".gosheet-tmp-") {
+			t.Errorf("Temp file left behind after overwrite: %s", e.Name())
+		}
+	}
+}
+
 func TestSparseStorageEfficiency(t *testing.T) {
 	// Create spreadsheet with sparse data
 	s := NewSpreadsheet()

@@ -232,8 +232,8 @@ development_status:
   epic-15-retrospective: optional
 
   # Epic 16: Data Safety & File Integrity
-  epic-16: backlog
-  16-1-atomic-file-writes: backlog
+  epic-16: in-progress
+  16-1-atomic-file-writes: done
   16-2-fix-recalculateall-stub: backlog
   16-3-open-files-from-cli-and-finder: backlog
   16-4-read-only-view-mode: backlog
