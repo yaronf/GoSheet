@@ -85,6 +85,11 @@ Remove the alignment buttons, add style buttons. And make them dynamic: new styl
 
 The Insert menu items (insert row/column) should live in the Edit menu, eliminating the separate Insert menu.
 
+### Remove fixed port dependency
+
+Replace the hardcoded port 3000 with a named or ephemeral pipe/socket so multiple instances can run without conflict and there is no risk of port collision with other services. Probably named pipe so we can later add non-human (agent) local API clients.
+Relevant: `[server/main.go](../../server/main.go)`, `[electron/main.js](../../electron/main.js)`
+
 ### Text wrapping
 
 At least a toggle. Does it also require control of row/column width?

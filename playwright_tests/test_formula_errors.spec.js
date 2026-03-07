@@ -165,6 +165,38 @@ test.describe('Formula Error Handling', () => {
     expect(textA1).toMatch(/^#ERROR/);
   });
 
+  test('3-cell circular reference: all three cells show error', async ({
+    window,
+  }) => {
+    // A1=B1, B1=C1, C1=A1 — closing the cycle on the third cell
+    await setCellViaApi(window, 0, 0, '=B1');
+    await setCellViaApi(window, 0, 1, '=C1');
+    await setCellViaApi(window, 0, 2, '=A1'); // closes the cycle
+    const cellA1 = window.locator('#cell-0-0');
+    const cellB1 = window.locator('#cell-0-1');
+    const cellC1 = window.locator('#cell-0-2');
+    // All three must show a circular ref error — not empty and not "referenced cell has error"
+    // All three must show circular ref error (not empty, not "referenced cell has error")
+    for (const cell of [cellA1, cellB1, cellC1]) {
+      await expect(cell).toHaveClass(/error-cell/, { timeout: 3000 });
+      const text = await cell.textContent();
+      expect(text.toLowerCase()).toContain('circular');
+    }
+  });
+
+  test('cell referencing a non-anchor cycle member shows error regardless of set order', async ({
+    window,
+  }) => {
+    // D1=A1 set BEFORE the A1↔B1 cycle is created (A1 is not the closing/anchor cell)
+    await setCellViaApi(window, 0, 3, '=A1');
+    await setCellViaApi(window, 0, 0, '=B1'); // A1 depends on B1
+    await setCellViaApi(window, 0, 1, '=A1'); // closes cycle — B1 is anchor
+    const cellD1 = window.locator('#cell-0-3');
+    await expect(cellD1).toHaveClass(/error-cell/, { timeout: 3000 });
+    const text = await cellD1.textContent();
+    expect(text).toMatch(/^#ERROR/);
+  });
+
   test('breaking a circular reference by replacing with plain value clears the error', async ({
     window,
   }) => {
@@ -220,9 +252,35 @@ test.describe('Formula Error Handling', () => {
     await expect(cellB1).not.toHaveClass(/error-cell/, { timeout: 3000 });
     await expect(cellA1).not.toHaveClass(/error-cell/, { timeout: 3000 });
 
-    // Undo the clear — cycle should be restored, both cells should show errors again
+    // Undo the clear — cycle should be restored, both cells should show circular ref errors
     await window.keyboard.press('Meta+z');
-    await expect(cellB1).toHaveClass(/error-cell/, { timeout: 3000 });
-    await expect(cellA1).toHaveClass(/error-cell/, { timeout: 3000 });
+    for (const cell of [cellA1, cellB1]) {
+      await expect(cell).toHaveClass(/error-cell/, { timeout: 3000 });
+      const text = await cell.textContent();
+      expect(text.toLowerCase()).toContain('circular');
+    }
+  });
+
+  test('undo of clearing one member of a 3-cell cycle restores circular ref on all three', async ({
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 0, '=B1');
+    await setCellViaApi(window, 0, 1, '=C1');
+    await setCellViaApi(window, 0, 2, '=A1');
+    const cellA1 = window.locator('#cell-0-0');
+    const cellB1 = window.locator('#cell-0-1');
+    const cellC1 = window.locator('#cell-0-2');
+
+    // Break cycle by clearing C1
+    await setCellViaApi(window, 0, 2, '');
+    await expect(cellC1).not.toHaveClass(/error-cell/, { timeout: 3000 });
+
+    // Undo — all three should show circular ref errors with the path
+    await window.keyboard.press('Meta+z');
+    for (const cell of [cellA1, cellB1, cellC1]) {
+      await expect(cell).toHaveClass(/error-cell/, { timeout: 3000 });
+      const text = await cell.textContent();
+      expect(text.toLowerCase()).toContain('circular');
+    }
   });
 });

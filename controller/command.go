@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"strings"
 
 	"gosheet/model"
 )
@@ -166,15 +167,12 @@ func (cmd *SetCellCommand) Undo() error {
 		refs := model.ExtractCellReferences("=" + restored.Value)
 		hasCycle := false
 		var cycleStr string
+		var cyclePath []string
 		for _, ref := range refs {
-			if cycle, cyclePath := cmd.ctrl.Sheet.Dependencies.DetectCircularReference(cellRef, ref); cycle {
+			if cycle, path := cmd.ctrl.Sheet.Dependencies.DetectCircularReference(cellRef, ref); cycle {
 				hasCycle = true
-				for i, node := range cyclePath {
-					if i > 0 {
-						cycleStr += " → "
-					}
-					cycleStr += node
-				}
+				cyclePath = path
+				cycleStr = strings.Join(path, " → ")
 				break
 			}
 		}
@@ -183,28 +181,9 @@ func (cmd *SetCellCommand) Undo() error {
 			cmd.ctrl.Sheet.Dependencies.AddDependency(cellRef, ref)
 		}
 		if hasCycle {
-			restored.SetError("circular reference: " + cycleStr)
-			// Can't use recalculateDependents (cycle in graph); propagate error to immediate dependents directly.
 			cmd.ctrl.Sheet.Cells[cmd.row][cmd.col] = &restored
 			cmd.ctrl.Sheet.Modified = true
-			for _, dep := range cmd.ctrl.Sheet.Dependencies.GetDependents(cellRef) {
-				if dep == cellRef {
-					continue
-				}
-				depRow, depCol, err := model.RefToCoords(dep)
-				if err != nil {
-					continue
-				}
-				depCell := cmd.ctrl.Sheet.GetCell(depRow, depCol)
-				if depCell != nil && depCell.IsFormula {
-					val, evalErr := model.EvaluateFormula("="+depCell.Value, depCell.ParsedFormula, cmd.ctrl.Sheet)
-					if evalErr != nil {
-						depCell.SetError(evalErr.Error())
-					} else {
-						depCell.SetFromValue(val)
-					}
-				}
-			}
+			cmd.ctrl.propagateCycleError(cyclePath, cycleStr)
 			return nil
 		} else {
 			// Re-evaluate to get a fresh Computed value (snapshot may be stale if

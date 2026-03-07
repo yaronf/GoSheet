@@ -2,6 +2,7 @@ package controller
 
 import (
 	"log"
+	"strings"
 	"sync"
 
 	"gosheet/logutil"
@@ -117,49 +118,15 @@ func (c *AppController) setCellValueInternal(row, col int, value string) error {
 		// Check for circular references BEFORE modifying anything
 		for _, ref := range refs {
 			if hasCycle, cyclePath := c.Sheet.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
-				cycleStr := ""
-				for i, node := range cyclePath {
-					if i > 0 {
-						cycleStr += " → "
-					}
-					cycleStr += node
-				}
-
+				cycleStr := strings.Join(cyclePath, " → ")
 				logutil.Debugf("Circular reference detected: %s", cycleStr)
-
-				// Set cell to show error
 				c.Sheet.Dependencies.RemoveDependencies(cellRef)
 				c.Sheet.SetCell(row, col, value)
-				cell := c.Sheet.GetCell(row, col)
-				if cell != nil {
-					cell.SetError("circular reference: " + cycleStr)
-				}
-				// Record dependencies even for cycle cells so that clearing them later
-				// triggers recalculation of their dependents.
+				// Record dependencies so that clearing this cell later triggers recalculation.
 				for _, r := range refs {
 					c.Sheet.Dependencies.AddDependency(cellRef, r)
 				}
-				// Propagate error to cells that already depend on this cell.
-				// Can't use recalculateDependents (cycle in graph), so walk immediate dependents directly.
-				// Skip the cell itself (self-reference case).
-				for _, dep := range c.Sheet.Dependencies.GetDependents(cellRef) {
-					if dep == cellRef {
-						continue
-					}
-					depRow, depCol, err := model.RefToCoords(dep)
-					if err != nil {
-						continue
-					}
-					depCell := c.Sheet.GetCell(depRow, depCol)
-					if depCell != nil && depCell.IsFormula {
-						val, evalErr := model.EvaluateFormula("="+depCell.Value, depCell.ParsedFormula, c.Sheet)
-						if evalErr != nil {
-							depCell.SetError(evalErr.Error())
-						} else {
-							depCell.SetFromValue(val)
-						}
-					}
-				}
+				c.propagateCycleError(cyclePath, cycleStr)
 				return nil
 			}
 		}
@@ -246,6 +213,54 @@ func (c *AppController) recalculateDependents(changedCells []string, skip ...str
 	}
 }
 
+// propagateCycleError marks all cells in the cycle path with the circular reference error,
+// then BFS-propagates a re-evaluation to any transitive dependents outside the cycle.
+// cyclePath is as returned by DetectCircularReference: [anchor, n1, ..., anchor].
+// Must be called while c.mu is held.
+func (c *AppController) propagateCycleError(cyclePath []string, cycleStr string) {
+	// Mark all unique cycle members (cyclePath ends with a repeat of the first node).
+	cycleSet := map[string]bool{}
+	for _, node := range cyclePath[:len(cyclePath)-1] {
+		cycleSet[node] = true
+		nodeRow, nodeCol, err := model.RefToCoords(node)
+		if err != nil {
+			continue
+		}
+		nodeCell := c.Sheet.GetCell(nodeRow, nodeCol)
+		if nodeCell != nil && nodeCell.IsFormula {
+			nodeCell.SetError("circular reference: " + cycleStr)
+		}
+	}
+	// BFS transitive dependents outside the cycle so they pick up the error.
+	// Seed from ALL cycle members' dependents, not just the anchor's.
+	var queue []string
+	for node := range cycleSet {
+		queue = append(queue, c.Sheet.Dependencies.GetDependents(node)...)
+	}
+	for len(queue) > 0 {
+		dep := queue[0]
+		queue = queue[1:]
+		if cycleSet[dep] {
+			continue
+		}
+		cycleSet[dep] = true
+		depRow, depCol, err := model.RefToCoords(dep)
+		if err != nil {
+			continue
+		}
+		depCell := c.Sheet.GetCell(depRow, depCol)
+		if depCell != nil && depCell.IsFormula {
+			val, evalErr := model.EvaluateFormula("="+depCell.Value, depCell.ParsedFormula, c.Sheet)
+			if evalErr != nil {
+				depCell.SetError(evalErr.Error())
+			} else {
+				depCell.SetFromValue(val)
+			}
+			queue = append(queue, c.Sheet.Dependencies.GetDependents(dep)...)
+		}
+	}
+}
+
 // recalculateAllFormulas recalculates all formula cells in the spreadsheet
 // Used when loading files or when dependency graph is unavailable
 func (c *AppController) recalculateAllFormulas() {
@@ -294,14 +309,7 @@ func (c *AppController) recalculateAllFormulas() {
 			refs := model.ExtractCellReferences("=" + cell.Value)
 			for _, ref := range refs {
 				if hasCycle, cyclePath := c.Sheet.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
-					cycleStr := ""
-					for i, node := range cyclePath {
-						if i > 0 {
-							cycleStr += " → "
-						}
-						cycleStr += node
-					}
-					cell.SetError("circular reference: " + cycleStr)
+					cell.SetError("circular reference: " + strings.Join(cyclePath, " → "))
 					cycleMembers[cellRef] = true
 					break
 				}

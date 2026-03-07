@@ -24,7 +24,7 @@ async function apiStructural(window, path, body) {
           await window.refreshAllCells();
         }
         if (json.data && typeof window.applyUndoRedoState === 'function') {
-          window.applyUndoRedoState(json.data);
+          await window.applyUndoRedoState(json.data);
         }
       }
       return json;
@@ -394,5 +394,28 @@ test.describe('Undo/Redo structural operations (Story 15.3)', () => {
     await expect(window.locator('#cell-0-1')).not.toHaveText('#REF!', {
       timeout: 2000,
     });
+  });
+
+  test('undo of column delete: cell referencing non-anchor cycle member shows error', async ({
+    window,
+  }) => {
+    // C1=A1 set before the cycle, referencing the non-anchor cycle member
+    await setCellViaApi(window, 0, 2, '=A1');
+    // Create cycle: A1=B1, B1=A1 (B1 is the anchor/closing cell)
+    await setCellViaApi(window, 0, 0, '=B1');
+    await setCellViaApi(window, 0, 1, '=A1');
+    await expect(window.locator('#cell-0-2')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+
+    // Delete column C (breaks C1 but preserves cycle)
+    await apiDeleteColumn(window, 2);
+    // Undo — C1 should be restored and show error (A1 is in cycle)
+    await window.keyboard.press('Meta+z');
+    await expect(window.locator('#cell-0-2')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+    const text = await window.locator('#cell-0-2').textContent();
+    expect(text).toMatch(/^#ERROR/);
   });
 });
