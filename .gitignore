@@ -42,8 +42,7 @@ test_data.csv
 *.out
 coverage.out
 coverage.html
-server/
-gosheet-server
+bin/
 gosheet
 web
 

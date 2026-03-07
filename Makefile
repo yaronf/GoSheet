@@ -27,21 +27,24 @@ test-all: test-unit test-electron
 # Build Go HTTP server (host architecture)
 build:
 	@echo "Building Go HTTP server..."
-	go build -o server/gosheet-server ./server
+	@mkdir -p bin
+	go build -o bin/gosheet-server ./server
 
 # Story 10.9: Cross-compile Go server for universal macOS (arm64 + x64)
 build-server-arm64:
 	@echo "Building Go server for darwin/arm64..."
-	GOOS=darwin GOARCH=arm64 go build -o server/gosheet-server-arm64 ./server
+	@mkdir -p bin
+	GOOS=darwin GOARCH=arm64 go build -o bin/gosheet-server-arm64 ./server
 
 build-server-x64:
 	@echo "Building Go server for darwin/amd64..."
-	GOOS=darwin GOARCH=amd64 go build -o server/gosheet-server-x64 ./server
+	@mkdir -p bin
+	GOOS=darwin GOARCH=amd64 go build -o bin/gosheet-server-x64 ./server
 
 build-server-universal: generate build-server-arm64 build-server-x64
 	@which lipo > /dev/null 2>&1 || (echo "Error: lipo not found. Install Xcode Command Line Tools: xcode-select --install" && exit 1)
 	@echo "Merging into universal fat binary..."
-	lipo -create -output server/gosheet-server-universal server/gosheet-server-arm64 server/gosheet-server-x64
+	lipo -create -output bin/gosheet-server-universal bin/gosheet-server-arm64 bin/gosheet-server-x64
 	@echo "Universal Go server binary ready."
 
 # Generate Go types from OpenAPI schema (Story 10.10)
@@ -57,7 +60,7 @@ build-electron: generate install build
 # Run Go HTTP server (web mode for testing)
 run: build
 	@echo "Starting Go HTTP server on http://localhost:3000"
-	./server/gosheet-server --port 3000
+	./bin/gosheet-server --port 3000
 
 # Run Electron app in development mode
 run-electron: install build
@@ -98,5 +101,5 @@ install: build-electron
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	rm -f server/gosheet-server server/gosheet-server-arm64 server/gosheet-server-x64 server/gosheet-server-universal
+	rm -rf bin/
 	rm -rf dist/ node_modules/

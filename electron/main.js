@@ -278,7 +278,7 @@ function startGoServer() {
   // In production: use packaged binary in app resources
   const isDev = !app.isPackaged;
   const serverPath = isDev
-    ? path.join(__dirname, '..', 'server', 'gosheet-server')
+    ? path.join(__dirname, '..', 'bin', 'gosheet-server')
     : path.join(process.resourcesPath, 'server', 'gosheet-server');
 
   if (DEBUG) {

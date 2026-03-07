@@ -116,7 +116,7 @@
     },
     "extraResources": [
       {
-        "from": "server/gosheet-server-universal",
+        "from": "bin/gosheet-server-universal",
         "to": "server/gosheet-server"
       },
       {

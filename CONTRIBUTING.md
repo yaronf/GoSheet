@@ -57,7 +57,7 @@ By default, the app logs only startup messages and errors. To enable verbose deb
 
 | Component | How to Enable | What You Get |
 |-----------|---------------|--------------|
-| **Go server** | `./server/gosheet-server -verbose` or `DEBUG=1 ./server/gosheet-server` | Request tracing, CSV steps, formula eval |
+| **Go server** | `./bin/gosheet-server -verbose` or `DEBUG=1 ./bin/gosheet-server` | Request tracing, CSV steps, formula eval |
 | **Electron app** | `npm run start:verbose` or `electron . --verbose` | Full verbose: Go server, Electron, and frontend |
 | **Electron (env)** | `DEBUG=1 npm start` or `NODE_ENV=development npm start` | Same as `--verbose` |
 | **Frontend (web)** | Open `http://localhost:3000?debug=1` | Cell edits, init, theme changes |
@@ -134,7 +134,8 @@ Opens Swagger UI in your browser (default: http://127.0.0.1:8000). Auto-reloads 
 See [README.md](README.md) for detailed project structure.
 
 **Key Directories:**
-- `server/` - Go HTTP backend entry point
+- `server/` - Go HTTP backend entry point (`main.go`)
+- `bin/` - Compiled Go server binaries (gitignored)
 - `api/` - REST API handlers (Go)
 - `frontend/` - HTML/CSS/JS frontend
 - `electron/` - Electron main process
