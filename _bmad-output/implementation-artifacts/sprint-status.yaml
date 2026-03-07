@@ -237,6 +237,7 @@ development_status:
   16-2-fix-recalculateall-stub: backlog
   16-3-open-files-from-cli-and-finder: backlog
   16-4-read-only-view-mode: backlog
+  16-5-remove-fixed-port-dependency: backlog
   epic-16-retrospective: optional
 
   # Epic 17: Selection & Range Operations

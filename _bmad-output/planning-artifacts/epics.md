@@ -2795,6 +2795,31 @@ So that I can view its contents without risk of accidentally modifying it.
 
 ---
 
+### Story 16.5: Remove Fixed Port Dependency
+
+As a developer,
+I want the Go server and Electron host to communicate over a named pipe or ephemeral socket instead of a hardcoded TCP port,
+So that multiple GoSheet instances can run simultaneously without port conflicts, and non-human (agent) API clients can connect locally without guessing a port number.
+
+**Acceptance Criteria:**
+
+**Given** the app is launched normally
+**When** the Go server starts
+**Then** it listens on a named pipe or OS-assigned ephemeral socket (not port 3000)
+**And** the Electron main process receives the address from the server (e.g. via stdout or a known temp path) and passes it to the renderer
+
+**Given** two GoSheet instances are launched at the same time
+**When** both are running
+**Then** each uses a separate socket/pipe with no port collision
+
+**Given** the existing Playwright test suite
+**When** tests run
+**Then** all tests pass with no changes to test logic (the test helpers discover the address automatically)
+
+**Relevant files:** `server/main.go`, `electron/main.js`
+
+---
+
 ## Epic 17: Selection & Range Operations
 
 **Goal:** Users can select contiguous rectangular ranges naturally, copy/paste them, and navigate to precise ranges by address.
