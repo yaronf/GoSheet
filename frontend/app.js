@@ -47,6 +47,7 @@ const EXPAND_COLS = 10; // Add 10 columns when expanding
 
 let selectedCell = null;
 let isEditing = false;
+let isReadOnly = false; // Story 16.4: read-only view mode
 
 // Story 11.5: Selection range for Merge/Unmerge (startRow, startCol, endRow, endCol)
 // Single cell when startRow===endRow && startCol===endCol
@@ -321,6 +322,7 @@ document.querySelector('#app').innerHTML = `
         </div>
         <div role="status" aria-live="polite" aria-atomic="true" class="file-status-wrapper" aria-label="File status">
             <span id="file-status" class="file-status"></span>
+            <span id="readonly-indicator" style="display:none; color: var(--color-warning); font-weight: bold; margin-left: 8px;" aria-label="Read-only mode">🔒 Read-Only</span>
         </div>
     </header>
     <main role="main">
@@ -587,6 +589,7 @@ async function loadFileByPath(filePath) {
     if (!confirmed) return;
   }
   try {
+    setReadOnly(false); // Story 16.4: reset read-only before loading new file
     const loadedPath = await LoadFile(filePath);
     showSpreadsheet();
     if (loadedPath && window.electronAPI?.addRecentFile) {
@@ -604,6 +607,16 @@ async function loadFileByPath(filePath) {
     showWelcome();
     await showAlert('Error loading file: ' + error.message);
   }
+}
+
+// Story 16.4: Open a file in read-only mode via file dialog
+async function openFileReadOnly() {
+  // Note: loadFileByPath handles the unsaved-changes confirmation internally
+  const filePath = await window.electronAPI.openFileDialog();
+  if (!filePath) return;
+  // loadFileByPath calls setReadOnly(false) internally; we override to true after
+  await loadFileByPath(filePath);
+  setReadOnly(true);
 }
 
 // Story 8.2: Setup welcome screen - show welcome on launch, wire button handlers
@@ -871,6 +884,11 @@ function setupContextMenuHandlers() {
 }
 
 async function handleContextMenuAction(action) {
+  // Story 16.4: Block all mutating actions in read-only mode
+  if (isReadOnly && !['copy', 'select-all'].includes(action)) {
+    await showAlert('File is read-only. Cannot modify cells.');
+    return;
+  }
   try {
     const { startRow, startCol, endRow, endCol } = selectionRange;
     if (action === 'copy') {
@@ -1458,6 +1476,7 @@ async function updateFormulaBar(row, col) {
 
 // Start editing a cell
 function startEditing(row, col) {
+  if (isReadOnly) return; // Story 16.4
   if (isEditing) {
     console.warn('Already editing, ignoring startEditing call');
     return;
@@ -1808,14 +1827,15 @@ function ensureSpreadsheetView() {
 function handleKeydownFileOps(e) {
   if (!(e.metaKey || e.ctrlKey)) return false;
   // Story 15.2: Undo (Cmd+Z) and Redo (Cmd+Shift+Z) — skip if actively editing a cell
+  // Story 16.4: Also skip if read-only
   if (e.key === 'z' && !e.shiftKey) {
     e.preventDefault();
-    performUndo();
+    if (!isReadOnly) performUndo();
     return true;
   }
   if (e.key === 'z' && e.shiftKey) {
     e.preventDefault();
-    performRedo();
+    if (!isReadOnly) performRedo();
     return true;
   }
   if (e.key === 'o') {
@@ -1890,6 +1910,7 @@ function handleKeydownCellNavigation(e, row, col) {
     return true;
   }
   if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (isReadOnly) return true; // Story 16.4
     e.preventDefault();
     SetCellValue(row, col, '').then((result) => {
       const cell = getCellElement(row, col);
@@ -1906,6 +1927,7 @@ function handleKeydownCellNavigation(e, row, col) {
     return true;
   }
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (isReadOnly) return true; // Story 16.4
     e.preventDefault();
     startEditingWithChar(row, col, e.key);
     return true;
@@ -2032,6 +2054,7 @@ document.getElementById('new-btn').addEventListener('click', async () => {
 
   // Proceed with creating new spreadsheet
   try {
+    setReadOnly(false); // Story 16.4: new file is always editable
     await NewFile();
     // Clear the grid
     ROWS = 100;
@@ -2047,6 +2070,7 @@ document.getElementById('new-btn').addEventListener('click', async () => {
 });
 
 document.getElementById('save-btn').addEventListener('click', async () => {
+  if (isReadOnly) return; // Story 16.4 — button should be disabled, but guard defensively
   try {
     // Get current file status to check if we have a path
     const status = await GetFileStatus();
@@ -2082,6 +2106,7 @@ document.getElementById('load-btn').addEventListener('click', async () => {
   }
 
   try {
+    setReadOnly(false); // Story 16.4: opening any file exits read-only mode
     // Call unified LoadFile API (shows dialog in native mode, uses file input in web mode)
     const path = await LoadFile('');
 
@@ -2128,6 +2153,7 @@ function updateAlignmentButtonState(activeAlignment) {
 }
 
 async function applyAlignmentToSelection(alignment) {
+  if (isReadOnly) return; // Story 16.4
   if (!selectedCell) return;
   const { startRow, startCol, endRow, endCol } = selectionRange;
   try {
@@ -2202,6 +2228,7 @@ async function handleImportCSVByPath(filePath) {
       if (!confirmed) return;
     }
     showSpreadsheet();
+    setReadOnly(false); // Story 16.4: CSV import always opens in editable mode
     const result = await ImportCSV(filePath);
     ROWS = Math.max(100, result.rows);
     COLS = Math.max(26, result.cols);
@@ -2228,6 +2255,7 @@ window.refreshAllCells = refreshAllCells;
 window.setRTL = setRTL;
 window.buildSpreadsheet = buildSpreadsheet;
 window.displayFileStatus = displayFileStatus;
+window.__testSetReadOnly = (v) => setReadOnly(v); // Story 16.4: test hook
 
 function showCSVPreviewModal(preview) {
   const modal = document.getElementById('csv-preview-modal');
@@ -2960,6 +2988,32 @@ function displayFileStatus(hasUnsavedChanges) {
   }
 }
 
+// Story 16.4: Update undo/redo toolbar button disabled state for read-only transitions
+function updateUndoRedoToolbarForReadOnly(readOnly) {
+  const ms = window._lastUndoRedoState;
+  const undoBtn = document.getElementById('undo-btn');
+  const redoBtn = document.getElementById('redo-btn');
+  if (undoBtn) undoBtn.disabled = readOnly || (ms ? !ms.canUndo : true);
+  if (redoBtn) redoBtn.disabled = readOnly || (ms ? !ms.canRedo : true);
+}
+
+// Story 16.4: Set read-only mode and update all UI accordingly
+function setReadOnly(value) {
+  isReadOnly = value;
+  const indicator = document.getElementById('readonly-indicator');
+  if (indicator) indicator.style.display = value ? 'inline' : 'none';
+  const saveBtn = document.getElementById('save-btn');
+  if (saveBtn) saveBtn.disabled = value || !window.currentHasUnsavedChanges;
+  for (const id of ['align-left-btn', 'align-center-btn', 'align-right-btn']) {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = value;
+  }
+  updateUndoRedoToolbarForReadOnly(value);
+  if (window.electronAPI?.updateMenuState) {
+    window.electronAPI.updateMenuState({ isReadOnly: value });
+  }
+}
+
 /**
  * Fetch and update file status from server
  */
@@ -2985,10 +3039,11 @@ async function updateFileStatus() {
 
 // Story 15.2: Update undo/redo state in menu and toolbar from a pre-fetched result.
 function applyUndoRedoState(state) {
+  window._lastUndoRedoState = state; // Story 16.4: cache for read-only restore
   const undoBtn = document.getElementById('undo-btn');
   const redoBtn = document.getElementById('redo-btn');
-  if (undoBtn) undoBtn.disabled = !state.canUndo;
-  if (redoBtn) redoBtn.disabled = !state.canRedo;
+  if (undoBtn) undoBtn.disabled = isReadOnly || !state.canUndo;
+  if (redoBtn) redoBtn.disabled = isReadOnly || !state.canRedo;
   if (window.electronAPI?.updateMenuState) {
     window.electronAPI.updateMenuState({
       canUndo: state.canUndo,
@@ -3047,11 +3102,27 @@ if (window.electronAPI) {
     document.getElementById('load-btn').click();
   });
 
+  // Story 16.4: Open file in read-only mode
+  if (window.electronAPI.onMenuOpenReadOnly) {
+    window.electronAPI.onMenuOpenReadOnly(async () => {
+      if (window.__DEBUG__) console.log('[App] Menu Open Read-Only triggered');
+      await openFileReadOnly();
+    });
+  }
+
   // Save file from menu
-  window.electronAPI.onMenuSave(async () => {
+  const handleMenuSave = async () => {
     if (window.__DEBUG__) console.log('[App] Menu Save triggered');
+    if (isReadOnly) {
+      await showAlert(
+        'File is read-only. Use Save As to create a writable copy.'
+      );
+      return;
+    }
     document.getElementById('save-btn').click();
-  });
+  };
+  window.electronAPI.onMenuSave(handleMenuSave);
+  window.__testMenuSave = handleMenuSave; // Story 16.4: test hook
 
   // Save As from menu - always show dialog even if file has path
   window.electronAPI.onMenuSaveAs(async () => {
@@ -3065,6 +3136,7 @@ if (window.electronAPI) {
         await window.electronAPI.addRecentFile(path);
       }
 
+      setReadOnly(false); // Story 16.4: Save As creates a writable copy
       updateFileStatus();
       if (window.__DEBUG__) console.log('File saved via Save As');
     } catch (error) {
@@ -3138,12 +3210,14 @@ if (window.electronAPI) {
   if (window.electronAPI.onMenuUndo) {
     window.electronAPI.onMenuUndo(async () => {
       if (window.__DEBUG__) console.log('[App] Menu Undo triggered');
+      if (isReadOnly) return; // Story 16.4
       await performUndo();
     });
   }
   if (window.electronAPI.onMenuRedo) {
     window.electronAPI.onMenuRedo(async () => {
       if (window.__DEBUG__) console.log('[App] Menu Redo triggered');
+      if (isReadOnly) return; // Story 16.4
       await performRedo();
     });
   }
@@ -3204,6 +3278,7 @@ if (window.electronAPI) {
   // Paste: Paste clipboard content into selected cell
   window.electronAPI.onMenuPaste(async () => {
     if (window.__DEBUG__) console.log('[App] Menu Paste triggered');
+    if (isReadOnly) return; // Story 16.4
     if (!selectedCell) {
       if (window.__DEBUG__) console.log('[App] No cell selected for Paste');
       return;
@@ -3286,6 +3361,7 @@ if (window.electronAPI) {
   const applyStyleToSelection = async (styleId) => {
     if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
       return;
+    if (isReadOnly) return; // Story 16.4
     const { startRow, startCol, endRow, endCol } = selectionRange;
     try {
       const result = await ApplyRangeStyle(
@@ -3362,6 +3438,7 @@ if (window.electronAPI) {
   window.electronAPI.onMenuInsertRow?.(async () => {
     if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
       return;
+    if (isReadOnly) return; // Story 16.4
     if (selectionMode !== 'row') return;
     const row = selectionRange.startRow;
     try {
@@ -3382,6 +3459,7 @@ if (window.electronAPI) {
   window.electronAPI.onMenuInsertColumn?.(async () => {
     if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
       return;
+    if (isReadOnly) return; // Story 16.4
     if (selectionMode !== 'column') return;
     const col = selectionRange.startCol;
     try {
@@ -3402,6 +3480,7 @@ if (window.electronAPI) {
   window.electronAPI.onMenuDeleteRow?.(async () => {
     if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
       return;
+    if (isReadOnly) return; // Story 16.4
     if (selectionMode !== 'row') return;
     const row = selectionRange.startRow;
     try {
@@ -3421,6 +3500,7 @@ if (window.electronAPI) {
   window.electronAPI.onMenuDeleteColumn?.(async () => {
     if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
       return;
+    if (isReadOnly) return; // Story 16.4
     if (selectionMode !== 'column') return;
     const col = selectionRange.startCol;
     try {

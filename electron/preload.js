@@ -73,6 +73,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('menu-open-csv', (event, filePath) => callback(filePath));
   },
 
+  // Story 16.4: Open file in read-only mode
+  onMenuOpenReadOnly: (callback) => {
+    ipcRenderer.on('menu-open-readonly', (_event) => callback());
+  },
+
   // Story 16.3: File-not-found error when pending file is gone at launch
   onOpenFileError: (callback) => {
     ipcRenderer.on('open-file-error', (event, filePath) => callback(filePath));

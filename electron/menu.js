@@ -43,6 +43,7 @@ let menuState = {
   canInsertRow: false,
   canInsertColumn: false,
   isRTL: false,
+  isReadOnly: false, // Story 16.4
 };
 
 // Cache for rebuild when syncing Format menu styles
@@ -202,6 +203,21 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
               mainWindow.webContents.send('menu-open');
             } else {
               console.error('[Menu] Cannot trigger Open - mainWindow is null');
+            }
+          },
+        },
+        {
+          id: 'open-readonly',
+          label: 'Open Read-Only...',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: () => {
+            if (DEBUG) console.log('[Menu] Open Read-Only triggered');
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-open-readonly');
+            } else {
+              console.error(
+                '[Menu] Cannot trigger Open Read-Only - mainWindow is null'
+              );
             }
           },
         },
@@ -641,13 +657,13 @@ function updateMenuState(state) {
       : 'Redo';
   }
 
-  // Update Save menu item based on unsaved changes
+  // Update Save menu item based on unsaved changes and read-only state
   const saveItem = menu.getMenuItemById('save');
   if (saveItem) {
-    saveItem.enabled = menuState.hasUnsavedChanges;
+    saveItem.enabled = menuState.hasUnsavedChanges && !menuState.isReadOnly;
     if (DEBUG)
       console.log(
-        `[Menu] Save menu item ${menuState.hasUnsavedChanges ? 'enabled' : 'disabled'}`
+        `[Menu] Save menu item ${saveItem.enabled ? 'enabled' : 'disabled'} (unsaved=${menuState.hasUnsavedChanges}, readOnly=${menuState.isReadOnly})`
       );
   }
 
