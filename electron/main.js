@@ -253,8 +253,9 @@ Options:
   process.exit(0);
 }
 
+// Story 16.3: Support .sheet and .csv file paths from CLI
 const argFilePath = cliArgs.find(
-  (a) => !a.startsWith('-') && a.endsWith('.sheet')
+  (a) => !a.startsWith('-') && (a.endsWith('.sheet') || a.endsWith('.csv'))
 );
 if (argFilePath && fs.existsSync(argFilePath)) {
   pendingFileToOpen = argFilePath;
@@ -418,6 +419,7 @@ function createWindow() {
   });
 
   // Story 7.7 & 7.6: Handle pending file/dock action after window is ready
+  // Story 16.3: Route .csv to menu-open-csv; guard against missing files
   mainWindow.webContents.on('did-finish-load', () => {
     if (pendingFileToOpen) {
       if (DEBUG)
@@ -425,7 +427,17 @@ function createWindow() {
           '[Electron] Window ready, opening pending file:',
           pendingFileToOpen
         );
-      mainWindow.webContents.send('menu-open-recent', pendingFileToOpen);
+      if (!fs.existsSync(pendingFileToOpen)) {
+        console.warn(
+          '[Electron] Pending file no longer exists:',
+          pendingFileToOpen
+        );
+        mainWindow.webContents.send('open-file-error', pendingFileToOpen);
+      } else if (pendingFileToOpen.endsWith('.csv')) {
+        mainWindow.webContents.send('menu-open-csv', pendingFileToOpen);
+      } else {
+        mainWindow.webContents.send('menu-open-recent', pendingFileToOpen);
+      }
       pendingFileToOpen = null;
     } else if (pendingDockAction) {
       if (DEBUG)
@@ -826,25 +838,28 @@ app.whenReady().then(() => {
 });
 
 // Story 7.5: Handle opening files from recent documents menu
-app.on('open-file', (event, path) => {
+// Story 16.3: Route .csv files to menu-open-csv; .sheet files to menu-open-recent
+app.on('open-file', (event, filePath) => {
   event.preventDefault();
   if (DEBUG)
     console.log(
       '[Electron] Open file from recent documents or file association:',
-      path
+      filePath
     );
 
-  // If window exists, send the file path to renderer to load it
   if (mainWindow && mainWindow.webContents) {
-    mainWindow.webContents.send('menu-open-recent', path);
+    if (filePath.endsWith('.csv')) {
+      mainWindow.webContents.send('menu-open-csv', filePath);
+    } else {
+      mainWindow.webContents.send('menu-open-recent', filePath);
+    }
   } else {
-    // Window not ready yet, store the path to open after window is created
-    // This can happen if app is launched by double-clicking a file
+    // Window not ready yet — store for dispatch after did-finish-load
     if (DEBUG)
       console.log(
         '[Electron] Window not ready, storing file to open after window creation'
       );
-    pendingFileToOpen = path;
+    pendingFileToOpen = filePath;
   }
 });
 

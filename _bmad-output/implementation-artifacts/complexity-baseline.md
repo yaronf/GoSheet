@@ -1,8 +1,8 @@
 # Code Complexity Baseline
 
-**Story:** 10.3 - Add Code Complexity Analysis  
-**Date:** 2026-02-24  
-**Status:** Baseline established
+**Story:** 10.3 - Add Code Complexity Analysis
+**Date:** 2026-02-24
+**Status:** Updated 2026-03-08 (Story 16.2: RecalculateAll implemented; Story 16.1: atomicWriteFile added)
 
 ---
 
@@ -21,19 +21,36 @@
 
 **Command:** `make complexity` or `gocyclo -over 10 .`
 
-### Functions >15 (0)
+### Functions >15 (8 — to be addressed in Story 16.6)
 
-*None.* (ExtractCellReferences refactored 2026-02-23: extracted refCollector with walk methods.)
+| Complexity | Package | Function | Location | Notes |
+|------------|---------|----------|----------|-------|
+| 37 | model | (*Spreadsheet).RecalculateAll | model/spreadsheet.go:170 | Story 16.2: moved from controller |
+| 26 | model | shiftRange | model/formula_shift.go:122 | Story 15.5 |
+| 25 | api | (*Server).HandleCSVExport | api/handlers.go:366 | Grew from 14 |
+| 21 | model | (*Spreadsheet).DeleteColumn | model/spreadsheet.go:605 | Story 13/15 |
+| 21 | api | (*Server).HandleGetAllCells | api/handlers.go:153 | Story 13/15 |
+| 20 | model | (*Spreadsheet).DeleteRow | model/spreadsheet.go:537 | Story 13/15 |
+| 17 | model | (*Spreadsheet).InsertColumn | model/spreadsheet.go:486 | Story 13 |
+| 16 | model | (*Spreadsheet).InsertRow | model/spreadsheet.go:438 | Story 13 |
 
-### Functions >10 (5 total)
+### Functions >10 (as of 2026-03-08)
 
 | Complexity | Package | Function | Location |
 |------------|---------|----------|----------|
-| 15 | model | evaluateComparison | model/formula.go:261:1 |
-| 14 | main | handleCSVExport | server/main.go:459:1 |
-| 13 | model | evaluateMultiplication | model/formula.go:363:1 |
-| 13 | model | (*DependencyGraph).GetCalculationOrder | model/dependencies.go:359:1 |
-| 13 | controller | (*AppController).SetCellValue | controller/app.go:22:1 |
+| 15 | model | evaluateComparison | model/formula.go:407 |
+| 14 | model | (*Spreadsheet).ApplyStyleToRange | model/spreadsheet.go:671 |
+| 13 | model | shiftCellRef | model/formula_shift.go:83 |
+| 13 | model | evaluateMultiplication | model/formula.go:511 |
+| 13 | model | (*DependencyGraph).GetCalculationOrder | model/dependencies.go:353 |
+| 12 | model | atomicWriteFile | model/file.go:23 |
+| 12 | model | ExpandRange | model/dependencies.go:197 |
+| 12 | controller | (*SetMergeCommand).Do | controller/command.go:623 |
+| 12 | controller | (*AppController).propagateCycleError | controller/app.go:220 |
+| 11 | model | (*Spreadsheet).CleanupFormat | model/spreadsheet.go:407 |
+| 11 | model | (*Spreadsheet).SetRangeAlignment | model/spreadsheet.go:357 |
+| 11 | model | RefToCoords | model/coords.go:36 |
+| 11 | controller | (*AppController).setCellValueInternal | controller/app.go:103 |
 
 ---
 

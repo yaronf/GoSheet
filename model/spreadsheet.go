@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // MergeRegion represents a merged cell range. Anchor is (StartRow, StartCol).
@@ -162,9 +163,121 @@ func (s *Spreadsheet) GetCellCount() int {
 	return count
 }
 
-// RecalculateAll is intentionally not implemented at the model layer.
-// Use AppController.recalculateAllFormulas() for full recalculation via the dependency graph.
+// RecalculateAll rebuilds the dependency graph and recalculates all formula cells
+// in topological order. Circular references are detected and marked with an error;
+// non-circular cells are always evaluated correctly regardless of cycles elsewhere.
+// Safe to call after a file load (where ParsedFormula ASTs are nil).
+// The error return is reserved for future use; it currently always returns nil.
 func (s *Spreadsheet) RecalculateAll() error {
+	// Phase 1: Rebuild dependency graph from scratch.
+	s.Dependencies = NewDependencyGraph()
+	for row, rowMap := range s.Cells {
+		for col, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.Value != "" {
+				cellRef := CoordsToRef(row, col)
+				for _, ref := range ExtractCellReferences("=" + cell.Value) {
+					if ref != cellRef { // skip spurious self-deps from invalid range coords
+						s.Dependencies.AddDependency(cellRef, ref)
+					}
+				}
+			}
+		}
+	}
+
+	// Phase 2: Rebuild ParsedFormula ASTs (nil after gob decode).
+	// Track cells that fail to parse so Phase 4 skips re-evaluating them.
+	parseErrors := make(map[string]bool)
+	for row, rowMap := range s.Cells {
+		for col, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.ParsedFormula == nil && cell.Value != "" {
+				ast, err := ParseFormula("=" + cell.Value)
+				if err != nil {
+					cellRef := CoordsToRef(row, col)
+					cell.SetError("parse error: " + err.Error())
+					parseErrors[cellRef] = true
+					continue
+				}
+				ResolveAllCoords(ast)
+				ApplyInvalidRefs(ast, cell.InvalidRefs)
+				cell.ParsedFormula = ast
+			}
+		}
+	}
+
+	// Phase 3: Collect all formula cell refs.
+	var allRefs []string
+	for row, rowMap := range s.Cells {
+		for col, cell := range rowMap {
+			if cell != nil && cell.IsFormula {
+				allRefs = append(allRefs, CoordsToRef(row, col))
+			}
+		}
+	}
+
+	// Phase 4: Evaluate in topological order; handle cycles.
+	order, calcErr := s.Dependencies.GetCalculationOrder(allRefs)
+	if calcErr != nil {
+		// Cycle present: identify and mark all cycle members first so that
+		// non-cycle cells which depend on them see the error value, not stale data.
+		cycleMembers := make(map[string]bool)
+		for _, cellRef := range allRefs {
+			row, col, err := RefToCoords(cellRef)
+			if err != nil {
+				continue
+			}
+			cell := s.GetCell(row, col)
+			if cell == nil || !cell.IsFormula {
+				continue
+			}
+			for _, ref := range ExtractCellReferences("=" + cell.Value) {
+				if hasCycle, cyclePath := s.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
+					cell.SetError("circular reference: " + strings.Join(cyclePath, " → "))
+					cycleMembers[cellRef] = true
+					break
+				}
+			}
+		}
+		// Evaluate non-cycle, non-parse-error cells in an unordered pass.
+		for _, cellRef := range allRefs {
+			if cycleMembers[cellRef] || parseErrors[cellRef] {
+				continue
+			}
+			row, col, err := RefToCoords(cellRef)
+			if err != nil {
+				continue
+			}
+			cell := s.GetCell(row, col)
+			if cell != nil && cell.IsFormula {
+				val, evalErr := EvaluateFormula("="+cell.Value, cell.ParsedFormula, s)
+				if evalErr != nil {
+					cell.SetError(evalErr.Error())
+				} else {
+					cell.SetFromValue(val)
+				}
+			}
+		}
+		return nil
+	}
+
+	// No cycle: evaluate in topological order, skipping parse errors.
+	for _, cellRef := range order {
+		if parseErrors[cellRef] {
+			continue
+		}
+		row, col, err := RefToCoords(cellRef)
+		if err != nil {
+			continue
+		}
+		cell := s.GetCell(row, col)
+		if cell != nil && cell.IsFormula {
+			val, evalErr := EvaluateFormula("="+cell.Value, cell.ParsedFormula, s)
+			if evalErr != nil {
+				cell.SetError(evalErr.Error())
+			} else {
+				cell.SetFromValue(val)
+			}
+		}
+	}
 	return nil
 }
 

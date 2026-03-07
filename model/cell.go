@@ -33,7 +33,8 @@ type cellPersist struct {
 }
 
 // GobEncode encodes only the persistable fields, excluding ParsedFormula.
-func (c Cell) GobEncode() ([]byte, error) {
+// Pointer receiver is required: the map stores *Cell, so gob must find GobEncode on *Cell.
+func (c *Cell) GobEncode() ([]byte, error) {
 	p := cellPersist{
 		Value:         c.Value,
 		Computed:      c.Computed,

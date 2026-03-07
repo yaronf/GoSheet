@@ -101,6 +101,12 @@
         "name": "GoSheet Spreadsheet",
         "description": "GoSheet spreadsheet file",
         "role": "Editor"
+      },
+      {
+        "ext": "csv",
+        "name": "CSV File",
+        "description": "Comma-separated values file",
+        "role": "Editor"
       }
     ],
     "files": [

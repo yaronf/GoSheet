@@ -91,6 +91,13 @@ Replace the hardcoded port 3000 with a named or ephemeral pipe/socket so multipl
 Relevant: `[server/main.go](../../server/main.go)`, `[electron/main.js](../../electron/main.js)`
 **Epic: 16** (Story 16.5)
 
-### Text wrapping
+### Typed cell error enum instead of string sentinels
+
+`Cell.Computed` encodes error type as strings (`"#ERROR division by zero"`, `"#REF!"`, `"#ERROR circular reference: ..."`) and `IsError bool` only tells you *something* went wrong. Distinguishing error kinds requires string matching on `Computed`, which is fragile and leaks display concerns into logic.
+
+Replace with a typed `ErrorKind` enum (e.g. `ErrNone`, `ErrEval`, `ErrRef`, `ErrCircular`, `ErrParse`) on `Cell`, keeping `Computed` for the display string. Callers that need to branch on error type use the enum; the frontend continues to display `Computed` as-is. Note: `ErrorKind` must be gob-registered to survive save/load round-trips, and the file format version should be bumped.
+Relevant: `[model/cell.go](../../model/cell.go)`, `[model/formula.go](../../model/formula.go)`, `[controller/app.go](../../controller/app.go)`
+
+### Text wrapping within cell
 
 At least a toggle. Does it also require control of row/column width?

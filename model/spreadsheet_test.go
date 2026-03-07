@@ -147,18 +147,87 @@ func TestModifiedFlag(t *testing.T) {
 	assert.True(t, sheet.Modified)
 }
 
-func TestRecalculateAll(t *testing.T) {
+func TestRecalculateAll_EmptySpreadsheet(t *testing.T) {
 	sheet := NewSpreadsheet()
-	sheet.SetCell(0, 0, "=1+1")
-	sheet.SetCell(1, 0, "=A1*2")
+	err := sheet.RecalculateAll()
+	assert.NoError(t, err)
+}
+
+func TestRecalculateAll_BasicChain(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "5")     // A1 = 5
+	sheet.SetCell(0, 1, "=A1+1") // B1 = A1+1 = 6
+	sheet.SetCell(0, 2, "=B1+1") // C1 = B1+1 = 7
 
 	err := sheet.RecalculateAll()
 	assert.NoError(t, err)
 
-	// RecalculateAll is a no-op at the model layer; use AppController for actual recalc
-	cell := sheet.GetCell(0, 0)
-	assert.NotNil(t, cell)
-	assert.True(t, cell.IsFormula)
+	assert.Equal(t, "6", sheet.GetCell(0, 1).Computed)
+	assert.Equal(t, "7", sheet.GetCell(0, 2).Computed)
+}
+
+func TestRecalculateAll_CircularRef(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "=B1") // A1
+	sheet.SetCell(0, 1, "=A1") // B1 — closes cycle
+
+	err := sheet.RecalculateAll()
+	assert.NoError(t, err)
+
+	cellA1 := sheet.GetCell(0, 0)
+	cellB1 := sheet.GetCell(0, 1)
+	assert.True(t, cellA1.IsError, "A1 should be an error cell")
+	assert.True(t, cellB1.IsError, "B1 should be an error cell")
+	assert.Contains(t, cellA1.Computed, "circular")
+	assert.Contains(t, cellB1.Computed, "circular")
+}
+
+func TestRecalculateAll_CircularAndNonCircular(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "=B1")   // A1 — in cycle
+	sheet.SetCell(0, 1, "=A1")   // B1 — in cycle
+	sheet.SetCell(0, 2, "3")     // C1 — plain value
+	sheet.SetCell(0, 3, "=C1+1") // D1 — depends on C1 only (unrelated to cycle)
+
+	err := sheet.RecalculateAll()
+	assert.NoError(t, err)
+
+	assert.True(t, sheet.GetCell(0, 0).IsError, "A1 should be error")
+	assert.True(t, sheet.GetCell(0, 1).IsError, "B1 should be error")
+	assert.False(t, sheet.GetCell(0, 3).IsError, "D1 should not be error")
+	assert.Equal(t, "4", sheet.GetCell(0, 3).Computed)
+}
+
+func TestRecalculateAll_NonCycleCellReferencingCycleMember(t *testing.T) {
+	// E1=A1 where A1 is a cycle member — E1 should show an error (referenced cell has error),
+	// not an empty or stale value. Cycle members are marked before the non-cycle eval pass,
+	// so E1 correctly picks up A1's error regardless of map iteration order.
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "=B1") // A1 — in cycle
+	sheet.SetCell(0, 1, "=A1") // B1 — in cycle
+	sheet.SetCell(0, 4, "=A1") // E1 — depends on cycle member A1
+
+	err := sheet.RecalculateAll()
+	assert.NoError(t, err)
+
+	assert.True(t, sheet.GetCell(0, 0).IsError, "A1 should be error")
+	assert.True(t, sheet.GetCell(0, 1).IsError, "B1 should be error")
+	assert.True(t, sheet.GetCell(0, 4).IsError, "E1 should be error (referenced cell has error)")
+}
+
+func TestRecalculateAll_StaleComputedOverwritten(t *testing.T) {
+	// After a structural operation the Computed field may be stale.
+	// RecalculateAll must overwrite it with the correct evaluated value.
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "10")
+	sheet.SetCell(0, 1, "=A1*2")
+	// Simulate a stale computed value (e.g. left over from a previous state)
+	sheet.GetCell(0, 1).Computed = "999"
+
+	err := sheet.RecalculateAll()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "20", sheet.GetCell(0, 1).Computed)
 }
 
 func TestSpreadsheetString(t *testing.T) {

@@ -68,6 +68,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('menu-open-recent', callback);
   },
 
+  // Story 16.3: Open CSV file from CLI or Finder "Open With"
+  onMenuOpenCSV: (callback) => {
+    ipcRenderer.on('menu-open-csv', (event, filePath) => callback(filePath));
+  },
+
+  // Story 16.3: File-not-found error when pending file is gone at launch
+  onOpenFileError: (callback) => {
+    ipcRenderer.on('open-file-error', (event, filePath) => callback(filePath));
+  },
+
   // Story 9.6: Formula Reference
   onMenuFormulaReference: (callback) => {
     ipcRenderer.on('menu-formula-reference', callback);

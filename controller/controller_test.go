@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gosheet/model"
 )
 
@@ -215,6 +216,76 @@ func TestControllerRecalculateAllFormulas_OnLoadWithCycle(t *testing.T) {
 	_ = ctrl.SetCellValue(2, 0, "=A1+1")
 	val := ctrl.GetCellValue(2, 0)
 	assert.NotEmpty(t, val) // Should produce some value without panicking
+}
+
+func TestControllerLoadFromBytes_ChainedFormulas(t *testing.T) {
+	// Save B1=A1+1, C1=B1+1, A1=5 — tests topological ordering on load
+	s := model.NewSpreadsheet()
+	s.SetCell(0, 0, "5")     // A1
+	s.SetCell(0, 1, "=A1+1") // B1
+	s.SetCell(0, 2, "=B1+1") // C1
+	data, err := s.SaveToBytes()
+	assert.NoError(t, err)
+
+	ctrl := NewAppController()
+	err = ctrl.LoadFromBytes(data, "/chain.sheet")
+	assert.NoError(t, err)
+
+	assert.Equal(t, "6", ctrl.GetCellValue(0, 1), "B1 should be 6")
+	assert.Equal(t, "7", ctrl.GetCellValue(0, 2), "C1 should be 7")
+}
+
+func TestControllerLoadFromBytes_CycleShowsError(t *testing.T) {
+	// Cycle A1=B1, B1=A1 loaded from bytes — both should show circular ref error
+	s := model.NewSpreadsheet()
+	s.SetCell(0, 0, "=B1") // A1
+	s.SetCell(0, 1, "=A1") // B1 — closes cycle
+	data, err := s.SaveToBytes()
+	assert.NoError(t, err)
+
+	ctrl := NewAppController()
+	err = ctrl.LoadFromBytes(data, "/cycle2.sheet")
+	assert.NoError(t, err)
+
+	cellA1 := ctrl.Sheet.GetCell(0, 0)
+	cellB1 := ctrl.Sheet.GetCell(0, 1)
+	assert.True(t, cellA1.IsError, "A1 should be error after load")
+	assert.True(t, cellB1.IsError, "B1 should be error after load")
+	assert.Contains(t, cellA1.Computed, "circular")
+	assert.Contains(t, cellB1.Computed, "circular")
+}
+
+func TestControllerLoadFile_FormulasRecalculated(t *testing.T) {
+	// Round-trip via SaveToFile/LoadFile — covers the file path (not just bytes)
+	s := model.NewSpreadsheet()
+	s.SetCell(0, 0, "10")
+	s.SetCell(0, 1, "=A1*3")
+	tmpfile := t.TempDir() + "/test.gosheet"
+	err := s.SaveToFile(tmpfile)
+	assert.NoError(t, err)
+
+	ctrl := NewAppController()
+	err = ctrl.LoadFile(tmpfile)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "30", ctrl.GetCellValue(0, 1))
+}
+
+func TestControllerLoadFile_StylePreserved(t *testing.T) {
+	// Apply Title style to a cell, save to file, reload, verify StyleId survives
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "Hello"))
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, model.StyleIDTitle))
+	assert.Equal(t, model.StyleIDTitle, ctrl.Sheet.GetCell(0, 0).StyleId)
+
+	tmpfile := t.TempDir() + "/style-test.sheet"
+	require.NoError(t, ctrl.Sheet.SaveToFile(tmpfile))
+
+	ctrl2 := NewAppController()
+	require.NoError(t, ctrl2.LoadFile(tmpfile))
+	cell := ctrl2.Sheet.GetCell(0, 0)
+	require.NotNil(t, cell)
+	assert.Equal(t, model.StyleIDTitle, cell.StyleId, "StyleId should survive save/load round-trip")
 }
 
 func TestControllerGetMerges(t *testing.T) {

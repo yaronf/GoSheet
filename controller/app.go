@@ -261,97 +261,13 @@ func (c *AppController) propagateCycleError(cyclePath []string, cycleStr string)
 	}
 }
 
-// recalculateAllFormulas recalculates all formula cells in the spreadsheet
-// Used when loading files or when dependency graph is unavailable
+// recalculateAllFormulas delegates to the model-layer RecalculateAll, which
+// rebuilds the dependency graph, restores ParsedFormula ASTs, and evaluates
+// all formula cells in topological order with correct cycle handling.
 func (c *AppController) recalculateAllFormulas() {
 	logutil.Debugln("Recalculating all formulas...")
-
-	// Rebuild ParsedFormula ASTs for all formula cells (nil after gob decode).
-	// Must happen before evaluation so evaluateCellRef/evaluateRange can use stored coords and Invalid flags.
-	for _, rowMap := range c.Sheet.Cells {
-		for _, cell := range rowMap {
-			if cell != nil && cell.IsFormula && cell.ParsedFormula == nil && cell.Value != "" {
-				ast, err := model.ParseFormula("=" + cell.Value)
-				if err == nil {
-					model.ResolveAllCoords(ast)
-					model.ApplyInvalidRefs(ast, cell.InvalidRefs)
-					cell.ParsedFormula = ast
-				}
-			}
-		}
-	}
-
-	// Collect all formula cell refs
-	var allRefs []string
-	for row, rowMap := range c.Sheet.Cells {
-		for col, cell := range rowMap {
-			if cell != nil && cell.IsFormula {
-				allRefs = append(allRefs, model.CoordsToRef(row, col))
-			}
-		}
-	}
-
-	// Try to get a dependency-ordered list; fall back to unordered on cycle.
-	// When a cycle exists, first identify and mark cycle members before evaluating.
-	order, calcErr := c.Sheet.Dependencies.GetCalculationOrder(allRefs)
-	if calcErr != nil {
-		// Cycle present: mark cyclic cells first so non-cycle cells evaluate correctly.
-		cycleMembers := make(map[string]bool)
-		for _, cellRef := range allRefs {
-			row, col, err := model.RefToCoords(cellRef)
-			if err != nil {
-				continue
-			}
-			cell := c.Sheet.GetCell(row, col)
-			if cell == nil || !cell.IsFormula {
-				continue
-			}
-			refs := model.ExtractCellReferences("=" + cell.Value)
-			for _, ref := range refs {
-				if hasCycle, cyclePath := c.Sheet.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
-					cell.SetError("circular reference: " + strings.Join(cyclePath, " → "))
-					cycleMembers[cellRef] = true
-					break
-				}
-			}
-		}
-		// Evaluate non-cycle cells in unordered pass
-		order = allRefs
-		for _, cellRef := range order {
-			if cycleMembers[cellRef] {
-				continue
-			}
-			row, col, err := model.RefToCoords(cellRef)
-			if err != nil {
-				continue
-			}
-			cell := c.Sheet.GetCell(row, col)
-			if cell != nil && cell.IsFormula {
-				val, evalErr := model.EvaluateFormula("="+cell.Value, cell.ParsedFormula, c.Sheet)
-				if evalErr != nil {
-					cell.SetError(evalErr.Error())
-				} else {
-					cell.SetFromValue(val)
-				}
-			}
-		}
-		return
-	}
-
-	for _, cellRef := range order {
-		row, col, err := model.RefToCoords(cellRef)
-		if err != nil {
-			continue
-		}
-		cell := c.Sheet.GetCell(row, col)
-		if cell != nil && cell.IsFormula {
-			val, evalErr := model.EvaluateFormula("="+cell.Value, cell.ParsedFormula, c.Sheet)
-			if evalErr != nil {
-				cell.SetError(evalErr.Error())
-			} else {
-				cell.SetFromValue(val)
-			}
-		}
+	if err := c.Sheet.RecalculateAll(); err != nil {
+		logutil.Debugf("RecalculateAll error: %v", err)
 	}
 }
 
@@ -430,11 +346,11 @@ func (c *AppController) LoadFromBytes(data []byte, path string) error {
 	return c.loadSheet(sheet)
 }
 
-// loadSheet sets the sheet, rebuilds dependency graph, recalculates formulas, and clears history.
+// loadSheet sets the sheet, recalculates all formulas, and clears history.
+// Dependency graph rebuild and formula evaluation are both handled by RecalculateAll.
 func (c *AppController) loadSheet(sheet *model.Spreadsheet) error {
 	c.Sheet = sheet
 	c.History.Clear()
-	c.rebuildDependencyGraph()
 	c.recalculateAllFormulas()
 	return nil
 }

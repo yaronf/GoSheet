@@ -2818,6 +2818,8 @@ So that multiple GoSheet instances can run simultaneously without port conflicts
 
 **Relevant files:** `server/main.go`, `electron/main.js`
 
+**Implementation note:** Once the port is ephemeral, remove `app.requestSingleInstanceLock()` from `electron/main.js` (currently `main.js:20`) — it exists solely to prevent port conflicts. With per-instance sockets there is no reason to enforce a single instance. The `second-instance` handler (`main.js:25`) should be removed at the same time.
+
 ---
 
 ### Story 16.6: Refactor Functions Exceeding Complexity Threshold

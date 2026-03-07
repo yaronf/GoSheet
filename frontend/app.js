@@ -587,8 +587,8 @@ async function loadFileByPath(filePath) {
     if (!confirmed) return;
   }
   try {
-    showSpreadsheet();
     const loadedPath = await LoadFile(filePath);
+    showSpreadsheet();
     if (loadedPath && window.electronAPI?.addRecentFile) {
       await window.electronAPI.addRecentFile(loadedPath);
     }
@@ -601,6 +601,7 @@ async function loadFileByPath(filePath) {
     window.syncFormatMenuFromApi?.();
   } catch (error) {
     console.error('[App] Error loading file:', error);
+    showWelcome();
     await showAlert('Error loading file: ' + error.message);
   }
 }
@@ -2190,6 +2191,32 @@ async function handleImportCSV() {
   }
 }
 
+// Story 16.3: Import CSV directly by path (CLI / Finder "Open With") — skip file picker and preview dialog.
+async function handleImportCSVByPath(filePath) {
+  try {
+    const status = await GetFileStatus();
+    if (status.hasUnsavedChanges) {
+      const confirmed = await showConfirmDialog(
+        'You have unsaved changes! Open CSV file anyway? All unsaved changes will be lost.'
+      );
+      if (!confirmed) return;
+    }
+    showSpreadsheet();
+    const result = await ImportCSV(filePath);
+    ROWS = Math.max(100, result.rows);
+    COLS = Math.max(26, result.cols);
+    await buildSpreadsheet();
+    await loadCells();
+    selectCell(0, 0);
+    updateFileStatus();
+    window.syncFormatMenuFromApi?.();
+    if (window.__DEBUG__) console.log('[App] CSV imported by path:', filePath);
+  } catch (error) {
+    console.error('[App] Error importing CSV by path:', error);
+    await showAlert('Error importing CSV: ' + error.message);
+  }
+}
+
 // Expose for testing (Story 11.3, 11.4) - Playwright merge tests need buildSpreadsheet to apply merge regions
 window.getCellElement = getCellElement;
 window.resolveToAnchor = resolveToAnchor;
@@ -2969,6 +2996,9 @@ function applyUndoRedoState(state) {
       redoDescription: state.redoDescription,
     });
   }
+  if (state.hasUnsavedChanges !== undefined) {
+    displayFileStatus(state.hasUnsavedChanges);
+  }
 }
 
 // Story 15.2: Perform undo — call API, refresh grid and all state.
@@ -3060,6 +3090,29 @@ if (window.electronAPI) {
       console.log('[App] Menu Open Recent triggered:', filePath);
     await loadFileByPath(filePath);
   });
+
+  // Story 16.3: Open CSV file via CLI or Finder "Open With" (skip preview dialog)
+  if (window.electronAPI.onMenuOpenCSV) {
+    window.electronAPI.onMenuOpenCSV(async (filePath) => {
+      if (window.__DEBUG__)
+        console.log('[App] Open CSV by path triggered:', filePath);
+      await handleImportCSVByPath(filePath);
+    });
+  }
+
+  // Story 16.3: File-not-found error when pending file is gone at launch
+  if (window.electronAPI.onOpenFileError) {
+    window.electronAPI.onOpenFileError(async (filePath) => {
+      if (window.__DEBUG__)
+        console.log('[App] Open file error — file not found:', filePath);
+      showWelcome();
+      await showAlert(
+        'File not found: ' +
+          filePath +
+          '\n\nThe file may have been moved or deleted.'
+      );
+    });
+  }
 
   // Story 9.6: Formula Reference from Help menu
   if (window.electronAPI.onMenuFormulaReference) {
