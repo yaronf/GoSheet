@@ -370,7 +370,7 @@ func (s *Spreadsheet) InsertRow(insertRow int) error {
 	for _, rowMap := range s.Cells {
 		for _, cell := range rowMap {
 			if cell != nil && cell.IsFormula && cell.Value != "" {
-				cell.Value = shiftFormulaRefsForInsertRow(cell.Value, insertRow)
+				shiftFormulaRefsForInsertRow(cell, insertRow)
 			}
 		}
 	}
@@ -421,7 +421,7 @@ func (s *Spreadsheet) InsertColumn(insertCol int) error {
 	for _, rowMap := range s.Cells {
 		for _, cell := range rowMap {
 			if cell != nil && cell.IsFormula && cell.Value != "" {
-				cell.Value = shiftFormulaRefsForInsertColumn(cell.Value, insertCol)
+				shiftFormulaRefsForInsertColumn(cell, insertCol)
 			}
 		}
 	}
@@ -441,6 +441,7 @@ func (s *Spreadsheet) DeleteRow(deleteRow int) (map[int]*Cell, error) {
 		for col, cell := range rowMap {
 			if cell != nil {
 				cp := *cell
+				cp.ParsedFormula = nil // avoid sharing AST pointer; rebuilt from cp.Value on restore
 				snapshot[col] = &cp
 			}
 		}
@@ -488,7 +489,7 @@ func (s *Spreadsheet) DeleteRow(deleteRow int) (map[int]*Cell, error) {
 	for _, rowMap := range s.Cells {
 		for _, cell := range rowMap {
 			if cell != nil && cell.IsFormula && cell.Value != "" {
-				cell.Value = unshiftFormulaRefsForDeleteRow(cell.Value, deleteRow)
+				unshiftFormulaRefsForDeleteRow(cell, deleteRow)
 			}
 		}
 	}
@@ -507,6 +508,7 @@ func (s *Spreadsheet) DeleteColumn(deleteCol int) (map[int]*Cell, error) {
 	for r, rowMap := range s.Cells {
 		if cell, ok := rowMap[deleteCol]; ok && cell != nil {
 			cp := *cell
+			cp.ParsedFormula = nil // avoid sharing AST pointer; rebuilt from cp.Value on restore
 			snapshot[r] = &cp
 		}
 	}
@@ -553,7 +555,7 @@ func (s *Spreadsheet) DeleteColumn(deleteCol int) (map[int]*Cell, error) {
 	for _, rowMap := range s.Cells {
 		for _, cell := range rowMap {
 			if cell != nil && cell.IsFormula && cell.Value != "" {
-				cell.Value = unshiftFormulaRefsForDeleteColumn(cell.Value, deleteCol)
+				unshiftFormulaRefsForDeleteColumn(cell, deleteCol)
 			}
 		}
 	}

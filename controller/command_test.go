@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gosheet/model"
 )
 
 // --- History unit tests ---
@@ -472,11 +473,15 @@ func TestDeleteRowCommand_RefBecomesError(t *testing.T) {
 	ctrl.History.Clear()
 
 	require.NoError(t, ctrl.DeleteRow(1))
-	// Formula at new row 1 contains #REF! because A2 referenced the deleted row
+	// Formula at new row 1 has an invalid ref because A2 referenced the deleted row.
+	// With AST-based shift, the formula string stays parseable (no literal "#REF!" text);
+	// the cell is marked IsError with Computed="#REF!".
 	cell := ctrl.Sheet.GetCell(1, 0)
 	require.NotNil(t, cell)
 	assert.True(t, cell.IsError, "formula referencing deleted row should produce an error cell")
-	assert.Contains(t, cell.RawValue(), "#REF!")
+	assert.Equal(t, "#REF!", cell.Computed, "computed value should be #REF!")
+	_, parseErr := model.ParseFormula(cell.RawValue())
+	assert.NoError(t, parseErr, "formula string must remain parseable after ref invalidation")
 }
 
 // --- Formatting command tests (Story 15.4) ---
@@ -636,9 +641,7 @@ func TestDeleteRowCommand_FormulaRefRestored(t *testing.T) {
 	assert.Equal(t, "30", ctrl.GetCellValue(2, 0))
 	ctrl.History.Clear()
 
-	require.NoError(t, ctrl.DeleteRow(1)) // delete row 1 (A2=20), formula shifts to =A1+A1
-	// After delete, formula is at row 1 referencing A1+A1 (both refs shift down)
-	// A1=10, so formula result = 20 (=A1+A1 where A1=10 and old A2 is gone)
+	require.NoError(t, ctrl.DeleteRow(1)) // delete row 1 (A2=20), A2 ref becomes invalid
 
 	_, err := ctrl.Undo()
 	require.NoError(t, err)
@@ -646,4 +649,95 @@ func TestDeleteRowCommand_FormulaRefRestored(t *testing.T) {
 	assert.Equal(t, "10", ctrl.GetCellValue(0, 0))
 	assert.Equal(t, "20", ctrl.GetCellValue(1, 0))
 	assert.Equal(t, "30", ctrl.GetCellValue(2, 0))
+}
+
+// TestDeleteRow_RefError_UndoRestoresValid verifies that:
+//   - deleting a row referenced by a formula produces #REF! in that formula
+//   - undoing the delete restores the formula to a valid, correct result
+func TestDeleteRow_RefError_UndoRestoresValid(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "5"))   // A1 = 5
+	require.NoError(t, ctrl.SetCellValue(1, 0, "10"))  // A2 = 10 (will be deleted)
+	require.NoError(t, ctrl.SetCellValue(2, 0, "=A2")) // A3 = =A2 → 10
+	assert.Equal(t, "10", ctrl.GetCellValue(2, 0))
+	ctrl.History.Clear()
+
+	// Delete row 1 (A2) → A3's formula references deleted row → #REF!
+	require.NoError(t, ctrl.DeleteRow(1))
+	cell := ctrl.Sheet.GetCell(1, 0) // formula shifted to row 1
+	require.NotNil(t, cell)
+	assert.True(t, cell.IsError)
+	assert.Equal(t, "#REF!", cell.Computed)
+	// Formula string must stay parseable (no literal "#REF!" text in it)
+	_, parseErr := model.ParseFormula(cell.RawValue())
+	assert.NoError(t, parseErr)
+
+	// Undo → formula is valid again, evaluates correctly
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "10", ctrl.GetCellValue(2, 0))
+	restoredCell := ctrl.Sheet.GetCell(2, 0)
+	require.NotNil(t, restoredCell)
+	assert.False(t, restoredCell.IsError)
+}
+
+// TestDeleteRow_RefError_UndoRedo verifies the full undo→redo cycle for a #REF! formula:
+//   - delete row → #REF!
+//   - undo → valid result restored
+//   - redo → #REF! again
+func TestDeleteRow_RefError_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "7"))   // A1 = 7
+	require.NoError(t, ctrl.SetCellValue(1, 0, "3"))   // A2 = 3 (will be deleted)
+	require.NoError(t, ctrl.SetCellValue(2, 0, "=A2")) // A3 = =A2 → 3
+	ctrl.History.Clear()
+
+	// Delete → #REF!
+	require.NoError(t, ctrl.DeleteRow(1))
+	assert.True(t, ctrl.Sheet.GetCell(1, 0).IsError)
+	assert.Equal(t, "#REF!", ctrl.Sheet.GetCell(1, 0).Computed)
+
+	// Undo → valid
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "3", ctrl.GetCellValue(2, 0))
+	assert.False(t, ctrl.Sheet.GetCell(2, 0).IsError)
+
+	// Redo → #REF! again
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	cell := ctrl.Sheet.GetCell(1, 0)
+	require.NotNil(t, cell)
+	assert.True(t, cell.IsError)
+	assert.Equal(t, "#REF!", cell.Computed)
+}
+
+// TestDeleteColumn_RefError_UndoRedo is the column-deletion equivalent.
+func TestDeleteColumn_RefError_UndoRedo(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "9"))   // A1 = 9
+	require.NoError(t, ctrl.SetCellValue(0, 1, "2"))   // B1 = 2 (will be deleted)
+	require.NoError(t, ctrl.SetCellValue(0, 2, "=B1")) // C1 = =B1 → 2
+	ctrl.History.Clear()
+
+	// Delete column B → C1's ref becomes invalid → #REF!
+	require.NoError(t, ctrl.DeleteColumn(1))
+	cell := ctrl.Sheet.GetCell(0, 1) // C1 shifted to col 1
+	require.NotNil(t, cell)
+	assert.True(t, cell.IsError)
+	assert.Equal(t, "#REF!", cell.Computed)
+
+	// Undo → valid
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "2", ctrl.GetCellValue(0, 2))
+	assert.False(t, ctrl.Sheet.GetCell(0, 2).IsError)
+
+	// Redo → #REF! again
+	_, err = ctrl.Redo()
+	require.NoError(t, err)
+	cell = ctrl.Sheet.GetCell(0, 1)
+	require.NotNil(t, cell)
+	assert.True(t, cell.IsError)
+	assert.Equal(t, "#REF!", cell.Computed)
 }

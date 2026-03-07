@@ -81,6 +81,10 @@ Ensure user documentation is updated once per story, when applicable.
 
 Remove the alignment buttons, add style buttons. And make them dynamic: new styles add buttons etc. And of course rendered as the style.
 
+### Fold Insert menu into Edit menu
+
+The Insert menu items (insert row/column) should live in the Edit menu, eliminating the separate Insert menu.
+
 ### Text wrapping
 
 At least a toggle. Does it also require control of row/column width?

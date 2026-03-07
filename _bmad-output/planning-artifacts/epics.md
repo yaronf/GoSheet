@@ -2601,44 +2601,63 @@ So that accidental formatting changes are as recoverable as data changes.
 **When** the user presses Cmd+Z repeatedly
 **Then** all operations are undone in correct reverse order regardless of type
 
-### Story 15.5: Fix #REF! Handling via AST-Based Formula Shift
+### Story 15.5: Formula Engine — AST as Canonical Runtime Representation
 
-As a user,
-I want formulas that reference deleted rows or columns to display `#REF!` correctly,
-So that I can see which references became invalid and undo the deletion to restore them.
+As a developer and user,
+I want the formula engine to use a parsed AST as the canonical runtime representation,
+So that structural operations produce correct results, `#REF!` displays properly, and formulas never need to be re-parsed unnecessarily.
 
 **Background / Bug:**
-When a row or column is deleted, `formula_shift.go` rewrites formula strings by substituting `#REF!` as text (e.g. `=A1+B2` → `=A1+#REF!`). The formula lexer has no token for `#REF!`, so re-parsing fails with a lexer error. The cell displays a parse error string instead of the standard `#REF!` indicator. Undo of the delete also cannot restore the original reference because the original coordinates are gone.
+`formula_shift.go` rewrites formula strings by regex-substituting `#REF!` as literal text when a referenced cell is deleted. The lexer has no `#REF!` token, so re-parsing fails. The cell shows a parse error instead of `#REF!`. Undo also cannot restore the original reference because original coordinates are discarded. Root cause: `Cell.Value` (string) is being used as both storage and mutable intermediate state — corrupting it breaks evaluation, dependency tracking, and undo.
 
 **Acceptance Criteria:**
 
-**Given** a formula references a cell in a row that is then deleted
+**Given** a formula references a cell in a row/column that is deleted
 **When** the formula is evaluated
-**Then** the cell displays `#REF!` (not a parse error string)
-**And** `#REF!` propagates through arithmetic — e.g. `=1+#REF!` displays `#REF!`
+**Then** the cell displays `#REF!` (not a parse error string), with `#REF!` propagating through arithmetic
 
-**Given** a formula references a range where one boundary row/column is deleted and the range collapses to zero size
-**When** the formula is evaluated
+**Given** a formula references a range where deletion collapses it to zero size
+**When** evaluated
 **Then** the cell displays `#REF!`
 
-**Given** a formula references a range where a row/column *within* the range (not a boundary) is deleted
-**When** the formula is evaluated
-**Then** the range shrinks by one (end coordinate decrements) and the formula evaluates correctly — no `#REF!`
+**Given** a formula references a range where an interior row/column is deleted (range doesn't collapse)
+**When** evaluated
+**Then** the range shrinks by one and evaluates correctly — no `#REF!`
 
-**Given** a formula contains a `#REF!` reference
-**When** the user presses Cmd+Z to undo the deletion
-**Then** the formula is fully restored to its original text with valid cell references
+**Given** a formula contains a `#REF!` reference and the user presses Cmd+Z
+**When** the deletion is undone
+**Then** the formula is fully restored with valid cell references
 
-**Acceptance Criteria — Implementation:**
+**Given** any sequence of insert/delete operations
+**When** `Cell.Value` is inspected at any point
+**Then** it is always a valid, parseable formula string — never contains `#REF!` as literal text
 
-**Given** the formula engine
-**When** a formula is shifted for row/column insert or delete
-**Then** the operation works on the parsed AST (coordinates), not on raw formula strings
-**And** the formula string is re-serialized from the AST after shifting
+**Given** a sheet is saved and reloaded
+**When** formulas are re-parsed from `Cell.Value` strings on load
+**Then** `#REF!` cells display correctly and all formula refs are correct
 
-**Given** a cell reference that has become invalid due to deletion
-**When** the formula evaluator encounters it
-**Then** it returns a `RefErrorValue` (new Value type) which renders as `#REF!` and propagates through all operators and functions the same way `ErrorValue` does
+### Story 15.6: EvaluateFormula Returns Value Instead of String
+
+As a developer,
+I want `EvaluateFormula` to return a typed `Value` instead of `(string, bool, error)`,
+So that callers never need to string-construct or re-parse evaluation results, and error types are handled via the type system rather than string conventions.
+
+**Background:**
+`EvaluateFormula` currently serialises its result to a string and returns a `bool` flag to distinguish errors. Callers then call `cell.SetError(result)` or `cell.SetComputed(result)`, which re-parses the string. This is a string round-trip where a typed `Value` is available. It also requires `SetError` to special-case strings that already start with `#` to avoid double-prefixing (introduced in Story 15.5 as a temporary fix).
+
+**Acceptance Criteria:**
+
+**Given** `EvaluateFormula` is called with any formula
+**When** it returns
+**Then** it returns `(model.Value, error)` — callers switch on `ErrorValue`, `RefErrorValue`, or a normal value
+
+**Given** a formula evaluates to `#REF!`
+**When** the controller sets the cell result
+**Then** `cell.Computed == "#REF!"` without any string manipulation or special-casing in `SetError`
+
+**Given** all existing formula evaluation tests
+**When** run after this refactor
+**Then** all pass with no behaviour change
 
 ---
 

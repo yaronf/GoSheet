@@ -152,13 +152,11 @@ func (c *AppController) setCellValueInternal(row, col int, value string) error {
 					}
 					depCell := c.Sheet.GetCell(depRow, depCol)
 					if depCell != nil && depCell.IsFormula {
-						result, isErr, evalErr := model.EvaluateFormula("="+depCell.Value, c.Sheet)
+						val, evalErr := model.EvaluateFormula("="+depCell.Value, depCell.ParsedFormula, c.Sheet)
 						if evalErr != nil {
 							depCell.SetError(evalErr.Error())
-						} else if isErr {
-							depCell.SetError(result)
 						} else {
-							depCell.SetComputed(result)
+							depCell.SetFromValue(val)
 						}
 					}
 				}
@@ -185,15 +183,12 @@ func (c *AppController) setCellValueInternal(row, col int, value string) error {
 
 		// Evaluate the formula
 		logutil.Debugf("Evaluating formula: %s", cell.Value)
-		result, isErr, err := model.EvaluateFormula("="+cell.Value, c.Sheet)
+		val, err := model.EvaluateFormula("="+cell.Value, cell.ParsedFormula, c.Sheet)
 		if err != nil {
 			log.Printf("Formula error: %v", err)
 			cell.SetError(err.Error())
-		} else if isErr {
-			cell.SetError(result)
 		} else {
-			logutil.Debugf("Formula result: %s", result)
-			cell.SetComputed(result)
+			cell.SetFromValue(val)
 		}
 	}
 
@@ -241,13 +236,11 @@ func (c *AppController) recalculateDependents(changedCells []string, skip ...str
 		cell := c.Sheet.GetCell(row, col)
 
 		if cell != nil && cell.IsFormula {
-			result, isErr, err := model.EvaluateFormula("="+cell.Value, c.Sheet)
+			val, err := model.EvaluateFormula("="+cell.Value, cell.ParsedFormula, c.Sheet)
 			if err != nil {
 				cell.SetError(err.Error())
-			} else if isErr {
-				cell.SetError(result)
 			} else {
-				cell.SetComputed(result)
+				cell.SetFromValue(val)
 			}
 		}
 	}
@@ -257,6 +250,21 @@ func (c *AppController) recalculateDependents(changedCells []string, skip ...str
 // Used when loading files or when dependency graph is unavailable
 func (c *AppController) recalculateAllFormulas() {
 	logutil.Debugln("Recalculating all formulas...")
+
+	// Rebuild ParsedFormula ASTs for all formula cells (nil after gob decode).
+	// Must happen before evaluation so evaluateCellRef/evaluateRange can use stored coords and Invalid flags.
+	for _, rowMap := range c.Sheet.Cells {
+		for _, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.ParsedFormula == nil && cell.Value != "" {
+				ast, err := model.ParseFormula("=" + cell.Value)
+				if err == nil {
+					model.ResolveAllCoords(ast)
+					model.ApplyInvalidRefs(ast, cell.InvalidRefs)
+					cell.ParsedFormula = ast
+				}
+			}
+		}
+	}
 
 	// Collect all formula cell refs
 	var allRefs []string
@@ -268,10 +276,58 @@ func (c *AppController) recalculateAllFormulas() {
 		}
 	}
 
-	// Try to get a dependency-ordered list; fall back to unordered on cycle
-	order, err := c.Sheet.Dependencies.GetCalculationOrder(allRefs)
-	if err != nil {
-		order = allRefs // cycle present — best effort unordered
+	// Try to get a dependency-ordered list; fall back to unordered on cycle.
+	// When a cycle exists, first identify and mark cycle members before evaluating.
+	order, calcErr := c.Sheet.Dependencies.GetCalculationOrder(allRefs)
+	if calcErr != nil {
+		// Cycle present: mark cyclic cells first so non-cycle cells evaluate correctly.
+		cycleMembers := make(map[string]bool)
+		for _, cellRef := range allRefs {
+			row, col, err := model.RefToCoords(cellRef)
+			if err != nil {
+				continue
+			}
+			cell := c.Sheet.GetCell(row, col)
+			if cell == nil || !cell.IsFormula {
+				continue
+			}
+			refs := model.ExtractCellReferences("=" + cell.Value)
+			for _, ref := range refs {
+				if hasCycle, cyclePath := c.Sheet.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
+					cycleStr := ""
+					for i, node := range cyclePath {
+						if i > 0 {
+							cycleStr += " → "
+						}
+						cycleStr += node
+					}
+					cell.SetError("circular reference: " + cycleStr)
+					cycleMembers[cellRef] = true
+					break
+				}
+			}
+		}
+		// Evaluate non-cycle cells in unordered pass
+		order = allRefs
+		for _, cellRef := range order {
+			if cycleMembers[cellRef] {
+				continue
+			}
+			row, col, err := model.RefToCoords(cellRef)
+			if err != nil {
+				continue
+			}
+			cell := c.Sheet.GetCell(row, col)
+			if cell != nil && cell.IsFormula {
+				val, evalErr := model.EvaluateFormula("="+cell.Value, cell.ParsedFormula, c.Sheet)
+				if evalErr != nil {
+					cell.SetError(evalErr.Error())
+				} else {
+					cell.SetFromValue(val)
+				}
+			}
+		}
+		return
 	}
 
 	for _, cellRef := range order {
@@ -281,13 +337,11 @@ func (c *AppController) recalculateAllFormulas() {
 		}
 		cell := c.Sheet.GetCell(row, col)
 		if cell != nil && cell.IsFormula {
-			result, isErr, evalErr := model.EvaluateFormula("="+cell.Value, c.Sheet)
+			val, evalErr := model.EvaluateFormula("="+cell.Value, cell.ParsedFormula, c.Sheet)
 			if evalErr != nil {
 				cell.SetError(evalErr.Error())
-			} else if isErr {
-				cell.SetError(result)
 			} else {
-				cell.SetComputed(result)
+				cell.SetFromValue(val)
 			}
 		}
 	}
@@ -316,7 +370,7 @@ func (c *AppController) GetCellRawValue(row, col int) string {
 	if cell == nil {
 		return ""
 	}
-	return cell.RawValue()
+	return cell.DisplayFormula()
 }
 
 // GetCellRef returns the cell reference (e.g., "A1", "B5") for the given row and column
@@ -391,7 +445,9 @@ func (c *AppController) rebuildDependencyGraph() {
 				refs := model.ExtractCellReferences("=" + cell.Value)
 
 				for _, ref := range refs {
-					c.Sheet.Dependencies.AddDependency(cellRef, ref)
+					if ref != cellRef { // skip spurious self-deps from invalid range coords
+						c.Sheet.Dependencies.AddDependency(cellRef, ref)
+					}
 				}
 			}
 		}

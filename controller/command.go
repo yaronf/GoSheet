@@ -162,20 +162,59 @@ func (cmd *SetCellCommand) Undo() error {
 	cellRef := model.CoordsToRef(cmd.row, cmd.col)
 	cmd.ctrl.Sheet.Dependencies.RemoveDependencies(cellRef)
 	if restored.IsFormula {
-		// Rebuild dependency edges for the restored formula
+		// Check for circular references BEFORE adding dependencies (same as setCellValueInternal)
 		refs := model.ExtractCellReferences("=" + restored.Value)
+		hasCycle := false
+		var cycleStr string
+		for _, ref := range refs {
+			if cycle, cyclePath := cmd.ctrl.Sheet.Dependencies.DetectCircularReference(cellRef, ref); cycle {
+				hasCycle = true
+				for i, node := range cyclePath {
+					if i > 0 {
+						cycleStr += " → "
+					}
+					cycleStr += node
+				}
+				break
+			}
+		}
+		// Now add the dependency edges
 		for _, ref := range refs {
 			cmd.ctrl.Sheet.Dependencies.AddDependency(cellRef, ref)
 		}
-		// Re-evaluate to get a fresh Computed value (snapshot may be stale if
-		// referenced cells changed between Do() and Undo())
-		result, isErr, err := model.EvaluateFormula("="+restored.Value, cmd.ctrl.Sheet)
-		if err != nil {
-			restored.SetError(err.Error())
-		} else if isErr {
-			restored.SetError(result)
+		if hasCycle {
+			restored.SetError("circular reference: " + cycleStr)
+			// Can't use recalculateDependents (cycle in graph); propagate error to immediate dependents directly.
+			cmd.ctrl.Sheet.Cells[cmd.row][cmd.col] = &restored
+			cmd.ctrl.Sheet.Modified = true
+			for _, dep := range cmd.ctrl.Sheet.Dependencies.GetDependents(cellRef) {
+				if dep == cellRef {
+					continue
+				}
+				depRow, depCol, err := model.RefToCoords(dep)
+				if err != nil {
+					continue
+				}
+				depCell := cmd.ctrl.Sheet.GetCell(depRow, depCol)
+				if depCell != nil && depCell.IsFormula {
+					val, evalErr := model.EvaluateFormula("="+depCell.Value, depCell.ParsedFormula, cmd.ctrl.Sheet)
+					if evalErr != nil {
+						depCell.SetError(evalErr.Error())
+					} else {
+						depCell.SetFromValue(val)
+					}
+				}
+			}
+			return nil
 		} else {
-			restored.SetComputed(result)
+			// Re-evaluate to get a fresh Computed value (snapshot may be stale if
+			// referenced cells changed between Do() and Undo())
+			val, err := model.EvaluateFormula("="+restored.Value, nil, cmd.ctrl.Sheet)
+			if err != nil {
+				restored.SetError(err.Error())
+			} else {
+				restored.SetFromValue(val)
+			}
 		}
 	}
 	cmd.ctrl.Sheet.Cells[cmd.row][cmd.col] = &restored
@@ -238,13 +277,11 @@ func (cmd *ClearRangeCommand) Undo() error {
 					cmd.ctrl.Sheet.Dependencies.AddDependency(cellRef, ref)
 				}
 				// Re-evaluate to get fresh Computed (snapshot may be stale)
-				result, isErr, err := model.EvaluateFormula("="+cp.Value, cmd.ctrl.Sheet)
+				val, err := model.EvaluateFormula("="+cp.Value, nil, cmd.ctrl.Sheet)
 				if err != nil {
 					cp.SetError(err.Error())
-				} else if isErr {
-					cp.SetError(result)
 				} else {
-					cp.SetComputed(result)
+					cp.SetFromValue(val)
 				}
 			}
 			cmd.ctrl.Sheet.Cells[row][col] = &cp
@@ -302,9 +339,9 @@ func (cmd *InsertRowCommand) Description() string {
 type DeleteRowCommand struct {
 	ctrl            *AppController
 	row             int
-	snapshot        map[int]*model.Cell    // col → cell copy of deleted row, captured before Do()
-	formulaSnapshot map[int]map[int]string // [row][col] → original formula text for all formula cells
-	merges          []model.MergeRegion    // merge regions captured before Do()
+	snapshot        map[int]*model.Cell             // col → cell copy of deleted row, captured before Do()
+	formulaSnapshot map[int]map[int]formulaSnapshot // [row][col] → formula state before delete
+	merges          []model.MergeRegion             // merge regions captured before Do()
 }
 
 func (cmd *DeleteRowCommand) Do() error {
@@ -384,9 +421,9 @@ func (cmd *InsertColumnCommand) Description() string {
 type DeleteColumnCommand struct {
 	ctrl            *AppController
 	col             int
-	snapshot        map[int]*model.Cell    // row → cell copy of deleted col, captured before Do()
-	formulaSnapshot map[int]map[int]string // [row][col] → original formula text
-	merges          []model.MergeRegion    // merge regions captured before Do()
+	snapshot        map[int]*model.Cell             // row → cell copy of deleted col, captured before Do()
+	formulaSnapshot map[int]map[int]formulaSnapshot // [row][col] → formula state before delete
+	merges          []model.MergeRegion             // merge regions captured before Do()
 }
 
 func (cmd *DeleteColumnCommand) Do() error {
@@ -684,27 +721,40 @@ func (cmd *UnmergeCommand) Description() string {
 // snapshotFormulas captures the formula text of all formula cells in the sheet.
 // Only formula cells are captured since non-formula cell values don't change
 // during row/column insert/delete operations.
-func snapshotFormulas(sheet *model.Spreadsheet) map[int]map[int]string {
-	snap := make(map[int]map[int]string)
+type formulaSnapshot struct {
+	value       string
+	invalidRefs []string
+}
+
+func snapshotFormulas(sheet *model.Spreadsheet) map[int]map[int]formulaSnapshot {
+	snap := make(map[int]map[int]formulaSnapshot)
 	for r, rowMap := range sheet.Cells {
 		for c, cell := range rowMap {
 			if cell != nil && cell.IsFormula && cell.Value != "" {
 				if snap[r] == nil {
-					snap[r] = make(map[int]string)
+					snap[r] = make(map[int]formulaSnapshot)
 				}
-				snap[r][c] = cell.Value
+				var refs []string
+				if len(cell.InvalidRefs) > 0 {
+					refs = append([]string(nil), cell.InvalidRefs...)
+				}
+				snap[r][c] = formulaSnapshot{value: cell.Value, invalidRefs: refs}
 			}
 		}
 	}
 	return snap
 }
 
-// restoreFormulas writes formula texts back from a snapshot produced by snapshotFormulas.
-func restoreFormulas(sheet *model.Spreadsheet, snap map[int]map[int]string) {
+// restoreFormulas writes formula state back from a snapshot produced by snapshotFormulas.
+// It clears ParsedFormula so recalculateAllFormulas rebuilds the AST, then re-applies
+// InvalidRefs so cells that were #REF! before the structural op are restored correctly.
+func restoreFormulas(sheet *model.Spreadsheet, snap map[int]map[int]formulaSnapshot) {
 	for r, colMap := range snap {
-		for c, formula := range colMap {
+		for c, fs := range colMap {
 			if cell := sheet.GetCell(r, c); cell != nil && cell.IsFormula {
-				cell.Value = formula
+				cell.Value = fs.value
+				cell.ParsedFormula = nil
+				cell.InvalidRefs = fs.invalidRefs
 			}
 		}
 	}

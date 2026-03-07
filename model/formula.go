@@ -94,26 +94,82 @@ func NormalizeFormula(formula string) (string, error) {
 	return "=" + serializeComparison(ast.Expr.Comparison), nil
 }
 
-// EvaluateFormula evaluates a formula and returns the result as a string and whether it is an error value.
-func EvaluateFormula(formula string, sheet *Spreadsheet) (string, bool, error) {
-	// Normalize formula to uppercase for cell references
-	formula = normalizeFormula(formula)
-	// Parse the formula
-	ast, err := ParseFormula(formula)
-	if err != nil {
-		return "", false, fmt.Errorf("parse error: %w", err)
+// SerializeForDisplay serializes an AST to a formula string for display purposes,
+// rendering invalid CellRef and Range nodes as #REF! instead of their original coords.
+func SerializeForDisplay(ast *Formula) string {
+	if ast == nil || ast.Expr == nil {
+		return ""
+	}
+	return serializeComparisonDisplay(ast.Expr.Comparison)
+}
+
+func serializeComparisonDisplay(comp *Comparison) string {
+	if comp == nil {
+		return ""
+	}
+	result := serializeAdditionDisplay(comp.Left)
+	if comp.Op != nil && comp.Right != nil {
+		result += *comp.Op + serializeComparisonDisplay(comp.Right)
+	}
+	return result
+}
+
+func serializeAdditionDisplay(add *Addition) string {
+	result := serializeMultiplicationDisplay(add.Left)
+	if add.Op != nil && add.Right != nil {
+		result += *add.Op + serializeAdditionDisplay(add.Right)
+	}
+	return result
+}
+
+func serializeMultiplicationDisplay(mult *Multiplication) string {
+	result := serializeUnaryDisplay(mult.Left)
+	if mult.Op != nil && mult.Right != nil {
+		result += *mult.Op + serializeMultiplicationDisplay(mult.Right)
+	}
+	return result
+}
+
+func serializeUnaryDisplay(unary *Unary) string {
+	if unary == nil {
+		return ""
+	}
+	result := ""
+	if unary.Op != nil {
+		result = *unary.Op
+	}
+	if unary.Unary != nil {
+		return result + serializeUnaryDisplay(unary.Unary)
+	}
+	return result + serializePrimaryDisplay(unary.Primary)
+}
+
+// EvaluateFormula evaluates a formula and returns a typed Value.
+// error is non-nil only for parse/eval machinery failures (not for ErrorValue/RefErrorValue results).
+// If storedAST is non-nil, it is used directly (skipping the parse step). Pass cell.ParsedFormula for performance.
+func EvaluateFormula(formula string, storedAST *Formula, sheet *Spreadsheet) (Value, error) {
+	var ast *Formula
+	if storedAST != nil {
+		ast = storedAST
+	} else {
+		// Normalize formula to uppercase for cell references
+		formula = normalizeFormula(formula)
+		var err error
+		ast, err = ParseFormula(formula)
+		if err != nil {
+			return nil, fmt.Errorf("parse error: %w", err)
+		}
+		// Populate coordinate fields so evaluateCellRef/evaluateRange can use them
+		resolveAllCoords(ast)
 	}
 
 	// Evaluate the AST
 	result, err := evaluateExpression(ast.Expr, sheet)
 	if err != nil {
-		return "", false, fmt.Errorf("eval error: %w", err)
+		return nil, fmt.Errorf("eval error: %w", err)
 	}
 
-	if ev, isErr := result.(ErrorValue); isErr {
-		return ev.Error.Error(), true, nil
-	}
-	return valueToString(result), false, nil
+	return result, nil
 }
 
 // serializeComparison converts a Comparison AST back to a string
@@ -161,7 +217,8 @@ func serializeUnary(unary *Unary) string {
 	return result + serializePrimary(unary.Primary)
 }
 
-// serializePrimary converts a Primary AST back to a string
+// serializePrimary converts a Primary AST back to a string.
+// Invalid refs are preserved as their original coord strings so cell.Value stays parseable.
 func serializePrimary(prim *Primary) string {
 	if prim == nil {
 		return ""
@@ -185,6 +242,54 @@ func serializePrimary(prim *Primary) string {
 		return "(" + serializeComparison(prim.SubExpr.Comparison) + ")"
 	}
 	return ""
+}
+
+// serializePrimaryDisplay is like serializePrimary but renders invalid refs as #REF!
+// for display purposes (formula bar). cell.Value must NOT use this — it must stay parseable.
+func serializePrimaryDisplay(prim *Primary) string {
+	if prim == nil {
+		return ""
+	}
+	if prim.CellRef != nil && prim.CellRef.Invalid {
+		return "#REF!"
+	}
+	if prim.Range != nil && prim.Range.Invalid {
+		return "#REF!"
+	}
+	if prim.Number != nil {
+		return fmt.Sprintf("%g", *prim.Number)
+	}
+	if prim.String != nil {
+		return *prim.String
+	}
+	if prim.CellRef != nil {
+		return prim.CellRef.Ref
+	}
+	if prim.Range != nil {
+		return prim.Range.Start + ":" + prim.Range.End
+	}
+	if prim.FuncCall != nil {
+		return serializeFuncCallDisplay(prim.FuncCall)
+	}
+	if prim.SubExpr != nil {
+		return "(" + serializeComparisonDisplay(prim.SubExpr.Comparison) + ")"
+	}
+	return ""
+}
+
+func serializeFuncCallDisplay(fc *FuncCall) string {
+	result := fc.Name + "("
+	for i, arg := range fc.Args {
+		if i > 0 {
+			result += ","
+		}
+		if arg != nil {
+			result += serializeComparisonDisplay(arg.Comparison)
+		} else {
+			result += "?"
+		}
+	}
+	return result + ")"
 }
 
 // serializeFuncCall converts a FuncCall AST back to a string
@@ -233,6 +338,20 @@ type ErrorValue struct {
 
 func (ErrorValue) value() {}
 
+// RefErrorValue represents a #REF! error — a formula references a deleted cell or range.
+type RefErrorValue struct{}
+
+func (RefErrorValue) value() {}
+
+// isErrorLike returns true for both ErrorValue and RefErrorValue — used for error propagation.
+func isErrorLike(v Value) bool {
+	switch v.(type) {
+	case ErrorValue, RefErrorValue:
+		return true
+	}
+	return false
+}
+
 // valueToString converts a Value to its string representation
 func valueToString(v Value) string {
 	switch val := v.(type) {
@@ -246,6 +365,8 @@ func valueToString(v Value) string {
 		return val.Value
 	case ErrorValue:
 		return fmt.Sprintf("#ERROR %v", val.Error)
+	case RefErrorValue:
+		return "#REF!"
 	case VectorValue:
 		return fmt.Sprintf("[%d values]", len(val.Values))
 	default:
@@ -270,6 +391,8 @@ func toNumber(v Value) (float64, error) {
 		return num, nil
 	case ErrorValue:
 		return 0, val.Error
+	case RefErrorValue:
+		return 0, fmt.Errorf("#REF!")
 	default:
 		return 0, fmt.Errorf("cannot convert to number")
 	}
@@ -291,16 +414,17 @@ func evaluateComparison(comp *Comparison, sheet *Spreadsheet) (Value, error) {
 		return left, nil
 	}
 
+	// Propagate left error before evaluating right (avoids right error masking left #REF!)
+	if isErrorLike(left) {
+		return left, nil
+	}
+
 	right, err := evaluateComparison(comp.Right, sheet)
 	if err != nil {
 		return ErrorValue{err}, err
 	}
 
-	// If either operand is an error, propagate it
-	if _, isErr := left.(ErrorValue); isErr {
-		return left, nil
-	}
-	if _, isErr := right.(ErrorValue); isErr {
+	if isErrorLike(right) {
 		return right, nil
 	}
 
@@ -349,16 +473,17 @@ func evaluateAddition(add *Addition, sheet *Spreadsheet) (Value, error) {
 		return left, nil
 	}
 
+	// Propagate left error before evaluating right (avoids right error masking left #REF!)
+	if isErrorLike(left) {
+		return left, nil
+	}
+
 	right, err := evaluateAddition(add.Right, sheet)
 	if err != nil {
 		return ErrorValue{err}, err
 	}
 
-	// If either operand is an error, propagate it
-	if _, isErr := left.(ErrorValue); isErr {
-		return left, nil
-	}
-	if _, isErr := right.(ErrorValue); isErr {
+	if isErrorLike(right) {
 		return right, nil
 	}
 
@@ -393,16 +518,17 @@ func evaluateMultiplication(mult *Multiplication, sheet *Spreadsheet) (Value, er
 		return left, nil
 	}
 
+	// Propagate left error before evaluating right (avoids right error masking left #REF!)
+	if isErrorLike(left) {
+		return left, nil
+	}
+
 	right, err := evaluateMultiplication(mult.Right, sheet)
 	if err != nil {
 		return ErrorValue{err}, err
 	}
 
-	// If either operand is an error, propagate it
-	if _, isErr := left.(ErrorValue); isErr {
-		return left, nil
-	}
-	if _, isErr := right.(ErrorValue); isErr {
+	if isErrorLike(right) {
 		return right, nil
 	}
 
@@ -444,6 +570,11 @@ func evaluateUnary(unary *Unary, sheet *Spreadsheet) (Value, error) {
 	val, err := evaluateUnary(unary.Unary, sheet)
 	if err != nil {
 		return ErrorValue{err}, err
+	}
+
+	// Propagate error values (including #REF!) before converting to number
+	if isErrorLike(val) {
+		return val, nil
 	}
 
 	num, err := toNumber(val)
@@ -498,7 +629,10 @@ func evaluatePrimary(prim *Primary, sheet *Spreadsheet) (Value, error) {
 // evaluateCellRef evaluates a cell reference.
 // Story 11.6: Covered cells resolve to anchor so formulas referencing merged ranges work.
 func evaluateCellRef(ref *CellRef, sheet *Spreadsheet) (Value, error) {
-	row, col := ref.ToCoords()
+	if ref.Invalid {
+		return RefErrorValue{}, nil
+	}
+	row, col := ref.Row, ref.Col
 	ar, ac := sheet.ResolveToAnchor(row, col)
 	cell := sheet.GetCell(ar, ac)
 
@@ -509,8 +643,12 @@ func evaluateCellRef(ref *CellRef, sheet *Spreadsheet) (Value, error) {
 	// Use the computed value (for formulas, this is the result; for values, it's the same as Value)
 	computed := cell.Computed
 
-	// If the referenced cell itself contains an error, propagate with a clear message
+	// If the referenced cell itself contains an error, propagate it.
+	// #REF! propagates as RefErrorValue; other errors propagate as ErrorValue.
 	if cell.IsError {
+		if computed == "#REF!" {
+			return RefErrorValue{}, nil
+		}
 		return ErrorValue{fmt.Errorf("referenced cell has error")}, nil
 	}
 
@@ -527,6 +665,9 @@ func evaluateCellRef(ref *CellRef, sheet *Spreadsheet) (Value, error) {
 
 // evaluateRange evaluates a range and returns a VectorValue
 func evaluateRange(rng *Range, sheet *Spreadsheet) (Value, error) {
+	if rng.Invalid {
+		return RefErrorValue{}, nil
+	}
 	// Get start and end coordinates
 	startRow, startCol := rng.GetStartCoords()
 	endRow, endCol := rng.GetEndCoords()
@@ -576,6 +717,10 @@ func evaluateFuncCall(call *FuncCall, sheet *Spreadsheet) (Value, error) {
 		val, err := evaluateExpression(argExpr, sheet)
 		if err != nil {
 			return ErrorValue{err}, err
+		}
+		// Propagate #REF! out of function calls immediately
+		if _, isRef := val.(RefErrorValue); isRef {
+			return val, nil
 		}
 		args = append(args, val)
 	}

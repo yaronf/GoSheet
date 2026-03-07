@@ -1,104 +1,200 @@
 package model
 
-import (
-	"regexp"
-	"sort"
-)
+// formula_shift.go — rewrite formula cell refs when rows/cols are inserted or deleted.
+// Story 15.5: operates on the parsed AST (Cell.ParsedFormula) rather than doing string substitution.
+// After mutation the formula string is re-derived from the AST so Cell.Value always stays parseable.
 
-var cellRefRe = regexp.MustCompile(`\b([A-Z]+\d+)\b`)
-
-// shiftFormulaRefsForInsertRow rewrites cell references in a formula when a row is inserted.
-// Refs with row >= insertRow have their row incremented by 1.
-func shiftFormulaRefsForInsertRow(formula string, insertRow int) string {
-	if insertRow < 0 {
-		return formula
+// shiftFormulaRefsForInsertRow shifts all cell refs in the cell down by 1 when a row is inserted.
+func shiftFormulaRefsForInsertRow(cell *Cell, insertRow int) {
+	if insertRow < 0 || cell.ParsedFormula == nil {
+		return
 	}
-	return shiftFormulaRefs(formula, insertRow, -1)
+	shiftASTRefs(cell, insertRow, -1, true)
 }
 
-// shiftFormulaRefsForInsertColumn rewrites cell references in a formula when a column is inserted.
-// Refs with col >= insertCol have their col incremented by 1.
-func shiftFormulaRefsForInsertColumn(formula string, insertCol int) string {
-	if insertCol < 0 {
-		return formula
+// shiftFormulaRefsForInsertColumn shifts all cell refs in the cell right by 1 when a col is inserted.
+func shiftFormulaRefsForInsertColumn(cell *Cell, insertCol int) {
+	if insertCol < 0 || cell.ParsedFormula == nil {
+		return
 	}
-	return shiftFormulaRefs(formula, -1, insertCol)
+	shiftASTRefs(cell, -1, insertCol, true)
 }
 
-// unshiftFormulaRefsForDeleteRow rewrites cell references when a row is deleted.
-// Refs with row > deletedRow get row--. Refs at exactly deletedRow become #REF!.
-func unshiftFormulaRefsForDeleteRow(formula string, deletedRow int) string {
-	if deletedRow < 0 {
-		return formula
+// unshiftFormulaRefsForDeleteRow updates cell refs after a row deletion.
+// Refs pointing at deletedRow become invalid; refs below shift up.
+func unshiftFormulaRefsForDeleteRow(cell *Cell, deletedRow int) {
+	if deletedRow < 0 || cell.ParsedFormula == nil {
+		return
 	}
-	return unshiftFormulaRefs(formula, deletedRow, -1)
+	shiftASTRefs(cell, deletedRow, -1, false)
 }
 
-// unshiftFormulaRefsForDeleteColumn rewrites cell references when a column is deleted.
-// Refs with col > deletedCol get col--. Refs at exactly deletedCol become #REF!.
-func unshiftFormulaRefsForDeleteColumn(formula string, deletedCol int) string {
-	if deletedCol < 0 {
-		return formula
+// unshiftFormulaRefsForDeleteColumn updates cell refs after a column deletion.
+// Refs pointing at deletedCol become invalid; refs to the right shift left.
+func unshiftFormulaRefsForDeleteColumn(cell *Cell, deletedCol int) {
+	if deletedCol < 0 || cell.ParsedFormula == nil {
+		return
 	}
-	return unshiftFormulaRefs(formula, -1, deletedCol)
+	shiftASTRefs(cell, -1, deletedCol, false)
 }
 
-// unshiftFormulaRefs updates cell refs: refs with row > deletedRow get row--, refs with col > deletedCol get col--.
-// Refs pointing exactly at the deleted row or column become #REF! (the cell no longer exists).
-// Use deletedRow < 0 or deletedCol < 0 to skip that dimension.
-func unshiftFormulaRefs(formula string, deletedRow, deletedCol int) string {
-	matches := cellRefRe.FindAllStringSubmatchIndex(formula, -1)
-	if len(matches) == 0 {
-		return formula
-	}
-	// Process from end to start so indices remain valid
-	sort.Slice(matches, func(i, j int) bool { return matches[i][0] > matches[j][0] })
-	for _, m := range matches {
-		ref := formula[m[2]:m[3]]
-		r, c, err := RefToCoords(ref)
-		if err != nil {
-			continue
-		}
-		// Ref points to the deleted row or column → invalid reference
-		if (deletedRow >= 0 && r == deletedRow) || (deletedCol >= 0 && c == deletedCol) {
-			formula = formula[:m[2]] + "#REF!" + formula[m[3]:]
-			continue
-		}
-		if deletedRow >= 0 && r > deletedRow {
-			r--
-		}
-		if deletedCol >= 0 && c > deletedCol {
-			c--
-		}
-		newRef := CoordsToRef(r, c)
-		formula = formula[:m[2]] + newRef + formula[m[3]:]
-	}
-	return formula
+// shiftASTRefs walks the AST and updates CellRef and Range coords.
+// If insert=true: refs at >= threshold get +1. If insert=false (delete): refs at threshold
+// become invalid; refs beyond threshold get -1.
+// deletedRow/deletedCol < 0 means that dimension is not being shifted.
+func shiftASTRefs(cell *Cell, deletedRow, deletedCol int, insert bool) {
+	shiftASTNodes(cell.ParsedFormula, deletedRow, deletedCol, insert)
+	// Re-derive cell.Value from the mutated AST (keeps Value always parseable)
+	cell.Value = serializeComparison(cell.ParsedFormula.Expr.Comparison)
+	// Rebuild InvalidRefs list from all nodes that are now invalid
+	cell.InvalidRefs = collectInvalidRefs(cell.ParsedFormula)
 }
 
-// shiftFormulaRefs updates cell refs: refs with row >= insertRow get row++, refs with col >= insertCol get col++.
-// Use insertRow < 0 or insertCol < 0 to skip that dimension.
-func shiftFormulaRefs(formula string, insertRow, insertCol int) string {
-	matches := cellRefRe.FindAllStringSubmatchIndex(formula, -1)
-	if len(matches) == 0 {
-		return formula
+// collectInvalidRefs returns the list of ref strings for all invalid AST nodes.
+func collectInvalidRefs(ast *Formula) []string {
+	var refs []string
+	WalkPrimaries(ast, func(prim *Primary) {
+		if prim.CellRef != nil && prim.CellRef.Invalid {
+			refs = append(refs, prim.CellRef.Ref)
+		}
+		if prim.Range != nil && prim.Range.Invalid {
+			refs = append(refs, prim.Range.Start+":"+prim.Range.End)
+		}
+	})
+	if len(refs) == 0 {
+		return nil
 	}
-	// Process from end to start so indices remain valid
-	sort.Slice(matches, func(i, j int) bool { return matches[i][0] > matches[j][0] })
-	for _, m := range matches {
-		ref := formula[m[2]:m[3]]
-		r, c, err := RefToCoords(ref)
-		if err != nil {
-			continue
+	return refs
+}
+
+// --- AST mutation ---
+
+func shiftASTNodes(ast *Formula, deletedRow, deletedCol int, insert bool) {
+	WalkPrimaries(ast, func(prim *Primary) {
+		if prim.CellRef != nil {
+			shiftCellRef(prim.CellRef, deletedRow, deletedCol, insert)
 		}
-		if insertRow >= 0 && r >= insertRow {
-			r++
+		if prim.Range != nil {
+			shiftRange(prim.Range, deletedRow, deletedCol, insert)
 		}
-		if insertCol >= 0 && c >= insertCol {
-			c++
-		}
-		newRef := CoordsToRef(r, c)
-		formula = formula[:m[2]] + newRef + formula[m[3]:]
+	})
+}
+
+func shiftCellRef(ref *CellRef, deletedRow, deletedCol int, insert bool) {
+	if ref.Invalid {
+		return // already invalid, leave it
 	}
-	return formula
+	if insert {
+		// Insert: shift refs at >= threshold up/right
+		if deletedRow >= 0 && ref.Row >= deletedRow {
+			ref.Row++
+			ref.Ref = CoordsToRef(ref.Row, ref.Col)
+		}
+		if deletedCol >= 0 && ref.Col >= deletedCol {
+			ref.Col++
+			ref.Ref = CoordsToRef(ref.Row, ref.Col)
+		}
+	} else {
+		// Delete: refs at threshold become invalid; refs beyond threshold shift
+		if deletedRow >= 0 {
+			if ref.Row == deletedRow {
+				ref.Invalid = true
+				return
+			}
+			if ref.Row > deletedRow {
+				ref.Row--
+				ref.Ref = CoordsToRef(ref.Row, ref.Col)
+			}
+		}
+		if deletedCol >= 0 {
+			if ref.Col == deletedCol {
+				ref.Invalid = true
+				return
+			}
+			if ref.Col > deletedCol {
+				ref.Col--
+				ref.Ref = CoordsToRef(ref.Row, ref.Col)
+			}
+		}
+	}
+}
+
+func shiftRange(rng *Range, deletedRow, deletedCol int, insert bool) {
+	if rng.Invalid {
+		return // already invalid, leave it
+	}
+	if insert {
+		// Insert: shift start and end coords independently
+		if deletedRow >= 0 {
+			if rng.StartRow >= deletedRow {
+				rng.StartRow++
+			}
+			if rng.EndRow >= deletedRow {
+				rng.EndRow++
+			}
+		}
+		if deletedCol >= 0 {
+			if rng.StartCol >= deletedCol {
+				rng.StartCol++
+			}
+			if rng.EndCol >= deletedCol {
+				rng.EndCol++
+			}
+		}
+		rng.Start = CoordsToRef(rng.StartRow, rng.StartCol)
+		rng.End = CoordsToRef(rng.EndRow, rng.EndCol)
+	} else {
+		// Delete: check start and end independently
+		if deletedRow >= 0 {
+			startDeleted := rng.StartRow == deletedRow
+			endDeleted := rng.EndRow == deletedRow
+			if startDeleted || endDeleted {
+				rng.Invalid = true
+				return
+			}
+			// Interior deletion within range: shrink end
+			if deletedRow > rng.StartRow && deletedRow < rng.EndRow {
+				rng.EndRow--
+				// Collapsed check (shouldn't happen if start < end and interior, but be safe)
+				if rng.EndRow < rng.StartRow {
+					rng.Invalid = true
+					return
+				}
+			} else {
+				// Deletion outside range: shift endpoints that are beyond deleted row
+				if rng.StartRow > deletedRow {
+					rng.StartRow--
+				}
+				if rng.EndRow > deletedRow {
+					rng.EndRow--
+				}
+			}
+		}
+		if deletedCol >= 0 {
+			startDeleted := rng.StartCol == deletedCol
+			endDeleted := rng.EndCol == deletedCol
+			if startDeleted || endDeleted {
+				rng.Invalid = true
+				return
+			}
+			if deletedCol > rng.StartCol && deletedCol < rng.EndCol {
+				rng.EndCol--
+				if rng.EndCol < rng.StartCol {
+					rng.Invalid = true
+					return
+				}
+			} else {
+				if rng.StartCol > deletedCol {
+					rng.StartCol--
+				}
+				if rng.EndCol > deletedCol {
+					rng.EndCol--
+				}
+			}
+		}
+		if !rng.Invalid {
+			rng.Start = CoordsToRef(rng.StartRow, rng.StartCol)
+			rng.End = CoordsToRef(rng.EndRow, rng.EndCol)
+		}
+	}
 }

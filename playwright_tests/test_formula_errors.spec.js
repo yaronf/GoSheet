@@ -202,4 +202,27 @@ test.describe('Formula Error Handling', () => {
     await expect(cellA1).not.toHaveClass(/error-cell/);
     await expect(cellA1).toHaveText('');
   });
+
+  // Bug repro: undo of breaking a circular reference should restore the cycle errors
+  test('undo of breaking a circular reference restores the cycle errors', async ({
+    window,
+  }) => {
+    // Create cycle: A1=B1, B1=A1
+    await setCellViaApi(window, 0, 0, '=B1');
+    await setCellViaApi(window, 0, 1, '=A1');
+    const cellA1 = window.locator('#cell-0-0');
+    const cellB1 = window.locator('#cell-0-1');
+    await expect(cellB1).toHaveClass(/error-cell/, { timeout: 3000 });
+    await expect(cellA1).toHaveClass(/error-cell/, { timeout: 3000 });
+
+    // Break cycle by clearing B1
+    await setCellViaApi(window, 0, 1, '');
+    await expect(cellB1).not.toHaveClass(/error-cell/, { timeout: 3000 });
+    await expect(cellA1).not.toHaveClass(/error-cell/, { timeout: 3000 });
+
+    // Undo the clear — cycle should be restored, both cells should show errors again
+    await window.keyboard.press('Meta+z');
+    await expect(cellB1).toHaveClass(/error-cell/, { timeout: 3000 });
+    await expect(cellA1).toHaveClass(/error-cell/, { timeout: 3000 });
+  });
 });

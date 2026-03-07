@@ -258,4 +258,141 @@ test.describe('Undo/Redo structural operations (Story 15.3)', () => {
     });
     await expect(window.locator('#cell-2-0')).not.toHaveClass(/error-cell/);
   });
+
+  // Bug repro: deleting two rows where the second delete invalidates a range
+  // boundary causes the formula Value to be serialized as "SUM(C9:#REF!)",
+  // which then fails to parse ("1:9: lexer: invalid input text #REF!)").
+  test('deleting two rows where second delete hits range boundary shows #REF! not parse error', async ({
+    window,
+  }) => {
+    // Set up: A1..A3 = 10,20,30; A4 = =SUM(A1:A3)
+    await setCellViaApi(window, 0, 0, '10');
+    await setCellViaApi(window, 1, 0, '20');
+    await setCellViaApi(window, 2, 0, '30');
+    await setCellViaApi(window, 3, 0, '=SUM(A1:A3)');
+    await expect(window.locator('#cell-3-0')).toHaveText('60', {
+      timeout: 3000,
+    });
+
+    // First delete: row 1 (interior of A1:A3) — range shrinks to A1:A2, still valid
+    await apiDeleteRow(window, 1);
+    // Formula cell is now at row 2 (was row 3), range shrinks to A1:A2
+    await expect(window.locator('#cell-2-0')).not.toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+
+    // Second delete: row 1 (now the end boundary A2 of A1:A2) — should become #REF!
+    await apiDeleteRow(window, 1);
+    // Formula cell is now at row 1; should show #REF!, NOT "#ERROR parse error"
+    const cellText = await window.locator('#cell-1-0').textContent();
+    expect(cellText).not.toContain('parse error');
+    await expect(window.locator('#cell-1-0')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+  });
+
+  // Bug repro: after a range formula becomes #REF!, deleting that formula cell's row
+  // and then undoing the delete should restore the cell showing #REF!, not a valid result.
+  test('undo of deleting a #REF! formula row restores #REF! not valid result', async ({
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 0, '10');
+    await setCellViaApi(window, 1, 0, '20');
+    await setCellViaApi(window, 2, 0, '30');
+    await setCellViaApi(window, 3, 0, '=SUM(A1:A3)');
+    await expect(window.locator('#cell-3-0')).toHaveText('60', {
+      timeout: 3000,
+    });
+
+    // Delete row 1 (interior) → range shrinks to A1:A2, still valid
+    await apiDeleteRow(window, 1);
+    await expect(window.locator('#cell-2-0')).not.toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+
+    // Delete row 1 (now end boundary A2) → formula becomes #REF!
+    await apiDeleteRow(window, 1);
+    await expect(window.locator('#cell-1-0')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+
+    // Delete the #REF! formula row itself (row 1)
+    await apiDeleteRow(window, 1);
+    await expect(window.locator('#cell-1-0')).not.toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+
+    // Undo: formula row comes back — should still show #REF!, not a valid result
+    await window.keyboard.press('Meta+z');
+    await expect(window.locator('#cell-1-0')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+    await expect(window.locator('#cell-1-0')).toHaveText('#REF!', {
+      timeout: 3000,
+    });
+  });
+
+  // Bug repro: formula bar shows clean formula text (e.g. =SUM(A1:A3)) for a cell
+  // that is displaying #REF!, instead of reflecting the invalid state.
+  test('formula bar shows #REF! for an invalid formula cell', async ({
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 0, '10');
+    await setCellViaApi(window, 1, 0, '20');
+    await setCellViaApi(window, 2, 0, '30');
+    await setCellViaApi(window, 3, 0, '=SUM(A1:A3)');
+    await expect(window.locator('#cell-3-0')).toHaveText('60', {
+      timeout: 3000,
+    });
+
+    // Delete row 1 (end boundary) → formula becomes #REF!
+    await apiDeleteRow(window, 2);
+    await expect(window.locator('#cell-2-0')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+
+    // Click the error cell — formula bar should reflect the invalid state, not the original formula
+    await window.locator('#cell-2-0').click();
+    const formulaBar = window.locator('#formula-bar');
+    const barValue = await formulaBar.inputValue();
+    expect(barValue).not.toBe('=SUM(A1:A3)');
+    expect(barValue).toContain('#REF!');
+  });
+
+  // Bug repro: undo of a column delete that broke a circular reference should
+  // restore the cycle errors, not show valid (empty/zero) values.
+  // Scenario from logs: D4=E4, E4=D4 cycle. Delete col D → E4 shifts to D4 (self-ref).
+  // Undo → cycle D4↔E4 should be restored and both cells show errors.
+  test('undo of column delete that broke a circular ref restores cycle errors', async ({
+    window,
+  }) => {
+    // Create cycle: A1=B1, B1=A1
+    await setCellViaApi(window, 0, 0, '=B1');
+    await setCellViaApi(window, 0, 1, '=A1');
+    await expect(window.locator('#cell-0-0')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+    await expect(window.locator('#cell-0-1')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+
+    // Delete column A — B1 shifts to A1 (self-reference), cycle broken
+    await apiDeleteColumn(window, 0);
+
+    // Undo the delete — cycle A1↔B1 should be restored, both cells show circular ref errors (not #REF!)
+    await window.keyboard.press('Meta+z');
+    await expect(window.locator('#cell-0-0')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+    await expect(window.locator('#cell-0-1')).toHaveClass(/error-cell/, {
+      timeout: 3000,
+    });
+    // Must be circular ref errors, not #REF! (which would indicate the formula ref wasn't restored)
+    await expect(window.locator('#cell-0-0')).not.toHaveText('#REF!', {
+      timeout: 2000,
+    });
+    await expect(window.locator('#cell-0-1')).not.toHaveText('#REF!', {
+      timeout: 2000,
+    });
+  });
 });

@@ -12,6 +12,17 @@ import (
 	"gosheet/logutil"
 )
 
+// debugShutdownHandler cleanly exits the process. Only registered when DEBUG=1.
+func debugShutdownHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.(http.Flusher).Flush()
+	os.Exit(0)
+}
+
 func main() {
 	port := flag.String("port", "3000", "Port to run the server on")
 	verbose := flag.Bool("verbose", false, "Enable verbose (debug) logging")
@@ -72,6 +83,9 @@ func main() {
 	http.HandleFunc("/api/styles/", cors(srv.HandleStyleByID))
 	http.HandleFunc("/api/undo", cors(srv.HandleUndo))
 	http.HandleFunc("/api/redo", cors(srv.HandleRedo))
+	if logutil.Verbose {
+		http.HandleFunc("/api/debug/shutdown", cors(debugShutdownHandler))
+	}
 
 	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
 	logutil.Debugf("Open http://localhost:%s in your browser\n", *port)
