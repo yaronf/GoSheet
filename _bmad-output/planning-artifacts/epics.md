@@ -2820,6 +2820,44 @@ So that multiple GoSheet instances can run simultaneously without port conflicts
 
 ---
 
+### Story 16.6: Refactor Functions Exceeding Complexity Threshold
+
+As a developer,
+I want all Go functions with cyclomatic complexity >20 refactored to ≤20,
+So that the codebase stays within the documented "must fix" threshold and future changes to these functions are less risky.
+
+**Background:** The complexity baseline (established Story 10.3) sets a hard ceiling of 20. Epics 13 and 15 introduced structural operations, formula shifting, and cycle propagation that pushed 5 functions above this threshold. The threshold is enforced by `make complexity` (reports >15; violations >20 listed separately).
+
+**Current violations (as of 2026-03-07):**
+
+| Complexity | Function | File |
+|---|---|---|
+| 30 | `(*AppController).recalculateAllFormulas` | `controller/app.go` |
+| 26 | `shiftRange` | `model/formula_shift.go` |
+| 25 | `(*Server).HandleCSVExport` | `api/handlers.go` |
+| 21 | `(*Spreadsheet).DeleteColumn` | `model/spreadsheet.go` |
+| 21 | `(*Server).HandleGetAllCells` | `api/handlers.go` |
+| 20 | `(*Spreadsheet).DeleteRow` | `model/spreadsheet.go` |
+
+**Acceptance Criteria:**
+
+**Given** `make complexity` is run after refactoring
+**When** results are inspected
+**Then** no function has cyclomatic complexity >20
+**And** all existing Go tests still pass with no behaviour changes
+
+**Given** each refactored function
+**When** reviewed
+**Then** extracted helpers are focused, named clearly, and covered by the existing test suite (no new behaviour added)
+
+**Given** the complexity baseline document
+**When** the story is complete
+**Then** `_bmad-output/implementation-artifacts/complexity-baseline.md` is updated to reflect the new measurements
+
+**Relevant files:** `controller/app.go`, `model/formula_shift.go`, `api/handlers.go`, `model/spreadsheet.go`
+
+---
+
 ## Epic 17: Selection & Range Operations
 
 **Goal:** Users can select contiguous rectangular ranges naturally, copy/paste them, and navigate to precise ranges by address.
