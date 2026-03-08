@@ -1,4 +1,11 @@
 // GoSheet HTTP Server - Clean REST API backend
+//
+// Story 16.8: Unified log format across all three layers (Go, Electron, Renderer):
+//
+//	[ISO-timestamp] [LEVEL] [go] message
+//
+// log.SetFlags(0) disables the stdlib date/time prefix. logutil.GoWriter prepends
+// [ISO] [INFO ] [go] to every log.Printf line. logutil.Debugf/Debugln emit [DEBUG].
 package main
 
 import (
@@ -14,7 +21,7 @@ import (
 	"gosheet/logutil"
 )
 
-// debugShutdownHandler cleanly exits the process. Only registered when DEBUG=1.
+// debugShutdownHandler cleanly exits the process. Only registered when --verbose is set.
 func debugShutdownHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
@@ -29,8 +36,12 @@ func main() {
 	verbose := flag.Bool("verbose", false, "Enable verbose (debug) logging")
 	flag.Parse()
 
-	logutil.Verbose = *verbose || os.Getenv("DEBUG") == "1"
-	log.SetOutput(os.Stderr)
+	// Story 16.8: DEBUG=1 env var is no longer supported; use --verbose flag.
+	logutil.Verbose = *verbose
+	log.SetFlags(0)
+	gw := &logutil.GoWriter{W: os.Stderr}
+	log.SetOutput(gw)
+	logutil.SetWriter(os.Stderr) // Debugf/Debugln write directly to stderr, bypassing GoWriter's [INFO] wrap
 
 	ctrl := controller.NewAppController()
 	srv := api.NewServer(ctrl)

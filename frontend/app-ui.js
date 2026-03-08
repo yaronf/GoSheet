@@ -101,12 +101,19 @@ export async function openFileReadOnly() {
 
 // Story 8.2: Setup welcome screen - show welcome on launch, wire button handlers
 export async function setupWelcomeScreen() {
-  const status = await GetFileStatus();
-  const hasFile = status.path && status.path !== '';
-  if (hasFile) {
+  // If main process encoded a file path in the URL, go straight to spreadsheet
+  // view — avoids a welcome-screen flash before the file loads via IPC.
+  const pendingFile = new URLSearchParams(location.search).get('file');
+  if (pendingFile) {
     showSpreadsheet();
   } else {
-    showWelcome();
+    const status = await GetFileStatus();
+    const hasFile = status.path && status.path !== '';
+    if (hasFile) {
+      showSpreadsheet();
+    } else {
+      showWelcome();
+    }
   }
 
   document

@@ -14,7 +14,7 @@
  * @module electron/menu
  */
 
-const { Menu, app } = require('electron');
+const { Menu, app, BrowserWindow } = require('electron');
 const path = require('path');
 
 /**
@@ -24,10 +24,15 @@ const DEBUG =
   process.env.NODE_ENV === 'development' || process.env.DEBUG === '1';
 
 /**
- * Reference to the main application window
- * @type {BrowserWindow|null}
+ * Story 16.7: Returns the currently focused window, or the first open window.
+ * Replaces the module-level `mainWindow` singleton — correct for multi-window.
+ * @returns {BrowserWindow|null}
  */
-let mainWindow = null;
+function getTargetWindow() {
+  return (
+    BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null
+  );
+}
 
 /**
  * Current menu state tracking
@@ -50,19 +55,26 @@ let menuState = {
 let cachedRecentFiles = [];
 let cachedOnClearRecent = null;
 
+// Story 16.7: Callback to open a file in a new window (avoids circular require('./main'))
+let _onOpenFile = null;
+
 /**
  * Initialize menu system
- * @param {BrowserWindow} window - Main application window
+ * Story 16.7: Called ONCE at app startup. window param kept for backward compat but not stored.
+ * @param {BrowserWindow} window - Initial application window (unused; getTargetWindow() used instead)
  * @param {Array<string>} [recentFiles] - Recent file paths for Open Recent submenu
+ * @param {Object} [options] - Options
+ * @param {Function} [options.onOpenFile] - Called with filePath when a recent file is clicked
  */
-function initializeMenu(window, recentFiles = []) {
-  mainWindow = window;
+function initializeMenu(window, recentFiles = [], options = {}) {
+  _onOpenFile = options.onOpenFile || null;
   buildMenu(recentFiles);
   if (DEBUG) console.log('[Menu] Menu system initialized');
 }
 
 /**
  * Build recent files submenu items
+ * Story 16.7: Recent file clicks call _onOpenFile(filePath) to open in a new window.
  * @param {Array<string>} recentFiles - File paths
  * @param {Function} [onClear] - Callback when Clear Recent is clicked
  */
@@ -79,8 +91,13 @@ function buildRecentFilesSubmenu(recentFiles, onClear) {
           return {
             label,
             click: () => {
-              if (mainWindow) {
-                mainWindow.webContents.send('menu-open-recent', filePath);
+              if (_onOpenFile) {
+                _onOpenFile(filePath);
+              } else {
+                const win = getTargetWindow();
+                if (win) {
+                  win.webContents.send('menu-open-recent', filePath);
+                }
               }
             },
           };
@@ -124,8 +141,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
             id: `style-${s.id}`,
             label: s.name || 'Style ' + s.id,
             click: () => {
-              if (mainWindow) {
-                mainWindow.webContents.send('menu-apply-style', s.id);
+              const win = getTargetWindow();
+              if (win) {
+                win.webContents.send('menu-apply-style', s.id);
               }
             },
           };
@@ -139,19 +157,22 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
             id: 'style-title',
             label: 'Title',
             accelerator: 'CmdOrCtrl+Shift+1',
-            click: () => mainWindow?.webContents.send('menu-apply-style', 1),
+            click: () =>
+              getTargetWindow()?.webContents.send('menu-apply-style', 1),
           },
           {
             id: 'style-header',
             label: 'Header',
             accelerator: 'CmdOrCtrl+Shift+2',
-            click: () => mainWindow?.webContents.send('menu-apply-style', 2),
+            click: () =>
+              getTargetWindow()?.webContents.send('menu-apply-style', 2),
           },
           {
             id: 'style-total',
             label: 'Total',
             accelerator: 'CmdOrCtrl+Shift+3',
-            click: () => mainWindow?.webContents.send('menu-apply-style', 3),
+            click: () =>
+              getTargetWindow()?.webContents.send('menu-apply-style', 3),
           },
         ];
 
@@ -186,10 +207,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           accelerator: 'CmdOrCtrl+N',
           click: () => {
             if (DEBUG) console.log('[Menu] New file triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-new');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-new');
             } else {
-              console.error('[Menu] Cannot trigger New - mainWindow is null');
+              console.error('[Menu] Cannot trigger New - no window');
             }
           },
         },
@@ -199,10 +221,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           accelerator: 'CmdOrCtrl+O',
           click: () => {
             if (DEBUG) console.log('[Menu] Open file triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-open');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-open');
             } else {
-              console.error('[Menu] Cannot trigger Open - mainWindow is null');
+              console.error('[Menu] Cannot trigger Open - no window');
             }
           },
         },
@@ -212,12 +235,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           accelerator: 'CmdOrCtrl+Shift+O',
           click: () => {
             if (DEBUG) console.log('[Menu] Open Read-Only triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-open-readonly');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-open-readonly');
             } else {
-              console.error(
-                '[Menu] Cannot trigger Open Read-Only - mainWindow is null'
-              );
+              console.error('[Menu] Cannot trigger Open Read-Only - no window');
             }
           },
         },
@@ -235,10 +257,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           enabled: false, // Dynamically updated based on state
           click: () => {
             if (DEBUG) console.log('[Menu] Save file triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-save');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-save');
             } else {
-              console.error('[Menu] Cannot trigger Save - mainWindow is null');
+              console.error('[Menu] Cannot trigger Save - no window');
             }
           },
         },
@@ -248,12 +271,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           accelerator: 'CmdOrCtrl+Shift+S',
           click: () => {
             if (DEBUG) console.log('[Menu] Save As triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-save-as');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-save-as');
             } else {
-              console.error(
-                '[Menu] Cannot trigger Save As - mainWindow is null'
-              );
+              console.error('[Menu] Cannot trigger Save As - no window');
             }
           },
         },
@@ -263,12 +285,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           label: 'Import CSV...',
           click: () => {
             if (DEBUG) console.log('[Menu] Import CSV triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-import-csv');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-import-csv');
             } else {
-              console.error(
-                '[Menu] Cannot trigger Import CSV - mainWindow is null'
-              );
+              console.error('[Menu] Cannot trigger Import CSV - no window');
             }
           },
         },
@@ -277,12 +298,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           label: 'Export CSV...',
           click: () => {
             if (DEBUG) console.log('[Menu] Export CSV triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-export-csv');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-export-csv');
             } else {
-              console.error(
-                '[Menu] Cannot trigger Export CSV - mainWindow is null'
-              );
+              console.error('[Menu] Cannot trigger Export CSV - no window');
             }
           },
         },
@@ -308,10 +328,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           enabled: false,
           click: () => {
             if (DEBUG) console.log('[Menu] Undo triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-undo');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-undo');
             } else {
-              console.error('[Menu] Cannot trigger Undo - mainWindow is null');
+              console.error('[Menu] Cannot trigger Undo - no window');
             }
           },
         },
@@ -322,10 +343,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           enabled: false,
           click: () => {
             if (DEBUG) console.log('[Menu] Redo triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-redo');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-redo');
             } else {
-              console.error('[Menu] Cannot trigger Redo - mainWindow is null');
+              console.error('[Menu] Cannot trigger Redo - no window');
             }
           },
         },
@@ -336,10 +358,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           accelerator: 'CmdOrCtrl+X',
           click: () => {
             if (DEBUG) console.log('[Menu] Cut triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-cut');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-cut');
             } else {
-              console.error('[Menu] Cannot trigger Cut - mainWindow is null');
+              console.error('[Menu] Cannot trigger Cut - no window');
             }
           },
         },
@@ -349,10 +372,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           accelerator: 'CmdOrCtrl+C',
           click: () => {
             if (DEBUG) console.log('[Menu] Copy triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-copy');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-copy');
             } else {
-              console.error('[Menu] Cannot trigger Copy - mainWindow is null');
+              console.error('[Menu] Cannot trigger Copy - no window');
             }
           },
         },
@@ -362,10 +386,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           accelerator: 'CmdOrCtrl+V',
           click: () => {
             if (DEBUG) console.log('[Menu] Paste triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-paste');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-paste');
             } else {
-              console.error('[Menu] Cannot trigger Paste - mainWindow is null');
+              console.error('[Menu] Cannot trigger Paste - no window');
             }
           },
         },
@@ -376,12 +401,11 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           accelerator: 'CmdOrCtrl+A',
           click: () => {
             if (DEBUG) console.log('[Menu] Select All triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-select-all');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-select-all');
             } else {
-              console.error(
-                '[Menu] Cannot trigger Select All - mainWindow is null'
-              );
+              console.error('[Menu] Cannot trigger Select All - no window');
             }
           },
         },
@@ -399,8 +423,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           enabled: false,
           click: () => {
             if (DEBUG) console.log('[Menu] Merge Cells triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-merge-cells');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-merge-cells');
             }
           },
         },
@@ -410,8 +435,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           enabled: false,
           click: () => {
             if (DEBUG) console.log('[Menu] Unmerge triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-unmerge-cells');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-unmerge-cells');
             }
           },
         },
@@ -423,8 +449,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           label: 'Format Cleanup',
           click: () => {
             if (DEBUG) console.log('[Menu] Format Cleanup triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-format-cleanup');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-format-cleanup');
             }
           },
         },
@@ -434,8 +461,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           label: 'Manage Styles...',
           click: () => {
             if (DEBUG) console.log('[Menu] Manage Styles triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-manage-styles');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-manage-styles');
             }
           },
         },
@@ -457,8 +485,8 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
                 '[Menu] RTL Mode clicked, checked:',
                 menuItem.checked
               );
-            if (mainWindow)
-              mainWindow.webContents.send('menu-toggle-rtl', menuItem.checked);
+            const win = getTargetWindow();
+            if (win) win.webContents.send('menu-toggle-rtl', menuItem.checked);
           },
         },
         { type: 'separator' },
@@ -466,21 +494,24 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           id: 'align-left',
           label: 'Align Left',
           click: () => {
-            if (mainWindow) mainWindow.webContents.send('menu-align-left');
+            const win = getTargetWindow();
+            if (win) win.webContents.send('menu-align-left');
           },
         },
         {
           id: 'align-center',
           label: 'Align Center',
           click: () => {
-            if (mainWindow) mainWindow.webContents.send('menu-align-center');
+            const win = getTargetWindow();
+            if (win) win.webContents.send('menu-align-center');
           },
         },
         {
           id: 'align-right',
           label: 'Align Right',
           click: () => {
-            if (mainWindow) mainWindow.webContents.send('menu-align-right');
+            const win = getTargetWindow();
+            if (win) win.webContents.send('menu-align-right');
           },
         },
       ],
@@ -496,8 +527,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           enabled: false,
           click: () => {
             if (DEBUG) console.log('[Menu] Insert Row triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-insert-row');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-insert-row');
             }
           },
         },
@@ -507,8 +539,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           enabled: false,
           click: () => {
             if (DEBUG) console.log('[Menu] Insert Column triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-insert-column');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-insert-column');
             }
           },
         },
@@ -519,8 +552,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           enabled: false,
           click: () => {
             if (DEBUG) console.log('[Menu] Delete Row triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-delete-row');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-delete-row');
             }
           },
         },
@@ -530,8 +564,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           enabled: false,
           click: () => {
             if (DEBUG) console.log('[Menu] Delete Column triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-delete-column');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-delete-column');
             }
           },
         },
@@ -548,8 +583,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           label: 'Formula Reference',
           click: () => {
             if (DEBUG) console.log('[Menu] Formula Reference triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-formula-reference');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-formula-reference');
             }
           },
         },
@@ -558,8 +594,9 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           label: 'User Guide',
           click: () => {
             if (DEBUG) console.log('[Menu] User Guide triggered');
-            if (mainWindow) {
-              mainWindow.webContents.send('menu-user-guide');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-user-guide');
             }
           },
         },

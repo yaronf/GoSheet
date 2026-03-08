@@ -226,7 +226,7 @@ func (s *Server) HandleSaveFile(w http.ResponseWriter, r *http.Request) {
 	}
 	logutil.Debugf("Saving file: %s", req.Path)
 	if err := s.Ctrl.SaveFile(req.Path); err != nil {
-		log.Printf("Save error: %v", err)
+		logutil.Errorf("Save error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -246,7 +246,7 @@ func (s *Server) HandleLoadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	logutil.Debugf("Loading file: %s", req.Path)
 	if err := s.Ctrl.LoadFile(req.Path); err != nil {
-		log.Printf("Load error: %v", err)
+		logutil.Errorf("Load error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -284,7 +284,7 @@ func (s *Server) HandleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	logutil.Debugln("Downloading file")
 	tmpFile, err := os.CreateTemp("", "gosheet-download-*.gosheet")
 	if err != nil {
-		log.Printf("Download error creating temp file: %v", err)
+		logutil.Errorf("Download error creating temp file: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -292,7 +292,7 @@ func (s *Server) HandleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	tmpFile.Close()
 	defer os.Remove(tmpPath)
 	if err := s.Ctrl.SaveFile(tmpPath); err != nil {
-		log.Printf("Download error: %v", err)
+		logutil.Errorf("Download error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -305,13 +305,13 @@ func (s *Server) HandleUploadFile(w http.ResponseWriter, r *http.Request) {
 	logutil.Debugln("Uploading file")
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Upload read error: %v", err)
+		logutil.Errorf("Upload read error: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	tmpFile, err := os.CreateTemp("", "gosheet-upload-*.gosheet")
 	if err != nil {
-		log.Printf("Upload temp file error: %v", err)
+		logutil.Errorf("Upload temp file error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -319,12 +319,12 @@ func (s *Server) HandleUploadFile(w http.ResponseWriter, r *http.Request) {
 	tmpFile.Close()
 	defer os.Remove(tmpPath)
 	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
-		log.Printf("Upload write error: %v", err)
+		logutil.Errorf("Upload write error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if err := s.Ctrl.LoadFile(tmpPath); err != nil {
-		log.Printf("Upload load error: %v", err)
+		logutil.Errorf("Upload load error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -380,7 +380,7 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var req generated.PathRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("[handleCSVExport] Failed to parse request: %v\n", err)
+		logutil.Errorf("[handleCSVExport] Failed to parse request: %v", err)
 		_ = json.NewEncoder(w).Encode(CSVExportResponse{Success: false, Error: "Invalid request format", Code: "INVALID_REQUEST"})
 		return
 	}
@@ -394,7 +394,7 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 	logutil.Debugf("[handleCSVExport] Bounds maxRow=%d, maxCol=%d\n", maxRow, maxCol)
 	if maxRow < 0 || maxCol < 0 {
 		if err := os.WriteFile(req.Path, []byte(""), 0644); err != nil {
-			log.Printf("[handleCSVExport] Failed to write empty file: %v\n", err)
+			logutil.Errorf("[handleCSVExport] Failed to write empty file: %v", err)
 			_ = json.NewEncoder(w).Encode(CSVExportResponse{Success: false, Error: fmt.Sprintf("Failed to write file: %v", err), Code: "FILE_WRITE_ERROR"})
 			return
 		}
@@ -404,12 +404,12 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 	records := s.buildCSVRecords(maxRow, maxCol)
 	csvContent, err := GenerateCSV(records)
 	if err != nil {
-		log.Printf("[handleCSVExport] CSV generation failed: %v\n", err)
+		logutil.Errorf("[handleCSVExport] CSV generation failed: %v", err)
 		_ = json.NewEncoder(w).Encode(CSVExportResponse{Success: false, Error: err.Error(), Code: "CSV_GENERATION_ERROR"})
 		return
 	}
 	if err := os.WriteFile(req.Path, []byte(csvContent), 0644); err != nil {
-		log.Printf("[handleCSVExport] File write failed: %v\n", err)
+		logutil.Errorf("[handleCSVExport] File write failed: %v", err)
 		_ = json.NewEncoder(w).Encode(CSVExportResponse{Success: false, Error: fmt.Sprintf("Failed to write file: %v", err), Code: "FILE_WRITE_ERROR"})
 		return
 	}

@@ -232,14 +232,15 @@ development_status:
   epic-15-retrospective: optional
 
   # Epic 16: Data Safety & File Integrity
-  epic-16: in-progress
+  epic-16: done
   16-1-atomic-file-writes: done
   16-2-fix-recalculateall-stub: done
   16-3-open-files-from-cli-and-finder: done
   16-4-read-only-view-mode: done
   16-5-remove-fixed-port-dependency: done
   16-6-refactor-complexity-violations: done
-  16-7-multi-window-support: backlog
+  16-7-multi-window-support: done
+  16-8-unified-logging: done
   epic-16-retrospective: optional
 
   # Epic 17: Selection & Range Operations

@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -360,7 +359,7 @@ func (s *Server) handleAddStyle(w http.ResponseWriter, r *http.Request) {
 	logutil.Debugf("[handleAddStyle] req.Name=%q (len=%d)", req.Name, len(req.Name))
 	id, err := s.Ctrl.AddStyle(req.Name, &req.Format)
 	if err != nil {
-		log.Printf("[handleAddStyle] ERROR: %v (req.Name=%q)", err, req.Name)
+		logutil.Errorf("[handleAddStyle] %v (req.Name=%q)", err, req.Name)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -411,7 +410,7 @@ func (s *Server) handleUpdateStyle(w http.ResponseWriter, r *http.Request, id in
 	}
 	logutil.Debugf("[handleUpdateStyle] id=%d req.Name=%q (len=%d)", id, req.Name, len(req.Name))
 	if err := s.Ctrl.UpdateStyle(id, &req.Format, req.Name); err != nil {
-		log.Printf("[handleUpdateStyle] ERROR: %v (id=%d req.Name=%q)", err, id, req.Name)
+		logutil.Errorf("[handleUpdateStyle] %v (id=%d req.Name=%q)", err, id, req.Name)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

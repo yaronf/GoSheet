@@ -7,6 +7,7 @@
     "start": "electron .",
     "start:verbose": "electron . --verbose",
     "build": "npm run openapi:generate && npx electron-builder",
+    "build:app": "npm run openapi:generate && npx electron-builder --mac dir --universal",
     "test": "NODE_ENV=test playwright test",
     "test:electron": "NODE_ENV=test playwright test --project=electron",
     "test:unit": "go test ./model/... ./controller/... ./api/...",
