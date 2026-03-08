@@ -3,7 +3,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 
@@ -24,12 +26,11 @@ func debugShutdownHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	port := flag.String("port", "3000", "Port to run the server on")
 	verbose := flag.Bool("verbose", false, "Enable verbose (debug) logging")
 	flag.Parse()
 
 	logutil.Verbose = *verbose || os.Getenv("DEBUG") == "1"
-	log.SetOutput(os.Stdout)
+	log.SetOutput(os.Stderr)
 
 	ctrl := controller.NewAppController()
 	srv := api.NewServer(ctrl)
@@ -87,10 +88,26 @@ func main() {
 		http.HandleFunc("/api/debug/shutdown", cors(debugShutdownHandler))
 	}
 
-	log.Printf("GoSheet server running at http://localhost:%s\n", *port)
-	logutil.Debugf("Open http://localhost:%s in your browser\n", *port)
+	// Bind to an OS-assigned ephemeral port (Story 16.5)
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		log.Fatalf("Failed to bind port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
 
-	if err := http.ListenAndServe(":"+*port, nil); err != nil {
+	// Announce the bound port to Electron via fd 3 (dedicated IPC pipe, not stdout).
+	// Stdout/stderr remain for human-readable logs — using a separate fd prevents
+	// accidental log output from corrupting the port signal.
+	portPipe := os.NewFile(3, "port-pipe")
+	if _, err := fmt.Fprintf(portPipe, "PORT=%d\n", port); err != nil {
+		log.Printf("Warning: failed to write port to fd 3: %v (running standalone?)", err)
+	}
+	portPipe.Close()
+
+	log.Printf("GoSheet server running at http://localhost:%d\n", port)
+	logutil.Debugf("Open http://localhost:%d in your browser\n", port)
+
+	if err := http.Serve(listener, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

@@ -2860,6 +2860,45 @@ So that the codebase stays within the documented "must fix" threshold and future
 
 ---
 
+### Story 16.7: Multi-Window Support
+
+As a user,
+I want each file I open from Finder, CLI, or the Recent Files menu to open in its own window,
+So that I can work with multiple spreadsheets simultaneously without one replacing the other.
+
+**Background:** Currently GoSheet is single-window — opening a file replaces the current one. After Story 16.5 removes the fixed port and single-instance lock, each GoSheet process will run with its own ephemeral port. Story 16.7 completes the picture: `open-file` events and CLI launches spin up a new window (and a new Go server child process) rather than reusing the existing one.
+
+**Acceptance Criteria:**
+
+**Given** a GoSheet window is open with a file
+**When** the user double-clicks a different `.sheet` file in Finder
+**Then** a second GoSheet window opens with that file
+**And** the first window remains open and unaffected
+
+**Given** a GoSheet window is open
+**When** the user opens a file via File → Open or File → Open Recent
+**Then** the file opens in a new window
+**And** the existing window remains open (no unsaved-changes prompt for the existing window)
+
+**Given** GoSheet is launched from the CLI with a file path argument
+**When** a GoSheet instance is already running
+**Then** a new window opens with the specified file (macOS routes `open-file` to the running app; Electron handles it by creating a new window)
+
+**Given** the user closes all windows
+**When** the last window is closed
+**Then** the app quits (existing macOS behaviour preserved)
+
+**Given** a new window is opened
+**When** the window initialises
+**Then** it has its own Go server child process on its own ephemeral port (per Story 16.5)
+**And** closing the window terminates that window's Go server process
+
+**Relevant files:** `electron/main.js` (window creation, `open-file` handler, `startGoServer`), `electron/menu.js` (File → Open / Recent wiring)
+
+**Implementation note:** The key change is that `createWindow()` always spawns a fresh Go server and a new `BrowserWindow`. File path routing (`open-file`, CLI arg, Recent Files) calls `createWindow(filePath)` rather than sending an IPC message to the existing window. Each window tracks its own `goServer` reference for cleanup on close.
+
+---
+
 ## Epic 17: Selection & Range Operations
 
 **Goal:** Users can select contiguous rectangular ranges naturally, copy/paste them, and navigate to precise ranges by address.

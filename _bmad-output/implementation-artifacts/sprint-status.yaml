@@ -237,8 +237,9 @@ development_status:
   16-2-fix-recalculateall-stub: done
   16-3-open-files-from-cli-and-finder: done
   16-4-read-only-view-mode: done
-  16-5-remove-fixed-port-dependency: backlog
-  16-6-refactor-complexity-violations: backlog
+  16-5-remove-fixed-port-dependency: done
+  16-6-refactor-complexity-violations: backlog  # also covers app.js size (3650 LOC); add max-lines ESLint rule post-split
+  16-7-multi-window-support: backlog
   epic-16-retrospective: optional
 
   # Epic 17: Selection & Range Operations

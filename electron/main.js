@@ -15,19 +15,9 @@ const {
   Menu,
 } = require('electron');
 
-// Story 7.6: Single instance lock - when user "Keeps in Dock" and clicks, macOS may launch
-// raw Electron (no app path) which shows the default splash. We quit that instance and focus ours.
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
-  process.exit(0);
-}
-app.on('second-instance', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-  }
-});
+// Story 16.5: Single-instance lock removed. It existed solely to prevent port conflicts
+// when two instances tried to bind port 3000. With ephemeral ports each instance gets its
+// own OS-assigned port, so there is no conflict to prevent.
 const { spawn } = require('child_process');
 const path = require('node:path');
 const fs = require('fs');
@@ -169,7 +159,7 @@ function updateDockMenu(recentFiles) {
           mainWindow.webContents.send('menu-new');
         } else {
           pendingDockAction = 'new';
-          if (initialWindowCreated) createWindow();
+          if (goServerPort !== null) createWindow(goServerPort);
         }
       },
     },
@@ -181,7 +171,7 @@ function updateDockMenu(recentFiles) {
           mainWindow.webContents.send('menu-open');
         } else {
           pendingDockAction = 'open';
-          if (initialWindowCreated) createWindow();
+          if (goServerPort !== null) createWindow(goServerPort);
         }
       },
     },
@@ -207,7 +197,7 @@ function updateDockMenu(recentFiles) {
             mainWindow.webContents.send('menu-open-recent', filePath);
           } else {
             pendingDockAction = { type: 'open', path: filePath };
-            if (initialWindowCreated) createWindow();
+            if (goServerPort !== null) createWindow(goServerPort);
           }
         },
       });
@@ -225,8 +215,15 @@ function updateDockMenu(recentFiles) {
 
 let mainWindow;
 let goServer;
-let initialWindowCreated = false; // Story 7.6: Avoid double-create when dock clicked during startup
-const GO_SERVER_PORT = 3000;
+
+// Story 16.5: Ephemeral port — resolved when Go server announces its bound port via fd 3
+let goServerPort = null;
+let _resolvePort;
+let _rejectPort;
+const goServerPortReady = new Promise((resolve, reject) => {
+  _resolvePort = resolve;
+  _rejectPort = reject;
+});
 
 // Story 7.7: Store file path to open when app is launched by double-clicking a file
 let pendingFileToOpen = null;
@@ -310,11 +307,29 @@ function startGoServer() {
 
   if (DEBUG) console.log(`[Electron] Server working directory: ${serverCwd}`);
 
-  const spawnArgs = ['--port', GO_SERVER_PORT.toString()];
+  const spawnArgs = [];
   if (DEBUG) spawnArgs.push('--verbose');
   goServer = spawn(serverPath, spawnArgs, {
     cwd: serverCwd,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    // fd 3 is a dedicated port-announcement pipe (Story 16.5).
+    // Go writes "PORT=<n>\n" to fd 3 then closes it — isolated from stdout/stderr logs.
+    stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+  });
+
+  // Read bound port from fd 3 (one-shot; Go closes the pipe immediately after writing)
+  goServer.stdio[3].once('data', (data) => {
+    const raw = data.toString();
+    const match = raw.match(/PORT=(\d+)/);
+    if (match) {
+      goServerPort = parseInt(match[1], 10);
+      if (DEBUG)
+        console.log(`[Electron] Go server bound to port: ${goServerPort}`);
+      _resolvePort(goServerPort);
+    } else {
+      const msg = `Failed to parse port from Go server fd 3: "${raw.trim()}"`;
+      console.error('[Electron]', msg);
+      _rejectPort(new Error(msg));
+    }
   });
 
   // Log server output (always - server controls verbosity via --verbose)
@@ -323,11 +338,12 @@ function startGoServer() {
   });
 
   goServer.stderr.on('data', (data) => {
-    console.error(`[Go Server Error] ${data.toString().trim()}`);
+    console.error(`[Go Server] ${data.toString().trim()}`);
   });
 
   goServer.on('error', (error) => {
     console.error('[Electron] Failed to start Go server:', error);
+    _rejectPort(error);
   });
 
   goServer.on('close', (code) => {
@@ -338,8 +354,8 @@ function startGoServer() {
 }
 
 // Story 3.1: Create main window
-function createWindow() {
-  initialWindowCreated = true;
+// Story 16.5: port is passed in (ephemeral, resolved from goServerPortReady)
+function createWindow(port) {
   if (DEBUG) console.log('[Electron] Creating main window...');
 
   const isTest = process.env.NODE_ENV === 'test';
@@ -359,7 +375,7 @@ function createWindow() {
   });
 
   // Load frontend from Go HTTP server (append ?debug=1 for verbose frontend logs)
-  const serverUrl = `http://localhost:${GO_SERVER_PORT}${DEBUG ? '?debug=1' : ''}`;
+  const serverUrl = `http://localhost:${port}${DEBUG ? '?debug=1' : ''}`;
   if (DEBUG) console.log(`[Electron] Loading frontend from: ${serverUrl}`);
 
   // Grant clipboard permissions in test mode — navigator.clipboard requires
@@ -399,11 +415,9 @@ function createWindow() {
 
   function loadURL() {
     mainWindow.loadURL(serverUrl).catch((err) => {
+      // Window is only created after the port promise resolves, so the server is
+      // already listening — a load failure here is a real error, not a timing issue.
       console.error('[Electron] Failed to load URL:', err);
-      // Retry after a short delay if server isn't ready yet
-      setTimeout(() => {
-        mainWindow.loadURL(serverUrl);
-      }, 1000);
     });
   }
 
@@ -825,14 +839,35 @@ app.whenReady().then(() => {
   // Story 7.6: Set dock menu on startup (macOS) so it's available before window loads
   updateDockMenu();
 
-  // Wait for server to be ready before creating window
-  setTimeout(() => {
-    createWindow();
-  }, 1000);
+  // Story 16.5: Wait for Go server to announce its ephemeral port via fd 3, then create window.
+  // 10s timeout — shows error dialog if the server fails to start.
+  Promise.race([
+    goServerPortReady,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Go server startup timeout')), 10000)
+    ),
+  ])
+    .then((port) => {
+      createWindow(port);
+    })
+    .catch((err) => {
+      console.error('[Electron] Go server failed to start:', err.message);
+      dialog.showErrorBox(
+        'Server Failed to Start',
+        `The Go server did not start within 10 seconds.\n\n${err.message}\n\nPlease check the logs and try again.`
+      );
+      app.quit();
+    });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      // Port should already be known (server running before activate fires), but guard
+      // against the unlikely race where activate fires during the 10s startup window.
+      if (goServerPort !== null) {
+        createWindow(goServerPort);
+      } else {
+        goServerPortReady.then((port) => createWindow(port)).catch(() => {});
+      }
     }
   });
 });

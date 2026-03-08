@@ -27,6 +27,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 **REVISION HISTORY:**
 - 2026-02-14: Initial architecture (Wails v3 dual-mode)
 - 2026-02-15: **MAJOR REVISION** - Migrated to Electron with embedded Go server (single-mode architecture)
+- 2026-03-08: Post-implementation update — versions, structure, NFR wording, future considerations updated to reflect epics 1–16 as-built state
 
 **MIGRATION CONTEXT:**
 This document was originally written for Wails v3 dual-mode architecture. During Epic 5 implementation (Native Testing Infrastructure), we discovered that pyax (macOS Accessibility API) cannot access Wails WebView content, making automated UI testing impossible. After comprehensive analysis (see `electron-migration-analysis.md` and `sprint-change-proposal-2026-02-15.md`), we pivoted to Electron with Playwright native integration, which provides:
@@ -57,9 +58,9 @@ This revision updates all sections to reflect the Electron architecture while pr
 **Non-Functional Requirements (23 NFRs):**
 
 - **Performance (7 NFRs)**: Launch <1s, grid display <100ms, load 5K cells <3s, recalc 250 cells <200ms, CSV import 500 rows <1s, UI latency <50ms, memory <200MB
-- **Reliability (7 NFRs)**: No file corruption, accurate file status, no crashes on circular refs/invalid formulas, graceful file I/O errors, unsaved changes warnings, all 42 Go tests pass, all 32 Playwright tests pass
+- **Reliability (7 NFRs)**: No file corruption, accurate file status, no crashes on circular refs/invalid formulas, graceful file I/O errors, unsaved changes warnings, comprehensive Go unit test suite + full Playwright E2E coverage
 - **Usability (5 NFRs)**: macOS HIG compliance, standard keyboard shortcuts, native dialogs, clear error messages, progress indicators
-- **Maintainability (5 NFRs)**: Dual-mode builds via build flags, shared core logic, functional Playwright tests in web mode, no broken tests, future-proof architecture
+- **Maintainability (5 NFRs)**: Single-mode codebase (no build flags), shared core logic, Playwright E2E tests cover all major features, no broken tests, future-proof architecture
 - **Compatibility (4 NFRs)**: macOS 11+, Universal binary (Intel + Apple Silicon), existing .sheet file format, CSV RFC 4180
 - **Security & Data Integrity (6 NFRs)**: 100% local (no network), respect file permissions, prevent infinite loops (circular ref detection), no crashes on malformed input, no deleted data in saved files
 
@@ -83,26 +84,26 @@ This revision updates all sections to reflect the Electron architecture while pr
 ### Technical Constraints & Dependencies
 
 **Hard Constraints:**
-- **Electron 40.4.1**: Latest stable desktop framework (Feb 2026) with native Playwright support
+- **Electron 40.7.0**: Latest stable desktop framework with native Playwright support
 - **Node.js 18+**: Required for Electron main process
 - **macOS 11+ (Big Sur)**: Minimum OS version, Chromium-based rendering
 - **Universal binary**: Must support both Intel and Apple Silicon
 - **Existing .sheet file format**: Binary serialization with gob encoding - cannot break compatibility
-- **Test preservation**: All 42 Go unit tests + 32 Playwright UI tests must pass (ported to Electron API)
+- **Test coverage**: Comprehensive Go unit tests + Playwright E2E suite covering all major features
 - **No network**: 100% offline operation (NFR-S1)
 
 **Technology Stack:**
-- **Desktop Framework**: Electron 40.4.1 (main process: Node.js 24, renderer: Chromium 144)
+- **Desktop Framework**: Electron 40.7.0 (main process: Node.js 24, renderer: Chromium)
 - **Backend**: Go 1.x with participle parser, gob serialization (embedded HTTP server)
 - **Frontend**: Vanilla HTML/CSS/JavaScript (no build tools)
-- **Testing**: Go unit tests + Playwright Electron (native integration)
+- **Testing**: Go unit tests + Playwright 1.58.2 Electron (native integration)
 - **IPC**: Electron IPC (contextBridge + ipcRenderer/ipcMain)
 
 **Dependencies:**
-- Electron 40.4.1 (latest stable, Feb 2026)
+- Electron 40.7.0 (current stable)
 - Chromium (embedded in Electron, consistent across platforms)
 - electron-builder (packaging and distribution)
-- @playwright/test (Electron testing)
+- @playwright/test 1.58.2 (Electron testing)
 
 **Migration Constraints:**
 - Go backend 100% reusable (no changes needed)
@@ -213,7 +214,7 @@ This is **not a greenfield project**. Key constraints:
 **Language & Runtime:**
 - Go 1.x (existing, preserved)
 - Node.js 18+ (Electron main process)
-- Electron 40.4.1 (desktop framework)
+- Electron 40.7.0 (desktop framework)
 - Vanilla JavaScript (no TypeScript, no build tools)
 
 **Build System:**
@@ -325,10 +326,21 @@ const { spawn } = require('child_process');
 let goServer;
 
 function startGoServer() {
-  goServer = spawn('./server/gosheet-server', ['--port', '3000']);
+  // Story 16.5: no --port flag; server binds ephemeral port and announces it via fd 3
+  goServer = spawn('./server/gosheet-server', [], { stdio: ['ignore', 'pipe', 'pipe', 'pipe'] });
+  goServer.stdio[3].once('data', (data) => {
+    const port = parseInt(data.toString().match(/PORT=(\d+)/)[1], 10);
+    _resolvePort(port);
+  });
 }
 
-function createWindow() {
+async function initApp() {
+  startGoServer();
+  const port = await goServerPortReady; // resolves when Go announces port via fd 3
+  createWindow(port);
+}
+
+function createWindow(port) {
   const win = new BrowserWindow({
     width: 1200, height: 800,
     webPreferences: {
@@ -336,7 +348,7 @@ function createWindow() {
       contextIsolation: true
     }
   });
-  win.loadURL('http://localhost:3000');
+  win.loadURL(`http://localhost:${port}`);
 }
 
 // IPC handlers for file dialogs
@@ -1263,71 +1275,64 @@ func handleLoadFile(w http.ResponseWriter, r *http.Request) {
 
 ```
 spreadsheet/
-├── README.md                          # Project documentation
-├── BMAD.md                            # BMAD methodology tracking (existing)
-├── go.mod                             # Go module definition (existing, no changes)
-├── go.sum                             # Go dependencies (existing, no changes)
-├── package.json                       # NEW: Electron dependencies
-├── .gitignore                         # Git ignore patterns (existing)
+├── go.mod / go.sum                    # Go module
+├── package.json / package-lock.json   # Node/Electron dependencies
+├── Makefile                           # Build targets (build, test, complexity, lint)
+├── playwright.config.js               # Playwright config (Electron project only)
 │
-├── _bmad/                             # BMAD methodology files (existing)
-│   └── ...                            # (preserved as-is)
+├── electron/                          # Electron application
+│   ├── main.js                        # Main process — app lifecycle, Go server spawn, IPC
+│   ├── preload.js                     # contextBridge IPC bridge
+│   ├── menu.js                        # Application menu (File/Edit/Format/Insert/Help)
+│   └── settings.js                    # App settings persistence (RTL mode, etc.)
 │
-├── _bmad-output/                      # BMAD artifacts (existing)
-│   ├── planning-artifacts/
-│   │   ├── prd.md                     # Product Requirements (existing)
-│   │   ├── prd-validation-report-2026-02-14.md
-│   │   ├── architecture.md            # This document (updated for Electron)
-│   │   ├── electron-migration-analysis.md  # Migration analysis
-│   │   └── sprint-change-proposal-2026-02-15.md  # Sprint change
-│   └── implementation-artifacts/      # Epics, stories
+├── frontend/                          # Web UI (served by Go HTTP server)
+│   ├── app.js                         # Main frontend logic (~3600 LOC)
+│   ├── api-client.js                  # HTTP API wrapper (fetch-based)
+│   ├── api-types.d.ts                 # TypeScript types for API responses (JSDoc)
+│   └── styles.css                     # Styles
 │
-├── electron/                          # NEW: Electron application
-│   ├── main.js                        # Main process (Node.js)
-│   └── preload.js                     # IPC bridge (contextBridge)
+├── server/                            # Go HTTP server entry point
+│   └── main.go                        # Binds port, registers routes, spawns controller
 │
-├── controller/                        # EXISTING: Business logic (100% preserved)
-│   └── app.go                         # AppController
+├── api/                               # HTTP handlers + OpenAPI spec
+│   ├── handlers.go                    # REST endpoint implementations
+│   ├── openapi.yaml                   # OpenAPI 3.x spec (source of truth)
+│   └── types.go                       # Generated/shared API types
 │
-├── model/                             # EXISTING: Core data structures (100% preserved)
+├── controller/                        # Business logic layer
+│   └── app.go                         # AppController (spreadsheet operations)
+│
+├── model/                             # Core data structures & engines
 │   ├── cell.go                        # Cell struct
-│   ├── coords.go                      # Coordinate conversion
-│   ├── dependencies.go                # DependencyGraph
-│   ├── file.go                        # File I/O
-│   ├── formula.go                     # Formula evaluation
-│   ├── formula_ast.go                 # AST parser
-│   └── spreadsheet.go                 # Spreadsheet struct
+│   ├── spreadsheet.go                 # Spreadsheet struct (grid, undo/redo stack)
+│   ├── formula.go                     # Formula evaluator
+│   ├── formula_ast.go                 # AST parser (participle)
+│   ├── formula_shift.go               # Formula reference shifting (insert/delete row/col)
+│   ├── dependencies.go                # Dependency graph (cycle detection)
+│   ├── style.go                       # Named styles
+│   ├── file.go                        # File I/O (gob serialization, atomic writes)
+│   └── cell.go                        # Cell struct
 │
-├── server/                            # EXISTING: HTTP server (reused as embedded)
-│   └── main.go                        # HTTP server entry point
+├── logutil/                           # Shared logging utilities
+│   └── log.go
 │
-├── frontend/                          # EXISTING: Web UI (95% preserved)
-│   ├── index.html                     # Main HTML (preserved)
-│   ├── app.js                         # Frontend logic (minor IPC updates)
-│   └── styles.css                     # Styles (preserved)
+├── bin/                               # Compiled Go server binary (gitignored)
+│   └── gosheet-server
 │
-├── tests/                             # EXISTING: Go unit tests (100% preserved)
-│   ├── coords_test.go                 # Coordinate tests
-│   ├── dependencies_test.go           # Dependency graph tests
-│   ├── formula_test.go                # Formula tests
-│   ├── model_test.go                  # Model tests
-│   └── normalize_test.go              # Normalization tests
+├── playwright_tests/                  # Playwright E2E tests (Electron)
+│   ├── fixtures.js                    # Electron launch fixture
+│   ├── helpers.js                     # Shared test helpers
+│   └── test_*.spec.js                 # Feature test files (30+ spec files)
 │
-├── playwright_tests/                  # EXISTING: UI tests (ported to Electron)
-│   ├── test_spreadsheet.py            # Main UI tests (updated for Electron API)
-│   └── conftest.py                    # Playwright config (updated)
+├── build/                             # Electron build assets
+│   ├── icon.icns                      # App icon (macOS)
+│   └── icons/
+│       └── sheet-icon.icns            # .sheet file association icon
 │
-├── build/                             # NEW: Electron build assets
-│   ├── icon.icns                      # App icon (macOS dock)
-│   ├── icon.png                       # App icon (Linux)
-│   └── icons/                         # Custom file icons
-│       └── sheet-icon.icns            # .sheet file icon
-│
-├── _bmad-output/planning-artifacts/specs/  # Specifications
-│   ├── PRODUCT_BRIEF.md
-│   ├── TECH_SPEC.md
-│   └── FORMULA_GRAMMAR.md
-└── .cursor/                           # Cursor IDE configuration (existing)
+└── _bmad-output/                      # BMAD planning & implementation artifacts
+    ├── planning-artifacts/            # PRD, architecture, epics, research
+    └── implementation-artifacts/      # Story files, sprint status
 ```
 
 ### Architectural Boundaries
@@ -1364,7 +1369,7 @@ Frontend-Backend Communication:
 ```
 Frontend (JavaScript)
     ↓
-    ├─→ Spreadsheet operations: fetch('http://localhost:3000/api/*') (HTTP)
+    ├─→ Spreadsheet operations: fetch('/api/*') (relative URL — same origin as loadURL) (HTTP)
     └─→ File dialogs: window.electronAPI.openFileDialog() (IPC)
     ↓
 HTTP Response {success, data, error, code} OR IPC Response (file path)
@@ -1373,15 +1378,16 @@ HTTP Response {success, data, error, code} OR IPC Response (file path)
 Electron Architecture:
 ```
 Electron Main Process (electron/main.js)
-├─→ Spawn Go HTTP server (child process)
-├─→ Create BrowserWindow
+├─→ Spawn Go HTTP server (child process, fd 3 pipe for port announcement)
+├─→ Await ephemeral port via goServerPortReady promise
+├─→ Create BrowserWindow, loadURL(http://localhost:<ephemeral-port>)
 ├─→ Set up menu bar
 ├─→ Register IPC handlers (file dialogs)
 └─→ Handle app lifecycle
 
 Electron Renderer (Chromium)
-├─→ Load frontend from http://localhost:3000
-├─→ HTTP fetch for spreadsheet operations
+├─→ Load frontend from http://localhost:<ephemeral-port>
+├─→ HTTP fetch for spreadsheet operations (relative URLs, same origin)
 └─→ IPC calls for file dialogs
 
 Go HTTP Server (server/main.go)
@@ -1519,14 +1525,15 @@ npm start
 Go Server Standalone (optional):
 ```bash
 go run ./server
-# HTTP server on port 3000
-# For testing backend in browser
+# HTTP server on an OS-assigned ephemeral port (Story 16.5)
+# Port is printed to stdout as PORT=<n>
 ```
 
 Testing:
 ```bash
-go test ./tests/...        # Go unit tests (unchanged)
-npm test                   # Playwright Electron tests
+go test ./...              # Go unit tests
+npm test                   # Playwright Electron tests (32 spec files)
+make complexity            # Cyclomatic complexity report (threshold: 20)
 ```
 
 **Build Process:**
@@ -1580,7 +1587,7 @@ Electron App (production):
 ### Coherence Validation ✅
 
 **Decision Compatibility:**
-- ✅ Electron 40.4.1 + Go 1.x + Node.js 24 + Vanilla JS → All compatible
+- ✅ Electron 40.7.0 + Go 1.x + Node.js 24 + Vanilla JS → All compatible
 - ✅ Electron + Embedded Go Server → Architecturally sound
 - ✅ Single-mode architecture → Simpler, no build tags needed
 - ✅ HTTP JSON responses + Electron IPC → Clear separation
@@ -1609,7 +1616,7 @@ Electron App (production):
 
 **Non-Functional Requirements (23 NFRs) - All Covered:**
 - ✅ Performance (7 NFRs) → Electron app + existing backend (Chromium engine)
-- ✅ Reliability (7 NFRs) → 74 tests (42 Go + 32 Playwright ported to Electron)
+- ✅ Reliability (7 NFRs) → comprehensive Go unit tests + 32 Playwright E2E spec files
 - ✅ Usability (5 NFRs) → Electron dialogs (non-native but acceptable per user)
 - ✅ Maintainability (5 NFRs) → Single-mode architecture, simpler codebase (-700 lines)
 - ✅ Compatibility (4 NFRs) → macOS 11+, Universal binary, file format preserved
@@ -1641,7 +1648,7 @@ Electron App (production):
 **Identified Risks with Mitigation:**
 1. ✅ Electron learning curve → Excellent documentation, large community, mature ecosystem
 2. ✅ Go server integration → HTTP server already working, just needs spawn logic
-3. ✅ Test preservation → Run full suite after each change (42 Go + 32 Playwright ported)
+3. ✅ Test preservation → Full suite passes: `go test ./...` + `npm test` (32 Playwright spec files)
 4. ✅ Performance targets → Instrument Electron app, verify NFRs
 5. ✅ Dialog behavior → User explicitly accepted non-native dialogs for testability gains
 
@@ -1656,7 +1663,7 @@ Electron App (production):
 
 ### Architecture Strengths
 
-1. **Brownfield-aware design** - Preserves existing code and 74 tests (100% Go backend, 95% frontend)
+1. **Brownfield-aware design** - Preserves existing Go backend (100%) and frontend (95% preserved with IPC additions)
 2. **Single-mode architecture** - Simpler than dual-mode (-700 lines of code)
 3. **Clear boundaries** - HTTP for data, IPC for dialogs, well-defined separation
 4. **Consistent patterns** - Error codes, project organization, naming conventions
@@ -1669,7 +1676,7 @@ Electron App (production):
 1. **Start with Step 1** (Create Electron main process) - Foundation for everything
 2. **Implement IPC for file dialogs** - Small, testable change
 3. **Port Playwright tests incrementally** - Validate each test works with Electron API
-4. **Test continuously** - Run full suite (42 Go + 32 Playwright) after each major change
+4. **Test continuously** - Run full suite (`go test ./...` + `npm test`) after each major change
 5. **Defer minor details** - Welcome screen, file icon can be simple initially
 6. **Reference Electron docs** - Excellent documentation at electronjs.org
 
@@ -1709,8 +1716,8 @@ This architecture document defines a comprehensive migration strategy for conver
 - Create Electron main process and preload script
 - Reuse existing Go HTTP server as embedded child process
 - Minimal frontend changes (IPC for file dialogs only)
-- Port all 74 tests (42 Go unit tests + 32 Playwright UI tests)
-- Net result: -700 lines of code vs dual-mode Wails approach
+- Comprehensive Go unit tests + 32 Playwright E2E spec files
+- Net result: -700 lines of code vs dual-mode Wails approach (migration complete)
 
 **Migration Context:**
 - Original plan: Wails v3 dual-mode (web for testing, native for users)
@@ -1728,55 +1735,28 @@ This section captures architectural improvements and technical debt items identi
 
 ### 1. OpenAPI Schema & Code Generation for API Contracts
 
-**Priority:** Medium  
-**Identified:** Epic 3 Retrospective (2026-02-15)  
-**Story:** [10.10 OpenAPI Schema & Code Generation](../implementation-artifacts/10-10-openapi-schema-and-code-generation.md)  
-**Context:** Epic 3 and Epic 4 both experienced API contract mismatches between frontend and backend, resulting in 100% failure rate on first test.
+**Status:** Implemented (Story 10.10, Epic 10)
+**Story:** [10.10 OpenAPI Schema & Code Generation](../implementation-artifacts/10-10-openapi-schema-and-code-generation.md)
 
-**Problem:**
-- Frontend and backend developed with incompatible API contract assumptions
-- Multiple rounds of fixes needed to align response formats
-- No single source of truth for API contracts
-- Manual synchronization between frontend expectations and backend responses
+`api/openapi.yaml` is the source of truth for all REST endpoints. `api/generated/types.go` contains Go types generated from the schema. This addresses the Epic 3/4 pattern of API contract mismatches between frontend and backend.
 
-**Proposed Solution:**
-- Define API contracts using OpenAPI 3.x specification
-- Auto-generate TypeScript types for frontend from OpenAPI schema
-- Auto-generate Go server stubs/validators from OpenAPI schema
-- Compile-time verification of API contract compliance
-
-**Benefits:**
-- Eliminates API contract mismatches (prevents Epic 3/4 pattern)
-- Single source of truth for API contracts
-- Automatic documentation generation
-- Type safety across frontend/backend boundary
-- Easier to maintain as API evolves
-
-**Effort Estimate:** ~8-16 hours
-- Define OpenAPI schema for existing endpoints (~4 hours)
-- Integrate code generation tooling (~2-4 hours)
-- Update build process (~2 hours)
-- Migrate existing code to use generated types (~4-6 hours)
-
-**When to Implement:**
-- After Epic 5 (testing infrastructure in place)
-- Before adding new API endpoints (Epic 6+)
-- Consider as part of Epic 7 (polish & quality improvements)
-
-**References:**
-- OpenAPI Generator: https://openapi-generator.tech/
-- Go: oapi-codegen, go-swagger
-- TypeScript: openapi-typescript, openapi-generator-cli
-
-**Related Issues:**
-- Epic 3: 6 API contract bugs (Wails import map, endpoint mismatches, response format)
-- Epic 4: 4 API contract bugs (frontend not calling new APIs, API signature mismatches)
+**Remaining gap:** TypeScript type generation for the frontend is not yet wired into the build — frontend still uses plain JS objects. This could be added when TypeScript is introduced or when the API surface grows significantly.
 
 ---
 
-### 2. Additional Future Considerations
+### 2. Ephemeral Port / Agentic API Access
 
-*(Space reserved for future architectural improvements and technical debt items)*
+**Status:** Planned (Story 16.5, Epic 16 in-progress)
+**Story:** [16.5 Remove Fixed Port Dependency](../implementation-artifacts/16-5-remove-fixed-port-dependency.md)
+**Context:** Go server currently binds to hardcoded port 3000. This blocks running multiple instances simultaneously and makes the port unpredictable for external (agent) API clients.
+
+**Planned Solution:**
+- Go server binds to `:0` (OS-assigned ephemeral port), writes `PORT=<n>` to fd 3 (dedicated IPC pipe — not stdout, to avoid log contamination)
+- Electron main process reads fd 3 before calling `loadURL` — renderer auto-discovers via relative URLs
+- `app.requestSingleInstanceLock()` removed (existed solely to prevent port collisions)
+- Enables future agentic API access (Epic 19) without port guessing
+
+### 3. Additional Future Considerations
 
 **Potential Areas:**
 - Performance optimization for large spreadsheets (>10K cells)
@@ -1784,6 +1764,7 @@ This section captures architectural improvements and technical debt items identi
 - Real-time collaboration (if multi-user support added)
 - Plugin/extension architecture
 - Advanced formula engine optimizations
+- `frontend/app.js` modularisation (currently ~3,600 LOC; tracked in Story 16.6)
 
 ---
 

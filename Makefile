@@ -57,10 +57,9 @@ build-electron: generate install build
 	@echo "Building Electron app..."
 	npm run build
 
-# Run Go HTTP server (web mode for testing)
+# Run Go HTTP server (standalone, ephemeral port — port printed to stderr on startup)
 run: build
-	@echo "Starting Go HTTP server on http://localhost:3000"
-	./bin/gosheet-server --port 3000
+	./bin/gosheet-server --verbose
 
 # Run Electron app in development mode
 run-electron: install build
