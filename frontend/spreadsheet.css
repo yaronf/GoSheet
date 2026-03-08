@@ -676,6 +676,7 @@ input[type='text'].formula-bar {
   height: 24px !important;
   max-height: 24px !important; /* Prevent expansion */
   cursor: cell;
+  user-select: none; /* prevent text selection during drag */
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   transition: background 0.15s ease;

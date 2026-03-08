@@ -47,6 +47,11 @@ test.describe('Click interactions (Electron - real clicks)', () => {
   test('double click enters edit mode', async ({ window }) => {
     await setCellViaApi(window, 2, 1, 'edit-me');
     const cell = window.locator('#cell-2-1');
+    // Wait for the cell value to be rendered in the DOM before interacting
+    await expect(cell).toHaveText('edit-me', { timeout: 3000 });
+    // Click to select first, then dblclick to enter edit mode
+    await cell.click();
+    await expect(cell).toHaveClass(/selected/);
     await cell.dblclick();
     const editor = window.locator('.cell-editor');
     await expect(editor).toBeVisible({ timeout: 2000 });
@@ -70,6 +75,9 @@ test.describe('Click interactions (Electron - real clicks)', () => {
   test('click away from cell saves edit', async ({ window }) => {
     await setCellViaApi(window, 4, 2, '99');
     const cell = window.locator('#cell-4-2');
+    await expect(cell).toHaveText('99', { timeout: 3000 });
+    await cell.click();
+    await expect(cell).toHaveClass(/selected/);
     await cell.dblclick();
     await waitForEditModeReady(window);
     await window.keyboard.type('00');

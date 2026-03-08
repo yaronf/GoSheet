@@ -12,6 +12,9 @@
 //   DEBUG=1 env var is intentionally NOT supported; use --verbose instead.
 const DEBUG =
   process.argv.includes('--verbose') || process.env.NODE_ENV === 'development';
+// In test mode, hide windows unless ELECTRON_SHOW_WINDOW=1 (same as createWindow)
+const IS_TEST = process.env.NODE_ENV === 'test';
+const SHOW_WINDOW_IN_TEST = process.env.ELECTRON_SHOW_WINDOW === '1';
 
 const {
   app,
@@ -965,7 +968,7 @@ app.on('second-instance', (event, argv) => {
             '[Electron] second-instance: file already open, focusing window'
           );
         if (!win.isDestroyed()) {
-          win.show();
+          if (!IS_TEST || SHOW_WINDOW_IN_TEST) win.show();
           win.focus();
         }
         return;
@@ -976,7 +979,7 @@ app.on('second-instance', (event, argv) => {
     // No file arg — just focus the most recently used window
     const wins = BrowserWindow.getAllWindows();
     if (wins.length > 0 && !wins[0].isDestroyed()) {
-      wins[0].show();
+      if (!IS_TEST || SHOW_WINDOW_IN_TEST) wins[0].show();
       wins[0].focus();
     }
   }
@@ -1028,7 +1031,7 @@ app.on('open-file', (event, filePath) => {
           filePath
         );
       if (!win.isDestroyed()) {
-        win.show();
+        if (!IS_TEST || SHOW_WINDOW_IN_TEST) win.show();
         win.focus();
       }
       return;

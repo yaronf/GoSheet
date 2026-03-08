@@ -349,10 +349,22 @@ export async function checkScrollPosition() {
     await refreshAllCells();
     container.scrollLeft = oldScrollLeft;
     container.scrollTop = oldScrollTop;
+    reapplyHeaderSelection();
   }
 }
 
 // Cell selection helpers
+
+// Re-applies row/column header selection after grid expansion so the selection
+// covers all rows/columns in the newly expanded grid.
+function reapplyHeaderSelection() {
+  const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+  if (appState.selectionMode === 'row') {
+    applySelectionRange(startRow, 0, endRow, appState.COLS - 1);
+  } else if (appState.selectionMode === 'column') {
+    applySelectionRange(0, startCol, appState.ROWS - 1, endCol);
+  }
+}
 
 export function expandGridIfNeeded(row, col) {
   let needsRebuild = false;
@@ -366,7 +378,10 @@ export function expandGridIfNeeded(row, col) {
     if (window.__DEBUG__) console.log(`Expanding columns to ${appState.COLS}`);
     needsRebuild = true;
   }
-  if (needsRebuild) buildSpreadsheet().then(() => refreshAllCells());
+  if (needsRebuild)
+    buildSpreadsheet()
+      .then(() => refreshAllCells())
+      .then(() => reapplyHeaderSelection());
 }
 
 export function computeSelectionRange(row, col, extendSelection) {
@@ -525,8 +540,14 @@ export async function updateFormulaBar(row, col) {
   const cellRef = document.getElementById('cell-ref');
   const formulaBar = document.getElementById('formula-bar');
   if (!cellRef || !formulaBar) return;
-  const ref = await GetCellRef(row, col);
-  cellRef.textContent = ref;
+  const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+  const isRange = startRow !== endRow || startCol !== endCol;
+  if (isRange) {
+    cellRef.textContent = `${colToLetter(startCol)}${startRow + 1}:${colToLetter(endCol)}${endRow + 1}`;
+  } else {
+    const ref = await GetCellRef(row, col);
+    cellRef.textContent = ref;
+  }
   const rawValue = await GetCellRawValue(row, col);
   formulaBar.value = rawValue || '';
 }

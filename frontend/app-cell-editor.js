@@ -15,6 +15,7 @@ import {
   updateFormulaBar,
   getNextCell,
   getNextCellTabOrder,
+  applySelectionRange,
 } from './app-grid.js';
 
 export const STYLE_CLASSES = ['style-title', 'style-header', 'style-total'];
@@ -390,6 +391,22 @@ export function handleKeydownFileOps(e) {
 
 // Handle arrow keys, Enter, Tab, Delete, typing when a cell is selected
 export function handleKeydownCellNavigation(e, row, col) {
+  // Story 17.1: Shift+Arrow extends the selection range
+  if (
+    e.shiftKey &&
+    ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)
+  ) {
+    e.preventDefault();
+    const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+    let newEndRow = endRow;
+    let newEndCol = endCol;
+    if (e.key === 'ArrowDown' && endRow < appState.ROWS - 1) newEndRow++;
+    if (e.key === 'ArrowUp' && endRow > startRow) newEndRow--;
+    if (e.key === 'ArrowRight' && endCol < appState.COLS - 1) newEndCol++;
+    if (e.key === 'ArrowLeft' && endCol > startCol) newEndCol--;
+    applySelectionRange(startRow, startCol, newEndRow, newEndCol);
+    return true;
+  }
   if (handleArrowKey(e, row, col)) return true;
   if (e.key === 'Tab') {
     const next = getNextCellTabOrder(row, col);

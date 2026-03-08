@@ -454,7 +454,19 @@ if (table) {
       const row = parseInt(rowHeader.dataset.row, 10);
       if (Number.isFinite(row)) {
         appState.selectionMode = 'row';
-        applySelectionRange(row, 0, row, appState.COLS - 1);
+        // Story 17.1: Shift-click extends row selection
+        if (e.shiftKey && appState.selectionRange) {
+          const existingStart = appState.selectionRange.startRow;
+          const existingEnd = appState.selectionRange.endRow;
+          applySelectionRange(
+            Math.min(existingStart, row),
+            0,
+            Math.max(existingEnd, row),
+            appState.COLS - 1
+          );
+        } else {
+          applySelectionRange(row, 0, row, appState.COLS - 1);
+        }
         if (window.electronAPI?.updateMenuState)
           window.electronAPI.updateMenuState({
             selectionMode: 'row',
@@ -467,7 +479,19 @@ if (table) {
       const col = parseInt(colHeader.dataset.col, 10);
       if (Number.isFinite(col)) {
         appState.selectionMode = 'column';
-        applySelectionRange(0, col, appState.ROWS - 1, col);
+        // Story 17.1: Shift-click extends column selection
+        if (e.shiftKey && appState.selectionRange) {
+          const existingStart = appState.selectionRange.startCol;
+          const existingEnd = appState.selectionRange.endCol;
+          applySelectionRange(
+            0,
+            Math.min(existingStart, col),
+            appState.ROWS - 1,
+            Math.max(existingEnd, col)
+          );
+        } else {
+          applySelectionRange(0, col, appState.ROWS - 1, col);
+        }
         if (window.electronAPI?.updateMenuState)
           window.electronAPI.updateMenuState({
             selectionMode: 'column',
@@ -497,6 +521,46 @@ if (table) {
 
   table.addEventListener('contextmenu', handleTableContextMenu);
   setupContextMenuHandlers();
+
+  // Story 17.1: Drag-to-select
+  let dragState = null; // { startRow, startCol } | null
+
+  table.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return; // left button only
+    if (e.shiftKey) return; // shift-click handled by the click handler
+    if (appState.isEditing) return;
+    if (e.target.classList.contains('cell-editor')) return;
+    const cell = e.target.closest('.cell');
+    if (!cell) return; // row/col headers handled separately
+    const row = parseInt(cell.dataset.row, 10);
+    const col = parseInt(cell.dataset.col, 10);
+    if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+    dragState = { startRow: row, startCol: col };
+    // Select the anchor cell immediately so drag has a valid starting point
+    appState.selectionMode = 'cell';
+    selectCell(row, col, false);
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragState) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el) return;
+    const cell = el.closest('.cell');
+    if (!cell) return;
+    const row = parseInt(cell.dataset.row, 10);
+    const col = parseInt(cell.dataset.col, 10);
+    if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+    const startRow = Math.min(dragState.startRow, row);
+    const endRow = Math.max(dragState.startRow, row);
+    const startCol = Math.min(dragState.startCol, col);
+    const endCol = Math.max(dragState.startCol, col);
+    appState.selectionMode = 'cell';
+    applySelectionRange(startRow, startCol, endRow, endCol);
+  });
+
+  document.addEventListener('mouseup', () => {
+    dragState = null;
+  });
 }
 
 // Global keyboard handler
