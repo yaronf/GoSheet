@@ -3177,12 +3177,13 @@ if (window.electronAPI) {
   const handleOpenFileError = async (filePath) => {
     if (window.__DEBUG__)
       console.log('[App] Open file error — file not found:', filePath);
-    showWelcome();
+    // Show alert first so the modal is visible; switch to welcome after dismissal.
     await showAlert(
       'File not found: ' +
         filePath +
         '\n\nThe file may have been moved or deleted.'
     );
+    showWelcome();
   };
   if (window.electronAPI.onOpenFileError) {
     window.electronAPI.onOpenFileError(handleOpenFileError);

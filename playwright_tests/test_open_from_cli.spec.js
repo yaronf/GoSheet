@@ -248,13 +248,17 @@ base.test.describe('Open file from CLI', () => {
           .waitFor({ state: 'visible', timeout: 8000 });
       }
 
-      // Trigger the open-file-error handler directly (bypasses IPC, tests handler logic)
+      // Trigger the open-file-error handler directly (bypasses IPC, tests handler logic).
+      // Wait for the hook to be available — this implicitly waits for the page to be fully
+      // loaded and stable (including any clearCache re-navigation in dev mode).
       await testWindow.waitForFunction(
         () => typeof window.__testOpenFileError === 'function',
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
-      // Fire handler without awaiting — it blocks on showAlert modal
-      testWindow.evaluate(() => window.__testOpenFileError('/tmp/ghost.sheet'));
+      // Fire handler without awaiting — it blocks on showAlert modal.
+      testWindow
+        .evaluate(() => window.__testOpenFileError('/tmp/ghost.sheet'))
+        .catch(() => {});
 
       // Dismiss the alert modal
       await testWindow

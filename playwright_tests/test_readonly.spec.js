@@ -99,7 +99,7 @@ test.describe('Read-Only Mode (Story 16.4)', () => {
       { timeout: 5000 }
     );
     // Fire without awaiting — it blocks on showAlert modal
-    window.evaluate(() => window.__testMenuSave());
+    window.evaluate(() => window.__testMenuSave()).catch(() => {});
 
     // Alert modal should appear
     await window
