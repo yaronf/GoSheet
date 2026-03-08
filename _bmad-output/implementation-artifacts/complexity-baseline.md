@@ -2,7 +2,7 @@
 
 **Story:** 10.3 - Add Code Complexity Analysis
 **Date:** 2026-02-24
-**Status:** Updated 2026-03-08 (Story 16.2: RecalculateAll implemented; Story 16.1: atomicWriteFile added)
+**Status:** Updated 2026-03-08 (Story 16.6: refactored all Go/JS functions >20; split formula.go, handlers.go, app.js)
 
 ---
 
@@ -21,34 +21,35 @@
 
 **Command:** `make complexity` or `gocyclo -over 10 .`
 
-### Functions >15 (8 — to be addressed in Story 16.6)
+### Functions >15 (2 — as of Story 16.6)
+
+All previously >20 functions have been refactored. Remaining >15 are below the hard limit.
 
 | Complexity | Package | Function | Location | Notes |
 |------------|---------|----------|----------|-------|
-| 37 | model | (*Spreadsheet).RecalculateAll | model/spreadsheet.go:170 | Story 16.2: moved from controller |
-| 26 | model | shiftRange | model/formula_shift.go:122 | Story 15.5 |
-| 25 | api | (*Server).HandleCSVExport | api/handlers.go:366 | Grew from 14 |
-| 21 | model | (*Spreadsheet).DeleteColumn | model/spreadsheet.go:605 | Story 13/15 |
-| 21 | api | (*Server).HandleGetAllCells | api/handlers.go:153 | Story 13/15 |
-| 20 | model | (*Spreadsheet).DeleteRow | model/spreadsheet.go:537 | Story 13/15 |
-| 17 | model | (*Spreadsheet).InsertColumn | model/spreadsheet.go:486 | Story 13 |
-| 16 | model | (*Spreadsheet).InsertRow | model/spreadsheet.go:438 | Story 13 |
+| 17 | model | (*Spreadsheet).InsertColumn | model/spreadsheet.go:505 | Acceptable; structural op |
+| 16 | model | (*Spreadsheet).InsertRow | model/spreadsheet.go:457 | Acceptable; structural op |
 
-### Functions >10 (as of 2026-03-08)
+### Functions >10 (as of 2026-03-08, Story 16.6)
 
 | Complexity | Package | Function | Location |
 |------------|---------|----------|----------|
-| 15 | model | evaluateComparison | model/formula.go:407 |
-| 14 | model | (*Spreadsheet).ApplyStyleToRange | model/spreadsheet.go:671 |
+| 15 | model | evaluateComparison | model/formula_eval.go:104 |
+| 14 | model | (*Spreadsheet).DeleteColumn | model/spreadsheet.go:624 |
+| 14 | model | (*Spreadsheet).ApplyStyleToRange | model/spreadsheet.go:692 |
 | 13 | model | shiftCellRef | model/formula_shift.go:83 |
-| 13 | model | evaluateMultiplication | model/formula.go:511 |
+| 13 | model | evaluateMultiplication | model/formula_eval.go:208 |
+| 13 | model | (*Spreadsheet).DeleteRow | model/spreadsheet.go:556 |
 | 13 | model | (*DependencyGraph).GetCalculationOrder | model/dependencies.go:353 |
+| 13 | api | (*Server).computeCSVExportBounds | api/handlers.go:427 |
 | 12 | model | atomicWriteFile | model/file.go:23 |
 | 12 | model | ExpandRange | model/dependencies.go:197 |
+| 12 | model | serializePrimaryDisplay | model/formula.go:248 |
+| 12 | model | (*StyleRegistry).UpdateStyle | model/style.go:170 |
 | 12 | controller | (*SetMergeCommand).Do | controller/command.go:623 |
 | 12 | controller | (*AppController).propagateCycleError | controller/app.go:220 |
-| 11 | model | (*Spreadsheet).CleanupFormat | model/spreadsheet.go:407 |
-| 11 | model | (*Spreadsheet).SetRangeAlignment | model/spreadsheet.go:357 |
+| 11 | model | (*Spreadsheet).CleanupFormat | model/spreadsheet.go:426 |
+| 11 | model | (*Spreadsheet).SetRangeAlignment | model/spreadsheet.go:376 |
 | 11 | model | RefToCoords | model/coords.go:36 |
 | 11 | controller | (*AppController).setCellValueInternal | controller/app.go:103 |
 
@@ -58,9 +59,18 @@
 
 **Command:** `npm run lint` (complexity rule: warn at 15)
 
-### Functions >15 (0)
+### Functions >20 (0)
 
-*None.* (app.js keydown handler refactored 2026-02-23: split into `handleKeydownFileOps` and `handleKeydownCellNavigation`.)
+*None.* All functions with complexity >20 have been refactored (Story 16.6).
+
+### Functions >15 (4 warnings — all at exactly 20 or below threshold)
+
+| Complexity | File | Function |
+|------------|------|----------|
+| 20 | electron/menu.js | buildMenu |
+| 20 | frontend/app-cell-editor.js | handleKeydownFileOps |
+| 20 | frontend/app-modals.js | formatToCssPreview |
+| 20 | frontend/app-modals.js | populateFormBorderProps |
 
 ---
 

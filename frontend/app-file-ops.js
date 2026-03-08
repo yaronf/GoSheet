@@ -1,0 +1,605 @@
+// app-file-ops.js — File status, undo/redo, export CSV, and Electron menu event listeners.
+
+import {
+  GetFileStatus,
+  SaveFile,
+  ExportCSV,
+  Undo,
+  Redo,
+  SetMerge,
+  Unmerge,
+  ApplyRangeStyle,
+  CleanupFormat,
+  InsertRow,
+  InsertColumn,
+  DeleteRow,
+  DeleteColumn,
+  GetCellRawValue,
+  SetCellValue,
+  GetStyles,
+} from './api-client.js';
+import { appState } from './app-state.js';
+import {
+  showAlert,
+  announceToScreenReader,
+  colToLetter,
+  letterToCol,
+} from './app-utils.js';
+import {
+  selectionOverlapsMerge,
+  getMergeInfo,
+  applySelectionRange,
+  selectCell,
+} from './app-grid.js';
+import { applyAlignmentToSelection, STYLE_ID } from './app-cell-editor.js';
+import {
+  showFormulaHelpModal,
+  showUserGuideModal,
+  showManageStylesModal,
+} from './app-modals.js';
+
+// Update file status display
+export function displayFileStatus(hasUnsavedChanges) {
+  const statusEl = document.getElementById('file-status');
+  if (hasUnsavedChanges) {
+    statusEl.textContent = '● Unsaved changes';
+    statusEl.style.color = 'var(--color-warning)';
+    announceToScreenReader('Unsaved changes');
+  } else {
+    statusEl.textContent = '✓ Saved';
+    statusEl.style.color = 'var(--color-success)';
+    announceToScreenReader('File saved');
+  }
+
+  const saveBtn = document.getElementById('save-btn');
+  if (saveBtn) saveBtn.disabled = !hasUnsavedChanges;
+
+  window.currentHasUnsavedChanges = hasUnsavedChanges;
+
+  if (window.electronAPI?.updateMenuState) {
+    window.electronAPI.updateMenuState({
+      hasUnsavedChanges,
+      hasFilePath: false,
+    });
+  }
+}
+
+// Story 16.4: Update undo/redo toolbar button disabled state for read-only transitions
+export function updateUndoRedoToolbarForReadOnly(readOnly) {
+  const ms = window._lastUndoRedoState;
+  const undoBtn = document.getElementById('undo-btn');
+  const redoBtn = document.getElementById('redo-btn');
+  if (undoBtn) undoBtn.disabled = readOnly || (ms ? !ms.canUndo : true);
+  if (redoBtn) redoBtn.disabled = readOnly || (ms ? !ms.canRedo : true);
+}
+
+// Story 16.4: Set read-only mode and update all UI accordingly
+export function setReadOnly(value) {
+  appState.isReadOnly = value;
+  const indicator = document.getElementById('readonly-indicator');
+  if (indicator) indicator.style.display = value ? 'inline' : 'none';
+  const saveBtn = document.getElementById('save-btn');
+  if (saveBtn) saveBtn.disabled = value || !window.currentHasUnsavedChanges;
+  for (const id of ['align-left-btn', 'align-center-btn', 'align-right-btn']) {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = value;
+  }
+  updateUndoRedoToolbarForReadOnly(value);
+  if (window.electronAPI?.updateMenuState) {
+    window.electronAPI.updateMenuState({ isReadOnly: value });
+  }
+}
+
+// Fetch and update file status from server
+export async function updateFileStatus() {
+  try {
+    const status = await GetFileStatus();
+    displayFileStatus(status.hasUnsavedChanges);
+    document.title = `GoSheet - ${status.filename || 'Untitled'}`;
+    if (window.electronAPI?.updateMenuState) {
+      window.electronAPI.updateMenuState({
+        hasUnsavedChanges: status.hasUnsavedChanges,
+        hasFilePath: status.path !== '',
+      });
+    }
+  } catch (error) {
+    console.error('Error updating file status:', error);
+  }
+}
+
+// Story 15.2: Update undo/redo state in menu and toolbar
+export function applyUndoRedoState(state) {
+  window._lastUndoRedoState = state;
+  const undoBtn = document.getElementById('undo-btn');
+  const redoBtn = document.getElementById('redo-btn');
+  if (undoBtn) undoBtn.disabled = appState.isReadOnly || !state.canUndo;
+  if (redoBtn) redoBtn.disabled = appState.isReadOnly || !state.canRedo;
+  if (window.electronAPI?.updateMenuState) {
+    window.electronAPI.updateMenuState({
+      canUndo: state.canUndo,
+      canRedo: state.canRedo,
+      undoDescription: state.undoDescription,
+      redoDescription: state.redoDescription,
+    });
+  }
+  if (state.hasUnsavedChanges !== undefined) {
+    displayFileStatus(state.hasUnsavedChanges);
+  }
+}
+
+// Story 15.2: Perform undo
+export async function performUndo() {
+  try {
+    const result = await Undo();
+    await window.refreshAllCells?.();
+    displayFileStatus(result.hasUnsavedChanges);
+    applyUndoRedoState(result);
+  } catch (error) {
+    console.error('[App] Error during Undo:', error);
+  }
+}
+
+// Story 15.2: Perform redo
+export async function performRedo() {
+  try {
+    const result = await Redo();
+    await window.refreshAllCells?.();
+    displayFileStatus(result.hasUnsavedChanges);
+    applyUndoRedoState(result);
+  } catch (error) {
+    console.error('[App] Error during Redo:', error);
+  }
+}
+
+// Sync Format menu with styles from API — assigned at module load so always available
+window.syncFormatMenuFromApi = async function syncFormatMenuFromApi() {
+  if (
+    document.querySelector('#app')?.getAttribute('data-view') !== 'spreadsheet'
+  )
+    return;
+  try {
+    const styles = await GetStyles();
+    window.electronAPI?.syncFormatMenu?.(styles);
+  } catch (err) {
+    console.error('[App] Failed to sync Format menu:', err);
+  }
+};
+
+// Story 7.12: Export CSV
+export async function handleExportCSV(testPath = '') {
+  if (window.__DEBUG__)
+    console.log('[handleExportCSV] Starting export, testPath:', testPath);
+  try {
+    const result = await ExportCSV(testPath);
+    if (!result) {
+      if (window.__DEBUG__)
+        console.log('[handleExportCSV] User cancelled file dialog');
+      return;
+    }
+    await showAlert(`Exported to ${result.path}`);
+    if (window.__DEBUG__)
+      console.log('[handleExportCSV] Export complete:', result.message);
+  } catch (error) {
+    console.error('[handleExportCSV] Error caught:', error);
+    await showAlert('Error exporting CSV: ' + error.message);
+  }
+}
+
+function setupFileMenuListeners() {
+  window.electronAPI.onMenuNew(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu New triggered');
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      window.showSpreadsheet?.();
+    document.getElementById('new-btn').click();
+  });
+
+  window.electronAPI.onMenuOpen(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Open triggered');
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      window.showSpreadsheet?.();
+    document.getElementById('load-btn').click();
+  });
+
+  window.electronAPI.onMenuOpenReadOnly?.(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Open Read-Only triggered');
+    await window.openFileReadOnly?.();
+  });
+
+  const handleMenuSave = async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Save triggered');
+    if (appState.isReadOnly) {
+      await showAlert(
+        'File is read-only. Use Save As to create a writable copy.'
+      );
+      return;
+    }
+    document.getElementById('save-btn').click();
+  };
+  window.electronAPI.onMenuSave(handleMenuSave);
+  window.__testMenuSave = handleMenuSave;
+
+  window.electronAPI.onMenuSaveAs(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Save As triggered');
+    try {
+      const path = await SaveFile('');
+      if (path && window.electronAPI?.addRecentFile) {
+        await window.electronAPI.addRecentFile(path);
+      }
+      setReadOnly(false);
+      updateFileStatus();
+      if (window.__DEBUG__) console.log('File saved via Save As');
+    } catch (error) {
+      await showAlert('Error saving file: ' + error.message);
+    }
+  });
+
+  window.electronAPI.onMenuImportCSV(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Import CSV triggered');
+    await window.handleImportCSV?.();
+  });
+
+  window.electronAPI.onMenuExportCSV(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Export CSV triggered');
+    await handleExportCSV();
+  });
+
+  window.electronAPI.onMenuOpenRecent(async (event, filePath) => {
+    if (window.__DEBUG__)
+      console.log('[App] Menu Open Recent triggered:', filePath);
+    await window.loadFileByPath?.(filePath);
+  });
+
+  window.electronAPI.onMenuOpenCSV?.(async (filePath) => {
+    if (window.__DEBUG__)
+      console.log('[App] Open CSV by path triggered:', filePath);
+    await window.handleImportCSVByPath?.(filePath);
+  });
+
+  const handleOpenFileError = async (filePath) => {
+    if (window.__DEBUG__)
+      console.log('[App] Open file error — file not found:', filePath);
+    await showAlert(
+      'File not found: ' +
+        filePath +
+        '\n\nThe file may have been moved or deleted.'
+    );
+    window.showWelcome?.();
+  };
+  window.electronAPI.onOpenFileError?.(handleOpenFileError);
+  window.__testOpenFileError = handleOpenFileError;
+
+  window.electronAPI.onMenuFormulaReference?.(() => {
+    if (window.__DEBUG__) console.log('[App] Menu Formula Reference triggered');
+    showFormulaHelpModal();
+  });
+
+  window.electronAPI.onMenuUserGuide?.(() => {
+    if (window.__DEBUG__) console.log('[App] Menu User Guide triggered');
+    showUserGuideModal();
+  });
+}
+
+function setupEditMenuListeners() {
+  window.electronAPI.onMenuUndo?.(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Undo triggered');
+    if (appState.isReadOnly) return;
+    await performUndo();
+  });
+
+  window.electronAPI.onMenuRedo?.(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Redo triggered');
+    if (appState.isReadOnly) return;
+    await performRedo();
+  });
+
+  window.electronAPI.onMenuCut(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Cut triggered');
+    if (!appState.selectedCell) return;
+    try {
+      const { row, col } = appState.selectedCell;
+      const value = await GetCellRawValue(row, col);
+      await navigator.clipboard.writeText(value);
+      await SetCellValue(row, col, '');
+      await window.refreshAllCells?.();
+      updateFileStatus();
+    } catch (error) {
+      console.error('[App] Error during Cut:', error);
+      await showAlert('Error during Cut operation: ' + error.message);
+    }
+  });
+
+  window.electronAPI.onMenuCopy(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Copy triggered');
+    if (!appState.selectedCell) return;
+    try {
+      const { row, col } = appState.selectedCell;
+      const value = await GetCellRawValue(row, col);
+      await navigator.clipboard.writeText(value);
+    } catch (error) {
+      console.error('[App] Error during Copy:', error);
+      await showAlert('Error during Copy operation: ' + error.message);
+    }
+  });
+
+  window.electronAPI.onMenuPaste(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Paste triggered');
+    if (appState.isReadOnly) return;
+    if (!appState.selectedCell) return;
+    try {
+      const { row, col } = appState.selectedCell;
+      const text = await navigator.clipboard.readText();
+      await SetCellValue(row, col, text);
+      await window.refreshAllCells?.();
+      updateFileStatus();
+    } catch (error) {
+      console.error('[App] Error during Paste:', error);
+      await showAlert('Error during Paste operation: ' + error.message);
+    }
+  });
+
+  window.electronAPI.onMenuSelectAll(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Select All triggered');
+    const active = document.activeElement;
+    if (
+      active &&
+      (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
+    ) {
+      active.select();
+      return;
+    }
+    try {
+      const response = await fetch('/api/cells/all');
+      if (!response.ok)
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const result = await response.json();
+      if (result.cells && Object.keys(result.cells).length > 0) {
+        let minRow = Infinity,
+          maxRow = -Infinity;
+        let minCol = Infinity,
+          maxCol = -Infinity;
+        for (const cellRef in result.cells) {
+          const match = cellRef.match(/^([A-Z]+)(\d+)$/);
+          if (match) {
+            const col = letterToCol(match[1]);
+            const row = parseInt(match[2]) - 1;
+            minRow = Math.min(minRow, row);
+            maxRow = Math.max(maxRow, row);
+            minCol = Math.min(minCol, col);
+            maxCol = Math.max(maxCol, col);
+          }
+        }
+        if (minRow !== Infinity) {
+          selectCell(minRow, minCol);
+          await showAlert(
+            `Selected range: ${colToLetter(minCol)}${minRow + 1} to ${colToLetter(maxCol)}${maxRow + 1}\n(Note: Full range selection coming in future update)`
+          );
+        }
+      } else {
+        await showAlert('No cells to select');
+      }
+    } catch (error) {
+      await showAlert('Error during Select All operation: ' + error.message);
+    }
+  });
+}
+
+function setupFormatMenuListeners() {
+  // Story 11.5: Merge / Unmerge
+  window.electronAPI.onMenuMergeCells?.(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Merge Cells triggered');
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+    const cellCount = (endRow - startRow + 1) * (endCol - startCol + 1);
+    if (cellCount < 2) {
+      await showAlert('Select 2 or more cells to merge.');
+      return;
+    }
+    if (selectionOverlapsMerge(startRow, startCol, endRow, endCol)) {
+      await showAlert('Selection overlaps an existing merged cell.');
+      return;
+    }
+    try {
+      const rowSpan = endRow - startRow + 1;
+      const colSpan = endCol - startCol + 1;
+      const result = await SetMerge(startRow, startCol, rowSpan, colSpan);
+      applyUndoRedoState(result);
+      await window.buildSpreadsheet?.();
+      await window.refreshAllCells?.();
+    } catch (error) {
+      await showAlert('Error merging cells: ' + error.message);
+    }
+  });
+
+  window.electronAPI.onMenuUnmergeCells?.(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Unmerge triggered');
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+    if (startRow !== endRow || startCol !== endCol) {
+      await showAlert('Select a single merged cell to unmerge.');
+      return;
+    }
+    const { merge, isAnchor } = getMergeInfo(
+      startRow,
+      startCol,
+      appState.currentMerges
+    );
+    if (!merge || !isAnchor) {
+      await showAlert('Selected cell is not merged.');
+      return;
+    }
+    try {
+      const result = await Unmerge(startRow, startCol);
+      applyUndoRedoState(result);
+      await window.buildSpreadsheet?.();
+      await window.refreshAllCells?.();
+    } catch (error) {
+      await showAlert('Error unmerging cells: ' + error.message);
+    }
+  });
+
+  // Story 12.2 / 13.3: Apply style to selection
+  const applyStyleToSelection = async (styleId) => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (appState.isReadOnly) return;
+    const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+    try {
+      const result = await ApplyRangeStyle(
+        startRow,
+        startCol,
+        endRow,
+        endCol,
+        styleId
+      );
+      applyUndoRedoState(result);
+      await window.refreshAllCells?.();
+      window.dispatchEvent(
+        new CustomEvent('style-applied', { detail: { styleId } })
+      );
+    } catch (error) {
+      console.error('[App] Error applying style:', error);
+      window.__lastStyleError = String(error.message);
+      await showAlert('Error applying style: ' + error.message);
+    }
+  };
+  window.__lastStyleError = null;
+  window.electronAPI.onMenuApplyStyle?.(applyStyleToSelection);
+  window.electronAPI.onMenuStyleTitle?.(() =>
+    applyStyleToSelection(STYLE_ID.TITLE)
+  );
+  window.electronAPI.onMenuStyleHeader?.(() =>
+    applyStyleToSelection(STYLE_ID.HEADER)
+  );
+  window.electronAPI.onMenuStyleTotal?.(() =>
+    applyStyleToSelection(STYLE_ID.TOTAL)
+  );
+
+  // Story 12.3: Format Cleanup
+  window.electronAPI.onMenuFormatCleanup?.(async () => {
+    if (window.__DEBUG__) console.log('[App] Menu Format Cleanup triggered');
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    try {
+      const result = await CleanupFormat();
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      await window.buildSpreadsheet?.();
+      await window.refreshAllCells?.();
+    } catch (error) {
+      await showAlert('Error during Format Cleanup: ' + error.message);
+    }
+  });
+
+  // Story 13.3: Manage Styles
+  window.electronAPI.onMenuManageStyles?.(() => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    showManageStylesModal();
+  });
+
+  // View menu: Alignment shortcuts
+  window.electronAPI.onMenuAlignLeft?.(() => applyAlignmentToSelection('left'));
+  window.electronAPI.onMenuAlignCenter?.(() =>
+    applyAlignmentToSelection('center')
+  );
+  window.electronAPI.onMenuAlignRight?.(() =>
+    applyAlignmentToSelection('right')
+  );
+}
+
+function setupStructuralMenuListeners() {
+  // Story 13.1 / 15.3: Insert/Delete row/column
+  window.electronAPI.onMenuInsertRow?.(async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (appState.isReadOnly) return;
+    if (appState.selectionMode !== 'row') return;
+    const row = appState.selectionRange.startRow;
+    try {
+      const result = await InsertRow(row);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
+      await window.buildSpreadsheet?.();
+      await window.refreshAllCells?.();
+      applySelectionRange(row, 0, row, appState.COLS - 1);
+    } catch (error) {
+      await showAlert('Error inserting row: ' + error.message);
+    }
+  });
+
+  window.electronAPI.onMenuInsertColumn?.(async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (appState.isReadOnly) return;
+    if (appState.selectionMode !== 'column') return;
+    const col = appState.selectionRange.startCol;
+    try {
+      const result = await InsertColumn(col);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
+      await window.buildSpreadsheet?.();
+      await window.refreshAllCells?.();
+      applySelectionRange(0, col, appState.ROWS - 1, col);
+    } catch (error) {
+      await showAlert('Error inserting column: ' + error.message);
+    }
+  });
+
+  window.electronAPI.onMenuDeleteRow?.(async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (appState.isReadOnly) return;
+    if (appState.selectionMode !== 'row') return;
+    const row = appState.selectionRange.startRow;
+    try {
+      const result = await DeleteRow(row);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
+      await window.buildSpreadsheet?.();
+      await window.refreshAllCells?.();
+    } catch (error) {
+      await showAlert('Error deleting row: ' + error.message);
+    }
+  });
+
+  window.electronAPI.onMenuDeleteColumn?.(async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (appState.isReadOnly) return;
+    if (appState.selectionMode !== 'column') return;
+    const col = appState.selectionRange.startCol;
+    try {
+      const result = await DeleteColumn(col);
+      if (result.hasUnsavedChanges !== undefined)
+        displayFileStatus(result.hasUnsavedChanges);
+      applyUndoRedoState(result);
+      await window.buildSpreadsheet?.();
+      await window.refreshAllCells?.();
+    } catch (error) {
+      await showAlert('Error deleting column: ' + error.message);
+    }
+  });
+
+  // View menu: RTL Mode
+  window.electronAPI.onMenuToggleRTL?.((event, checked) => {
+    window.setRTL?.(checked);
+  });
+}
+
+// Story 7.1: Setup Electron menu event listeners
+export function setupElectronMenuListeners() {
+  if (!window.electronAPI) return;
+  if (window.__DEBUG__)
+    console.log('[App] Setting up Electron menu event listeners');
+  setupFileMenuListeners();
+  setupEditMenuListeners();
+  setupFormatMenuListeners();
+  setupStructuralMenuListeners();
+  if (window.__DEBUG__)
+    console.log('[App] Electron menu event listeners registered (File + Edit)');
+}

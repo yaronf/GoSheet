@@ -57,6 +57,14 @@ test.describe('Undo/Redo structural operations (Story 15.3)', () => {
     await expect(window.locator('#file-status')).toContainText('Saved', {
       timeout: 3000,
     });
+    // Ensure grid is fully rebuilt and cells are empty before each test
+    await window.evaluate(async () => {
+      if (typeof window.buildSpreadsheet === 'function')
+        await window.buildSpreadsheet();
+      if (typeof window.refreshAllCells === 'function')
+        await window.refreshAllCells();
+    });
+    await expect(window.locator('#cell-0-0')).toHaveText('', { timeout: 2000 });
   });
 
   test('Insert row → Cmd+Z removes inserted row, cells restored', async ({
@@ -354,8 +362,10 @@ test.describe('Undo/Redo structural operations (Story 15.3)', () => {
     // Click the error cell — formula bar should reflect the invalid state, not the original formula
     await window.locator('#cell-2-0').click();
     const formulaBar = window.locator('#formula-bar');
+    // Wait for the async formula bar update to complete after cell click
+    await expect(formulaBar).not.toHaveValue('', { timeout: 2000 });
+    await expect(formulaBar).not.toHaveValue('=SUM(A1:A3)', { timeout: 2000 });
     const barValue = await formulaBar.inputValue();
-    expect(barValue).not.toBe('=SUM(A1:A3)');
     expect(barValue).toContain('#REF!');
   });
 

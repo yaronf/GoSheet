@@ -627,21 +627,27 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
  * @param {boolean} state.hasFilePath - Whether a file path is set
  */
 function updateMenuState(state) {
-  // Validate input
   if (!state || typeof state !== 'object') {
     console.error('[Menu] Invalid state object:', state);
     return;
   }
-
   menuState = { ...menuState, ...state };
-
   const menu = Menu.getApplicationMenu();
   if (!menu) {
     console.warn('[Menu] No application menu found');
     return;
   }
+  updateUndoRedoItems(menu);
+  updateSaveItem(menu);
+  updateMergeItems(menu);
+  updateInsertDeleteItems(menu);
+  const rtlItem = menu.getMenuItemById('toggle-rtl');
+  if (rtlItem && menuState.isRTL !== undefined)
+    rtlItem.checked = menuState.isRTL;
+}
 
-  // Story 15.2: Update Undo/Redo menu items
+/** Story 15.2: Update Undo/Redo menu items. */
+function updateUndoRedoItems(menu) {
   const undoItem = menu.getMenuItemById('undo');
   if (undoItem && menuState.canUndo !== undefined) {
     undoItem.enabled = !!menuState.canUndo;
@@ -656,8 +662,10 @@ function updateMenuState(state) {
       ? `Redo ${menuState.redoDescription}`
       : 'Redo';
   }
+}
 
-  // Update Save menu item based on unsaved changes and read-only state
+/** Update Save menu item based on unsaved-changes and read-only state. */
+function updateSaveItem(menu) {
   const saveItem = menu.getMenuItemById('save');
   if (saveItem) {
     saveItem.enabled = menuState.hasUnsavedChanges && !menuState.isReadOnly;
@@ -666,43 +674,28 @@ function updateMenuState(state) {
         `[Menu] Save menu item ${saveItem.enabled ? 'enabled' : 'disabled'} (unsaved=${menuState.hasUnsavedChanges}, readOnly=${menuState.isReadOnly})`
       );
   }
+}
 
-  // Story 11.5: Update Format menu Merge/Unmerge based on selection
+/** Story 11.5: Update Format menu Merge/Unmerge based on selection. */
+function updateMergeItems(menu) {
   const mergeItem = menu.getMenuItemById('merge-cells');
-  if (mergeItem && menuState.canMerge !== undefined) {
+  if (mergeItem && menuState.canMerge !== undefined)
     mergeItem.enabled = menuState.canMerge;
-  }
   const unmergeItem = menu.getMenuItemById('unmerge-cells');
-  if (unmergeItem && menuState.canUnmerge !== undefined) {
+  if (unmergeItem && menuState.canUnmerge !== undefined)
     unmergeItem.enabled = menuState.canUnmerge;
-  }
+}
 
-  // Story 13.1 / 15.3: Update Insert/Delete menu based on selection mode
-  const insertRowItem = menu.getMenuItemById('insert-row');
-  if (insertRowItem && menuState.canInsertRow !== undefined) {
-    insertRowItem.enabled = menuState.canInsertRow;
-  }
-  const insertColItem = menu.getMenuItemById('insert-column');
-  if (insertColItem && menuState.canInsertColumn !== undefined) {
-    insertColItem.enabled = menuState.canInsertColumn;
-  }
-  const deleteRowItem = menu.getMenuItemById('delete-row');
-  if (deleteRowItem && menuState.canInsertRow !== undefined) {
-    deleteRowItem.enabled = menuState.canInsertRow;
-  }
-  const deleteColItem = menu.getMenuItemById('delete-column');
-  if (deleteColItem && menuState.canInsertColumn !== undefined) {
-    deleteColItem.enabled = menuState.canInsertColumn;
-  }
-
-  // RTL mode checkbox
-  const rtlItem = menu.getMenuItemById('toggle-rtl');
-  if (rtlItem && menuState.isRTL !== undefined) {
-    rtlItem.checked = menuState.isRTL;
-  }
-
-  // Save As is always enabled (no state dependency)
-  // Import/Export CSV are always enabled
+/** Story 13.1 / 15.3: Update Insert/Delete menu items based on selection mode. */
+function updateInsertDeleteItems(menu) {
+  const setEnabled = (id, val) => {
+    const item = menu.getMenuItemById(id);
+    if (item && val !== undefined) item.enabled = val;
+  };
+  setEnabled('insert-row', menuState.canInsertRow);
+  setEnabled('insert-column', menuState.canInsertColumn);
+  setEnabled('delete-row', menuState.canInsertRow);
+  setEnabled('delete-column', menuState.canInsertColumn);
 }
 
 /**

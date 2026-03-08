@@ -185,7 +185,28 @@ func (s *Spreadsheet) RecalculateAll() error {
 	}
 
 	// Phase 2: Rebuild ParsedFormula ASTs (nil after gob decode).
-	// Track cells that fail to parse so Phase 4 skips re-evaluating them.
+	parseErrors := s.rebuildFormulaASTs()
+
+	// Phase 3: Collect all formula cell refs.
+	allRefs := s.collectFormulaRefs()
+
+	// Phase 4: Evaluate in topological order; handle cycles.
+	order, calcErr := s.Dependencies.GetCalculationOrder(allRefs)
+	if calcErr != nil {
+		s.evaluateWithCycles(allRefs, parseErrors)
+		return nil
+	}
+
+	// No cycle: evaluate in topological order, skipping parse errors.
+	for _, cellRef := range order {
+		s.evaluateFormulaCell(cellRef, parseErrors)
+	}
+	return nil
+}
+
+// rebuildFormulaASTs rebuilds ParsedFormula ASTs for all formula cells where the AST is nil
+// (e.g. after gob decode). Returns a set of cell refs that failed to parse.
+func (s *Spreadsheet) rebuildFormulaASTs() map[string]bool {
 	parseErrors := make(map[string]bool)
 	for row, rowMap := range s.Cells {
 		for col, cell := range rowMap {
@@ -203,8 +224,11 @@ func (s *Spreadsheet) RecalculateAll() error {
 			}
 		}
 	}
+	return parseErrors
+}
 
-	// Phase 3: Collect all formula cell refs.
+// collectFormulaRefs returns a slice of cell refs for all formula cells.
+func (s *Spreadsheet) collectFormulaRefs() []string {
 	var allRefs []string
 	for row, rowMap := range s.Cells {
 		for col, cell := range rowMap {
@@ -213,72 +237,57 @@ func (s *Spreadsheet) RecalculateAll() error {
 			}
 		}
 	}
+	return allRefs
+}
 
-	// Phase 4: Evaluate in topological order; handle cycles.
-	order, calcErr := s.Dependencies.GetCalculationOrder(allRefs)
-	if calcErr != nil {
-		// Cycle present: identify and mark all cycle members first so that
-		// non-cycle cells which depend on them see the error value, not stale data.
-		cycleMembers := make(map[string]bool)
-		for _, cellRef := range allRefs {
-			row, col, err := RefToCoords(cellRef)
-			if err != nil {
-				continue
-			}
-			cell := s.GetCell(row, col)
-			if cell == nil || !cell.IsFormula {
-				continue
-			}
-			for _, ref := range ExtractCellReferences("=" + cell.Value) {
-				if hasCycle, cyclePath := s.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
-					cell.SetError("circular reference: " + strings.Join(cyclePath, " → "))
-					cycleMembers[cellRef] = true
-					break
-				}
-			}
-		}
-		// Evaluate non-cycle, non-parse-error cells in an unordered pass.
-		for _, cellRef := range allRefs {
-			if cycleMembers[cellRef] || parseErrors[cellRef] {
-				continue
-			}
-			row, col, err := RefToCoords(cellRef)
-			if err != nil {
-				continue
-			}
-			cell := s.GetCell(row, col)
-			if cell != nil && cell.IsFormula {
-				val, evalErr := EvaluateFormula("="+cell.Value, cell.ParsedFormula, s)
-				if evalErr != nil {
-					cell.SetError(evalErr.Error())
-				} else {
-					cell.SetFromValue(val)
-				}
-			}
-		}
-		return nil
+// evaluateFormulaCell evaluates a single formula cell by ref, skipping parse errors.
+func (s *Spreadsheet) evaluateFormulaCell(cellRef string, parseErrors map[string]bool) {
+	if parseErrors[cellRef] {
+		return
 	}
-
-	// No cycle: evaluate in topological order, skipping parse errors.
-	for _, cellRef := range order {
-		if parseErrors[cellRef] {
-			continue
+	row, col, err := RefToCoords(cellRef)
+	if err != nil {
+		return
+	}
+	cell := s.GetCell(row, col)
+	if cell != nil && cell.IsFormula {
+		val, evalErr := EvaluateFormula("="+cell.Value, cell.ParsedFormula, s)
+		if evalErr != nil {
+			cell.SetError(evalErr.Error())
+		} else {
+			cell.SetFromValue(val)
 		}
+	}
+}
+
+// evaluateWithCycles handles recalculation when a cycle is detected.
+// It marks cycle members with an error and evaluates remaining cells in an unordered pass.
+func (s *Spreadsheet) evaluateWithCycles(allRefs []string, parseErrors map[string]bool) {
+	// Identify and mark all cycle members so dependent cells see the error value.
+	cycleMembers := make(map[string]bool)
+	for _, cellRef := range allRefs {
 		row, col, err := RefToCoords(cellRef)
 		if err != nil {
 			continue
 		}
 		cell := s.GetCell(row, col)
-		if cell != nil && cell.IsFormula {
-			val, evalErr := EvaluateFormula("="+cell.Value, cell.ParsedFormula, s)
-			if evalErr != nil {
-				cell.SetError(evalErr.Error())
-			} else {
-				cell.SetFromValue(val)
+		if cell == nil || !cell.IsFormula {
+			continue
+		}
+		for _, ref := range ExtractCellReferences("=" + cell.Value) {
+			if hasCycle, cyclePath := s.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
+				cell.SetError("circular reference: " + strings.Join(cyclePath, " → "))
+				cycleMembers[cellRef] = true
+				break
 			}
 		}
 	}
-	return nil
+	// Evaluate non-cycle, non-parse-error cells in an unordered pass.
+	for _, cellRef := range allRefs {
+		if !cycleMembers[cellRef] {
+			s.evaluateFormulaCell(cellRef, parseErrors)
+		}
+	}
 }
 
 // String returns a string representation of the spreadsheet (for debugging)
@@ -559,9 +568,8 @@ func (s *Spreadsheet) DeleteRow(deleteRow int) (map[int]*Cell, error) {
 			}
 		}
 	}
-	// Remove deleted row
+	// Remove deleted row and shift rows above down
 	delete(s.Cells, deleteRow)
-	// Shift rows above down
 	rows := make([]int, 0, len(s.Cells))
 	for r := range s.Cells {
 		rows = append(rows, r)
@@ -573,20 +581,31 @@ func (s *Spreadsheet) DeleteRow(deleteRow int) (map[int]*Cell, error) {
 			delete(s.Cells, r)
 		}
 	}
-	// Update merge regions
+	s.Merges = s.updateMergesForDeleteRow(deleteRow)
+	for _, rowMap := range s.Cells {
+		for _, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.Value != "" {
+				unshiftFormulaRefsForDeleteRow(cell, deleteRow)
+			}
+		}
+	}
+	s.Modified = true
+	return snapshot, nil
+}
+
+// updateMergesForDeleteRow returns the updated merge list after deleting a row.
+func (s *Spreadsheet) updateMergesForDeleteRow(deleteRow int) []MergeRegion {
 	kept := s.Merges[:0]
 	for _, m := range s.Merges {
 		if m.RowSpan < 1 || m.ColSpan < 1 {
 			continue
 		}
 		if m.StartRow == deleteRow {
-			// Anchor is in deleted row — remove the merge
-			continue
+			continue // anchor in deleted row — remove
 		}
 		if m.StartRow > deleteRow {
 			m.StartRow--
 		} else {
-			// Anchor is above deleteRow; check if merge spans deleteRow
 			endRow := m.StartRow + m.RowSpan - 1
 			if endRow >= deleteRow {
 				m.RowSpan--
@@ -597,17 +616,7 @@ func (s *Spreadsheet) DeleteRow(deleteRow int) (map[int]*Cell, error) {
 		}
 		kept = append(kept, m)
 	}
-	s.Merges = kept
-	// Update formula refs in all cells
-	for _, rowMap := range s.Cells {
-		for _, cell := range rowMap {
-			if cell != nil && cell.IsFormula && cell.Value != "" {
-				unshiftFormulaRefsForDeleteRow(cell, deleteRow)
-			}
-		}
-	}
-	s.Modified = true
-	return snapshot, nil
+	return kept
 }
 
 // DeleteColumn removes the column at the given index. Cells at col > deleteCol shift left by 1.
@@ -640,15 +649,27 @@ func (s *Spreadsheet) DeleteColumn(deleteCol int) (map[int]*Cell, error) {
 			}
 		}
 	}
-	// Update merge regions
+	s.Merges = s.updateMergesForDeleteColumn(deleteCol)
+	for _, rowMap := range s.Cells {
+		for _, cell := range rowMap {
+			if cell != nil && cell.IsFormula && cell.Value != "" {
+				unshiftFormulaRefsForDeleteColumn(cell, deleteCol)
+			}
+		}
+	}
+	s.Modified = true
+	return snapshot, nil
+}
+
+// updateMergesForDeleteColumn returns the updated merge list after deleting a column.
+func (s *Spreadsheet) updateMergesForDeleteColumn(deleteCol int) []MergeRegion {
 	kept := s.Merges[:0]
 	for _, m := range s.Merges {
 		if m.RowSpan < 1 || m.ColSpan < 1 {
 			continue
 		}
 		if m.StartCol == deleteCol {
-			// Anchor is in deleted column — remove the merge
-			continue
+			continue // anchor in deleted column — remove
 		}
 		if m.StartCol > deleteCol {
 			m.StartCol--
@@ -663,17 +684,7 @@ func (s *Spreadsheet) DeleteColumn(deleteCol int) (map[int]*Cell, error) {
 		}
 		kept = append(kept, m)
 	}
-	s.Merges = kept
-	// Update formula refs in all cells
-	for _, rowMap := range s.Cells {
-		for _, cell := range rowMap {
-			if cell != nil && cell.IsFormula && cell.Value != "" {
-				unshiftFormulaRefsForDeleteColumn(cell, deleteCol)
-			}
-		}
-	}
-	s.Modified = true
-	return snapshot, nil
+	return kept
 }
 
 // ApplyStyleToRange applies the given style to all cells in the range [startRow,endRow] x [startCol,endCol].

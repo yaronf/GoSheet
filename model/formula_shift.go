@@ -124,77 +124,72 @@ func shiftRange(rng *Range, deletedRow, deletedCol int, insert bool) {
 		return // already invalid, leave it
 	}
 	if insert {
-		// Insert: shift start and end coords independently
-		if deletedRow >= 0 {
-			if rng.StartRow >= deletedRow {
-				rng.StartRow++
-			}
-			if rng.EndRow >= deletedRow {
-				rng.EndRow++
-			}
-		}
-		if deletedCol >= 0 {
-			if rng.StartCol >= deletedCol {
-				rng.StartCol++
-			}
-			if rng.EndCol >= deletedCol {
-				rng.EndCol++
-			}
-		}
-		rng.Start = CoordsToRef(rng.StartRow, rng.StartCol)
-		rng.End = CoordsToRef(rng.EndRow, rng.EndCol)
+		shiftRangeInsert(rng, deletedRow, deletedCol)
 	} else {
-		// Delete: check start and end independently
-		if deletedRow >= 0 {
-			startDeleted := rng.StartRow == deletedRow
-			endDeleted := rng.EndRow == deletedRow
-			if startDeleted || endDeleted {
-				rng.Invalid = true
-				return
-			}
-			// Interior deletion within range: shrink end
-			if deletedRow > rng.StartRow && deletedRow < rng.EndRow {
-				rng.EndRow--
-				// Collapsed check (shouldn't happen if start < end and interior, but be safe)
-				if rng.EndRow < rng.StartRow {
-					rng.Invalid = true
-					return
-				}
-			} else {
-				// Deletion outside range: shift endpoints that are beyond deleted row
-				if rng.StartRow > deletedRow {
-					rng.StartRow--
-				}
-				if rng.EndRow > deletedRow {
-					rng.EndRow--
-				}
-			}
+		shiftRangeDelete(rng, deletedRow, deletedCol)
+	}
+}
+
+// shiftRangeInsert shifts range endpoints outward when a row or column is inserted.
+func shiftRangeInsert(rng *Range, insertedRow, insertedCol int) {
+	if insertedRow >= 0 {
+		if rng.StartRow >= insertedRow {
+			rng.StartRow++
 		}
-		if deletedCol >= 0 {
-			startDeleted := rng.StartCol == deletedCol
-			endDeleted := rng.EndCol == deletedCol
-			if startDeleted || endDeleted {
-				rng.Invalid = true
-				return
-			}
-			if deletedCol > rng.StartCol && deletedCol < rng.EndCol {
-				rng.EndCol--
-				if rng.EndCol < rng.StartCol {
-					rng.Invalid = true
-					return
-				}
-			} else {
-				if rng.StartCol > deletedCol {
-					rng.StartCol--
-				}
-				if rng.EndCol > deletedCol {
-					rng.EndCol--
-				}
-			}
-		}
-		if !rng.Invalid {
-			rng.Start = CoordsToRef(rng.StartRow, rng.StartCol)
-			rng.End = CoordsToRef(rng.EndRow, rng.EndCol)
+		if rng.EndRow >= insertedRow {
+			rng.EndRow++
 		}
 	}
+	if insertedCol >= 0 {
+		if rng.StartCol >= insertedCol {
+			rng.StartCol++
+		}
+		if rng.EndCol >= insertedCol {
+			rng.EndCol++
+		}
+	}
+	rng.Start = CoordsToRef(rng.StartRow, rng.StartCol)
+	rng.End = CoordsToRef(rng.EndRow, rng.EndCol)
+}
+
+// shiftRangeDelete adjusts or invalidates range endpoints when a row or column is deleted.
+func shiftRangeDelete(rng *Range, deletedRow, deletedCol int) {
+	if deletedRow >= 0 {
+		if !shiftRangeDeleteAxis(&rng.StartRow, &rng.EndRow, deletedRow) {
+			rng.Invalid = true
+			return
+		}
+	}
+	if deletedCol >= 0 {
+		if !shiftRangeDeleteAxis(&rng.StartCol, &rng.EndCol, deletedCol) {
+			rng.Invalid = true
+			return
+		}
+	}
+	rng.Start = CoordsToRef(rng.StartRow, rng.StartCol)
+	rng.End = CoordsToRef(rng.EndRow, rng.EndCol)
+}
+
+// shiftRangeDeleteAxis adjusts start/end on one axis for a deletion at deletedIdx.
+// Returns false if the range should be invalidated (anchor deleted or collapsed).
+func shiftRangeDeleteAxis(start, end *int, deletedIdx int) bool {
+	if *start == deletedIdx || *end == deletedIdx {
+		return false // anchor or endpoint deleted — invalidate
+	}
+	if deletedIdx > *start && deletedIdx < *end {
+		// Interior deletion: shrink end
+		*end--
+		if *end < *start {
+			return false // collapsed
+		}
+	} else {
+		// Exterior deletion: shift endpoints beyond the deleted index
+		if *start > deletedIdx {
+			*start--
+		}
+		if *end > deletedIdx {
+			*end--
+		}
+	}
+	return true
 }

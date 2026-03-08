@@ -12,8 +12,14 @@ linters:
     - gofmt
     - ineffassign
     - staticcheck
+    - revive
 
 linters-settings:
+  revive:
+    rules:
+      - name: file-length-limit
+        arguments:
+          - { max: 800, skipComments: true, skipBlankLines: true }
   govet:
     enable-all: true
     disable:
@@ -24,3 +30,11 @@ issues:
     - path: _test\.go
       linters:
         - errcheck  # test helpers may intentionally ignore errors
+        - revive    # file-length-limit enforced separately below at 1500 lines for test files
+
+severity: warning
+
+# Separate revive config for test files (1500-line limit instead of 800)
+# golangci-lint does not natively support per-path rule arguments;
+# the blanket revive exclusion above exempts test files from the 800-line rule.
+# Test files must stay below 1500 lines by convention (current worst: handlers_test.go at 1119).

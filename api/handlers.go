@@ -9,12 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"gosheet/api/generated"
 	"gosheet/controller"
 	"gosheet/logutil"
-	"gosheet/model"
 )
 
 // Server holds HTTP handler dependencies and implements all API handlers.
@@ -151,9 +149,27 @@ func (s *Server) HandleGetCellRef(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
+	maxRow, maxCol := s.computeGridBounds()
 	var cells []map[string]any
-	// Compute actual bounds from stored cells and merges to avoid missing data beyond 100x26
-	maxRow, maxCol := 99, 25
+	for row := 0; row <= maxRow; row++ {
+		for col := 0; col <= maxCol; col++ {
+			// Story 11.6: Skip covered cells; only include anchor for merged regions
+			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
+			if ar != row || ac != col {
+				continue
+			}
+			if entry, ok := s.buildCellEntry(row, col); ok {
+				cells = append(cells, entry)
+			}
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": cells})
+}
+
+// computeGridBounds returns the maximum row and column indices occupied by cells or merges.
+func (s *Server) computeGridBounds() (maxRow, maxCol int) {
+	maxRow, maxCol = 99, 25
 	for row, cols := range s.Ctrl.Sheet.Cells {
 		if row > maxRow {
 			maxRow = row
@@ -172,34 +188,30 @@ func (s *Server) HandleGetAllCells(w http.ResponseWriter, r *http.Request) {
 			maxCol = end
 		}
 	}
-	for row := 0; row <= maxRow; row++ {
-		for col := 0; col <= maxCol; col++ {
-			// Story 11.6: Skip covered cells; only include anchor for merged regions
-			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
-			if ar != row || ac != col {
-				continue
-			}
-			value := s.Ctrl.GetCellValue(row, col)
-			cell := s.Ctrl.Sheet.GetCell(row, col)
-			if value != "" || (cell != nil && (cell.StyleId != 0 || cell.Alignment != "")) {
-				entry := map[string]any{
-					"row": row, "col": col,
-					"computed": value,
-					"isError":  cell != nil && cell.IsError,
-					"value":    s.Ctrl.GetCellRawValue(row, col),
-				}
-				if cell != nil && cell.StyleId != 0 {
-					entry["styleId"] = cell.StyleId
-				}
-				if cell != nil && cell.Alignment != "" {
-					entry["alignment"] = cell.Alignment
-				}
-				cells = append(cells, entry)
-			}
-		}
+	return maxRow, maxCol
+}
+
+// buildCellEntry builds the JSON entry for a single cell. Returns (entry, true) if the cell
+// has content worth including; (nil, false) if the cell is empty and unstyled.
+func (s *Server) buildCellEntry(row, col int) (map[string]any, bool) {
+	value := s.Ctrl.GetCellValue(row, col)
+	cell := s.Ctrl.Sheet.GetCell(row, col)
+	if value == "" && (cell == nil || (cell.StyleId == 0 && cell.Alignment == "")) {
+		return nil, false
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": cells})
+	entry := map[string]any{
+		"row": row, "col": col,
+		"computed": value,
+		"isError":  cell != nil && cell.IsError,
+		"value":    s.Ctrl.GetCellRawValue(row, col),
+	}
+	if cell != nil && cell.StyleId != 0 {
+		entry["styleId"] = cell.StyleId
+	}
+	if cell != nil && cell.Alignment != "" {
+		entry["alignment"] = cell.Alignment
+	}
+	return entry, true
 }
 
 func (s *Server) HandleSaveFile(w http.ResponseWriter, r *http.Request) {
@@ -378,35 +390,7 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(CSVExportResponse{Success: false, Error: "File path is required", Code: "INVALID_REQUEST"})
 		return
 	}
-	// Story 11.6: Build grid; covered positions get "", anchor gets value
-	maxRow, maxCol := -1, -1
-	for _, m := range s.Ctrl.GetMerges() {
-		if m.RowSpan > 0 && m.ColSpan > 0 {
-			r, c := m.StartRow+m.RowSpan-1, m.StartCol+m.ColSpan-1
-			if r > maxRow {
-				maxRow = r
-			}
-			if c > maxCol {
-				maxCol = c
-			}
-		}
-	}
-	for row, cols := range s.Ctrl.Sheet.Cells {
-		for col := range cols {
-			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
-			if ar != row || ac != col {
-				continue
-			}
-			if s.Ctrl.GetCellValue(row, col) != "" {
-				if row > maxRow {
-					maxRow = row
-				}
-				if col > maxCol {
-					maxCol = col
-				}
-			}
-		}
-	}
+	maxRow, maxCol := s.computeCSVExportBounds()
 	logutil.Debugf("[handleCSVExport] Bounds maxRow=%d, maxCol=%d\n", maxRow, maxCol)
 	if maxRow < 0 || maxCol < 0 {
 		if err := os.WriteFile(req.Path, []byte(""), 0644); err != nil {
@@ -417,20 +401,7 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(CSVExportResponse{Success: true, Rows: 0, Cols: 0, Message: "Exported empty spreadsheet"})
 		return
 	}
-	records := make([][]string, maxRow+1)
-	for i := range records {
-		records[i] = make([]string, maxCol+1)
-	}
-	for row := 0; row <= maxRow; row++ {
-		for col := 0; col <= maxCol; col++ {
-			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
-			if ar != row || ac != col {
-				records[row][col] = "" // Story 11.6: covered = empty
-			} else {
-				records[row][col] = s.Ctrl.GetCellValue(row, col)
-			}
-		}
-	}
+	records := s.buildCSVRecords(maxRow, maxCol)
 	csvContent, err := GenerateCSV(records)
 	if err != nil {
 		log.Printf("[handleCSVExport] CSV generation failed: %v\n", err)
@@ -451,544 +422,55 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) HandleGetMerges(w http.ResponseWriter, r *http.Request) {
-	merges := s.Ctrl.GetMerges()
-	// Convert to API format
-	mergeData := make([]map[string]any, 0, len(merges))
-	for _, m := range merges {
-		mergeData = append(mergeData, map[string]any{
-			"startRow": m.StartRow,
-			"startCol": m.StartCol,
-			"rowSpan":  m.RowSpan,
-			"colSpan":  m.ColSpan,
-		})
+// computeCSVExportBounds returns the max row and column with content for CSV export.
+// Returns (-1, -1) if the sheet is empty.
+func (s *Server) computeCSVExportBounds() (maxRow, maxCol int) {
+	maxRow, maxCol = -1, -1
+	// Story 11.6: include merge extents
+	for _, m := range s.Ctrl.GetMerges() {
+		if m.RowSpan > 0 && m.ColSpan > 0 {
+			if r := m.StartRow + m.RowSpan - 1; r > maxRow {
+				maxRow = r
+			}
+			if c := m.StartCol + m.ColSpan - 1; c > maxCol {
+				maxCol = c
+			}
+		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data":    map[string]any{"merges": mergeData},
-	})
+	for row, cols := range s.Ctrl.Sheet.Cells {
+		for col := range cols {
+			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
+			if ar != row || ac != col {
+				continue
+			}
+			if s.Ctrl.GetCellValue(row, col) != "" {
+				if row > maxRow {
+					maxRow = row
+				}
+				if col > maxCol {
+					maxCol = col
+				}
+			}
+		}
+	}
+	return maxRow, maxCol
 }
 
-func (s *Server) HandleSetMerge(w http.ResponseWriter, r *http.Request) {
-	var req generated.SetMergeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+// buildCSVRecords builds the 2D string grid for CSV export.
+// Covered (non-anchor) cells get an empty string (Story 11.6).
+func (s *Server) buildCSVRecords(maxRow, maxCol int) [][]string {
+	records := make([][]string, maxRow+1)
+	for i := range records {
+		records[i] = make([]string, maxCol+1)
 	}
-	if err := s.Ctrl.SetMerge(req.StartRow, req.StartCol, req.RowSpan, req.ColSpan); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	for row := 0; row <= maxRow; row++ {
+		for col := 0; col <= maxCol; col++ {
+			ar, ac := s.Ctrl.Sheet.ResolveToAnchor(row, col)
+			if ar == row && ac == col {
+				records[row][col] = s.Ctrl.GetCellValue(row, col)
+			}
+			// covered cells remain ""
+		}
 	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-func (s *Server) HandleUnmerge(w http.ResponseWriter, r *http.Request) {
-	var req generated.UnmergeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.Ctrl.Unmerge(req.StartRow, req.StartCol); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-// ApplyCellStyleRequest is the JSON body for POST /api/cell/style
-type ApplyCellStyleRequest struct {
-	Row     int `json:"row"`
-	Col     int `json:"col"`
-	StyleId int `json:"styleId"`
-}
-
-func (s *Server) HandleApplyCellStyle(w http.ResponseWriter, r *http.Request) {
-	var req ApplyCellStyleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.Ctrl.ApplyStyleToCell(req.Row, req.Col, req.StyleId); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-// ApplyRangeStyleRequest is the JSON body for POST /api/range/style
-type ApplyRangeStyleRequest struct {
-	StartRow int `json:"startRow"`
-	StartCol int `json:"startCol"`
-	EndRow   int `json:"endRow"`
-	EndCol   int `json:"endCol"`
-	StyleId  int `json:"styleId"`
-}
-
-// ClearRangeRequest is the JSON body for POST /api/range/clear
-type ClearRangeRequest struct {
-	StartRow int `json:"startRow"`
-	StartCol int `json:"startCol"`
-	EndRow   int `json:"endRow"`
-	EndCol   int `json:"endCol"`
-}
-
-func (s *Server) HandleApplyRangeStyle(w http.ResponseWriter, r *http.Request) {
-	var req ApplyRangeStyleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.Ctrl.ApplyStyleToRange(req.StartRow, req.StartCol, req.EndRow, req.EndCol, req.StyleId); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-func (s *Server) HandleClearRange(w http.ResponseWriter, r *http.Request) {
-	var req ClearRangeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	s.Ctrl.ClearRange(req.StartRow, req.StartCol, req.EndRow, req.EndCol)
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-		},
-	})
-}
-
-// HandleFormatCleanup removes style from empty cells and deletes cells with no value and no style.
-// Story 12.3: POST /api/format/cleanup
-func (s *Server) HandleFormatCleanup(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	s.Ctrl.CleanupFormat()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-		},
-	})
-}
-
-// InsertRowRequest is the JSON body for POST /api/row/insert
-type InsertRowRequest struct {
-	Row int `json:"row"`
-}
-
-// InsertColumnRequest is the JSON body for POST /api/column/insert
-type InsertColumnRequest struct {
-	Col int `json:"col"`
-}
-
-// HandleInsertRow inserts an empty row at the given index. Story 13.1 / 15.3.
-func (s *Server) HandleInsertRow(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req InsertRowRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.Ctrl.InsertRow(req.Row); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-// HandleInsertColumn inserts an empty column at the given index. Story 13.1 / 15.3.
-func (s *Server) HandleInsertColumn(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req InsertColumnRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.Ctrl.InsertColumn(req.Col); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-// DeleteRowRequest is the JSON body for POST /api/row/delete
-type DeleteRowRequest struct {
-	Row int `json:"row"`
-}
-
-// DeleteColumnRequest is the JSON body for POST /api/column/delete
-type DeleteColumnRequest struct {
-	Col int `json:"col"`
-}
-
-// HandleDeleteRow deletes the row at the given index. Story 15.3.
-func (s *Server) HandleDeleteRow(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req DeleteRowRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.Ctrl.DeleteRow(req.Row); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-// HandleDeleteColumn deletes the column at the given index. Story 15.3.
-func (s *Server) HandleDeleteColumn(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req DeleteColumnRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.Ctrl.DeleteColumn(req.Col); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-// HandleStyles handles GET /api/styles (list) and POST /api/styles (add). Story 13.3.
-func (s *Server) HandleStyles(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/api/styles" && r.URL.Path != "/api/styles/" {
-		http.NotFound(w, r)
-		return
-	}
-	switch r.Method {
-	case http.MethodGet:
-		s.handleGetStyles(w, r)
-	case http.MethodPost:
-		s.handleAddStyle(w, r)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (s *Server) handleGetStyles(w http.ResponseWriter, _ *http.Request) {
-	styles := s.Ctrl.GetStyles()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data":    map[string]any{"styles": styles},
-	})
-}
-
-// AddStyleRequest is the JSON body for POST /api/styles
-type AddStyleRequest struct {
-	Name   string           `json:"name"`
-	Format model.CellFormat `json:"format"`
-}
-
-func (s *Server) handleAddStyle(w http.ResponseWriter, r *http.Request) {
-	var req AddStyleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	logutil.Debugf("[handleAddStyle] req.Name=%q (len=%d)", req.Name, len(req.Name))
-	id, err := s.Ctrl.AddStyle(req.Name, &req.Format)
-	if err != nil {
-		log.Printf("[handleAddStyle] ERROR: %v (req.Name=%q)", err, req.Name)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"id":                id,
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-		},
-	})
-}
-
-// HandleStyleByID handles PUT /api/styles/:id and DELETE /api/styles/:id. Story 13.3.
-func (s *Server) HandleStyleByID(w http.ResponseWriter, r *http.Request) {
-	// Path is /api/styles/1, /api/styles/2, etc.
-	path := strings.TrimPrefix(r.URL.Path, "/api/styles/")
-	if path == "" || path == r.URL.Path {
-		http.NotFound(w, r)
-		return
-	}
-	id, err := strconv.Atoi(path)
-	if err != nil || id < 1 {
-		http.Error(w, "invalid style id", http.StatusBadRequest)
-		return
-	}
-	switch r.Method {
-	case http.MethodPut:
-		s.handleUpdateStyle(w, r, id)
-	case http.MethodDelete:
-		s.handleDeleteStyle(w, r, id)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-// UpdateStyleRequest is the JSON body for PUT /api/styles/:id
-type UpdateStyleRequest struct {
-	Format model.CellFormat `json:"format"`
-	Name   string           `json:"name"`
-}
-
-func (s *Server) handleUpdateStyle(w http.ResponseWriter, r *http.Request, id int) {
-	var req UpdateStyleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	logutil.Debugf("[handleUpdateStyle] id=%d req.Name=%q (len=%d)", id, req.Name, len(req.Name))
-	if err := s.Ctrl.UpdateStyle(id, &req.Format, req.Name); err != nil {
-		log.Printf("[handleUpdateStyle] ERROR: %v (id=%d req.Name=%q)", err, id, req.Name)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-		},
-	})
-}
-
-func (s *Server) handleDeleteStyle(w http.ResponseWriter, _ *http.Request, id int) {
-	if err := s.Ctrl.DeleteStyle(id); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-		},
-	})
-}
-
-// SetCellAlignmentRequest is the JSON body for POST /api/cell/alignment
-type SetCellAlignmentRequest struct {
-	Row       int    `json:"row"`
-	Col       int    `json:"col"`
-	Alignment string `json:"alignment"`
-}
-
-// SetRangeAlignmentRequest is the JSON body for POST /api/range/alignment
-type SetRangeAlignmentRequest struct {
-	StartRow  int    `json:"startRow"`
-	StartCol  int    `json:"startCol"`
-	EndRow    int    `json:"endRow"`
-	EndCol    int    `json:"endCol"`
-	Alignment string `json:"alignment"`
-}
-
-func (s *Server) HandleSetCellAlignment(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req SetCellAlignmentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.Ctrl.SetCellAlignment(req.Row, req.Col, req.Alignment); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-// HandleUndo reverses the most recent undoable operation.
-// POST /api/undo — returns 200 with canUndo/canRedo state even if nothing to undo.
-func (s *Server) HandleUndo(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	// Undo returns (state, error); error means empty stack — treat as no-op.
-	// State is captured inside the lock so it's always consistent.
-	urState, _ := s.Ctrl.Undo()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-// HandleRedo reapplies the most recently undone operation.
-// POST /api/redo — returns 200 with canUndo/canRedo state even if nothing to redo.
-func (s *Server) HandleRedo(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	urState, _ := s.Ctrl.Redo()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
-}
-
-func (s *Server) HandleSetRangeAlignment(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req SetRangeAlignmentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.Ctrl.SetRangeAlignment(req.StartRow, req.StartCol, req.EndRow, req.EndCol, req.Alignment); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	urState := s.Ctrl.UndoRedoState()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"success": true,
-		"data": map[string]any{
-			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
-			"canUndo":           urState.CanUndo,
-			"canRedo":           urState.CanRedo,
-			"undoDescription":   urState.UndoDescription,
-			"redoDescription":   urState.RedoDescription,
-		},
-	})
+	return records
 }
