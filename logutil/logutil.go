@@ -20,9 +20,9 @@ import (
 // Verbose enables debug-level logging when true.
 var Verbose bool
 
-// isoNow returns the current UTC time in RFC3339Nano format.
+// isoNow returns the current UTC time in RFC3339 format (second precision).
 func isoNow() string {
-	return time.Now().UTC().Format(time.RFC3339Nano)
+	return time.Now().UTC().Format(time.RFC3339)
 }
 
 // writer is the destination used by Debugf/Debugln.

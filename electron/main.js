@@ -54,7 +54,7 @@ let logStream = null;
   const makeWrap =
     (orig, level) =>
     (...args) => {
-      const ts = new Date().toISOString();
+      const ts = new Date().toISOString().slice(0, 19) + 'Z';
       const msg = args
         .map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a)))
         .join(' ');
