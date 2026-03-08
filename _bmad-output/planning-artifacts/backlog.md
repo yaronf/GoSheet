@@ -98,6 +98,10 @@ Relevant: `[server/main.go](../../server/main.go)`, `[electron/main.js](../../el
 Replace with a typed `ErrorKind` enum (e.g. `ErrNone`, `ErrEval`, `ErrRef`, `ErrCircular`, `ErrParse`) on `Cell`, keeping `Computed` for the display string. Callers that need to branch on error type use the enum; the frontend continues to display `Computed` as-is. Note: `ErrorKind` must be gob-registered to survive save/load round-trips, and the file format version should be bumped.
 Relevant: `[model/cell.go](../../model/cell.go)`, `[model/formula.go](../../model/formula.go)`, `[controller/app.go](../../controller/app.go)`
 
+### Clear cell styling
+
+Remove all formatting from selected cell(s) — font, color, style, alignment — returning them to the default unstyled state. Distinct from "Format Cleanup" (which removes unused styles from the registry). Likely a menu item under Format and/or a keyboard shortcut.
+
 ### Text wrapping within cell
 
 At least a toggle. Does it also require control of row/column width?

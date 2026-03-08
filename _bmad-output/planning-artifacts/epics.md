@@ -2818,7 +2818,7 @@ So that multiple GoSheet instances can run simultaneously without port conflicts
 
 **Relevant files:** `server/main.go`, `electron/main.js`
 
-**Implementation note:** Once the port is ephemeral, remove `app.requestSingleInstanceLock()` from `electron/main.js` (currently `main.js:20`) — it exists solely to prevent port conflicts. With per-instance sockets there is no reason to enforce a single instance. The `second-instance` handler (`main.js:25`) should be removed at the same time.
+**Implementation note:** Once the port is ephemeral, the port-conflict reason for `app.requestSingleInstanceLock()` is gone. However, Story 16.7 re-introduces the lock (with a `second-instance` handler) for multi-window file forwarding — new Electron processes spawned by Finder forward their file path to the running instance.
 
 ---
 
@@ -2866,7 +2866,7 @@ As a user,
 I want each file I open from Finder, CLI, or the Recent Files menu to open in its own window,
 So that I can work with multiple spreadsheets simultaneously without one replacing the other.
 
-**Background:** Currently GoSheet is single-window — opening a file replaces the current one. After Story 16.5 removes the fixed port and single-instance lock, each GoSheet process will run with its own ephemeral port. Story 16.7 completes the picture: `open-file` events and CLI launches spin up a new window (and a new Go server child process) rather than reusing the existing one.
+**Background:** Currently GoSheet is single-window — opening a file replaces the current one. After Story 16.5 introduces ephemeral ports, each window has its own Go server. Story 16.7 completes the picture: Finder double-clicks and CLI launches open a new window in the existing process rather than spawning a duplicate process. This requires re-introducing `app.requestSingleInstanceLock()` with a `second-instance` handler that forwards the file path to the running instance. The `open-file` event continues to handle the packaged-app/registered file-association path.
 
 **Acceptance Criteria:**
 
@@ -2882,7 +2882,8 @@ So that I can work with multiple spreadsheets simultaneously without one replaci
 
 **Given** GoSheet is launched from the CLI with a file path argument
 **When** a GoSheet instance is already running
-**Then** a new window opens with the specified file (macOS routes `open-file` to the running app; Electron handles it by creating a new window)
+**Then** a new window opens with the specified file in the existing process
+**And** the new launch exits immediately after forwarding the file path via `second-instance`
 
 **Given** the user closes all windows
 **When** the last window is closed
@@ -2895,7 +2896,32 @@ So that I can work with multiple spreadsheets simultaneously without one replaci
 
 **Relevant files:** `electron/main.js` (window creation, `open-file` handler, `startGoServer`), `electron/menu.js` (File → Open / Recent wiring)
 
-**Implementation note:** The key change is that `createWindow()` always spawns a fresh Go server and a new `BrowserWindow`. File path routing (`open-file`, CLI arg, Recent Files) calls `createWindow(filePath)` rather than sending an IPC message to the existing window. Each window tracks its own `goServer` reference for cleanup on close.
+**Implementation note:** File path routing uses two complementary mechanisms: `second-instance` (primary — dev mode and unregistered file associations; new process forwards argv to running instance) and `open-file` (packaged builds with registered `.sheet` association). Both call `createWindow(filePath)` with a dedup check. `requestSingleInstanceLock` must be skipped in `NODE_ENV=test` to avoid breaking Playwright (each test run launches a fresh instance).
+
+---
+
+### Story 16.8: Unified Logging (BE + FE + Main Process)
+
+As a developer,
+I want all log output — Go server, Electron main process, and renderer — to share a consistent format and destination,
+So that I can diagnose issues across the full stack from a single log stream.
+
+**Acceptance Criteria:**
+
+**Given** the app is launched with `--verbose`
+**When** any of the three layers (Go server, Electron main, renderer) emits a log
+**Then** all lines share the format: `[ISO-timestamp] [LEVEL] [SOURCE] message`
+**And** all lines appear in the terminal and, if `--log-file=<path>` is set, in the log file
+
+**Given** the app is launched without `--verbose`
+**When** a renderer `console.error` or `console.warn` fires
+**Then** it is still forwarded to the main process log (errors/warnings always visible, debug logs gated behind `--verbose`)
+
+**Given** `--log-file=<path>` is provided
+**When** the app runs
+**Then** all log output is appended to the file with timestamps (existing `--log-file` behaviour preserved)
+
+**Relevant files:** `electron/main.js` (renderer `console-message` forwarding, Go stdout/stderr pipes), `server/main.go` (log format)
 
 ---
 
