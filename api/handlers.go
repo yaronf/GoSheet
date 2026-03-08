@@ -380,7 +380,7 @@ func (s *Server) HandleCSVExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var req generated.PathRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logutil.Errorf("[handleCSVExport] Failed to parse request: %v", err)
+		logutil.Warnf("[handleCSVExport] Failed to parse request: %v", err)
 		_ = json.NewEncoder(w).Encode(CSVExportResponse{Success: false, Error: "Invalid request format", Code: "INVALID_REQUEST"})
 		return
 	}

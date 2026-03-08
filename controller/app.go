@@ -151,7 +151,7 @@ func (c *AppController) setCellValueInternal(row, col int, value string) error {
 		logutil.Debugf("Evaluating formula: %s", cell.Value)
 		val, err := model.EvaluateFormula("="+cell.Value, cell.ParsedFormula, c.Sheet)
 		if err != nil {
-			logutil.Errorf("Formula error: %v", err)
+			logutil.Warnf("Formula error: %v", err)
 			cell.SetError(err.Error())
 		} else {
 			cell.SetFromValue(val)
@@ -178,7 +178,7 @@ func (c *AppController) recalculateDependents(changedCells []string, skip ...str
 	if err != nil {
 		// Cycle detected in the dependency graph. Evaluate only the changed cells'
 		// direct dependents by inspecting the graph manually, leaving cycle cells alone.
-		logutil.Errorf("Cycle in dependency graph during recalculation: %v", err)
+		logutil.Warnf("Cycle in dependency graph during recalculation: %v", err)
 		return
 	}
 
@@ -196,7 +196,7 @@ func (c *AppController) recalculateDependents(changedCells []string, skip ...str
 		}
 		row, col, err := model.RefToCoords(cellRef)
 		if err != nil {
-			logutil.Errorf("Error converting ref %s to coords: %v", cellRef, err)
+			logutil.Warnf("Error converting ref %s to coords: %v", cellRef, err)
 			continue
 		}
 		cell := c.Sheet.GetCell(row, col)

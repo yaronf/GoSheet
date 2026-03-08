@@ -59,8 +59,19 @@ func (gw *GoWriter) Write(p []byte) (n int, err error) {
 	return gw.W.Write([]byte(line))
 }
 
+// Warnf logs at WARN level unconditionally (not gated by Verbose).
+// Use for expected error conditions: user input errors, validation failures,
+// formula evaluation errors — things that are handled and returned to the client.
+func Warnf(format string, v ...any) {
+	if writer != nil {
+		line := fmt.Sprintf("[%s] [WARN ] [go] "+format+"\n", append([]any{isoNow()}, v...)...)
+		writer.Write([]byte(line)) //nolint:errcheck
+	}
+}
+
 // Errorf logs at ERROR level unconditionally (not gated by Verbose).
-// Use instead of log.Printf for error-level events so the level tag is correct.
+// Use for unexpected failures: I/O errors, system errors, internal invariant
+// violations — things the server cannot handle normally.
 func Errorf(format string, v ...any) {
 	if writer != nil {
 		line := fmt.Sprintf("[%s] [ERROR] [go] "+format+"\n", append([]any{isoNow()}, v...)...)
