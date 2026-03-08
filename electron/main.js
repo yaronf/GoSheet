@@ -43,9 +43,10 @@ const os = require('os');
 // Story 16.8: Universal timestamp wrapper — applies to terminal and --log-file alike.
 // Format: [ISO-timestamp] [LEVEL] original-message
 // --log-file=<path> additionally appends to file in the same format.
+// logStream is module-level so Go server pipe forwarding can also write to it.
+let logStream = null;
 {
   const logFileArg = process.argv.find((a) => a.startsWith('--log-file='));
-  let logStream = null;
   if (logFileArg) {
     const logFilePath = logFileArg.slice('--log-file='.length);
     logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
@@ -377,14 +378,17 @@ function startGoServer() {
     }
   });
 
-  // Log server output (always - server controls verbosity via --verbose)
-  goServer.stdout.on('data', (data) => {
-    console.log(`[Go Server] ${data.toString().trim()}`);
-  });
-
-  goServer.stderr.on('data', (data) => {
-    console.error(`[Go Server] ${data.toString().trim()}`);
-  });
+  // Forward Go server output raw — it already carries the unified format:
+  //   [ISO] [LEVEL] [go] message
+  // Bypassing console.log/error avoids double-prefixing from the timestamp wrapper.
+  // Write to logStream (--log-file) if active, then to the original stderr/stdout.
+  const forwardGoOutput = (data) => {
+    const text = data.toString();
+    if (logStream) logStream.write(text);
+    process.stderr.write(text);
+  };
+  goServer.stdout.on('data', forwardGoOutput);
+  goServer.stderr.on('data', forwardGoOutput);
 
   goServer.on('error', (error) => {
     console.error('[Electron] Failed to start Go server:', error);
