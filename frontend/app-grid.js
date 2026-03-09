@@ -396,11 +396,18 @@ export function computeSelectionRange(row, col, extendSelection) {
   return { startRow: minR, startCol: minC, endRow: maxR, endCol: maxC };
 }
 
+const SEL_EDGE_CLASSES = [
+  'sel-edge-top',
+  'sel-edge-bottom',
+  'sel-edge-left',
+  'sel-edge-right',
+];
+
 export function applySelectionRange(startRow, startCol, endRow, endCol) {
   appState.selectionRange = { startRow, startCol, endRow, endCol };
   appState.selectedCell = { row: startRow, col: startCol };
   document.querySelectorAll('.cell.selected').forEach((el) => {
-    el.classList.remove('selected');
+    el.classList.remove('selected', ...SEL_EDGE_CLASSES);
     el.setAttribute('tabindex', '-1');
   });
   for (let r = startRow; r <= endRow; r++) {
@@ -408,6 +415,10 @@ export function applySelectionRange(startRow, startCol, endRow, endCol) {
       const cell = getCellElement(r, c);
       if (cell) {
         cell.classList.add('selected');
+        if (r === startRow) cell.classList.add('sel-edge-top');
+        if (r === endRow) cell.classList.add('sel-edge-bottom');
+        if (c === startCol) cell.classList.add('sel-edge-left');
+        if (c === endCol) cell.classList.add('sel-edge-right');
         if (r === startRow && c === startCol)
           cell.setAttribute('tabindex', '0');
       }
@@ -419,6 +430,7 @@ export function applySelectionRange(startRow, startCol, endRow, endCol) {
     buildSelectionAnnouncement(startRow, startCol, endRow, endCol, cellCount)
   );
   updateMergeMenuState();
+  applyRowColHeaderHighlight();
 }
 
 export function applyCellSelection(row, col, extendSelection = false) {
@@ -432,7 +444,7 @@ export function applyCellSelection(row, col, extendSelection = false) {
   appState.selectedCell = { row: startRow, col: startCol };
 
   document.querySelectorAll('.cell.selected').forEach((el) => {
-    el.classList.remove('selected');
+    el.classList.remove('selected', ...SEL_EDGE_CLASSES);
     el.setAttribute('tabindex', '-1');
   });
 
@@ -441,6 +453,10 @@ export function applyCellSelection(row, col, extendSelection = false) {
       const cell = getCellElement(r, c);
       if (cell) {
         cell.classList.add('selected');
+        if (r === startRow) cell.classList.add('sel-edge-top');
+        if (r === endRow) cell.classList.add('sel-edge-bottom');
+        if (c === startCol) cell.classList.add('sel-edge-left');
+        if (c === endCol) cell.classList.add('sel-edge-right');
         if (r === startRow && c === startCol)
           cell.setAttribute('tabindex', '0');
       }
@@ -453,6 +469,44 @@ export function applyCellSelection(row, col, extendSelection = false) {
     buildSelectionAnnouncement(startRow, startCol, endRow, endCol, cellCount)
   );
   updateMergeMenuState();
+  applyRowColHeaderHighlight();
+}
+
+// Story 17.2: Apply row/column header highlight classes for clean band appearance
+function applyRowColHeaderHighlight() {
+  // Clear previous row/col classes
+  document.querySelectorAll('.row-selected, .col-selected').forEach((el) => {
+    el.classList.remove('row-selected', 'col-selected');
+  });
+  document
+    .querySelectorAll('.row-header-selected, .col-header-selected')
+    .forEach((el) => {
+      el.classList.remove('row-header-selected', 'col-header-selected');
+    });
+
+  if (appState.selectionMode === 'row') {
+    const { startRow, endRow } = appState.selectionRange;
+    for (let r = startRow; r <= endRow; r++) {
+      for (let c = 0; c < appState.COLS; c++) {
+        const cell = getCellElement(r, c);
+        if (cell) cell.classList.add('row-selected');
+      }
+      const rowHeader = document.querySelector(`.row-header[data-row="${r}"]`);
+      if (rowHeader) rowHeader.classList.add('row-header-selected');
+    }
+  } else if (appState.selectionMode === 'column') {
+    const { startCol, endCol } = appState.selectionRange;
+    for (let c = startCol; c <= endCol; c++) {
+      for (let r = 0; r < appState.ROWS; r++) {
+        const cell = getCellElement(r, c);
+        if (cell) cell.classList.add('col-selected');
+      }
+      const colHeader = document.querySelector(
+        `.column-header[data-col="${c}"]`
+      );
+      if (colHeader) colHeader.classList.add('col-header-selected');
+    }
+  }
 }
 
 function buildSelectionAnnouncement(

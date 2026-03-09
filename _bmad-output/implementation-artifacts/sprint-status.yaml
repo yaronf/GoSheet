@@ -246,7 +246,7 @@ development_status:
   # Epic 17: Selection & Range Operations
   epic-17: in-progress
   17-1-range-selection-shift-click-and-drag: done
-  17-2-row-column-select-aesthetics: ready-for-dev
+  17-2-row-column-select-aesthetics: review
   17-3-copy-paste-rectangular-range: ready-for-dev
   17-4-range-address-box-type-to-select: ready-for-dev
   17-5-open-ended-row-column-ranges: ready-for-dev
@@ -263,6 +263,6 @@ development_status:
   epic-19-retrospective: optional
 
   # Backlog: Known issues / tech debt
-  # bug-app-quit-spurious-exit: Electron app occasionally exits with code 0 during test runs
-  #   without user quitting — may be related to window close lifecycle or pkill side-effects.
-  #   Needs investigation.
+  # bug-dock-right-click-quit: In dev mode, right-clicking the dock icon and selecting "Quit"
+  #   does not quit the app — instead it navigates to the Welcome screen.
+  #   Expected: app quits (or shows unsaved-changes dialog then quits).

@@ -717,8 +717,34 @@ input[type='text'].formula-bar {
 
 .cell.selected {
   background: var(--color-cell-selected-bg) !important;
-  border: 2px solid var(--color-cell-selected-border);
+  /* Story 17.2: suppress all borders by default; outer edges added back via sel-edge-* classes */
+  border: none;
   outline: none;
+}
+
+/* Story 17.2: Outer edge borders — only shown on cells at the selection boundary */
+.cell.selected.sel-edge-top {
+  border-top: 2px solid var(--color-cell-selected-border);
+}
+.cell.selected.sel-edge-bottom {
+  border-bottom: 2px solid var(--color-cell-selected-border);
+}
+.cell.selected.sel-edge-left {
+  border-left: 2px solid var(--color-cell-selected-border);
+}
+.cell.selected.sel-edge-right {
+  border-right: 2px solid var(--color-cell-selected-border);
+}
+
+/* Story 17.2: Row/column header distinct highlight when fully selected */
+.row-header.row-header-selected {
+  background: var(--color-cell-selected-border) !important;
+  color: var(--color-bg-primary) !important;
+}
+
+.column-header.col-header-selected {
+  background: var(--color-cell-selected-border) !important;
+  color: var(--color-bg-primary) !important;
 }
 
 .cell.formula-cell {
