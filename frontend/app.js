@@ -46,6 +46,8 @@ import {
   performRedo,
   handleExportCSV,
   setupElectronMenuListeners,
+  copySelectionToClipboard,
+  pasteFromClipboard,
 } from './app-file-ops.js';
 import {
   showWelcome,
@@ -567,6 +569,16 @@ if (table) {
 document.addEventListener('keydown', (e) => {
   if (appState.isEditing) return;
   if (e.target.tagName === 'INPUT') return;
+  if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+    e.preventDefault();
+    copySelectionToClipboard();
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+    e.preventDefault();
+    pasteFromClipboard();
+    return;
+  }
   if (handleKeydownFileOps(e)) return;
   if (
     appState.selectedCell &&

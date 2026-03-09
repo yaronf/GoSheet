@@ -5,8 +5,6 @@ import {
   LoadFile,
   GetStyles,
   ApplyRangeStyle,
-  SetCellValue,
-  GetCellRawValue,
   ClearRange,
   ImportCSV,
   PreviewCSV,
@@ -16,6 +14,10 @@ import { showAlert, showConfirmDialog } from './app-utils.js';
 import { formatToCssPreview, showCSVPreviewModal } from './app-modals.js';
 import { applyAlignmentToSelection } from './app-cell-editor.js';
 import { applySelectionRange } from './app-grid.js';
+import {
+  copySelectionToClipboard,
+  pasteFromClipboard,
+} from './app-file-ops.js';
 
 // Story 8.2: View switching helpers
 export function showWelcome() {
@@ -311,24 +313,11 @@ async function dispatchContextMenuAction(action) {
 }
 
 async function handleContextMenuCopy() {
-  if (!appState.selectedCell) return;
-  const value = await GetCellRawValue(
-    appState.selectedCell.row,
-    appState.selectedCell.col
-  );
-  await navigator.clipboard.writeText(value);
+  await copySelectionToClipboard();
 }
 
 async function handleContextMenuPaste() {
-  if (!appState.selectedCell) return;
-  const text = await navigator.clipboard.readText();
-  await SetCellValue(
-    appState.selectedCell.row,
-    appState.selectedCell.col,
-    text
-  );
-  await window.refreshAllCells?.();
-  window.updateFileStatus?.();
+  await pasteFromClipboard();
 }
 
 async function handleContextMenuOnCell(e, cell) {

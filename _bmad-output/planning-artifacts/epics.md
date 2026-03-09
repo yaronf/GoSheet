@@ -3063,6 +3063,38 @@ So that I can navigate to and select precise ranges without dragging.
 
 ---
 
+### Story 17.5: Open-Ended Row/Column Range Selection
+
+As a user,
+I want row and column selections to use open-ended ranges (like Excel's `1:3` or `A:C`),
+So that the selection always spans the full row/column regardless of how large the grid grows.
+
+**Acceptance Criteria:**
+
+**Given** a user clicks a row header
+**When** the selection is applied
+**Then** `appState.selectionRange` stores an open-ended row range (`endCol: Infinity`)
+**And** the address box shows `1:1` (row number only, no column letters)
+
+**Given** a user clicks a column header
+**When** the selection is applied
+**Then** `appState.selectionRange` stores an open-ended column range (`endRow: Infinity`)
+**And** the address box shows `A:A` (column letter only, no row numbers)
+
+**Given** an open-ended row range `1:3` is active
+**When** the grid expands
+**Then** the row highlight automatically covers all columns in the new grid without re-application logic
+
+**Given** an open-ended column range `A:C` is active
+**When** the grid expands
+**Then** the column highlight automatically covers all rows in the new grid without re-application logic
+
+**Given** a row or column range is active
+**When** the address box is updated
+**Then** it shows Excel-style notation: `1:1` for a single row, `2:5` for rows 2–5, `A:A` for a single column, `B:D` for columns B–D
+
+---
+
 ## Epic 18: Formula Editing Enhancements
 
 **Goal:** Users can click cells or drag ranges while editing a formula to insert references naturally.

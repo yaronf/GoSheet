@@ -30,6 +30,7 @@ import {
   getMergeInfo,
   applySelectionRange,
   selectCell,
+  expandGridIfNeeded,
 } from './app-grid.js';
 import { applyAlignmentToSelection, STYLE_ID } from './app-cell-editor.js';
 import {
@@ -279,6 +280,98 @@ function setupFileMenuListeners() {
   });
 }
 
+// Copy the current selection to the clipboard as TSV (or single value for single-cell).
+export async function copySelectionToClipboard() {
+  if (!appState.selectionRange) return;
+  const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+  try {
+    if (startRow === endRow && startCol === endCol) {
+      const value = await GetCellRawValue(startRow, startCol);
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+    const rowPromises = [];
+    for (let r = startRow; r <= endRow; r++) {
+      const colPromises = [];
+      for (let c = startCol; c <= endCol; c++) {
+        colPromises.push(GetCellRawValue(r, c));
+      }
+      rowPromises.push(Promise.all(colPromises));
+    }
+    const rows = await Promise.all(rowPromises);
+    const tsv = rows.map((row) => row.join('\t')).join('\n');
+    await navigator.clipboard.writeText(tsv);
+  } catch (error) {
+    console.error('[App] Error during Copy:', error);
+    await showAlert('Error during Copy operation: ' + error.message);
+  }
+}
+
+// Paste clipboard text (TSV or single value) starting at the selected cell.
+export async function pasteFromClipboard() {
+  if (appState.isReadOnly) return;
+  if (!appState.selectedCell) return;
+  let text;
+  try {
+    text = await navigator.clipboard.readText();
+  } catch (error) {
+    console.error('[App] Error reading clipboard:', error);
+    await showAlert('Error during Paste operation: ' + error.message);
+    return;
+  }
+  if (!text) return;
+
+  const { row: targetRow, col: targetCol } = appState.selectedCell;
+  // Strip trailing newline that some apps (e.g. Excel) append
+  const parsedRows = text.replace(/\n$/, '').split('\n');
+
+  if (parsedRows.length === 1 && !parsedRows[0].includes('\t')) {
+    // Single-cell paste — existing behaviour
+    try {
+      const result = await SetCellValue(targetRow, targetCol, parsedRows[0]);
+      window.applyUndoRedoState?.(result);
+      await window.refreshAllCells?.();
+      updateFileStatus();
+    } catch (error) {
+      console.error('[App] Error during Paste:', error);
+      await showAlert('Error during Paste operation: ' + error.message);
+    }
+    return;
+  }
+
+  // Multi-cell TSV paste
+  // TODO: A future POST /api/range/set batch endpoint would be more efficient for large pastes
+  const maxPasteRow = targetRow + parsedRows.length - 1;
+  const maxPasteCol =
+    targetCol + Math.max(...parsedRows.map((r) => r.split('\t').length)) - 1;
+  expandGridIfNeeded(maxPasteRow, maxPasteCol);
+
+  try {
+    const setCellCalls = [];
+    let lastResult = null;
+    for (let ri = 0; ri < parsedRows.length; ri++) {
+      const cells = parsedRows[ri].split('\t');
+      for (let ci = 0; ci < cells.length; ci++) {
+        // TODO: Adjust relative formula references on paste (Epic 18 scope)
+        setCellCalls.push(
+          SetCellValue(targetRow + ri, targetCol + ci, cells[ci]).then(
+            (result) => {
+              lastResult = result;
+            }
+          )
+        );
+      }
+    }
+    await Promise.all(setCellCalls);
+    if (lastResult) window.applyUndoRedoState?.(lastResult);
+    await window.refreshAllCells?.();
+    updateFileStatus();
+  } catch (error) {
+    console.error('[App] Error during Paste:', error);
+    await showAlert('Error during Paste operation: ' + error.message);
+  }
+}
+
 function setupEditMenuListeners() {
   window.electronAPI.onMenuUndo?.(async () => {
     if (window.__DEBUG__) console.log('[App] Menu Undo triggered');
@@ -310,31 +403,12 @@ function setupEditMenuListeners() {
 
   window.electronAPI.onMenuCopy(async () => {
     if (window.__DEBUG__) console.log('[App] Menu Copy triggered');
-    if (!appState.selectedCell) return;
-    try {
-      const { row, col } = appState.selectedCell;
-      const value = await GetCellRawValue(row, col);
-      await navigator.clipboard.writeText(value);
-    } catch (error) {
-      console.error('[App] Error during Copy:', error);
-      await showAlert('Error during Copy operation: ' + error.message);
-    }
+    await copySelectionToClipboard();
   });
 
   window.electronAPI.onMenuPaste(async () => {
     if (window.__DEBUG__) console.log('[App] Menu Paste triggered');
-    if (appState.isReadOnly) return;
-    if (!appState.selectedCell) return;
-    try {
-      const { row, col } = appState.selectedCell;
-      const text = await navigator.clipboard.readText();
-      await SetCellValue(row, col, text);
-      await window.refreshAllCells?.();
-      updateFileStatus();
-    } catch (error) {
-      console.error('[App] Error during Paste:', error);
-      await showAlert('Error during Paste operation: ' + error.message);
-    }
+    await pasteFromClipboard();
   });
 
   window.electronAPI.onMenuSelectAll(async () => {

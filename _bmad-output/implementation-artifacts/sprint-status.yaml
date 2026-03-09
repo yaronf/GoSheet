@@ -246,8 +246,8 @@ development_status:
   # Epic 17: Selection & Range Operations
   epic-17: in-progress
   17-1-range-selection-shift-click-and-drag: done
-  17-2-row-column-select-aesthetics: review
-  17-3-copy-paste-rectangular-range: ready-for-dev
+  17-2-row-column-select-aesthetics: done
+  17-3-copy-paste-rectangular-range: done
   17-4-range-address-box-type-to-select: ready-for-dev
   17-5-open-ended-row-column-ranges: ready-for-dev
   epic-17-retrospective: optional
