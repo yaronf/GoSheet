@@ -152,6 +152,47 @@ export function letterToCol(letter) {
   return col - 1;
 }
 
+// Story 17.4: Parse a cell or range address string into row/col bounds.
+// Returns { startRow, startCol, endRow, endCol } (0-indexed) or null if invalid.
+// Note: zero-padded rows (e.g. "A01") are accepted and treated as "A1" — parseInt
+// ignores leading zeros with radix 10. This matches Excel/Sheets behaviour.
+export function parseRangeAddress(text) {
+  if (!text) return null;
+  const upper = text.trim().toUpperCase();
+  const singleMatch = upper.match(/^([A-Z]+)(\d+)$/);
+  if (singleMatch) {
+    const col = letterToCol(singleMatch[1]);
+    const row = parseInt(singleMatch[2], 10) - 1;
+    if (col < 0 || row < 0 || col > 999 || row > 9999) return null;
+    return { startRow: row, startCol: col, endRow: row, endCol: col };
+  }
+  const rangeMatch = upper.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+  if (rangeMatch) {
+    const startCol = letterToCol(rangeMatch[1]);
+    const startRow = parseInt(rangeMatch[2], 10) - 1;
+    const endCol = letterToCol(rangeMatch[3]);
+    const endRow = parseInt(rangeMatch[4], 10) - 1;
+    if (
+      startCol < 0 ||
+      startRow < 0 ||
+      endCol < 0 ||
+      endRow < 0 ||
+      startCol > 999 ||
+      endCol > 999 ||
+      startRow > 9999 ||
+      endRow > 9999
+    )
+      return null;
+    return {
+      startRow: Math.min(startRow, endRow),
+      startCol: Math.min(startCol, endCol),
+      endRow: Math.max(startRow, endRow),
+      endCol: Math.max(startCol, endCol),
+    };
+  }
+  return null;
+}
+
 // Story 10.7: Screen reader announcements (visually hidden, aria-live)
 const srAnnouncer = document.createElement('div');
 srAnnouncer.setAttribute('role', 'status');

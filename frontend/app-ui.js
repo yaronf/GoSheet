@@ -281,9 +281,9 @@ async function handleContextMenuAction(action) {
 async function dispatchContextMenuAction(action) {
   const { startRow, startCol, endRow, endCol } = appState.selectionRange;
   if (action === 'copy') {
-    await handleContextMenuCopy();
+    await copySelectionToClipboard();
   } else if (action === 'paste') {
-    await handleContextMenuPaste();
+    await pasteFromClipboard();
   } else if (action?.startsWith('format-style-')) {
     const styleId = parseInt(action.replace('format-style-', ''), 10);
     if (Number.isFinite(styleId) && styleId > 0) {
@@ -310,14 +310,6 @@ async function dispatchContextMenuAction(action) {
     await window.refreshAllCells?.();
     window.updateFileStatus?.();
   }
-}
-
-async function handleContextMenuCopy() {
-  await copySelectionToClipboard();
-}
-
-async function handleContextMenuPaste() {
-  await pasteFromClipboard();
 }
 
 async function handleContextMenuOnCell(e, cell) {

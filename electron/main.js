@@ -271,8 +271,7 @@ let pendingFileToOpen = null;
 const cliArgs = process.argv.slice(2);
 
 if (cliArgs.includes('--help') || cliArgs.includes('-h')) {
-  console.log(`
-GoSheet — Lightweight spreadsheet for macOS
+  process.stdout.write(`GoSheet — Lightweight spreadsheet for macOS
 
 Usage:
   gosheet [options] [file.sheet]

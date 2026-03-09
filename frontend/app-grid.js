@@ -597,10 +597,10 @@ export async function updateFormulaBar(row, col) {
   const { startRow, startCol, endRow, endCol } = appState.selectionRange;
   const isRange = startRow !== endRow || startCol !== endCol;
   if (isRange) {
-    cellRef.textContent = `${colToLetter(startCol)}${startRow + 1}:${colToLetter(endCol)}${endRow + 1}`;
+    cellRef.value = `${colToLetter(startCol)}${startRow + 1}:${colToLetter(endCol)}${endRow + 1}`;
   } else {
     const ref = await GetCellRef(row, col);
-    cellRef.textContent = ref;
+    cellRef.value = ref;
   }
   const rawValue = await GetCellRawValue(row, col);
   formulaBar.value = rawValue || '';

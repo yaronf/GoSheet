@@ -22,6 +22,13 @@ input[type='text'].formula-bar {
   display: block;
 }
 
+/* Reset Pico.css input styling for address box — inline-block to participate in flex row */
+.cell-ref {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-block;
+}
+
 /* Override Pico.css table styling for spreadsheet grid - DON'T use 'all: unset' */
 .spreadsheet {
   border-collapse: collapse !important;
@@ -568,18 +575,31 @@ input[type='text'].formula-bar {
   box-sizing: border-box;
 }
 
+/* Story 17.4: cell-ref is now an <input>; all: unset applied above */
 .cell-ref {
   font-weight: bold;
   width: 72px;
   flex-shrink: 0;
   padding: var(--spacing-xs) var(--spacing-sm);
   background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   font-size: 13px;
   line-height: normal;
   font-family: var(--font-family-base);
   color: var(--color-text-primary);
   text-align: center;
+  cursor: text;
+}
+
+.cell-ref:focus {
+  outline: 2px solid var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.cell-ref-invalid {
+  border-color: var(--color-error) !important;
+  outline: 2px solid var(--color-error) !important;
 }
 
 /* Story 13.4: Compact cell-ref in toolbar */

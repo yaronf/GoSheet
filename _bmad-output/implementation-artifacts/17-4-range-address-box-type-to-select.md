@@ -1,6 +1,6 @@
 # Story 17.4: Range Address Box — Type to Select
 
-Status: ready-for-dev
+Status: done
 
 ## Dependencies
 
@@ -28,36 +28,29 @@ So that I can navigate to and select precise ranges without dragging.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Make `#cell-ref` editable (AC: 1, 2, 3, 4, 6)
-  - [ ] Change `<span class="cell-ref" id="cell-ref">` in `index.html` (line 137) to `<input type="text" class="cell-ref" id="cell-ref" aria-label="Cell or range reference" />`
-  - [ ] Update `updateFormulaBar` in `app-grid.js` to set `cellRef.value` instead of `cellRef.textContent` (since it is now an input)
-  - [ ] Ensure the Story 17.1 range address update also uses `.value`
+- [x] Task 1: Make `#cell-ref` editable (AC: 1, 2, 3, 4, 6)
+  - [x] Change `<span class="cell-ref" id="cell-ref">` in `app.js` HTML template to `<input type="text" ...>`
+  - [x] Update `updateFormulaBar` in `app-grid.js` to set `cellRef.value` instead of `cellRef.textContent`
+  - [x] Story 17.1 range address update also uses `.value`
 
-- [ ] Task 2: Parse and validate the address box input (AC: 1, 2, 3)
-  - [ ] Add helper `parseRangeAddress(text)` in a suitable module (e.g. `app-utils.js`):
-    - Accepts `A1`, `B3:F10`, `a1:d7` (case-insensitive)
-    - Returns `{ startRow, startCol, endRow, endCol }` or `null` on invalid input
-    - Use `letterToCol` and row parsing; validate `col >= 0`, `row >= 0`
-  - [ ] Add `keydown` listener on `#cell-ref` in `app.js`:
-    - On Enter: call `parseRangeAddress(cellRef.value)`, if valid → `applySelectionRange(...)`, scroll anchor cell into view (`getCellElement(startRow, startCol)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })`), blur the address box, focus the grid
-    - On invalid: add CSS class `cell-ref-invalid` (red border), do not change selection
-    - On Escape: restore current address from `appState.selectionRange`, remove `cell-ref-invalid`, blur
-  - [ ] Remove `cell-ref-invalid` class whenever the address box value changes (on `input` event)
+- [x] Task 2: Parse and validate the address box input (AC: 1, 2, 3)
+  - [x] Added `parseRangeAddress(text)` to `app-utils.js` (handles single cell, range, case-insensitive, bounds 1000 cols / 10000 rows)
+  - [x] Added `keydown` listener on `#cell-ref` in `app.js`: Enter navigates, Escape reverts, `input` clears invalid class
 
-- [ ] Task 3: CSS for address box invalid state (AC: 3)
-  - [ ] In `spreadsheet.css`, add `.cell-ref-invalid { border-color: var(--color-error) !important; }` rule
-  - [ ] Also update `.cell-ref` to allow editing: change from `background: var(--color-bg-surface); border-radius: 4px` display styling to an input-appropriate style (keep same visual width of `64px`, add `border: 1px solid var(--color-border)`, `cursor: text`)
+- [x] Task 3: CSS for address box invalid state (AC: 3)
+  - [x] Added `.cell-ref` to Pico.css reset block; updated `.cell-ref` for `<input>` with border/focus styles; added `.cell-ref-invalid` rule
 
-- [ ] Task 4: Replace "Select All" with "Go to Range…" in Edit menu (AC: 5)
-  - [ ] In `app-file-ops.js::setupEditMenuListeners`, find the `onMenuSelectAll` handler (lines 340–383). Replace the body with: focus `#cell-ref`, select all text in the input.
-  - [ ] Update `electron/menu.js` label for the menu item from "Select All" to "Go to Range…" with accelerator `Cmd+G` (or keep `Cmd+A` if preferred — decide and document).
+- [x] Task 4: Replace "Select All" with "Go to Range…" in Edit menu (AC: 5)
+  - [x] `onMenuSelectAll` replaced with address-box focus logic in `app-file-ops.js`
+  - [x] `electron/menu.js`: label → "Go to Range…", accelerator → `CmdOrCtrl+G`
 
-- [ ] Task 5: Playwright tests (AC: 1–6)
-  - [ ] Type `C5` in address box, press Enter, verify `#cell-5-4` (row 4, col 2, 0-indexed) has `.selected`
-  - [ ] Type `A1:B2` in address box, press Enter, verify 4 cells selected and `#cell-ref` value is `A1:B2`
-  - [ ] Type `ZZQQ`, press Enter, verify `#cell-ref` has class `cell-ref-invalid` and selection unchanged
-  - [ ] Select A1:C3 via shift-click, verify `#cell-ref` value becomes `A1:C3`
-  - [ ] Focus address box, press Escape, verify `#cell-ref` reverts to previous address
+- [x] Task 5: Playwright tests (AC: 1–6)
+  - [x] Single cell navigation (C5 → #cell-4-2 selected)
+  - [x] Range navigation (A1:B2 → 4 cells selected)
+  - [x] Invalid address adds `cell-ref-invalid` class, selection unchanged
+  - [x] Typing clears invalid state
+  - [x] Escape reverts to current selection address
+  - [x] Selection change updates address box value
 
 ## Dev Notes
 
@@ -337,3 +330,13 @@ claude-sonnet-4-6
 ### Completion Notes List
 
 ### File List
+
+- `frontend/app.js` — changed `#cell-ref` from `<span>` to `<input>` in HTML template; added `parseRangeAddress`/`colToLetter` imports; added `#cell-ref` keydown/input/focus handlers; added `data-view` guard on Enter handler (post-review L2)
+- `frontend/app-utils.js` — added `parseRangeAddress()` export; `parseInt` radix fixed (post-review M2); A01 behaviour documented (post-review L1)
+- `frontend/app-grid.js` — changed `cellRef.textContent` → `cellRef.value` in `updateFormulaBar`
+- `frontend/app-file-ops.js` — replaced `onMenuSelectAll` body with address-box focus; removed unused `letterToCol`/`selectCell`/`colToLetter` imports (post-review M1)
+- `frontend/spreadsheet.css` — split `.cell-ref` out of block reset to use `display: inline-block` (post-review H1); updated `.cell-ref` styles for `<input>`; added `.cell-ref:focus` and `.cell-ref-invalid` rules
+- `electron/menu.js` — "Select All" → "Go to Range…", accelerator `CmdOrCtrl+A` → `CmdOrCtrl+G`
+- `playwright_tests/test_address_box.spec.js` — new: 6 tests covering all ACs
+- `playwright_tests/test_copy_paste_range.spec.js` — updated address box assertions to `.inputValue()`
+- `playwright_tests/test_range_selection.spec.js` — updated all address box assertions to `.inputValue()` (3 occurrences; 1 missed at initial implementation, caught in post-review)

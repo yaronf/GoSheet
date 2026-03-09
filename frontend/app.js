@@ -16,6 +16,8 @@ import {
   showConfirmDialog,
   showAlert,
   forceCleanupEditing,
+  colToLetter,
+  parseRangeAddress,
 } from './app-utils.js';
 import {
   buildSpreadsheet,
@@ -46,8 +48,6 @@ import {
   performRedo,
   handleExportCSV,
   setupElectronMenuListeners,
-  copySelectionToClipboard,
-  pasteFromClipboard,
 } from './app-file-ops.js';
 import {
   showWelcome,
@@ -136,7 +136,7 @@ document.querySelector('#app').innerHTML = `
         </div>
         <input type="file" id="file-input" accept=".gosheet" style="display: none;" aria-hidden="true" />
         <div role="complementary" class="formula-bar-container" aria-label="Formula bar">
-            <span class="cell-ref" id="cell-ref" title="Current cell reference" aria-label="Selected cell">A1</span>
+            <input type="text" class="cell-ref" id="cell-ref" title="Type cell or range address and press Enter" aria-label="Cell or range reference" value="A1" />
             <input type="text" class="formula-bar" id="formula-bar" placeholder="Enter value or formula..." title="Enter cell value or formula (start with = for formulas)" aria-label="Formula input" />
         </div>
         <div role="status" aria-live="polite" aria-atomic="true" class="file-status-wrapper" aria-label="File status">
@@ -566,19 +566,11 @@ if (table) {
 }
 
 // Global keyboard handler
+// Note: Cmd+C, Cmd+X, Cmd+V are handled exclusively via Electron menu accelerators
+// (menu.js → IPC → onMenuCopy/Cut/Paste) to avoid double-triggering.
 document.addEventListener('keydown', (e) => {
   if (appState.isEditing) return;
   if (e.target.tagName === 'INPUT') return;
-  if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
-    e.preventDefault();
-    copySelectionToClipboard();
-    return;
-  }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
-    e.preventDefault();
-    pasteFromClipboard();
-    return;
-  }
   if (handleKeydownFileOps(e)) return;
   if (
     appState.selectedCell &&
@@ -612,6 +604,52 @@ if (formulaBar) {
       }
       formulaBar.blur();
     }
+  });
+}
+
+// Story 17.4: Address box — type a cell or range address and press Enter to navigate
+const cellRefInput = document.getElementById('cell-ref');
+if (cellRefInput) {
+  cellRefInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (
+        document.querySelector('#app')?.getAttribute('data-view') !==
+        'spreadsheet'
+      )
+        return;
+      const range = parseRangeAddress(cellRefInput.value);
+      if (!range) {
+        cellRefInput.classList.add('cell-ref-invalid');
+        return;
+      }
+      cellRefInput.classList.remove('cell-ref-invalid');
+      appState.selectionMode = 'cell';
+      applySelectionRange(
+        range.startRow,
+        range.startCol,
+        range.endRow,
+        range.endCol
+      );
+      const anchorCell = getCellElement(range.startRow, range.startCol);
+      anchorCell?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      anchorCell?.focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+      const isRange = startRow !== endRow || startCol !== endCol;
+      cellRefInput.value = isRange
+        ? `${colToLetter(startCol)}${startRow + 1}:${colToLetter(endCol)}${endRow + 1}`
+        : `${colToLetter(startCol)}${startRow + 1}`;
+      cellRefInput.classList.remove('cell-ref-invalid');
+      getCellElement(startRow, startCol)?.focus();
+    }
+  });
+  cellRefInput.addEventListener('input', () => {
+    cellRefInput.classList.remove('cell-ref-invalid');
+  });
+  cellRefInput.addEventListener('focus', () => {
+    cellRefInput.select();
   });
 }
 

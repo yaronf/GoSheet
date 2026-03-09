@@ -397,15 +397,15 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
         { type: 'separator' },
         {
           id: 'select-all',
-          label: 'Select All',
-          accelerator: 'CmdOrCtrl+A',
+          label: 'Go to Range\u2026',
+          accelerator: 'CmdOrCtrl+G',
           click: () => {
-            if (DEBUG) console.log('[Menu] Select All triggered');
+            if (DEBUG) console.log('[Menu] Go to Range triggered');
             const win = getTargetWindow();
             if (win) {
               win.webContents.send('menu-select-all');
             } else {
-              console.error('[Menu] Cannot trigger Select All - no window');
+              console.error('[Menu] Cannot trigger Go to Range - no window');
             }
           },
         },
