@@ -69,7 +69,7 @@ run-electron: install build
 # Lint Go code
 lint:
 	@echo "Running golangci-lint..."
-	go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run ./...
+	golangci-lint run ./...
 
 # Go test coverage (co-located with packages)
 coverage:

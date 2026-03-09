@@ -30,7 +30,7 @@ func TestNewServer(t *testing.T) {
 
 func TestHandleGetCellValue(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "42")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "42"))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/cell/value?row=0&col=0", nil)
 	w := httptest.NewRecorder()
@@ -50,7 +50,7 @@ func TestHandleGetCellValue(t *testing.T) {
 
 func TestHandleGetCellRawValue(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "=1+1")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "=1+1"))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/cell/raw?row=0&col=0", nil)
 	w := httptest.NewRecorder()
@@ -114,8 +114,8 @@ func TestHandleGetCellRef(t *testing.T) {
 
 func TestHandleGetAllCells(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "A1")
-	srv.Ctrl.SetCellValue(1, 1, "B2")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "A1"))
+	require.NoError(t, srv.Ctrl.SetCellValue(1, 1, "B2"))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/cells/all", nil)
 	w := httptest.NewRecorder()
@@ -134,7 +134,7 @@ func TestHandleGetAllCells(t *testing.T) {
 func TestHandleGetAllCells_WithMerges(t *testing.T) {
 	// Story 11.6: Covered cells omitted; only anchor included
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "anchor")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "anchor"))
 	_ = srv.Ctrl.SetMerge(0, 0, 1, 3) // A1:C1 merged
 
 	req := httptest.NewRequest(http.MethodGet, "/api/cells/all", nil)
@@ -154,7 +154,7 @@ func TestHandleGetAllCells_WithMerges(t *testing.T) {
 
 func TestHandleNewFile(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "data")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "data"))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/file/new", nil)
 	w := httptest.NewRecorder()
@@ -185,7 +185,7 @@ func TestHandleFileStatus(t *testing.T) {
 
 func TestHandleFileStatus_WithLoadedFile(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "x")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "x"))
 	tmpfile := filepath.Join(t.TempDir(), "mydoc.gosheet")
 	assert.NoError(t, srv.Ctrl.SaveFile(tmpfile))
 
@@ -208,7 +208,7 @@ func TestHandleFileStatus_WithLoadedFile(t *testing.T) {
 
 func TestHandleSaveFile(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "test")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "test"))
 	tmpfile := filepath.Join(t.TempDir(), "save.gosheet")
 	body, _ := json.Marshal(generated.PathRequest{Path: tmpfile})
 
@@ -244,7 +244,7 @@ func TestHandleSaveFile_InvalidJSON(t *testing.T) {
 
 func TestHandleSaveFile_UnwritablePath(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "x")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "x"))
 	// Parent dir does not exist
 	body, _ := json.Marshal(generated.PathRequest{Path: "/nonexistent/parent/dir/file.gosheet"})
 	req := httptest.NewRequest(http.MethodPost, "/api/file/save", bytes.NewReader(body))
@@ -256,7 +256,7 @@ func TestHandleSaveFile_UnwritablePath(t *testing.T) {
 
 func TestHandleLoadFile(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "loaded")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "loaded"))
 	tmpfile := filepath.Join(t.TempDir(), "load.gosheet")
 	assert.NoError(t, srv.Ctrl.SaveFile(tmpfile))
 
@@ -304,7 +304,7 @@ func TestHandleFileStatus_FilepathBase(t *testing.T) {
 	// Regression: filename extraction previously used strings.Split("/") which
 	// fails on Windows paths. Now uses filepath.Base.
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "x")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "x"))
 	// Use a real temp file so SaveFile sets the path
 	tmpfile := filepath.Join(t.TempDir(), "my spreadsheet.gosheet")
 	assert.NoError(t, srv.Ctrl.SaveFile(tmpfile))
@@ -444,8 +444,8 @@ func TestHandleCSVImport_InvalidCSV(t *testing.T) {
 
 func TestHandleCSVExport(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "a")
-	srv.Ctrl.SetCellValue(0, 1, "b")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "a"))
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 1, "b"))
 	tmpfile := filepath.Join(t.TempDir(), "export.csv")
 
 	body, _ := json.Marshal(generated.PathRequest{Path: tmpfile})
@@ -468,7 +468,7 @@ func TestHandleCSVExport(t *testing.T) {
 func TestHandleCSVExport_WithMergedCells(t *testing.T) {
 	// Story 11.6: Covered positions empty; anchor gets value
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "header")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "header"))
 	_ = srv.Ctrl.SetMerge(0, 0, 1, 2) // A1:B1 merged
 	tmpfile := filepath.Join(t.TempDir(), "merged.csv")
 
@@ -494,8 +494,8 @@ func TestHandleCSVExport_WithMergedCells(t *testing.T) {
 
 func TestHandleCSVExport_WithErrorCell(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "=1/0") // Produces #ERROR
-	srv.Ctrl.SetCellValue(0, 1, "ok")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "=1/0")) // Produces #ERROR
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 1, "ok"))
 	tmpfile := filepath.Join(t.TempDir(), "errors.csv")
 	body, _ := json.Marshal(generated.PathRequest{Path: tmpfile})
 	req := httptest.NewRequest(http.MethodPost, "/api/csv/export", bytes.NewReader(body))
@@ -543,7 +543,7 @@ func TestHandleCSVExport_InvalidJSON(t *testing.T) {
 
 func TestHandleCSVExport_EmptyPath(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "x")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "x"))
 	body, _ := json.Marshal(generated.PathRequest{Path: ""})
 	req := httptest.NewRequest(http.MethodPost, "/api/csv/export", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -558,7 +558,7 @@ func TestHandleCSVExport_EmptyPath(t *testing.T) {
 
 func TestHandleCSVExport_UnwritablePath(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "x")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "x"))
 	body, _ := json.Marshal(generated.PathRequest{Path: "/nonexistent/parent/dir/export.csv"})
 	req := httptest.NewRequest(http.MethodPost, "/api/csv/export", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -573,7 +573,7 @@ func TestHandleCSVExport_UnwritablePath(t *testing.T) {
 
 func TestHandleCSVExport_WriteToDirectoryFails(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "x")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "x"))
 	// Writing to a directory path fails
 	body, _ := json.Marshal(generated.PathRequest{Path: "/"})
 	req := httptest.NewRequest(http.MethodPost, "/api/csv/export", bytes.NewReader(body))
@@ -589,7 +589,7 @@ func TestHandleCSVExport_WriteToDirectoryFails(t *testing.T) {
 
 func TestHandleDownloadFile(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "download-me")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "download-me"))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/file/download", nil)
 	w := httptest.NewRecorder()
@@ -611,7 +611,7 @@ func TestHandleDownloadFile_EmptySpreadsheet(t *testing.T) {
 
 func TestHandleUploadFile(t *testing.T) {
 	orig := controller.NewAppController()
-	orig.SetCellValue(0, 0, "uploaded")
+	require.NoError(t, orig.SetCellValue(0, 0, "uploaded"))
 	tmpfile := filepath.Join(t.TempDir(), "upload.gosheet")
 	assert.NoError(t, orig.SaveFile(tmpfile))
 	data, _ := os.ReadFile(tmpfile)
@@ -669,7 +669,7 @@ func TestGetFrontendDir_FromTempDir(t *testing.T) {
 	// Run from temp dir without frontend - should hit fallback
 	orig, err := os.Getwd()
 	assert.NoError(t, err)
-	defer os.Chdir(orig)
+	defer func() { _ = os.Chdir(orig) }()
 	assert.NoError(t, os.Chdir(t.TempDir()))
 	dir := GetFrontendDir()
 	assert.NotEmpty(t, dir)
@@ -791,7 +791,7 @@ func TestHandleUnmerge(t *testing.T) {
 
 func TestHandleApplyCellStyle(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "Title")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "Title"))
 
 	body, _ := json.Marshal(ApplyCellStyleRequest{Row: 0, Col: 0, StyleId: 1})
 	req := httptest.NewRequest(http.MethodPost, "/api/cell/style", bytes.NewReader(body))
@@ -823,8 +823,8 @@ func TestHandleApplyCellStyle(t *testing.T) {
 
 func TestHandleApplyRangeStyle(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "A")
-	srv.Ctrl.SetCellValue(0, 1, "B")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "A"))
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 1, "B"))
 
 	body, _ := json.Marshal(ApplyRangeStyleRequest{
 		StartRow: 0, StartCol: 0, EndRow: 1, EndCol: 1, StyleId: 2,
@@ -853,7 +853,7 @@ func TestHandleApplyRangeStyle(t *testing.T) {
 
 func TestHandleGetAllCells_WithStyleId(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "Styled")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "Styled"))
 	_ = srv.Ctrl.ApplyStyleToCell(0, 0, 1)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/cells/all", nil)
@@ -879,7 +879,7 @@ func TestHandleGetAllCells_WithStyleId(t *testing.T) {
 
 func TestHandleFormatCleanup(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "Keep")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "Keep"))
 	_ = srv.Ctrl.ApplyStyleToCell(0, 0, 1)
 	_ = srv.Ctrl.ApplyStyleToCell(1, 0, 2) // empty + styled -> cleanup removes
 
@@ -915,8 +915,8 @@ func TestHandleFormatCleanup_MethodNotAllowed(t *testing.T) {
 
 func TestHandleInsertRow(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "A1")
-	srv.Ctrl.SetCellValue(1, 0, "A2")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "A1"))
+	require.NoError(t, srv.Ctrl.SetCellValue(1, 0, "A2"))
 	body, _ := json.Marshal(InsertRowRequest{Row: 1})
 	req := httptest.NewRequest(http.MethodPost, "/api/row/insert", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -930,8 +930,8 @@ func TestHandleInsertRow(t *testing.T) {
 
 func TestHandleInsertColumn(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "A1")
-	srv.Ctrl.SetCellValue(0, 1, "B1")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "A1"))
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 1, "B1"))
 	body, _ := json.Marshal(InsertColumnRequest{Col: 1})
 	req := httptest.NewRequest(http.MethodPost, "/api/column/insert", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -945,7 +945,7 @@ func TestHandleInsertColumn(t *testing.T) {
 
 func TestHandleInsertRow_IncludesUndoState(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "A1")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "A1"))
 	body, _ := json.Marshal(InsertRowRequest{Row: 0})
 	req := httptest.NewRequest(http.MethodPost, "/api/row/insert", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -961,9 +961,9 @@ func TestHandleInsertRow_IncludesUndoState(t *testing.T) {
 
 func TestHandleDeleteRow(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "A1")
-	srv.Ctrl.SetCellValue(1, 0, "A2")
-	srv.Ctrl.SetCellValue(2, 0, "A3")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "A1"))
+	require.NoError(t, srv.Ctrl.SetCellValue(1, 0, "A2"))
+	require.NoError(t, srv.Ctrl.SetCellValue(2, 0, "A3"))
 	body, _ := json.Marshal(DeleteRowRequest{Row: 1})
 	req := httptest.NewRequest(http.MethodPost, "/api/row/delete", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -982,9 +982,9 @@ func TestHandleDeleteRow(t *testing.T) {
 
 func TestHandleDeleteColumn(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "A1")
-	srv.Ctrl.SetCellValue(0, 1, "B1")
-	srv.Ctrl.SetCellValue(0, 2, "C1")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "A1"))
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 1, "B1"))
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 2, "C1"))
 	body, _ := json.Marshal(DeleteColumnRequest{Col: 1})
 	req := httptest.NewRequest(http.MethodPost, "/api/column/delete", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -1003,10 +1003,10 @@ func TestHandleDeleteColumn(t *testing.T) {
 
 func TestHandleClearRange(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "a")
-	srv.Ctrl.SetCellValue(0, 1, "b")
-	srv.Ctrl.SetCellValue(1, 0, "c")
-	srv.Ctrl.SetCellValue(1, 1, "d")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "a"))
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 1, "b"))
+	require.NoError(t, srv.Ctrl.SetCellValue(1, 0, "c"))
+	require.NoError(t, srv.Ctrl.SetCellValue(1, 1, "d"))
 	body, _ := json.Marshal(ClearRangeRequest{
 		StartRow: 0, StartCol: 0, EndRow: 1, EndCol: 1,
 	})
@@ -1217,7 +1217,7 @@ func TestHandleSetCellValue_IncludesUndoState(t *testing.T) {
 
 func TestHandleApplyCellStyle_IncludesUndoState(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "hello")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "hello"))
 	body, _ := json.Marshal(ApplyCellStyleRequest{Row: 0, Col: 0, StyleId: 1})
 	req := httptest.NewRequest(http.MethodPost, "/api/cell/style", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -1233,8 +1233,8 @@ func TestHandleApplyCellStyle_IncludesUndoState(t *testing.T) {
 
 func TestHandleApplyRangeStyle_IncludesUndoState(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "A")
-	srv.Ctrl.SetCellValue(0, 1, "B")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "A"))
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 1, "B"))
 	body, _ := json.Marshal(ApplyRangeStyleRequest{StartRow: 0, StartCol: 0, EndRow: 0, EndCol: 1, StyleId: 2})
 	req := httptest.NewRequest(http.MethodPost, "/api/range/style", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -1250,7 +1250,7 @@ func TestHandleApplyRangeStyle_IncludesUndoState(t *testing.T) {
 
 func TestHandleSetCellAlignment_IncludesUndoState(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "hello")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "hello"))
 	body, _ := json.Marshal(SetCellAlignmentRequest{Row: 0, Col: 0, Alignment: "center"})
 	req := httptest.NewRequest(http.MethodPost, "/api/cell/alignment", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -1266,7 +1266,7 @@ func TestHandleSetCellAlignment_IncludesUndoState(t *testing.T) {
 
 func TestHandleSetMerge_IncludesUndoState(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "anchor")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "anchor"))
 	body, _ := json.Marshal(map[string]any{"startRow": 0, "startCol": 0, "rowSpan": 1, "colSpan": 2})
 	req := httptest.NewRequest(http.MethodPost, "/api/merge", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -1282,7 +1282,7 @@ func TestHandleSetMerge_IncludesUndoState(t *testing.T) {
 
 func TestHandleUnmerge_IncludesUndoState(t *testing.T) {
 	srv := newTestServer()
-	srv.Ctrl.SetCellValue(0, 0, "anchor")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "anchor"))
 	require.NoError(t, srv.Ctrl.SetMerge(0, 0, 2, 2))
 	srv.Ctrl.History.Clear()
 	body, _ := json.Marshal(map[string]any{"startRow": 0, "startCol": 0})
@@ -1296,4 +1296,4 @@ func TestHandleUnmerge_IncludesUndoState(t *testing.T) {
 	data := resp["data"].(map[string]any)
 	assert.Equal(t, true, data["canUndo"])
 	assert.Equal(t, "Unmerge A1", data["undoDescription"])
-}
+} //nolint:revive // file length exceeds 800-line limit; test files are exempt by convention (max 1500)

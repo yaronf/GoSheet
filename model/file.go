@@ -31,7 +31,7 @@ func atomicWriteFile(targetPath string, writeContent func(f *os.File) error) err
 	// closeAndRemove closes the temp file (if still open) and removes it.
 	// Used on all failure paths to avoid leaking file handles or temp files.
 	closeAndRemove := func() {
-		tmp.Close()
+		_ = tmp.Close()
 		if removeErr := os.Remove(tmpName); removeErr != nil && !os.IsNotExist(removeErr) {
 			logutil.Debugf("atomicWriteFile: failed to remove temp file %s: %v", tmpName, removeErr)
 		}
@@ -153,7 +153,7 @@ func LoadFromFile(filePath string) (*Spreadsheet, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	return decodeSpreadsheet(gob.NewDecoder(file), filePath)
 }
 

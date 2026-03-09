@@ -8,6 +8,7 @@ func TestNewStyleRegistry(t *testing.T) {
 	r := NewStyleRegistry()
 	if r == nil {
 		t.Fatal("NewStyleRegistry returned nil")
+		return
 	}
 	if len(r.Formats) != 3 {
 		t.Errorf("Expected 3 built-in formats, got %d", len(r.Formats))
@@ -32,6 +33,7 @@ func TestStyleRegistry_GetFormat(t *testing.T) {
 	f := r.GetFormat(1)
 	if f == nil {
 		t.Fatal("GetFormat(1) returned nil")
+		return
 	}
 	if !f.Font.Bold || f.Font.Size != 18 {
 		t.Errorf("Title style: expected bold 18pt, got bold=%v size=%d", f.Font.Bold, f.Font.Size)
@@ -60,6 +62,10 @@ func TestStyleRegistry_GetStyleIDByName(t *testing.T) {
 func TestStyleRegistry_UpdateStyle(t *testing.T) {
 	r := NewStyleRegistry()
 	f := r.GetFormat(1)
+	if f == nil {
+		t.Fatal("GetFormat(1) returned nil")
+		return
+	}
 	f.Font.Size = 24
 	if err := r.UpdateStyle(1, f, ""); err != nil {
 		t.Fatal(err)

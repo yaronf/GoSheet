@@ -59,7 +59,7 @@ func HandleCSVPreview(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	reader := csv.NewReader(f)
 	reader.FieldsPerRecord = -1 // Allow variable number of fields
@@ -127,7 +127,7 @@ func ParseCSVFile(path string) ([][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	reader := csv.NewReader(f)
 	reader.FieldsPerRecord = -1 // Allow variable number of fields

@@ -48,11 +48,15 @@ jobs:
     - name: Install Node dependencies
       run: npm ci
 
-    - name: Lint
+    - name: Lint (JS/CSS)
       run: |
         npm run lint
         npm run format:check
-        make lint
+
+    - name: Lint (Go)
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
 
     - name: Complexity (report only, does not fail)
       run: make complexity || true

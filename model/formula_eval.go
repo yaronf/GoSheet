@@ -89,7 +89,7 @@ func toNumber(v Value) (float64, error) {
 	case ErrorValue:
 		return 0, val.Error
 	case RefErrorValue:
-		return 0, fmt.Errorf("#REF!")
+		return 0, fmt.Errorf("#REF!") //nolint:staticcheck // #REF! is standard spreadsheet error notation
 	default:
 		return 0, fmt.Errorf("cannot convert to number")
 	}

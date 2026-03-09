@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSaveAndLoadEmptySpreadsheet(t *testing.T) {
@@ -226,9 +228,9 @@ func TestLoadFromFile_InvalidCellsGob(t *testing.T) {
 		t.Fatalf("Create failed: %v", err)
 	}
 	enc := gob.NewEncoder(f)
-	enc.Encode(FileHeader{Version: "1.1", CellCount: 0})
-	enc.Encode("not a map") // Wrong type - should be map[int]map[int]*Cell
-	f.Close()
+	_ = enc.Encode(FileHeader{Version: "1.1", CellCount: 0})
+	_ = enc.Encode("not a map") // Wrong type - should be map[int]map[int]*Cell
+	_ = f.Close()
 
 	_, err = LoadFromFile(tmpfile)
 	if err == nil {
@@ -249,7 +251,7 @@ func TestLoadFromFile_InvalidVersion(t *testing.T) {
 	if encErr := enc.Encode(map[int]map[int]*Cell{}); encErr != nil {
 		t.Fatalf("Encode cells failed: %v", encErr)
 	}
-	f.Close()
+	require.NoError(t, f.Close())
 
 	_, err = LoadFromFile(tmpfile)
 	if err == nil {
@@ -276,7 +278,7 @@ func TestHasUnsavedChanges(t *testing.T) {
 
 	// After saving, should not have unsaved changes
 	tmpfile := filepath.Join(t.TempDir(), "test.gosheet")
-	s.SaveToFile(tmpfile)
+	_ = s.SaveToFile(tmpfile)
 	if s.HasUnsavedChanges() {
 		t.Error("Spreadsheet should not have unsaved changes after save")
 	}
@@ -344,9 +346,9 @@ func TestLoadFromBytesInvalidVersion(t *testing.T) {
 	// Valid gob structure but wrong version (v1.1 required)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	enc.Encode(FileHeader{Version: "2.0", CellCount: 0})
-	enc.Encode(map[int]map[int]*Cell{})
-	enc.Encode([]MergeRegion{})
+	_ = enc.Encode(FileHeader{Version: "2.0", CellCount: 0})
+	_ = enc.Encode(map[int]map[int]*Cell{})
+	_ = enc.Encode([]MergeRegion{})
 	_, err = LoadFromBytes(buf.Bytes(), "/x.sheet")
 	if err == nil {
 		t.Error("Expected error when loading bytes with unsupported version")
@@ -425,13 +427,13 @@ func TestLoadFromBytes_V1_1BackwardCompat(t *testing.T) {
 	// Manually create v1.1 format (header + cells + merges, no styles)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	enc.Encode(FileHeader{Version: "1.1", CellCount: 2})
+	require.NoError(t, enc.Encode(FileHeader{Version: "1.1", CellCount: 2}))
 	cells := map[int]map[int]*Cell{
 		0: {0: {Value: "A", Computed: "A", IsFormula: false, StyleId: 0}},
 		1: {0: {Value: "B", Computed: "B", IsFormula: false, StyleId: 0}},
 	}
-	enc.Encode(cells)
-	enc.Encode([]MergeRegion{})
+	require.NoError(t, enc.Encode(cells))
+	require.NoError(t, enc.Encode([]MergeRegion{}))
 
 	loaded, err := LoadFromBytes(buf.Bytes(), "/test/v11.sheet")
 	if err != nil {

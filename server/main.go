@@ -113,7 +113,7 @@ func main() {
 	if _, err := fmt.Fprintf(portPipe, "PORT=%d\n", port); err != nil {
 		log.Printf("Warning: failed to write port to fd 3: %v (running standalone?)", err)
 	}
-	portPipe.Close()
+	_ = portPipe.Close()
 
 	log.Printf("GoSheet server running at http://localhost:%d\n", port)
 	logutil.Debugf("Open http://localhost:%d in your browser\n", port)

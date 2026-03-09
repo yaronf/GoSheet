@@ -31,8 +31,8 @@ func TestControllerSetCellValue_Formula(t *testing.T) {
 	ctrl := NewAppController()
 
 	// Set values first
-	ctrl.SetCellValue(0, 0, "10")
-	ctrl.SetCellValue(1, 0, "20")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "10"))
+	require.NoError(t, ctrl.SetCellValue(1, 0, "20"))
 
 	// Set formula
 	err := ctrl.SetCellValue(0, 1, "=A1+A2")
@@ -46,12 +46,12 @@ func TestControllerRecalculateDependents(t *testing.T) {
 	ctrl := NewAppController()
 
 	// A1=5, B1=A1*2
-	ctrl.SetCellValue(0, 0, "5")
-	ctrl.SetCellValue(0, 1, "=A1*2")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "5"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "=A1*2"))
 	assert.Equal(t, "10", ctrl.GetCellValue(0, 1))
 
 	// Change A1; B1 should recalculate
-	ctrl.SetCellValue(0, 0, "20")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "20"))
 	assert.Equal(t, "40", ctrl.GetCellValue(0, 1))
 }
 
@@ -59,7 +59,7 @@ func TestControllerSetCellValue_CircularRef(t *testing.T) {
 	ctrl := NewAppController()
 
 	// B1 = A1 (B1 references A1); B1 is (row 0, col 1)
-	ctrl.SetCellValue(0, 1, "=A1")
+	require.NoError(t, ctrl.SetCellValue(0, 1, "=A1"))
 	// A1 = B1 (creates cycle A1 -> B1 -> A1)
 	err := ctrl.SetCellValue(0, 0, "=B1")
 	assert.NoError(t, err)
@@ -88,7 +88,7 @@ func TestControllerGetCellRef(t *testing.T) {
 
 func TestControllerNewFile(t *testing.T) {
 	ctrl := NewAppController()
-	ctrl.SetCellValue(0, 0, "data")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "data"))
 
 	ctrl.NewFile()
 
@@ -101,14 +101,14 @@ func TestControllerHasUnsavedChanges(t *testing.T) {
 
 	assert.False(t, ctrl.HasUnsavedChanges())
 
-	ctrl.SetCellValue(0, 0, "x")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "x"))
 	assert.True(t, ctrl.HasUnsavedChanges())
 }
 
 func TestControllerSaveFile(t *testing.T) {
 	ctrl := NewAppController()
-	ctrl.SetCellValue(0, 0, "Hello")
-	ctrl.SetCellValue(0, 1, "42")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "Hello"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "42"))
 
 	tmpfile := filepath.Join(t.TempDir(), "save.gosheet")
 	err := ctrl.SaveFile(tmpfile)
@@ -363,8 +363,8 @@ func TestSetMerge_RefusesWhenMultipleCellsHaveContent(t *testing.T) {
 	ctrl := NewAppController()
 
 	// Put content in two cells that would be merged
-	ctrl.SetCellValue(0, 0, "hello")
-	ctrl.SetCellValue(0, 1, "world")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "world"))
 
 	// Try to merge a 1x2 region — both cells have content
 	err := ctrl.SetMerge(0, 0, 1, 2)
@@ -376,7 +376,7 @@ func TestSetMerge_AllowsWhenOneCellHasContent(t *testing.T) {
 	ctrl := NewAppController()
 
 	// Only anchor cell has content
-	ctrl.SetCellValue(0, 0, "hello")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
 
 	err := ctrl.SetMerge(0, 0, 1, 2)
 	assert.NoError(t, err)
@@ -393,7 +393,7 @@ func TestSetMerge_AllowsWhenNoCellsHaveContent(t *testing.T) {
 
 func TestSetCellAlignment_ValidValues(t *testing.T) {
 	ctrl := NewAppController()
-	ctrl.SetCellValue(0, 0, "hello")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
 
 	for _, alignment := range []string{"left", "center", "right", ""} {
 		err := ctrl.SetCellAlignment(0, 0, alignment)
@@ -428,9 +428,9 @@ func TestSetCellAlignment_CreatesCell(t *testing.T) {
 
 func TestSetRangeAlignment_ValidRange(t *testing.T) {
 	ctrl := NewAppController()
-	ctrl.SetCellValue(0, 0, "A")
-	ctrl.SetCellValue(0, 1, "B")
-	ctrl.SetCellValue(0, 2, "C")
+	require.NoError(t, ctrl.SetCellValue(0, 0, "A"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "B"))
+	require.NoError(t, ctrl.SetCellValue(0, 2, "C"))
 
 	err := ctrl.SetRangeAlignment(0, 0, 0, 2, "center")
 	assert.NoError(t, err)

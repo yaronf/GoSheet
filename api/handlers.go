@@ -289,8 +289,8 @@ func (s *Server) HandleDownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	defer os.Remove(tmpPath)
+	_ = tmpFile.Close()
+	defer func() { _ = os.Remove(tmpPath) }()
 	if err := s.Ctrl.SaveFile(tmpPath); err != nil {
 		logutil.Errorf("Download error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -316,8 +316,8 @@ func (s *Server) HandleUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	defer os.Remove(tmpPath)
+	_ = tmpFile.Close()
+	defer func() { _ = os.Remove(tmpPath) }()
 	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
 		logutil.Errorf("Upload write error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

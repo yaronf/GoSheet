@@ -1,40 +1,42 @@
 # golangci-lint configuration for GoSheet
 # https://golangci-lint.run/usage/configuration/
 
+version: "2"
+
 run:
   timeout: 5m
   modules-download-mode: readonly
+
+formatters:
+  enable:
+    - gofmt
 
 linters:
   enable:
     - errcheck
     - govet
-    - gofmt
     - ineffassign
     - staticcheck
     - revive
-
-linters-settings:
-  revive:
-    rules:
-      - name: file-length-limit
-        arguments:
-          - { max: 800, skipComments: true, skipBlankLines: true }
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment  # often too strict for small structs
+  settings:
+    revive:
+      rules:
+        - name: file-length-limit
+          arguments:
+            - { max: 800, skipComments: true, skipBlankLines: true }
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment  # often too strict for small structs
 
 issues:
   exclude-rules:
-    - path: _test\.go
+    - path: _test\.go$
       linters:
         - errcheck  # test helpers may intentionally ignore errors
-        - revive    # file-length-limit enforced separately below at 1500 lines for test files
-
-severity: warning
+        - revive    # file-length-limit enforced separately; test files may be up to 1500 lines
 
 # Separate revive config for test files (1500-line limit instead of 800)
-# golangci-lint does not natively support per-path rule arguments;
-# the blanket revive exclusion above exempts test files from the 800-line rule.
-# Test files must stay below 1500 lines by convention (current worst: handlers_test.go at 1119).
+# golangci-lint does not natively support per-path rule arguments in v2;
+# test files use //nolint:revive at the last line to suppress file-length-limit.
+# Test files must stay below 1500 lines by convention (current worst: handlers_test.go at ~1300).
