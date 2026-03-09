@@ -56,7 +56,7 @@ jobs:
     - name: Lint (Go)
       uses: golangci/golangci-lint-action@v6
       with:
-        version: latest
+        version: v2.11.2
 
     - name: Complexity (report only, does not fail)
       run: make complexity || true
