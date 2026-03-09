@@ -389,6 +389,33 @@ export function handleKeydownFileOps(e) {
   return false;
 }
 
+// Extend the selection range by one cell in the Shift+Arrow direction.
+function handleShiftArrow(e) {
+  const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+  let newEndRow = endRow;
+  let newEndCol = endCol;
+  if (e.key === 'ArrowDown' && endRow < appState.ROWS - 1) newEndRow++;
+  if (e.key === 'ArrowUp' && endRow > startRow) newEndRow--;
+  if (e.key === 'ArrowRight' && endCol < appState.COLS - 1) newEndCol++;
+  if (e.key === 'ArrowLeft' && endCol > startCol) newEndCol--;
+  applySelectionRange(startRow, startCol, newEndRow, newEndCol);
+}
+
+// Clear the cell value and refresh the display.
+function handleDeleteCell(row, col) {
+  SetCellValue(row, col, '').then((result) => {
+    const cell = getCellElement(row, col);
+    if (cell) {
+      cell.textContent = '';
+      cell.classList.remove('formula-cell');
+      delete cell.dataset.formula;
+    }
+    if (result.hasUnsavedChanges !== undefined)
+      window.displayFileStatus?.(result.hasUnsavedChanges);
+    return window.refreshAllCells?.();
+  });
+}
+
 // Handle arrow keys, Enter, Tab, Delete, typing when a cell is selected
 export function handleKeydownCellNavigation(e, row, col) {
   // Story 17.1: Shift+Arrow extends the selection range
@@ -397,14 +424,7 @@ export function handleKeydownCellNavigation(e, row, col) {
     ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)
   ) {
     e.preventDefault();
-    const { startRow, startCol, endRow, endCol } = appState.selectionRange;
-    let newEndRow = endRow;
-    let newEndCol = endCol;
-    if (e.key === 'ArrowDown' && endRow < appState.ROWS - 1) newEndRow++;
-    if (e.key === 'ArrowUp' && endRow > startRow) newEndRow--;
-    if (e.key === 'ArrowRight' && endCol < appState.COLS - 1) newEndCol++;
-    if (e.key === 'ArrowLeft' && endCol > startCol) newEndCol--;
-    applySelectionRange(startRow, startCol, newEndRow, newEndCol);
+    handleShiftArrow(e);
     return true;
   }
   if (handleArrowKey(e, row, col)) return true;
@@ -424,17 +444,7 @@ export function handleKeydownCellNavigation(e, row, col) {
   if (e.key === 'Delete' || e.key === 'Backspace') {
     if (appState.isReadOnly) return true; // Story 16.4
     e.preventDefault();
-    SetCellValue(row, col, '').then((result) => {
-      const cell = getCellElement(row, col);
-      if (cell) {
-        cell.textContent = '';
-        cell.classList.remove('formula-cell');
-        delete cell.dataset.formula;
-      }
-      if (result.hasUnsavedChanges !== undefined)
-        window.displayFileStatus?.(result.hasUnsavedChanges);
-      return window.refreshAllCells?.();
-    });
+    handleDeleteCell(row, col);
     return true;
   }
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {

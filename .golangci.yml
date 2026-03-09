@@ -18,6 +18,7 @@ linters:
     - ineffassign
     - staticcheck
     - revive
+    - cyclop
   settings:
     revive:
       rules:
@@ -28,6 +29,8 @@ linters:
       enable-all: true
       disable:
         - fieldalignment  # often too strict for small structs
+    cyclop:
+      max-complexity: 20  # hard fail; soft target is 15 (enforce via code review)
   exclusions:
     rules:
       - path: _test\.go$
