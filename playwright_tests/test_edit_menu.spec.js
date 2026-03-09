@@ -76,12 +76,12 @@ test.describe('Edit Menu Tests', () => {
     expect(pasteItem).toBeTruthy();
     expect(pasteItem.accelerator).toContain('V');
 
-    // Check for Select All
+    // Check for Go to Range (formerly Select All)
     const selectAllItem = editMenuItems.find(
-      (item) => item.label === 'Select All'
+      (item) => item.label === 'Go to Range\u2026'
     );
     expect(selectAllItem).toBeTruthy();
-    expect(selectAllItem.accelerator).toContain('A');
+    expect(selectAllItem.accelerator).toContain('G');
 
     // Check for separator before Select All
     const separatorIndex = editMenuItems.findIndex(
@@ -295,8 +295,8 @@ test.describe('Edit Menu Tests', () => {
           ?.accelerator,
         paste: editMenu.submenu.items.find((item) => item.label === 'Paste')
           ?.accelerator,
-        selectAll: editMenu.submenu.items.find(
-          (item) => item.label === 'Select All'
+        goToRange: editMenu.submenu.items.find(
+          (item) => item.label === 'Go to Range\u2026'
         )?.accelerator,
       };
     });
@@ -305,7 +305,7 @@ test.describe('Edit Menu Tests', () => {
     expect(shortcuts.cut).toContain('X');
     expect(shortcuts.copy).toContain('C');
     expect(shortcuts.paste).toContain('V');
-    expect(shortcuts.selectAll).toContain('A');
+    expect(shortcuts.goToRange).toContain('G');
 
     console.log(
       '[Edit Menu Test] All keyboard shortcuts are registered:',
@@ -313,7 +313,7 @@ test.describe('Edit Menu Tests', () => {
     );
   });
 
-  test('Select All menu item works', async ({ electronApp, window }) => {
+  test('Go to Range menu item works', async ({ electronApp, window }) => {
     await window.waitForLoadState('domcontentloaded');
 
     const grid = await window.locator('#spreadsheet');
@@ -322,35 +322,22 @@ test.describe('Edit Menu Tests', () => {
     await setCellAndSelect(window, 0, 0, 'A1');
     await setCellAndSelect(window, 1, 1, 'B2');
 
-    // Trigger Select All from menu
+    // Trigger Go to Range from menu — focuses the address box
     await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
       const editMenu = menu.items.find((item) => item.label === 'Edit');
-      const selectAllItem = editMenu.submenu.items.find(
-        (item) => item.label === 'Select All'
+      const goToRangeItem = editMenu.submenu.items.find(
+        (item) => item.label === 'Go to Range\u2026'
       );
-      if (selectAllItem && selectAllItem.click) {
-        selectAllItem.click();
+      if (goToRangeItem && goToRangeItem.click) {
+        goToRangeItem.click();
       }
     });
 
-    // Wait for alert dialog
-    await window.waitForTimeout(1000);
-
-    // Check if modal appeared (Select All shows an alert)
-    const modal = await window.locator('#modal-overlay');
-    const isVisible = await modal.isVisible();
-
-    if (isVisible) {
-      // Close the alert
-      const okButton = await window.locator('#modal-ok');
-      await okButton.click();
-    }
-
-    // Verify a cell is selected (Select All selects first cell of range)
+    // Verify a cell is still selected after triggering Go to Range
     const selectedCell = await window.locator('.cell.selected');
     await expect(selectedCell).toBeVisible();
 
-    console.log('[Edit Menu Test] Select All operation completed');
+    console.log('[Edit Menu Test] Go to Range operation completed');
   });
 });

@@ -86,6 +86,7 @@ func main() {
 	http.HandleFunc("/api/cell/alignment", cors(srv.HandleSetCellAlignment))
 	http.HandleFunc("/api/range/alignment", cors(srv.HandleSetRangeAlignment))
 	http.HandleFunc("/api/range/clear", cors(srv.HandleClearRange))
+	http.HandleFunc("/api/range/set", cors(srv.HandleSetRangeValues))
 	http.HandleFunc("/api/format/cleanup", cors(srv.HandleFormatCleanup))
 	http.HandleFunc("/api/row/insert", cors(srv.HandleInsertRow))
 	http.HandleFunc("/api/column/insert", cors(srv.HandleInsertColumn))

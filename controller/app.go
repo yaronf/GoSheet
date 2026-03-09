@@ -25,6 +25,17 @@ func NewAppController() *AppController {
 	}
 }
 
+// SetRangeValues sets multiple cells in a single atomic undo entry (used by paste).
+func (c *AppController) SetRangeValues(cells []RangeCell) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(cells) == 0 {
+		return nil
+	}
+	cmd := &SetRangeValuesCommand{ctrl: c, cells: cells}
+	return c.History.Push(cmd)
+}
+
 // SetCellValue sets a cell value, records the operation in undo history, and triggers recalculation.
 func (c *AppController) SetCellValue(row, col int, value string) error {
 	c.mu.Lock()

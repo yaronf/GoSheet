@@ -41,7 +41,7 @@ test.describe('Click interactions (Electron - real clicks)', () => {
     await cell.click();
     await expect(cell).toHaveClass(/selected/);
     const cellRef = window.locator('#cell-ref');
-    await expect(cellRef).toHaveText('C4');
+    await expect(cellRef).toHaveValue('C4');
   });
 
   test('double click enters edit mode', async ({ window }) => {

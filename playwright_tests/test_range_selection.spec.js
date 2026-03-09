@@ -46,7 +46,7 @@ test.describe('Range selection (Story 17.1)', () => {
       () => document.querySelectorAll('.cell.selected').length === 4,
       { timeout: 3000 }
     );
-    const addr = await window.locator('#cell-ref').textContent();
+    const addr = await window.locator('#cell-ref').inputValue();
     expect(addr).toBe('A1:B2');
   });
 
@@ -118,7 +118,7 @@ test.describe('Range selection (Story 17.1)', () => {
     expect(selected).toBe(3);
 
     // Address box should show A1:C1
-    const addr = await window.locator('#cell-ref').textContent();
+    const addr = await window.locator('#cell-ref').inputValue();
     expect(addr).toBe('A1:C1');
   });
 });

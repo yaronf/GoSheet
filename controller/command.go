@@ -131,6 +131,86 @@ func (h *History) RedoDescription() string {
 	return h.redoStack[len(h.redoStack)-1].Description()
 }
 
+// RangeCell represents a single cell write in a batch paste operation.
+type RangeCell struct {
+	Row, Col int
+	Value    string
+}
+
+// SetRangeValuesCommand sets multiple cells atomically as a single undo entry.
+// This is used by paste operations so that one Undo reverts the entire paste.
+type SetRangeValuesCommand struct {
+	ctrl      *AppController
+	cells     []RangeCell
+	prevCells map[int]map[int]*model.Cell // deep copies keyed by [row][col]
+}
+
+func (cmd *SetRangeValuesCommand) Do() error {
+	// Snapshot current values before any writes
+	cmd.prevCells = make(map[int]map[int]*model.Cell)
+	for _, c := range cmd.cells {
+		prev := cmd.ctrl.Sheet.GetCell(c.Row, c.Col)
+		if prev != nil {
+			cp := *prev
+			if cmd.prevCells[c.Row] == nil {
+				cmd.prevCells[c.Row] = make(map[int]*model.Cell)
+			}
+			cmd.prevCells[c.Row][c.Col] = &cp
+		}
+	}
+	for _, c := range cmd.cells {
+		if err := cmd.ctrl.setCellValueInternal(c.Row, c.Col, c.Value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cmd *SetRangeValuesCommand) Undo() error {
+	for _, c := range cmd.cells {
+		var prev *model.Cell
+		if cmd.prevCells[c.Row] != nil {
+			prev = cmd.prevCells[c.Row][c.Col]
+		}
+		if prev == nil {
+			// Cell did not exist before — delete it
+			cellRef := model.CoordsToRef(c.Row, c.Col)
+			cmd.ctrl.Sheet.Dependencies.RemoveDependencies(cellRef)
+			cmd.ctrl.Sheet.DeleteCell(c.Row, c.Col)
+			cmd.ctrl.Sheet.Modified = true
+			cmd.ctrl.recalculateDependents([]string{cellRef})
+		} else {
+			// Restore previous state using same logic as SetCellCommand.Undo
+			if cmd.ctrl.Sheet.Cells[c.Row] == nil {
+				cmd.ctrl.Sheet.Cells[c.Row] = make(map[int]*model.Cell)
+			}
+			restored := *prev
+			cellRef := model.CoordsToRef(c.Row, c.Col)
+			cmd.ctrl.Sheet.Dependencies.RemoveDependencies(cellRef)
+			if restored.IsFormula {
+				refs := model.ExtractCellReferences("=" + restored.Value)
+				for _, ref := range refs {
+					cmd.ctrl.Sheet.Dependencies.AddDependency(cellRef, ref)
+				}
+				val, err := model.EvaluateFormula("="+restored.Value, nil, cmd.ctrl.Sheet)
+				if err != nil {
+					restored.SetError(err.Error())
+				} else {
+					restored.SetFromValue(val)
+				}
+			}
+			cmd.ctrl.Sheet.Cells[c.Row][c.Col] = &restored
+			cmd.ctrl.Sheet.Modified = true
+			cmd.ctrl.recalculateDependents([]string{cellRef})
+		}
+	}
+	return nil
+}
+
+func (cmd *SetRangeValuesCommand) Description() string {
+	return fmt.Sprintf("Paste %d cell(s)", len(cmd.cells))
+}
+
 // SetCellCommand is a reversible set-cell operation.
 // It captures a deep copy of the previous cell state so Undo can restore it exactly,
 // including computed values, formula flags, and error state.

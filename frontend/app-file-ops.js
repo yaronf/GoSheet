@@ -16,20 +16,16 @@ import {
   DeleteColumn,
   GetCellRawValue,
   SetCellValue,
+  SetRangeValues,
+  ClearRange,
   GetStyles,
 } from './api-client.js';
 import { appState } from './app-state.js';
-import {
-  showAlert,
-  announceToScreenReader,
-  colToLetter,
-  letterToCol,
-} from './app-utils.js';
+import { showAlert, announceToScreenReader } from './app-utils.js';
 import {
   selectionOverlapsMerge,
   getMergeInfo,
   applySelectionRange,
-  selectCell,
   expandGridIfNeeded,
 } from './app-grid.js';
 import { applyAlignmentToSelection, STYLE_ID } from './app-cell-editor.js';
@@ -284,6 +280,19 @@ function setupFileMenuListeners() {
 export async function copySelectionToClipboard() {
   if (!appState.selectionRange) return;
   const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+  // Guard against unbounded ranges (e.g. full-row/full-column selection from Story 17.5).
+  // TODO(L1): Replace with proper bounded clamping once Story 17.5 defines the range contract.
+  if (
+    !Number.isFinite(endRow) ||
+    !Number.isFinite(endCol) ||
+    endRow - startRow > 10000 ||
+    endCol - startCol > 1000
+  ) {
+    await showAlert(
+      'Selection is too large to copy. Please select a smaller range.'
+    );
+    return;
+  }
   try {
     if (startRow === endRow && startCol === endCol) {
       const value = await GetCellRawValue(startRow, startCol);
@@ -329,7 +338,7 @@ export async function pasteFromClipboard() {
     // Single-cell paste — existing behaviour
     try {
       const result = await SetCellValue(targetRow, targetCol, parsedRows[0]);
-      window.applyUndoRedoState?.(result);
+      applyUndoRedoState(result);
       await window.refreshAllCells?.();
       updateFileStatus();
     } catch (error) {
@@ -339,31 +348,30 @@ export async function pasteFromClipboard() {
     return;
   }
 
-  // Multi-cell TSV paste
-  // TODO: A future POST /api/range/set batch endpoint would be more efficient for large pastes
+  // Multi-cell TSV paste — atomic: all cells in one undo entry via /api/range/set
   const maxPasteRow = targetRow + parsedRows.length - 1;
   const maxPasteCol =
     targetCol + Math.max(...parsedRows.map((r) => r.split('\t').length)) - 1;
+  // TODO(M2): expandGridIfNeeded triggers an async DOM rebuild internally but returns
+  // synchronously. SetRangeValues writes to the model (not the DOM) so this
+  // is safe, but the DOM may not reflect the new rows until refreshAllCells() completes.
   expandGridIfNeeded(maxPasteRow, maxPasteCol);
 
   try {
-    const setCellCalls = [];
-    let lastResult = null;
+    const cellsToSet = [];
     for (let ri = 0; ri < parsedRows.length; ri++) {
       const cells = parsedRows[ri].split('\t');
       for (let ci = 0; ci < cells.length; ci++) {
         // TODO: Adjust relative formula references on paste (Epic 18 scope)
-        setCellCalls.push(
-          SetCellValue(targetRow + ri, targetCol + ci, cells[ci]).then(
-            (result) => {
-              lastResult = result;
-            }
-          )
-        );
+        cellsToSet.push({
+          row: targetRow + ri,
+          col: targetCol + ci,
+          value: cells[ci],
+        });
       }
     }
-    await Promise.all(setCellCalls);
-    if (lastResult) window.applyUndoRedoState?.(lastResult);
+    const result = await SetRangeValues(cellsToSet);
+    applyUndoRedoState(result);
     await window.refreshAllCells?.();
     updateFileStatus();
   } catch (error) {
@@ -387,12 +395,13 @@ function setupEditMenuListeners() {
 
   window.electronAPI.onMenuCut(async () => {
     if (window.__DEBUG__) console.log('[App] Menu Cut triggered');
+    if (appState.isReadOnly) return;
     if (!appState.selectedCell) return;
     try {
-      const { row, col } = appState.selectedCell;
-      const value = await GetCellRawValue(row, col);
-      await navigator.clipboard.writeText(value);
-      await SetCellValue(row, col, '');
+      await copySelectionToClipboard();
+      const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+      const result = await ClearRange(startRow, startCol, endRow, endCol);
+      if (result?.hasUnsavedChanges !== undefined) applyUndoRedoState(result);
       await window.refreshAllCells?.();
       updateFileStatus();
     } catch (error) {
@@ -411,48 +420,13 @@ function setupEditMenuListeners() {
     await pasteFromClipboard();
   });
 
-  window.electronAPI.onMenuSelectAll(async () => {
-    if (window.__DEBUG__) console.log('[App] Menu Select All triggered');
-    const active = document.activeElement;
-    if (
-      active &&
-      (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
-    ) {
-      active.select();
-      return;
-    }
-    try {
-      const response = await fetch('/api/cells/all');
-      if (!response.ok)
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      const result = await response.json();
-      if (result.cells && Object.keys(result.cells).length > 0) {
-        let minRow = Infinity,
-          maxRow = -Infinity;
-        let minCol = Infinity,
-          maxCol = -Infinity;
-        for (const cellRef in result.cells) {
-          const match = cellRef.match(/^([A-Z]+)(\d+)$/);
-          if (match) {
-            const col = letterToCol(match[1]);
-            const row = parseInt(match[2]) - 1;
-            minRow = Math.min(minRow, row);
-            maxRow = Math.max(maxRow, row);
-            minCol = Math.min(minCol, col);
-            maxCol = Math.max(maxCol, col);
-          }
-        }
-        if (minRow !== Infinity) {
-          selectCell(minRow, minCol);
-          await showAlert(
-            `Selected range: ${colToLetter(minCol)}${minRow + 1} to ${colToLetter(maxCol)}${maxRow + 1}\n(Note: Full range selection coming in future update)`
-          );
-        }
-      } else {
-        await showAlert('No cells to select');
-      }
-    } catch (error) {
-      await showAlert('Error during Select All operation: ' + error.message);
+  // Story 17.4: "Go to Range…" focuses the address box for keyboard navigation
+  window.electronAPI.onMenuSelectAll(() => {
+    if (window.__DEBUG__) console.log('[App] Menu Go to Range triggered');
+    const cellRefInput = document.getElementById('cell-ref');
+    if (cellRefInput) {
+      cellRefInput.focus();
+      cellRefInput.select();
     }
   });
 }

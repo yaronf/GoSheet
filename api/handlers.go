@@ -140,6 +140,40 @@ func (s *Server) HandleSetCellValue(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) HandleSetRangeValues(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Cells []struct {
+			Row   int    `json:"row"`
+			Col   int    `json:"col"`
+			Value string `json:"value"`
+		} `json:"cells"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	cells := make([]controller.RangeCell, len(req.Cells))
+	for i, c := range req.Cells {
+		cells[i] = controller.RangeCell{Row: c.Row, Col: c.Col, Value: c.Value}
+	}
+	if err := s.Ctrl.SetRangeValues(cells); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	urState := s.Ctrl.UndoRedoState()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"data": map[string]any{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
+		},
+	})
+}
+
 func (s *Server) HandleGetCellRef(w http.ResponseWriter, r *http.Request) {
 	row, _ := strconv.Atoi(r.URL.Query().Get("row"))
 	col, _ := strconv.Atoi(r.URL.Query().Get("col"))

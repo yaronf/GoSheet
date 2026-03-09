@@ -286,11 +286,11 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     const formulaBar = window.locator('#formula-bar');
     await expect(formulaBar).toHaveValue('=A1*2');
     const cellRef = window.locator('#cell-ref');
-    await expect(cellRef).toHaveText('B1');
+    await expect(cellRef).toHaveValue('B1');
 
     await selectCellViaApp(window, 0, 0);
     await expect(formulaBar).toHaveValue('10');
-    await expect(cellRef).toHaveText('A1');
+    await expect(cellRef).toHaveValue('A1');
   });
 
   test('formula bar editing updates cell', async ({ window }) => {
@@ -307,7 +307,7 @@ test.describe('GoSheet Spreadsheet Tests', () => {
     await expect(cellD5).toHaveText('20');
 
     const cellRef = window.locator('#cell-ref');
-    await expect(cellRef).toHaveText('D6');
+    await expect(cellRef).toHaveValue('D6');
   });
 
   test('double-click formula cell shows formula in editor', async ({

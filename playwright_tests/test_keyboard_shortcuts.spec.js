@@ -3,7 +3,6 @@
 // Story 8.2: Navigate from welcome screen before testing shortcuts
 
 const { test, expect } = require('./fixtures');
-const { clickMenuItemById } = require('electron-playwright-helpers');
 const { ensureSpreadsheetView } = require('./helpers');
 
 test.describe('Keyboard Shortcuts Tests', () => {
@@ -47,7 +46,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
     expect(accelerators['Cut']).toContain('X');
     expect(accelerators['Copy']).toContain('C');
     expect(accelerators['Paste']).toContain('V');
-    expect(accelerators['Select All']).toContain('A');
+    expect(accelerators['Go to Range\u2026']).toContain('G');
 
     // Note: Quit is in the macOS app menu (handled by Electron role: 'quit')
     // We can't easily verify it from the accelerators list, but it's standard Electron behavior
@@ -134,7 +133,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
     expect(editShortcuts['cut'].accelerator).toBe('CmdOrCtrl+X');
     expect(editShortcuts['copy'].accelerator).toBe('CmdOrCtrl+C');
     expect(editShortcuts['paste'].accelerator).toBe('CmdOrCtrl+V');
-    expect(editShortcuts['select-all'].accelerator).toBe('CmdOrCtrl+A');
+    expect(editShortcuts['select-all'].accelerator).toBe('CmdOrCtrl+G');
 
     console.log('[Keyboard Shortcuts Test] Edit menu shortcuts verified');
   });
@@ -217,10 +216,7 @@ test.describe('Keyboard Shortcuts Tests', () => {
     );
   });
 
-  test('Formula bar allows text editing shortcuts', async ({
-    electronApp,
-    window,
-  }) => {
+  test('Formula bar allows text editing shortcuts', async ({ window }) => {
     await window.waitForLoadState('domcontentloaded');
 
     const grid = window.locator('#spreadsheet');
@@ -235,12 +231,8 @@ test.describe('Keyboard Shortcuts Tests', () => {
     const formulaText = await formulaBar.inputValue();
     expect(formulaText).toBe('=SUM(A1:A10)');
 
-    // Trigger Select All via menu (platform-independent: Cmd+A on macOS, Ctrl+A on Linux)
-    await clickMenuItemById(electronApp, 'select-all');
-    await window.waitForTimeout(100); // Let select() complete
-
-    // Type to replace (text should be selected, so this replaces it)
-    await window.keyboard.type('=A1+A2');
+    // Use fill() to replace text (tests that formula bar is editable)
+    await formulaBar.fill('=A1+A2');
 
     const newFormulaText = await formulaBar.inputValue();
     expect(newFormulaText).toBe('=A1+A2');

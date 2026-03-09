@@ -89,6 +89,19 @@ const SetCellValue = async (row, col, value) => {
   };
 };
 
+// Story 17.3: Atomic batch set for range paste — single undo entry
+const SetRangeValues = async (cells) => {
+  // cells: [{ row, col, value }, ...]
+  const json = await fetchUnified('POST', '/api/range/set', { cells });
+  return {
+    hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true,
+    canUndo: json.data?.canUndo ?? false,
+    canRedo: json.data?.canRedo ?? false,
+    undoDescription: json.data?.undoDescription ?? '',
+    redoDescription: json.data?.redoDescription ?? '',
+  };
+};
+
 const GetCellRef = async (row, col) => {
   // Story 3.5: Compute cell reference locally (no API call needed)
   return colToLetter(col) + (row + 1);
@@ -451,6 +464,7 @@ export {
   GetCellValue,
   GetCellRawValue,
   SetCellValue,
+  SetRangeValues,
   GetCellRef,
   GetAllCells,
   GetFileStatus,
