@@ -767,6 +767,20 @@ input[type='text'].formula-bar {
   color: var(--color-bg-primary) !important;
 }
 
+/* Story 18.2: Highlight cells dragged over during formula range insertion.
+   Distinct from .selected (teal) — uses a blue-green tint. */
+.cell.ref-highlight {
+  background: rgba(0, 160, 180, 0.18) !important;
+  outline: 1px solid rgba(0, 140, 160, 0.6);
+  outline-offset: -1px;
+}
+
+/* L3 fix: increase opacity in dark mode for sufficient contrast on dark backgrounds. */
+[data-theme='dark'] .cell.ref-highlight {
+  background: rgba(0, 200, 220, 0.3) !important;
+  outline-color: rgba(0, 200, 220, 0.8);
+}
+
 .cell.formula-cell {
   background: var(--color-cell-formula-bg);
   color: var(--color-text-primary);

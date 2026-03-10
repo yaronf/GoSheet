@@ -11,12 +11,11 @@ import {
   LoadFile,
 } from './api-client.js';
 
-import { appState } from './app-state.js';
+import { appState, OPEN_END } from './app-state.js';
 import {
   showConfirmDialog,
   showAlert,
   forceCleanupEditing,
-  colToLetter,
   parseRangeAddress,
 } from './app-utils.js';
 import {
@@ -38,6 +37,9 @@ import {
   handleKeydownFileOps,
   handleKeydownCellNavigation,
   saveCurrentEditOnCellSwitch,
+  insertCellRefAtCursor,
+  insertRangeRefAtCursor,
+  resetLastInsertedRefSpan,
 } from './app-cell-editor.js';
 import {
   displayFileStatus,
@@ -444,10 +446,68 @@ spreadsheetContainer.addEventListener('scroll', () => {
   }, 100);
 });
 
+// Story 18.1: Set to true in mousedown when a formula-bar ref insertion fires,
+// so the subsequent click event does not navigate to the clicked cell.
+let suppressNextCellClick = false;
+
+/** Handle click on a row header (select/extend full row). */
+function handleRowHeaderClick(row, shiftKey) {
+  appState.selectionMode = 'row';
+  if (shiftKey && appState.selectionRange) {
+    const existingStart = appState.selectionRange.startRow;
+    const existingEnd =
+      appState.selectionRange.endRow === OPEN_END
+        ? appState.selectionRange.startRow
+        : appState.selectionRange.endRow;
+    applySelectionRange(
+      Math.min(existingStart, row),
+      0,
+      Math.max(existingEnd, row),
+      OPEN_END
+    );
+  } else {
+    applySelectionRange(row, 0, row, OPEN_END);
+  }
+  if (window.electronAPI?.updateMenuState)
+    window.electronAPI.updateMenuState({
+      selectionMode: 'row',
+      selectedRow: row,
+    });
+}
+
+/** Handle click on a column header (select/extend full column). */
+function handleColHeaderClick(col, shiftKey) {
+  appState.selectionMode = 'column';
+  if (shiftKey && appState.selectionRange) {
+    const existingStart = appState.selectionRange.startCol;
+    const existingEnd =
+      appState.selectionRange.endCol === OPEN_END
+        ? appState.selectionRange.startCol
+        : appState.selectionRange.endCol;
+    applySelectionRange(
+      0,
+      Math.min(existingStart, col),
+      OPEN_END,
+      Math.max(existingEnd, col)
+    );
+  } else {
+    applySelectionRange(0, col, OPEN_END, col);
+  }
+  if (window.electronAPI?.updateMenuState)
+    window.electronAPI.updateMenuState({
+      selectionMode: 'column',
+      selectedCol: col,
+    });
+}
+
 // Event delegation for cell clicks
 const table = document.getElementById('spreadsheet');
 if (table) {
   table.addEventListener('click', (e) => {
+    if (suppressNextCellClick) {
+      suppressNextCellClick = false;
+      return;
+    }
     if (e.target.classList.contains('cell-editor')) return;
     const cell = e.target.closest('.cell');
     const rowHeader = e.target.closest('.row-header');
@@ -455,50 +515,14 @@ if (table) {
     if (rowHeader && rowHeader.dataset.row !== undefined) {
       const row = parseInt(rowHeader.dataset.row, 10);
       if (Number.isFinite(row)) {
-        appState.selectionMode = 'row';
-        // Story 17.1: Shift-click extends row selection
-        if (e.shiftKey && appState.selectionRange) {
-          const existingStart = appState.selectionRange.startRow;
-          const existingEnd = appState.selectionRange.endRow;
-          applySelectionRange(
-            Math.min(existingStart, row),
-            0,
-            Math.max(existingEnd, row),
-            appState.COLS - 1
-          );
-        } else {
-          applySelectionRange(row, 0, row, appState.COLS - 1);
-        }
-        if (window.electronAPI?.updateMenuState)
-          window.electronAPI.updateMenuState({
-            selectionMode: 'row',
-            selectedRow: row,
-          });
+        handleRowHeaderClick(row, e.shiftKey);
         return;
       }
     }
     if (colHeader && colHeader.dataset.col !== undefined) {
       const col = parseInt(colHeader.dataset.col, 10);
       if (Number.isFinite(col)) {
-        appState.selectionMode = 'column';
-        // Story 17.1: Shift-click extends column selection
-        if (e.shiftKey && appState.selectionRange) {
-          const existingStart = appState.selectionRange.startCol;
-          const existingEnd = appState.selectionRange.endCol;
-          applySelectionRange(
-            0,
-            Math.min(existingStart, col),
-            appState.ROWS - 1,
-            Math.max(existingEnd, col)
-          );
-        } else {
-          applySelectionRange(0, col, appState.ROWS - 1, col);
-        }
-        if (window.electronAPI?.updateMenuState)
-          window.electronAPI.updateMenuState({
-            selectionMode: 'column',
-            selectedCol: col,
-          });
+        handleColHeaderClick(col, e.shiftKey);
         return;
       }
     }
@@ -507,6 +531,21 @@ if (table) {
       const row = parseInt(cell.dataset.row, 10);
       const col = parseInt(cell.dataset.col, 10);
       if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+
+      // Story 18.1: If editing a formula, insert the clicked cell's reference
+      // instead of committing the edit and navigating.
+      if (appState.isEditing) {
+        const activeInput = document.querySelector('.cell-editor');
+        if (activeInput && activeInput.value.startsWith('=')) {
+          e.preventDefault();
+          e.stopPropagation();
+          insertCellRefAtCursor(row, col, activeInput);
+          return;
+        }
+        // Plain-text edit: let the blur/commit path run (don't intercept).
+        // Fall through to selectCell which will trigger blur → finishEditing.
+      }
+
       selectCell(row, col, e.shiftKey);
       updateMergeMenuState();
     }
@@ -527,16 +566,83 @@ if (table) {
   // Story 17.1: Drag-to-select
   let dragState = null; // { startRow, startCol } | null
 
+  // Story 18.2: Parallel drag state for formula-edit drag-to-insert.
+  // Active only when isEditing && formula starts with '='.
+  let formulaDragState = null; // { startRow, startCol, inputEl } | null
+  // Last highlighted range — used to skip redundant DOM work on mousemove (M3 fix).
+  let lastRefHighlightRange = null; // { sRow, sCol, eRow, eCol } | null
+
+  /** Remove .ref-highlight from all cells and reset cached range. */
+  function clearRefHighlights() {
+    document
+      .querySelectorAll('.cell.ref-highlight')
+      .forEach((el) => el.classList.remove('ref-highlight'));
+    lastRefHighlightRange = null;
+  }
+
+  /**
+   * Cancel an active formula drag (H1 fix): clean up highlights and state
+   * when the editor is closed by a non-mouseup path (Escape, window blur, etc.).
+   */
+  function cancelFormulaDrag() {
+    if (!formulaDragState) return;
+    clearRefHighlights();
+    formulaDragState = null;
+    suppressNextCellClick = false;
+  }
+  // Expose so app-cell-editor.js cancelEditing can call it
+  window._cancelFormulaDrag = cancelFormulaDrag;
+
+  // H1: Also cancel on window blur / tab-switch so highlights don't persist.
+  window.addEventListener('blur', cancelFormulaDrag);
+
   table.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return; // left button only
     if (e.shiftKey) return; // shift-click handled by the click handler
-    if (appState.isEditing) return;
     if (e.target.classList.contains('cell-editor')) return;
     const cell = e.target.closest('.cell');
     if (!cell) return; // row/col headers handled separately
     const row = parseInt(cell.dataset.row, 10);
     const col = parseInt(cell.dataset.col, 10);
     if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+
+    // Story 18.1 (AC5): If the formula bar is focused and contains a formula,
+    // insert the cell reference there. preventDefault keeps focus on the formula bar;
+    // suppressNextCellClick prevents the subsequent click event from navigating.
+    const fbar = document.getElementById('formula-bar');
+    if (fbar && document.activeElement === fbar && fbar.value.startsWith('=')) {
+      e.preventDefault();
+      suppressNextCellClick = true;
+      insertCellRefAtCursor(row, col, fbar);
+      return;
+    }
+
+    // Story 18.2: If editing a formula (starts with '='), start a formula drag
+    // instead of a normal selection drag. preventDefault keeps focus on the editor.
+    // M1 fix: suppressNextCellClick not needed here — the click handler already
+    // returns early when appState.isEditing && formula mode, so no click navigation
+    // can fire. suppressNextCellClick is only set for the formula-bar path above.
+    if (appState.isEditing) {
+      const activeInput = document.querySelector('.cell-editor');
+      if (activeInput && activeInput.value.startsWith('=')) {
+        e.preventDefault();
+        formulaDragState = {
+          startRow: row,
+          startCol: col,
+          inputEl: activeInput,
+        };
+        // Apply highlight to the anchor cell immediately
+        clearRefHighlights();
+        cell.classList.add('ref-highlight');
+        lastRefHighlightRange = { sRow: row, sCol: col, eRow: row, eCol: col };
+        // Insert single-cell ref at cursor (will be replaced as drag expands)
+        insertRangeRefAtCursor(row, col, row, col, activeInput);
+        return;
+      }
+      // Plain-text edit: leave default drag behavior suppressed (don't start dragState)
+      return;
+    }
+
     dragState = { startRow: row, startCol: col };
     // Select the anchor cell immediately so drag has a valid starting point
     appState.selectionMode = 'cell';
@@ -544,6 +650,54 @@ if (table) {
   });
 
   document.addEventListener('mousemove', (e) => {
+    // Story 18.2: Formula drag live-update
+    if (formulaDragState) {
+      // H1: editor may have been closed mid-drag (e.g. async path); bail out cleanly.
+      if (!formulaDragState.inputEl.isConnected) {
+        cancelFormulaDrag();
+        return;
+      }
+
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (!el) return;
+      const cell = el.closest('.cell');
+      if (!cell) return;
+      const row = parseInt(cell.dataset.row, 10);
+      const col = parseInt(cell.dataset.col, 10);
+      if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+
+      const sRow = Math.min(formulaDragState.startRow, row);
+      const eRow = Math.max(formulaDragState.startRow, row);
+      const sCol = Math.min(formulaDragState.startCol, col);
+      const eCol = Math.max(formulaDragState.startCol, col);
+
+      // M3 fix: skip all DOM work if the highlighted range hasn't changed.
+      const last = lastRefHighlightRange;
+      if (
+        last &&
+        last.sRow === sRow &&
+        last.eRow === eRow &&
+        last.sCol === sCol &&
+        last.eCol === eCol
+      ) {
+        return;
+      }
+
+      // Highlight all cells in the drag range
+      clearRefHighlights();
+      for (let r = sRow; r <= eRow; r++) {
+        for (let c = sCol; c <= eCol; c++) {
+          const cellEl = document.getElementById(`cell-${r}-${c}`);
+          if (cellEl) cellEl.classList.add('ref-highlight');
+        }
+      }
+      lastRefHighlightRange = { sRow, sCol, eRow, eCol };
+
+      // Live-update the formula editor with the current tentative range ref
+      insertRangeRefAtCursor(sRow, sCol, eRow, eCol, formulaDragState.inputEl);
+      return;
+    }
+
     if (!dragState) return;
     const el = document.elementFromPoint(e.clientX, e.clientY);
     if (!el) return;
@@ -561,7 +715,22 @@ if (table) {
   });
 
   document.addEventListener('mouseup', () => {
+    // Story 18.2: Finalize formula drag
+    if (formulaDragState) {
+      const inputEl = formulaDragState.inputEl;
+      clearRefHighlights();
+      formulaDragState = null;
+      suppressNextCellClick = false;
+      // Only focus if the input is still in the DOM (guard against H1 scenario)
+      if (inputEl.isConnected) inputEl.focus();
+      return;
+    }
+
+    const wasDragging = dragState !== null;
     dragState = null;
+    // Clear stale flag only when a drag was in progress (click won't fire).
+    // For normal clicks the flag is cleared in the click handler after use.
+    if (wasDragging) suppressNextCellClick = false;
   });
 }
 
@@ -587,6 +756,8 @@ document.addEventListener('keydown', (e) => {
 const formulaBar = document.getElementById('formula-bar');
 if (formulaBar) {
   formulaBar.addEventListener('keydown', async (e) => {
+    // Story 18.1: any key typed in formula bar resets the replace-span
+    resetLastInsertedRefSpan();
     if (e.key === 'Enter' && appState.selectedCell) {
       e.preventDefault();
       const { row, col } = appState.selectedCell;
@@ -636,12 +807,10 @@ if (cellRefInput) {
       anchorCell?.focus();
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      const { startRow, startCol, endRow, endCol } = appState.selectionRange;
-      const isRange = startRow !== endRow || startCol !== endCol;
-      cellRefInput.value = isRange
-        ? `${colToLetter(startCol)}${startRow + 1}:${colToLetter(endCol)}${endRow + 1}`
-        : `${colToLetter(startCol)}${startRow + 1}`;
+      // Restore the address box via updateFormulaBar to handle OPEN_END correctly
+      const { startRow, startCol } = appState.selectionRange;
       cellRefInput.classList.remove('cell-ref-invalid');
+      updateFormulaBar(startRow, startCol);
       getCellElement(startRow, startCol)?.focus();
     }
   });

@@ -249,13 +249,13 @@ development_status:
   17-2-row-column-select-aesthetics: done
   17-3-copy-paste-rectangular-range: done
   17-4-range-address-box-type-to-select: done
-  17-5-open-ended-row-column-ranges: ready-for-dev
+  17-5-open-ended-row-column-ranges: done
   epic-17-retrospective: optional
 
   # Epic 18: Formula Editing Enhancements
-  epic-18: backlog
-  18-1-click-to-insert-cell-reference: backlog
-  18-2-drag-to-insert-range-reference: backlog
+  epic-18: in-progress
+  18-1-click-to-insert-cell-reference: done
+  18-2-drag-to-insert-range-reference: done
   epic-18-retrospective: optional
 
   # Epic 19: Agentic API Access Layer (stories TBD)
@@ -266,3 +266,5 @@ development_status:
   # bug-dock-right-click-quit: In dev mode, right-clicking the dock icon and selecting "Quit"
   #   does not quit the app — instead it navigates to the Welcome screen.
   #   Expected: app quits (or shows unsaved-changes dialog then quits).
+  # feature-copy-paste-whole-row-col: Allow copy/paste of open-ended row/column selections
+  #   (currently blocked by "selection too large" guard in copySelectionToClipboard).

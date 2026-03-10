@@ -6,7 +6,7 @@ import {
   SetCellAlignment,
   SetRangeAlignment,
 } from './api-client.js';
-import { appState } from './app-state.js';
+import { appState, OPEN_END } from './app-state.js';
 import { formatToCssPreview } from './app-modals.js';
 import {
   getCellElement,
@@ -17,13 +17,114 @@ import {
   getNextCellTabOrder,
   applySelectionRange,
 } from './app-grid.js';
+import { colToLetter } from './app-utils.js';
+
+// Story 18.1: Track span of last auto-inserted cell reference in the formula editor.
+// { start: number, end: number } | null
+// Reset when the user types a non-reference character or moves the cursor manually.
+let lastInsertedRefSpan = null;
+
+// Track if we're currently saving to prevent duplicate saves
+let isSaving = false;
+
+// Story 18.1: Set to true while insertCellRefAtCursor is inserting a ref,
+// so the blur handler does not commit the edit. Only applies to .cell-editor;
+// cleared by the rAF blur callback or when a new edit starts.
+let suppressBlurFinish = false;
+
+export function resetLastInsertedRefSpan() {
+  lastInsertedRefSpan = null;
+}
+
+/**
+ * M2 fix: shared splice-and-focus logic used by both insertCellRefAtCursor and
+ * insertRangeRefAtCursor. Resolves the active input if none is provided.
+ *
+ * @param {string} ref - the reference string to insert (e.g. "B2" or "A1:C3")
+ * @param {HTMLInputElement} inputEl
+ */
+function spliceRefIntoInput(ref, inputEl) {
+  const input =
+    inputEl ||
+    document.querySelector('.cell-editor') ||
+    (document.activeElement?.id === 'formula-bar'
+      ? document.activeElement
+      : null);
+  if (!input) return;
+
+  const cursorPos = input.selectionStart;
+  const val = input.value;
+
+  let insertStart;
+  if (lastInsertedRefSpan !== null && cursorPos === lastInsertedRefSpan.end) {
+    insertStart = lastInsertedRefSpan.start;
+    input.value =
+      val.slice(0, insertStart) + ref + val.slice(lastInsertedRefSpan.end);
+  } else {
+    insertStart = cursorPos;
+    input.value = val.slice(0, cursorPos) + ref + val.slice(cursorPos);
+  }
+
+  const newEnd = insertStart + ref.length;
+  input.setSelectionRange(newEnd, newEnd);
+  lastInsertedRefSpan = { start: insertStart, end: newEnd };
+  // Only suppress the blur handler for .cell-editor inputs — the formula bar
+  // has no blur-finish handler so setting suppressBlurFinish there would leave
+  // it permanently true and silently swallow the next cell-editor commit.
+  if (input.classList.contains('cell-editor')) {
+    suppressBlurFinish = true;
+  }
+  input.focus();
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Story 18.1: Insert (or replace) a cell reference at the current cursor
+ * position in the active formula editor input.
+ *
+ * @param {number} row
+ * @param {number} col
+ * @param {HTMLInputElement} [inputEl] - the input to insert into; defaults to the
+ *   active .cell-editor or the focused #formula-bar
+ */
+export function insertCellRefAtCursor(row, col, inputEl) {
+  spliceRefIntoInput(colToLetter(col) + (row + 1), inputEl);
+}
+
+/**
+ * Story 18.2: Insert (or replace) a range reference at the current cursor
+ * position in the active formula editor input.
+ *
+ * Single-cell drag (startRow===endRow && startCol===endCol) produces a plain
+ * cell ref (e.g. "B2"), not a range ref ("B2:B2").
+ *
+ * @param {number} startRow
+ * @param {number} startCol
+ * @param {number} endRow
+ * @param {number} endCol
+ * @param {HTMLInputElement} inputEl
+ */
+export function insertRangeRefAtCursor(
+  startRow,
+  startCol,
+  endRow,
+  endCol,
+  inputEl
+) {
+  const ref =
+    startRow === endRow && startCol === endCol
+      ? colToLetter(startCol) + (startRow + 1)
+      : colToLetter(startCol) +
+        (startRow + 1) +
+        ':' +
+        colToLetter(endCol) +
+        (endRow + 1);
+  spliceRefIntoInput(ref, inputEl);
+}
 
 export const STYLE_CLASSES = ['style-title', 'style-header', 'style-total'];
 export const STYLE_ID = { TITLE: 1, HEADER: 2, TOTAL: 3 };
 const TOOLTIP_LENGTH_THRESHOLD = 25;
-
-// Track if we're currently saving to prevent duplicate saves
-let isSaving = false;
 
 // Start editing a cell
 export function startEditing(row, col) {
@@ -41,6 +142,7 @@ export function startEditing(row, col) {
   if (existingInput) existingInput.remove();
 
   appState.isEditing = true;
+  lastInsertedRefSpan = null; // Story 18.1: fresh span on every edit start
 
   document
     .querySelectorAll('.cell.selected')
@@ -97,6 +199,8 @@ function setupEditorHandlers(input, row, col, cell, originalContent) {
   };
 
   input.addEventListener('keydown', (e) => {
+    // Story 18.1: any key typed resets the replace-span so next click appends
+    lastInsertedRefSpan = null;
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
@@ -117,9 +221,14 @@ function setupEditorHandlers(input, row, col, cell, originalContent) {
   });
 
   input.addEventListener('blur', (_e) => {
-    setTimeout(() => {
-      if (!finished && appState.isEditing) finish();
-    }, 150);
+    // rAF fires after the pending click event (mousedown→blur→mouseup→click→rAF).
+    // This lets the click handler (saveCurrentEditOnCellSwitch / insertCellRefAtCursor)
+    // run first before we decide whether to finish. suppressBlurFinish is set by
+    // insertCellRefAtCursor to prevent committing during formula-ref insertion.
+    requestAnimationFrame(() => {
+      if (!finished && appState.isEditing && !suppressBlurFinish) finish();
+      suppressBlurFinish = false;
+    });
   });
 }
 
@@ -182,6 +291,9 @@ export function cancelEditing(cell, originalContent) {
   appState.isEditing = false;
   if (window.__DEBUG__) console.log('isEditing set to false (cancelled)');
   cell.textContent = originalContent;
+  // H1 fix: if a formula drag was in progress when editing was cancelled (e.g. via
+  // Escape), clean up highlights and reset drag state so nothing leaks.
+  window._cancelFormulaDrag?.();
 }
 
 // Save the current edit if a cell-editor input is present
@@ -226,6 +338,7 @@ export function startEditingWithChar(row, col, initialChar) {
   if (existingInput) existingInput.remove();
 
   appState.isEditing = true;
+  lastInsertedRefSpan = null; // Story 18.1: fresh span on every edit start
   if (window.__DEBUG__)
     console.log(
       `Starting edit with char "${initialChar}" at row=${row}, col=${col}`
@@ -334,16 +447,18 @@ export async function applyAlignmentToSelection(alignment) {
   if (appState.isReadOnly) return; // Story 16.4
   if (!appState.selectedCell) return;
   const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+  const resolvedEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
+  const resolvedEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
   try {
     let result;
-    if (startRow === endRow && startCol === endCol) {
+    if (startRow === resolvedEndRow && startCol === resolvedEndCol) {
       result = await SetCellAlignment(startRow, startCol, alignment);
     } else {
       result = await SetRangeAlignment(
         startRow,
         startCol,
-        endRow,
-        endCol,
+        resolvedEndRow,
+        resolvedEndCol,
         alignment
       );
     }
@@ -392,12 +507,13 @@ export function handleKeydownFileOps(e) {
 // Extend the selection range by one cell in the Shift+Arrow direction.
 function handleShiftArrow(e) {
   const { startRow, startCol, endRow, endCol } = appState.selectionRange;
-  let newEndRow = endRow;
-  let newEndCol = endCol;
-  if (e.key === 'ArrowDown' && endRow < appState.ROWS - 1) newEndRow++;
-  if (e.key === 'ArrowUp' && endRow > startRow) newEndRow--;
-  if (e.key === 'ArrowRight' && endCol < appState.COLS - 1) newEndCol++;
-  if (e.key === 'ArrowLeft' && endCol > startCol) newEndCol--;
+  // Clamp OPEN_END to grid bounds before arithmetic
+  let newEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
+  let newEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
+  if (e.key === 'ArrowDown' && newEndRow < appState.ROWS - 1) newEndRow++;
+  if (e.key === 'ArrowUp' && newEndRow > startRow) newEndRow--;
+  if (e.key === 'ArrowRight' && newEndCol < appState.COLS - 1) newEndCol++;
+  if (e.key === 'ArrowLeft' && newEndCol > startCol) newEndCol--;
   applySelectionRange(startRow, startCol, newEndRow, newEndCol);
 }
 
@@ -419,12 +535,18 @@ function handleDeleteCell(row, col) {
 // Handle arrow keys, Enter, Tab, Delete, typing when a cell is selected
 export function handleKeydownCellNavigation(e, row, col) {
   // Story 17.1: Shift+Arrow extends the selection range
+  // Story 17.5: skip Shift+Arrow for open-ended row/column selections
   if (
     e.shiftKey &&
     ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)
   ) {
     e.preventDefault();
-    handleShiftArrow(e);
+    if (
+      appState.selectionMode !== 'row' &&
+      appState.selectionMode !== 'column'
+    ) {
+      handleShiftArrow(e);
+    }
     return true;
   }
   if (handleArrowKey(e, row, col)) return true;
