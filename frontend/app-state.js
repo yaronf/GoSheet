@@ -30,3 +30,7 @@ export const appState = {
 export const EXPAND_THRESHOLD = 10;
 export const EXPAND_ROWS = 50;
 export const EXPAND_COLS = 10;
+
+// Story 17.5: Sentinel for open-ended row/column ranges.
+// selectionRange.endCol === OPEN_END means "all columns"; endRow === OPEN_END means "all rows".
+export const OPEN_END = Infinity;

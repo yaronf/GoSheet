@@ -1,7 +1,11 @@
 // Story 17.3: Copy/Paste Rectangular Range
 
 const { test, expect } = require('./fixtures');
-const { ensureSpreadsheetView, setCellViaApi } = require('./helpers');
+const {
+  ensureSpreadsheetView,
+  setCellViaApi,
+  setStyleViaApi,
+} = require('./helpers');
 
 // Trigger copy via Electron menu (more reliable than Meta+C in headless test mode)
 async function menuCopy(electronApp) {
@@ -52,6 +56,10 @@ test.describe('Copy/paste range (Story 17.3)', () => {
       await expect(modal).toBeHidden();
     }
     await expect(window.locator('#cell-0-0')).toBeVisible();
+    // Clear clipboard between tests to prevent stale content from affecting copy waits
+    await window.evaluate(async () => {
+      await navigator.clipboard.writeText('');
+    });
   });
 
   test('copy 2x2 range and paste at new location', async ({
@@ -70,10 +78,11 @@ test.describe('Copy/paste range (Story 17.3)', () => {
     await window.locator('#cell-1-1').click({ modifiers: ['Shift'] });
     await expect(window.locator('#cell-1-1')).toHaveClass(/selected/);
 
-    // Copy via menu and wait for clipboard to contain TSV
+    // Copy via menu and wait for exact expected clipboard content
     await menuCopy(electronApp);
     await window.waitForFunction(
-      async () => (await navigator.clipboard.readText()).includes('\t'),
+      async () =>
+        (await navigator.clipboard.readText()) === 'hello\tworld\nfoo\tbar',
       { timeout: 3000 }
     );
 
@@ -155,7 +164,7 @@ test.describe('Copy/paste range (Story 17.3)', () => {
 
     await menuCopy(electronApp);
     await window.waitForFunction(
-      async () => (await navigator.clipboard.readText()).includes('\t'),
+      async () => (await navigator.clipboard.readText()) === 'x\ty\tz',
       { timeout: 3000 }
     );
 
@@ -256,7 +265,7 @@ test.describe('Copy/paste range (Story 17.3)', () => {
     await window.locator('#cell-1-1').click({ modifiers: ['Shift'] });
     await menuCopy(electronApp);
     await window.waitForFunction(
-      async () => (await navigator.clipboard.readText()).includes('\t'),
+      async () => (await navigator.clipboard.readText()) === 'p1\tp2\np3\tp4',
       { timeout: 3000 }
     );
 
@@ -341,5 +350,77 @@ test.describe('Copy/paste range (Story 17.3)', () => {
     await expect(window.locator('#cell-0-4')).toHaveText('cut2');
     await expect(window.locator('#cell-1-3')).toHaveText('cut3');
     await expect(window.locator('#cell-1-4')).toHaveText('cut4');
+  });
+
+  test('copy preserves style on paste (single cell)', async ({
+    electronApp,
+    window,
+  }) => {
+    // Set A1 with value and Title style (styleId=1)
+    await setCellViaApi(window, 0, 0, 'Heading');
+    await setStyleViaApi(window, 0, 0, 0, 0, 1);
+
+    // Verify source has style-title class
+    await expect(window.locator('#cell-0-0')).toHaveClass(/style-title/);
+
+    // Copy A1
+    await window.locator('#cell-0-0').click();
+    await menuCopy(electronApp);
+    await window.waitForFunction(
+      async () => (await navigator.clipboard.readText()).trim() === 'Heading',
+      { timeout: 3000 }
+    );
+
+    // Paste at C3
+    await window.locator('#cell-2-2').click();
+    await menuPaste(electronApp);
+
+    await window.waitForFunction(
+      () => document.getElementById('cell-2-2')?.textContent?.trim() !== '',
+      { timeout: 3000 }
+    );
+
+    // Value should be pasted
+    await expect(window.locator('#cell-2-2')).toHaveText('Heading');
+    // Style should also be pasted
+    await expect(window.locator('#cell-2-2')).toHaveClass(/style-title/);
+  });
+
+  test('copy preserves style on paste (2x2 range)', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 0, 'A');
+    await setCellViaApi(window, 0, 1, 'B');
+    await setCellViaApi(window, 1, 0, 'C');
+    await setCellViaApi(window, 1, 1, 'D');
+    // Apply Header style (styleId=2) to A1:B2
+    await setStyleViaApi(window, 0, 0, 1, 1, 2);
+
+    await expect(window.locator('#cell-0-0')).toHaveClass(/style-header/);
+
+    // Copy A1:B2
+    await window.locator('#cell-0-0').click();
+    await window.locator('#cell-1-1').click({ modifiers: ['Shift'] });
+    await menuCopy(electronApp);
+    await window.waitForFunction(
+      async () => (await navigator.clipboard.readText()) === 'A\tB\nC\tD',
+      { timeout: 3000 }
+    );
+
+    // Paste at D1
+    await window.locator('#cell-0-3').click();
+    await menuPaste(electronApp);
+
+    await window.waitForFunction(
+      () => document.getElementById('cell-0-3')?.textContent?.trim() !== '',
+      { timeout: 3000 }
+    );
+
+    await expect(window.locator('#cell-0-3')).toHaveText('A');
+    await expect(window.locator('#cell-0-3')).toHaveClass(/style-header/);
+    await expect(window.locator('#cell-0-4')).toHaveClass(/style-header/);
+    await expect(window.locator('#cell-1-3')).toHaveClass(/style-header/);
+    await expect(window.locator('#cell-1-4')).toHaveClass(/style-header/);
   });
 });

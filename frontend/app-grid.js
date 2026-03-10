@@ -12,6 +12,7 @@ import {
   EXPAND_THRESHOLD,
   EXPAND_ROWS,
   EXPAND_COLS,
+  OPEN_END,
 } from './app-state.js';
 import {
   colToLetter,
@@ -129,14 +130,9 @@ async function buildSpreadsheetImpl() {
     table.appendChild(tr);
   }
 
-  const isRange =
-    appState.selectionRange.startRow !== appState.selectionRange.endRow ||
-    appState.selectionRange.startCol !== appState.selectionRange.endCol;
-  applyCellSelection(
-    appState.selectionRange.endRow,
-    appState.selectionRange.endCol,
-    isRange
-  );
+  // Re-apply selection after rebuild. applySelectionRange resolves OPEN_END automatically.
+  const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+  applySelectionRange(startRow, startCol, endRow, endCol);
 }
 
 // Story 11.3: Merge-aware grid rendering helpers
@@ -349,22 +345,11 @@ export async function checkScrollPosition() {
     await refreshAllCells();
     container.scrollLeft = oldScrollLeft;
     container.scrollTop = oldScrollTop;
-    reapplyHeaderSelection();
+    // Story 17.5: open-ended ranges self-resolve in applySelectionRange — no reapply needed.
   }
 }
 
 // Cell selection helpers
-
-// Re-applies row/column header selection after grid expansion so the selection
-// covers all rows/columns in the newly expanded grid.
-function reapplyHeaderSelection() {
-  const { startRow, startCol, endRow, endCol } = appState.selectionRange;
-  if (appState.selectionMode === 'row') {
-    applySelectionRange(startRow, 0, endRow, appState.COLS - 1);
-  } else if (appState.selectionMode === 'column') {
-    applySelectionRange(0, startCol, appState.ROWS - 1, endCol);
-  }
-}
 
 export function expandGridIfNeeded(row, col) {
   let needsRebuild = false;
@@ -379,9 +364,8 @@ export function expandGridIfNeeded(row, col) {
     needsRebuild = true;
   }
   if (needsRebuild)
-    buildSpreadsheet()
-      .then(() => refreshAllCells())
-      .then(() => reapplyHeaderSelection());
+    // Story 17.5: open-ended ranges self-resolve in applySelectionRange after rebuild.
+    buildSpreadsheet().then(() => refreshAllCells());
 }
 
 export function computeSelectionRange(row, col, extendSelection) {
@@ -406,28 +390,38 @@ const SEL_EDGE_CLASSES = [
 export function applySelectionRange(startRow, startCol, endRow, endCol) {
   appState.selectionRange = { startRow, startCol, endRow, endCol };
   appState.selectedCell = { row: startRow, col: startCol };
+  // Story 17.5: resolve open-ended sentinels at render time
+  const resolvedEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
+  const resolvedEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
   document.querySelectorAll('.cell.selected').forEach((el) => {
     el.classList.remove('selected', ...SEL_EDGE_CLASSES);
     el.setAttribute('tabindex', '-1');
   });
-  for (let r = startRow; r <= endRow; r++) {
-    for (let c = startCol; c <= endCol; c++) {
+  for (let r = startRow; r <= resolvedEndRow; r++) {
+    for (let c = startCol; c <= resolvedEndCol; c++) {
       const cell = getCellElement(r, c);
       if (cell) {
         cell.classList.add('selected');
         if (r === startRow) cell.classList.add('sel-edge-top');
-        if (r === endRow) cell.classList.add('sel-edge-bottom');
+        if (r === resolvedEndRow) cell.classList.add('sel-edge-bottom');
         if (c === startCol) cell.classList.add('sel-edge-left');
-        if (c === endCol) cell.classList.add('sel-edge-right');
+        if (c === resolvedEndCol) cell.classList.add('sel-edge-right');
         if (r === startRow && c === startCol)
           cell.setAttribute('tabindex', '0');
       }
     }
   }
   updateFormulaBar(startRow, startCol);
-  const cellCount = (endRow - startRow + 1) * (endCol - startCol + 1);
+  const cellCount =
+    (resolvedEndRow - startRow + 1) * (resolvedEndCol - startCol + 1);
   announceToScreenReader(
-    buildSelectionAnnouncement(startRow, startCol, endRow, endCol, cellCount)
+    buildSelectionAnnouncement(
+      startRow,
+      startCol,
+      resolvedEndRow,
+      resolvedEndCol,
+      cellCount
+    )
   );
   updateMergeMenuState();
   applyRowColHeaderHighlight();
@@ -486,7 +480,8 @@ function applyRowColHeaderHighlight() {
 
   if (appState.selectionMode === 'row') {
     const { startRow, endRow } = appState.selectionRange;
-    for (let r = startRow; r <= endRow; r++) {
+    const resolvedEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
+    for (let r = startRow; r <= resolvedEndRow; r++) {
       for (let c = 0; c < appState.COLS; c++) {
         const cell = getCellElement(r, c);
         if (cell) cell.classList.add('row-selected');
@@ -496,7 +491,8 @@ function applyRowColHeaderHighlight() {
     }
   } else if (appState.selectionMode === 'column') {
     const { startCol, endCol } = appState.selectionRange;
-    for (let c = startCol; c <= endCol; c++) {
+    const resolvedEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
+    for (let c = startCol; c <= resolvedEndCol; c++) {
       for (let r = 0; r < appState.ROWS; r++) {
         const cell = getCellElement(r, c);
         if (cell) cell.classList.add('col-selected');
@@ -531,14 +527,16 @@ function buildSelectionAnnouncement(
 
 // Story 11.5: Check if selection overlaps any existing merge (disables Merge menu)
 export function selectionOverlapsMerge(startRow, startCol, endRow, endCol) {
+  const resolvedEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
+  const resolvedEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
   for (const m of appState.currentMerges) {
     const mEndRow = m.startRow + (m.rowSpan || 1) - 1;
     const mEndCol = m.startCol + (m.colSpan || 1) - 1;
     if (
       startRow <= mEndRow &&
-      endRow >= m.startRow &&
+      resolvedEndRow >= m.startRow &&
       startCol <= mEndCol &&
-      endCol >= m.startCol
+      resolvedEndCol >= m.startCol
     )
       return true;
   }
@@ -549,7 +547,10 @@ export function selectionOverlapsMerge(startRow, startCol, endRow, endCol) {
 export function updateMergeMenuState() {
   if (!window.electronAPI?.updateMenuState) return;
   const { startRow, startCol, endRow, endCol } = appState.selectionRange;
-  const cellCount = (endRow - startRow + 1) * (endCol - startCol + 1);
+  const resolvedEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
+  const resolvedEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
+  const cellCount =
+    (resolvedEndRow - startRow + 1) * (resolvedEndCol - startCol + 1);
   const overlaps = selectionOverlapsMerge(startRow, startCol, endRow, endCol);
   const canMerge = cellCount >= 2 && !overlaps;
   const isSingleCell = cellCount === 1;
@@ -559,16 +560,12 @@ export function updateMergeMenuState() {
     appState.currentMerges
   );
   const canUnmerge = isSingleCell && merge && isAnchor;
+  // Insert row: single row selection (open-ended endCol is fine)
   const canInsertRow =
-    appState.selectionMode === 'row' &&
-    startRow === endRow &&
-    startCol === 0 &&
-    endCol === appState.COLS - 1;
+    appState.selectionMode === 'row' && startRow === resolvedEndRow;
+  // Insert column: single column selection (open-ended endRow is fine)
   const canInsertColumn =
-    appState.selectionMode === 'column' &&
-    startCol === endCol &&
-    startRow === 0 &&
-    endRow === appState.ROWS - 1;
+    appState.selectionMode === 'column' && startCol === resolvedEndCol;
   window.electronAPI.updateMenuState({
     canMerge,
     canUnmerge,
@@ -595,6 +592,21 @@ export async function updateFormulaBar(row, col) {
   const formulaBar = document.getElementById('formula-bar');
   if (!cellRef || !formulaBar) return;
   const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+
+  // Story 17.5: Excel-style notation for open-ended row/column ranges
+  if (appState.selectionMode === 'row') {
+    const r2 = endRow === OPEN_END ? startRow : endRow;
+    cellRef.value = `${startRow + 1}:${r2 + 1}`;
+    formulaBar.value = '';
+    return;
+  }
+  if (appState.selectionMode === 'column') {
+    const c2 = endCol === OPEN_END ? startCol : endCol;
+    cellRef.value = `${colToLetter(startCol)}:${colToLetter(c2)}`;
+    formulaBar.value = '';
+    return;
+  }
+
   const isRange = startRow !== endRow || startCol !== endCol;
   if (isRange) {
     cellRef.value = `${colToLetter(startCol)}${startRow + 1}:${colToLetter(endCol)}${endRow + 1}`;

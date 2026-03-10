@@ -1,6 +1,6 @@
 # Story 17.5: Open-Ended Row/Column Range Selection
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -22,38 +22,38 @@ So that the selection always spans the full row/column regardless of how large t
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Introduce open-ended range sentinel and update `applySelectionRange` (AC: 3, 4)
-  - [ ] Export a sentinel constant `OPEN_END = Infinity` from `app-state.js`
-  - [ ] Update `applySelectionRange` in `app-grid.js`: when `endCol === OPEN_END`, iterate `c` from `startCol` to `appState.COLS - 1`; when `endRow === OPEN_END`, iterate `r` from `startRow` to `appState.ROWS - 1`
-  - [ ] Remove `reapplyHeaderSelection()` function and its two call sites (scroll expansion and `expandGridIfNeeded`) — no longer needed since open-ended ranges self-resolve at render time
+- [x] Task 1: Introduce open-ended range sentinel and update `applySelectionRange` (AC: 3, 4)
+  - [x] Export a sentinel constant `OPEN_END = Infinity` from `app-state.js`
+  - [x] Update `applySelectionRange` in `app-grid.js`: when `endCol === OPEN_END`, iterate `c` from `startCol` to `appState.COLS - 1`; when `endRow === OPEN_END`, iterate `r` from `startRow` to `appState.ROWS - 1`
+  - [x] Remove `reapplyHeaderSelection()` function and its two call sites (scroll expansion and `expandGridIfNeeded`) — no longer needed since open-ended ranges self-resolve at render time
 
-- [ ] Task 2: Update row header click to use open-ended range (AC: 1, 3)
-  - [ ] In `app.js` row header click handler: change `applySelectionRange(row, 0, row, appState.COLS - 1)` to `applySelectionRange(row, 0, row, OPEN_END)`
-  - [ ] Same for shift-click row extension: use `OPEN_END` for `endCol`
+- [x] Task 2: Update row header click to use open-ended range (AC: 1, 3)
+  - [x] In `app.js` row header click handler: change `applySelectionRange(row, 0, row, appState.COLS - 1)` to `applySelectionRange(row, 0, row, OPEN_END)`
+  - [x] Same for shift-click row extension: use `OPEN_END` for `endCol`
 
-- [ ] Task 3: Update column header click to use open-ended range (AC: 2, 4)
-  - [ ] In `app.js` column header click handler: change `applySelectionRange(0, col, appState.ROWS - 1, col)` to `applySelectionRange(0, col, OPEN_END, col)`
-  - [ ] Same for shift-click column extension: use `OPEN_END` for `endRow`
+- [x] Task 3: Update column header click to use open-ended range (AC: 2, 4)
+  - [x] In `app.js` column header click handler: change `applySelectionRange(0, col, appState.ROWS - 1, col)` to `applySelectionRange(0, col, OPEN_END, col)`
+  - [x] Same for shift-click column extension: use `OPEN_END` for `endRow`
 
-- [ ] Task 4: Update `updateFormulaBar` to show Excel-style notation (AC: 5)
-  - [ ] In `app-grid.js::updateFormulaBar`, detect open-ended ranges:
+- [x] Task 4: Update `updateFormulaBar` to show Excel-style notation (AC: 5)
+  - [x] In `app-grid.js::updateFormulaBar`, detect open-ended ranges:
     - If `selectionMode === 'row'`: show `${startRow + 1}:${endRow + 1}` (or `${startRow + 1}:${endRow + 1}` where endRow is resolved from actual range, not Infinity)
     - If `selectionMode === 'column'`: show `${colToLetter(startCol)}:${colToLetter(endCol)}`
     - Otherwise: existing cell/range logic unchanged
 
-- [ ] Task 5: Guard downstream code that uses `endRow`/`endCol` directly (AC: 3, 4)
-  - [ ] In `selectionOverlapsMerge`: resolve `OPEN_END` to `appState.ROWS - 1` / `appState.COLS - 1` before comparison
-  - [ ] In `updateMergeMenuState`: resolve `OPEN_END` before computing `cellCount`
-  - [ ] In `buildSelectionAnnouncement`: resolve `OPEN_END` before building string
-  - [ ] In `Shift+Arrow` handler (`app-cell-editor.js`): skip Shift+Arrow extension when `selectionMode` is `'row'` or `'column'` (open-ended ranges don't extend via keyboard)
-  - [ ] Search for any other direct use of `selectionRange.endRow` / `selectionRange.endCol` and guard accordingly
+- [x] Task 5: Guard downstream code that uses `endRow`/`endCol` directly (AC: 3, 4)
+  - [x] In `selectionOverlapsMerge`: resolve `OPEN_END` to `appState.ROWS - 1` / `appState.COLS - 1` before comparison
+  - [x] In `updateMergeMenuState`: resolve `OPEN_END` before computing `cellCount`
+  - [x] In `buildSelectionAnnouncement`: resolve `OPEN_END` before building string (via resolved values passed from `applySelectionRange`)
+  - [x] In `Shift+Arrow` handler (`app-cell-editor.js`): skip Shift+Arrow extension when `selectionMode` is `'row'` or `'column'` (open-ended ranges don't extend via keyboard)
+  - [x] Search for any other direct use of `selectionRange.endRow` / `selectionRange.endCol` and guard accordingly (fixed `applyAlignmentToSelection`, merge handler, `applyStyleToSelection`)
 
-- [ ] Task 6: Playwright tests (AC: 1–5)
-  - [ ] Row header click: verify `#cell-ref` shows `1:1`
-  - [ ] Column header click: verify `#cell-ref` shows `A:A`
-  - [ ] Multi-row shift-click: click row 1 header, shift-click row 3 header, verify `#cell-ref` shows `1:3`
-  - [ ] Multi-col shift-click: click col A header, shift-click col C header, verify `#cell-ref` shows `A:C`
-  - [ ] Verify all cells in the selected row/column have `.selected` class (not just up to old COLS/ROWS boundary)
+- [x] Task 6: Playwright tests (AC: 1–5)
+  - [x] Row header click: verify `#cell-ref` shows `1:1`
+  - [x] Column header click: verify `#cell-ref` shows `A:A`
+  - [x] Multi-row shift-click: click row 1 header, shift-click row 3 header, verify `#cell-ref` shows `1:3`
+  - [x] Multi-col shift-click: click col A header, shift-click col C header, verify `#cell-ref` shows `A:C`
+  - [x] Verify all cells in the selected row/column have `.selected` class (not just up to old COLS/ROWS boundary)
 
 ## Dev Notes
 
@@ -163,4 +163,23 @@ claude-sonnet-4-6
 
 ### Completion Notes List
 
+- Introduced `OPEN_END = Infinity` sentinel in `app-state.js`; `applySelectionRange` resolves it at render time against current `ROWS/COLS`
+- Removed `reapplyHeaderSelection()` and both call sites — open-ended ranges are self-healing after grid expansion
+- Row/column header clicks now store `OPEN_END` instead of a snapshot of `COLS-1`/`ROWS-1`
+- `updateFormulaBar` shows Excel-style `1:1` / `A:A` / `1:3` / `A:C` for row/column modes
+- Guarded all downstream consumers: `selectionOverlapsMerge`, `updateMergeMenuState`, `applyAlignmentToSelection`, `applyStyleToSelection`, merge handler, `handleShiftArrow`; `JSON.stringify(Infinity) === null` risk eliminated
+- `Shift+Arrow` no-ops when `selectionMode` is `'row'` or `'column'`
+- 6 new Playwright tests in `test_open_ended_ranges.spec.js` — all pass; full suite: 292 passed
+
 ### File List
+
+- frontend/app-state.js
+- frontend/app-grid.js
+- frontend/app.js
+- frontend/app-cell-editor.js
+- frontend/app-file-ops.js
+- frontend/app-ui.js
+- playwright_tests/test_open_ended_ranges.spec.js
+- playwright_tests/test_copy_paste_range.spec.js
+- _bmad-output/implementation-artifacts/17-5-open-ended-row-column-ranges.md
+- _bmad-output/implementation-artifacts/sprint-status.yaml

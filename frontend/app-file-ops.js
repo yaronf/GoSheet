@@ -15,13 +15,15 @@ import {
   DeleteRow,
   DeleteColumn,
   GetCellRawValue,
+  GetAllCells,
   SetCellValue,
   SetRangeValues,
   ClearRange,
   GetStyles,
+  SetRangeAlignment,
 } from './api-client.js';
-import { appState } from './app-state.js';
-import { showAlert, announceToScreenReader } from './app-utils.js';
+import { appState, OPEN_END } from './app-state.js';
+import { showAlert, announceToScreenReader, colToLetter } from './app-utils.js';
 import {
   selectionOverlapsMerge,
   getMergeInfo,
@@ -277,11 +279,14 @@ function setupFileMenuListeners() {
 }
 
 // Copy the current selection to the clipboard as TSV (or single value for single-cell).
+// In-memory style clipboard: stores style/alignment data from the last copy.
+// { startRow, startCol, rows, cols, cells: [{rowOffset, colOffset, styleId, alignment}] }
+let styleClipboard = null;
+
 export async function copySelectionToClipboard() {
   if (!appState.selectionRange) return;
   const { startRow, startCol, endRow, endCol } = appState.selectionRange;
-  // Guard against unbounded ranges (e.g. full-row/full-column selection from Story 17.5).
-  // TODO(L1): Replace with proper bounded clamping once Story 17.5 defines the range contract.
+  // Guard against unbounded ranges (full-row/full-column) and excessively large ranges.
   if (
     !Number.isFinite(endRow) ||
     !Number.isFinite(endCol) ||
@@ -294,22 +299,50 @@ export async function copySelectionToClipboard() {
     return;
   }
   try {
+    // Snapshot cell values and style/alignment for the copied range
+    const allCells = await GetAllCells();
+    const styleCells = [];
+
     if (startRow === endRow && startCol === endCol) {
       const value = await GetCellRawValue(startRow, startCol);
       await navigator.clipboard.writeText(value);
-      return;
-    }
-    const rowPromises = [];
-    for (let r = startRow; r <= endRow; r++) {
-      const colPromises = [];
-      for (let c = startCol; c <= endCol; c++) {
-        colPromises.push(GetCellRawValue(r, c));
+    } else {
+      const rowPromises = [];
+      for (let r = startRow; r <= endRow; r++) {
+        const colPromises = [];
+        for (let c = startCol; c <= endCol; c++) {
+          colPromises.push(GetCellRawValue(r, c));
+        }
+        rowPromises.push(Promise.all(colPromises));
       }
-      rowPromises.push(Promise.all(colPromises));
+      const rows = await Promise.all(rowPromises);
+      const tsv = rows.map((row) => row.join('\t')).join('\n');
+      await navigator.clipboard.writeText(tsv);
     }
-    const rows = await Promise.all(rowPromises);
-    const tsv = rows.map((row) => row.join('\t')).join('\n');
-    await navigator.clipboard.writeText(tsv);
+
+    // Snapshot style/alignment for every cell in the range
+    for (let r = startRow; r <= endRow; r++) {
+      for (let c = startCol; c <= endCol; c++) {
+        const ref = `${colToLetter(c)}${r + 1}`;
+        const data = allCells[ref];
+        if (data?.styleId || data?.alignment) {
+          styleCells.push({
+            rowOffset: r - startRow,
+            colOffset: c - startCol,
+            styleId: data.styleId || 0,
+            alignment: data.alignment || '',
+          });
+        }
+      }
+    }
+
+    styleClipboard = {
+      startRow,
+      startCol,
+      rows: endRow - startRow + 1,
+      cols: endCol - startCol + 1,
+      cells: styleCells,
+    };
   } catch (error) {
     console.error('[App] Error during Copy:', error);
     await showAlert('Error during Copy operation: ' + error.message);
@@ -339,6 +372,7 @@ export async function pasteFromClipboard() {
     try {
       const result = await SetCellValue(targetRow, targetCol, parsedRows[0]);
       applyUndoRedoState(result);
+      await applyStyleClipboard(targetRow, targetCol);
       await window.refreshAllCells?.();
       updateFileStatus();
     } catch (error) {
@@ -372,12 +406,30 @@ export async function pasteFromClipboard() {
     }
     const result = await SetRangeValues(cellsToSet);
     applyUndoRedoState(result);
+    await applyStyleClipboard(targetRow, targetCol);
     await window.refreshAllCells?.();
     updateFileStatus();
   } catch (error) {
     console.error('[App] Error during Paste:', error);
     await showAlert('Error during Paste operation: ' + error.message);
   }
+}
+
+// Apply in-memory style clipboard to the paste destination.
+// Sends style/alignment API calls in parallel for efficiency.
+async function applyStyleClipboard(targetRow, targetCol) {
+  if (!styleClipboard || styleClipboard.cells.length === 0) return;
+  const styleCalls = styleClipboard.cells.map(
+    ({ rowOffset, colOffset, styleId, alignment }) => {
+      const r = targetRow + rowOffset;
+      const c = targetCol + colOffset;
+      const calls = [];
+      if (styleId) calls.push(ApplyRangeStyle(r, c, r, c, styleId));
+      if (alignment) calls.push(SetRangeAlignment(r, c, r, c, alignment));
+      return calls;
+    }
+  );
+  await Promise.all(styleCalls.flat());
 }
 
 function setupEditMenuListeners() {
@@ -398,9 +450,35 @@ function setupEditMenuListeners() {
     if (appState.isReadOnly) return;
     if (!appState.selectedCell) return;
     try {
-      await copySelectionToClipboard();
       const { startRow, startCol, endRow, endCol } = appState.selectionRange;
-      const result = await ClearRange(startRow, startCol, endRow, endCol);
+      // Resolve OPEN_END sentinels to current grid bounds before any API call
+      const resolvedEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
+      const resolvedEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
+      // Copy to clipboard using resolved (bounded) range — avoids "too large" alert for
+      // open-ended row/column selections which are within normal grid dimensions
+      const isOpenEnded = endRow === OPEN_END || endCol === OPEN_END;
+      if (isOpenEnded) {
+        // Build TSV for the resolved bounded range directly without alerting
+        const rowPromises = [];
+        for (let r = startRow; r <= resolvedEndRow; r++) {
+          const colPromises = [];
+          for (let c = startCol; c <= resolvedEndCol; c++) {
+            colPromises.push(GetCellRawValue(r, c));
+          }
+          rowPromises.push(Promise.all(colPromises));
+        }
+        const rows = await Promise.all(rowPromises);
+        const tsv = rows.map((row) => row.join('\t')).join('\n');
+        await navigator.clipboard.writeText(tsv);
+      } else {
+        await copySelectionToClipboard();
+      }
+      const result = await ClearRange(
+        startRow,
+        startCol,
+        resolvedEndRow,
+        resolvedEndCol
+      );
       if (result?.hasUnsavedChanges !== undefined) applyUndoRedoState(result);
       await window.refreshAllCells?.();
       updateFileStatus();
@@ -438,6 +516,10 @@ function setupFormatMenuListeners() {
     if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
       return;
     const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+    if (!Number.isFinite(endRow) || !Number.isFinite(endCol)) {
+      await showAlert('Cannot merge an entire row or column selection.');
+      return;
+    }
     const cellCount = (endRow - startRow + 1) * (endCol - startCol + 1);
     if (cellCount < 2) {
       await showAlert('Select 2 or more cells to merge.');
@@ -493,12 +575,14 @@ function setupFormatMenuListeners() {
       return;
     if (appState.isReadOnly) return;
     const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+    const resolvedEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
+    const resolvedEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
     try {
       const result = await ApplyRangeStyle(
         startRow,
         startCol,
-        endRow,
-        endCol,
+        resolvedEndRow,
+        resolvedEndCol,
         styleId
       );
       applyUndoRedoState(result);

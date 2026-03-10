@@ -6,43 +6,6 @@ Future ideas and feature notes. Promote to sprint via `/bmad-bmm-correct-course`
 
 ## Ideas
 
-
-
-### Open CSV from CLI
-
-Open (import) CSV files from the CLI. Or by double-clicking them (open with...). When saving it's a full .sheet file.
-Relevant: `[server/main.go](../../server/main.go)`, `[api/csv.go](../../api/csv.go)`
-**Epic: 16**
-
-### Readonly flag
-
-Open a file in read only mode (view).
-Relevant: `[controller/app.go](../../controller/app.go)`, `[api/handlers.go](../../api/handlers.go)`
-**Epic: 16**
-
-### Row/column select esthetics
-
-Remove borders around cells.
-Relevant: `[frontend/spreadsheet.js](../../frontend/spreadsheet.js)`, `[frontend/styles.css](../../frontend/styles.css)`
-**Epic: 17**
-
-### Select range
-
-More naturally than clicking each cell individually.
-Relevant: `[frontend/spreadsheet.js](../../frontend/spreadsheet.js)`
-**Epic: 17**
-
-### copy paste range/row/column
-
-Right now Copy only does 1 cell even when a row is selected, which is a bug.
-Relevant: `[frontend/spreadsheet.js](../../frontend/spreadsheet.js)`
-**Epic: 17**
-
-### Tech Debt
-
-See `[TECHNICAL-DEBT.md](../implementation-artifacts/TECHNICAL-DEBT.md)`
-**Epic: 14**
-
 ### Agentic API
 
 See `[technical-agent-access-layer-research.md](research/technical-agent-access-layer-research.md)`
@@ -53,25 +16,10 @@ See `[technical-agent-access-layer-research.md](research/technical-agent-access-
 See `[technical-file-format-cross-language-random-access-research-2026-02-23.md](research/technical-file-format-cross-language-random-access-research-2026-02-23.md)`
 **Epic: TBD**
 
-### Undo
-
-Support unlimited undo for "reasoanble" operations.
-**Epic: 15**
-
-### Data safety
-
-Minimize the risk of data loss when modifying/writing files
-**Epic: 16**
-
 ### Select cells/ranges for inclusion in formula
 
 While editing a formula, click a cell/range to include a reference in the formula.
 **Epic: 18**
-
-### Bug: Select All in menu is useless
-
-Say no more.
-**Epic: 17**
 
 ### User doc
 
@@ -84,12 +32,6 @@ Remove the alignment buttons, add style buttons. And make them dynamic: new styl
 ### Fold Insert menu into Edit menu
 
 The Insert menu items (insert row/column) should live in the Edit menu, eliminating the separate Insert menu.
-
-### Remove fixed port dependency
-
-Replace the hardcoded port 3000 with a named or ephemeral pipe/socket so multiple instances can run without conflict and there is no risk of port collision with other services. Probably named pipe so we can later add non-human (agent) local API clients.
-Relevant: `[server/main.go](../../server/main.go)`, `[electron/main.js](../../electron/main.js)`
-**Epic: 16** (Story 16.5)
 
 ### Typed cell error enum instead of string sentinels
 
@@ -105,3 +47,31 @@ Remove all formatting from selected cell(s) â€” font, color, style, alignment â€
 ### Text wrapping within cell
 
 At least a toggle. Does it also require control of row/column width?
+
+### Copy/paste full rows/cols
+
+Today this is behind a "too many cells" check. Needs to be implemnted efficiently.
+
+### Bug Cannot select whole row/col from the cell selection box
+
+### Prevent copying ranges into non-empty ranges
+
+Or add an "are you sure" modal.
+
+### Logging: clean the default
+
+When running without --verbose, only error/warning logs should be printed. And maybe get rid of the Electron message:
+
+Electron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+Also maybe add a --debug flag, so --verbose is INFO, --debug is DEBUG.
+
+### Cell address box - UI
+
+The box should be same height as the formula bar and aligned with it.
+
+### Copy/pasted formulas - bug
+
+When a range is copied, the formulas should have their references shifted.

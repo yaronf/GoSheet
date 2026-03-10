@@ -9,7 +9,7 @@ import {
   ImportCSV,
   PreviewCSV,
 } from './api-client.js';
-import { appState } from './app-state.js';
+import { appState, OPEN_END } from './app-state.js';
 import { showAlert, showConfirmDialog } from './app-utils.js';
 import { formatToCssPreview, showCSVPreviewModal } from './app-modals.js';
 import { applyAlignmentToSelection } from './app-cell-editor.js';
@@ -316,6 +316,8 @@ async function handleContextMenuOnCell(e, cell) {
   const row = parseInt(cell.dataset.row, 10);
   const col = parseInt(cell.dataset.col, 10);
   if (!Number.isFinite(row) || !Number.isFinite(col)) return;
+  // Note: endRow/endCol may be OPEN_END (Infinity) for row/column selections.
+  // Comparisons against Infinity are intentional: any finite row/col <= Infinity is true.
   const inSelection =
     row >= appState.selectionRange.startRow &&
     row <= appState.selectionRange.endRow &&
@@ -332,7 +334,7 @@ async function handleContextMenuOnRowHeader(e, rowHeader) {
   const row = parseInt(rowHeader.dataset.row, 10);
   if (!Number.isFinite(row)) return;
   appState.selectionMode = 'row';
-  applySelectionRange(row, 0, row, appState.COLS - 1);
+  applySelectionRange(row, 0, row, OPEN_END);
   if (window.electronAPI?.updateMenuState)
     window.electronAPI.updateMenuState({
       selectionMode: 'row',
@@ -345,7 +347,7 @@ async function handleContextMenuOnColHeader(e, colHeader) {
   const col = parseInt(colHeader.dataset.col, 10);
   if (!Number.isFinite(col)) return;
   appState.selectionMode = 'column';
-  applySelectionRange(0, col, appState.ROWS - 1, col);
+  applySelectionRange(0, col, OPEN_END, col);
   if (window.electronAPI?.updateMenuState)
     window.electronAPI.updateMenuState({
       selectionMode: 'column',
