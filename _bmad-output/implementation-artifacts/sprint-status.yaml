@@ -258,9 +258,19 @@ development_status:
   18-2-drag-to-insert-range-reference: done
   epic-18-retrospective: optional
 
-  # Epic 19: Agentic API Access Layer (stories TBD)
-  epic-19: backlog
+  # Epic 19: Formula Reference Shift & UI Menu Cleanup
+  epic-19: in-progress
+  19-1-formula-reference-shift-on-paste: done
+  19-2-absolute-cell-references: backlog
+  19-3-fold-insert-menu-into-edit-menu: backlog
+  19-4-toolbar-style-buttons: backlog
+  19-5-fix-address-box-full-row-col-select: backlog
+  19-6-warn-before-pasting-into-non-empty-range: backlog
   epic-19-retrospective: optional
+
+  # Epic 20: Agentic API Access Layer (deferred, stories TBD)
+  epic-20: backlog
+  epic-20-retrospective: optional
 
   # Backlog: Known issues / tech debt
   # bug-dock-right-click-quit: In dev mode, right-clicking the dock icon and selecting "Quit"

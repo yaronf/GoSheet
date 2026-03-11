@@ -44,6 +44,7 @@ coverage.out
 coverage.html
 bin/
 gosheet
+gosheet-server
 web
 
 # Claude Code

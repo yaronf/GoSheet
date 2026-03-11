@@ -459,6 +459,21 @@ const Redo = async () => {
   };
 };
 
+// ShiftFormula shifts cell/range references in a formula string by a row/col offset.
+// Returns the shifted formula string (or the original on any error).
+const ShiftFormula = async (formula, rowOffset, colOffset) => {
+  try {
+    const json = await fetchUnified('POST', '/api/formula/shift', {
+      formula,
+      row_offset: rowOffset,
+      col_offset: colOffset,
+    });
+    return json.data?.shifted ?? formula;
+  } catch {
+    return formula;
+  }
+};
+
 // Export for app.js (now a module)
 export {
   GetCellValue,
@@ -495,4 +510,5 @@ export {
   ExportCSV,
   Undo,
   Redo,
+  ShiftFormula,
 };

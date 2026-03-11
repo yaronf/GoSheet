@@ -547,6 +547,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/formula/shift:
+    post:
+      operationId: shiftFormula
+      summary: Shift cell/range references in a formula string by a row/col offset
+      description: Stateless pure transformation — no spreadsheet state is read or written. Relative refs that shift out of bounds become #REF!.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShiftFormulaRequest'
+      responses:
+        '200':
+          description: Shifted formula string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftFormulaResponse'
+        '400':
+          description: Bad request (invalid body)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '405':
+          description: Method not allowed (POST required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/csv/export:
     post:
       operationId: exportCsv
@@ -821,6 +857,28 @@ components:
               properties:
                 hasUnsavedChanges:
                   type: boolean
+    ShiftFormulaRequest:
+      type: object
+      required: [formula, row_offset, col_offset]
+      properties:
+        formula:
+          type: string
+          example: '=A1+B2'
+        row_offset:
+          type: integer
+        col_offset:
+          type: integer
+    ShiftFormulaResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                shifted:
+                  type: string
+                  example: '=B2+D4'
     ApplyCellStyleRequest:
       type: object
       required: [row, col, styleId]

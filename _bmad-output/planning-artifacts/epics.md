@@ -9,16 +9,16 @@ inputDocuments:
   - '_bmad-output/implementation-artifacts/TECHNICAL-DEBT.md'
   - '_bmad-output/planning-artifacts/backlog.md'
   - '_bmad-output/planning-artifacts/research/technical-agent-access-layer-research.md'
-epicCount: 19
+epicCount: 20
 totalFRs: 51
 totalNFRs: 23
-totalStories: 48
+totalStories: 52
 status: 'updated'
 validationStatus: 'passed'
 readyForDevelopment: true
 completedDate: '2026-02-14'
-lastUpdated: '2026-03-05'
-updateReason: 'Added Epics 14-19 from backlog and tech debt (2026-03-05)'
+lastUpdated: '2026-03-10'
+updateReason: 'Replaced Epic 19 (Agentic API → deferred to Epic 20) with Formula Ref Shift + UI Cleanup (2026-03-10)'
 ---
 
 # spreadsheet - Epic Breakdown
@@ -2925,7 +2925,8 @@ So that I can diagnose issues across the full stack from a single log stream.
 
 ---
 
-## Epic 17: Selection & Range Operations
+## 
+: Selection & Range Operations
 
 **Goal:** Users can select contiguous rectangular ranges naturally, copy/paste them, and navigate to precise ranges by address.
 
@@ -3169,7 +3170,230 @@ So that I can reference ranges like `B2:D5` without typing the address manually.
 
 ---
 
-## Epic 19: Agentic API Access Layer
+## Epic 19: Formula Reference Shift & UI Menu Cleanup
+
+**Goal:** Pasting ranges with formulas shifts cell references correctly; the Insert menu is folded into Edit; the toolbar is rationalized to reflect actual style capabilities.
+
+**User Outcome:** Copy/paste of formula-containing ranges behaves like Excel/Google Sheets (references adjust relative to destination). The menu bar is less cluttered (no separate Insert menu). The toolbar reflects the real named-style system rather than showing ad-hoc alignment controls.
+
+**Requirements covered:**
+- FB: Copy/pasted formulas shift references relative to paste destination
+- FB: Fold Insert menu into Edit menu (Insert Row Above/Below, Insert Column Left/Right)
+- FB: Toolbar shows style buttons instead of alignment buttons; style buttons are dynamic (reflect named styles)
+
+**Why standalone:** Three tightly related UI/UX polish items. Formula ref shift is a correctness bug with well-defined scope (AST walk + offset). Menu cleanup and toolbar are cosmetic/structural changes with no backend impact.
+
+**Implementation notes:**
+- Formula ref shift: walk the formula AST on paste, offset each `CellRef` and `RangeRef` node by `(destRow - srcRow, destCol - srcCol)`; update both `Raw` and `Computed` after re-evaluation; reuse existing `ShiftFormula` infrastructure from Undo/Redo (Epic 15.5) if applicable
+- Insert menu fold: move "Insert Row Above", "Insert Row Below", "Insert Column Left", "Insert Column Right" into the Edit menu (below the cut/copy/paste group); remove the Insert menu entirely; update keyboard shortcuts if any
+- Toolbar: remove the three alignment buttons (Left/Center/Right); add named-style buttons that are generated dynamically from the style registry; each button renders its own style as a preview (font weight, color, etc.); selecting a button applies that style to the current selection
+
+---
+
+### Story 19.1: Formula Reference Shift on Paste
+
+As a user,
+I want copied formulas to adjust their cell references when pasted to a new location,
+So that relative formulas work correctly after copy/paste like in Excel or Google Sheets.
+
+**Acceptance Criteria:**
+
+**Given** cell A1 contains `=B1+C1`
+**When** the user copies A1 and pastes into A2
+**Then** A2 contains `=B2+C2` (references shifted down by 1 row)
+
+**Given** cell A1 contains `=B1+C1`
+**When** the user copies A1 and pastes into B1
+**Then** B1 contains `=C1+D1` (references shifted right by 1 column)
+
+**Given** a range A1:A3 contains formulas `=B1`, `=B2`, `=B3`
+**When** the user copies A1:A3 and pastes into C1
+**Then** C1:C3 contain `=D1`, `=D2`, `=D3` respectively
+
+**Given** a formula contains an absolute reference (e.g. `=$B$1`)
+**When** the formula is pasted to a new location
+**Then** the absolute reference is unchanged
+
+**Given** a formula reference would shift outside the valid grid (row < 0 or col < 0)
+**When** the paste is performed
+**Then** the shifted reference is replaced with `#REF!`
+
+**Implementation notes:**
+- Walk the parsed AST for each formula cell in the copied range
+- For each `CellRef` / `RangeRef` node, apply `(row + rowOffset, col + colOffset)` unless the ref uses `$` anchoring
+- Re-serialize the shifted AST back to a formula string
+- Trigger re-evaluation after paste
+- Reuse or extend `ShiftFormula` from `model/formula.go` (introduced in Story 15.5)
+
+---
+
+### Story 19.2: Absolute Cell References (`$` Anchoring)
+
+As a user,
+I want to write formulas with absolute references like `$A$1`, `$A1`, or `A$1`,
+So that certain references don't shift when I copy/paste the formula to a new location.
+
+**Acceptance Criteria:**
+
+**Given** cell B1 contains `=$A$1+C1`
+**When** the user copies B1 and pastes into B2
+**Then** B2 contains `=$A$1+C2` (absolute row+col stays fixed; relative col shifts)
+
+**Given** cell B1 contains `=$A1`
+**When** the user copies B1 and pastes into C3
+**Then** C3 contains `=$A3` (col is fixed; row shifts by 2)
+
+**Given** cell B1 contains `=A$1`
+**When** the user copies B1 and pastes into C3
+**Then** C3 contains `=B$1` (row is fixed; col shifts by 1)
+
+**Given** a formula with `$`-anchored references is saved and reloaded
+**When** the file is opened
+**Then** the formula displays and evaluates correctly
+
+**Given** the user types `=$A$1` in the formula bar
+**When** the formula is committed
+**Then** the formula is stored and displayed as `=$A$1` (no normalization strips the `$`)
+
+**Implementation notes:**
+- Extend the Participle lexer grammar in `model/formula.go` to accept `$`-prefixed refs: `$A1`, `A$1`, `$A$1`
+- Add `AbsRow bool` and `AbsCol bool` fields to `CellRef` (and correspondingly to `Range` start/end)
+- `CoordsToRef` / `RefToCoords` must preserve `$` markers when serializing back to string
+- `ShiftFormulaByOffset` (Story 19.1) must skip shift on any axis marked absolute
+- Normalization (`NormalizeFormula`) must preserve `$` markers
+- Gob encoding: `AbsRow`/`AbsCol` bool fields are zero-value safe — no file format version bump needed
+
+---
+
+### Story 19.3: Fold Insert Menu into Edit Menu
+
+As a user,
+I want the Insert row/column actions in the Edit menu rather than a separate Insert menu,
+So that the menu bar is less cluttered and related editing actions are grouped together.
+
+**Acceptance Criteria:**
+
+**Given** the app is running
+**When** the user opens the Edit menu
+**Then** it contains "Insert Row Above", "Insert Row Below", "Insert Column Left", "Insert Column Right" grouped below the cut/copy/paste items (separated by a divider)
+
+**Given** the app is running
+**When** the user looks at the menu bar
+**Then** there is no "Insert" menu
+
+**Given** Insert actions were previously accessible via keyboard shortcut
+**When** those shortcuts existed
+**Then** they continue to work from the Edit menu
+
+**Given** Insert actions are available in the context menu (right-click)
+**When** the user right-clicks a cell
+**Then** the context menu still shows the Insert row/column options (unchanged)
+
+**Implementation notes:**
+- Modify `electron/menu.js` (or wherever the app menu is built): remove the Insert submenu, add the four Insert items to the Edit menu template
+- Add a `{ type: 'separator' }` before the insert group in Edit
+- No backend changes needed; IPC channels remain the same
+
+---
+
+### Story 19.4: Toolbar Style Buttons
+
+As a user,
+I want the toolbar to show buttons for my named styles instead of alignment buttons,
+So that I can apply styles with one click and the toolbar reflects what styles I actually have.
+
+**Acceptance Criteria:**
+
+**Given** the user has named styles defined (e.g. "Header", "Emphasis")
+**When** the spreadsheet view loads
+**Then** the toolbar shows one button per named style, rendered with that style's visual properties (font weight, color, etc.)
+
+**Given** the toolbar shows style buttons
+**When** the user clicks a style button
+**Then** that named style is applied to the current cell/range selection
+
+**Given** no named styles are defined
+**When** the spreadsheet view loads
+**Then** the toolbar shows no style buttons (or a placeholder "No styles" label)
+
+**Given** the user adds or deletes a named style
+**When** the change is saved
+**Then** the toolbar updates to reflect the new style list without requiring a reload
+
+**Given** the toolbar currently shows alignment buttons (Left/Center/Right)
+**When** this story is implemented
+**Then** those alignment buttons are removed from the toolbar
+
+**Implementation notes:**
+- Remove the three alignment `<button>` elements from the toolbar in `frontend/index.html`
+- Add a `#toolbar-styles` container that is populated dynamically from the style registry
+- On `loadCells` / style registry change, re-render the style buttons: one `<button>` per style, `data-style-name` attribute, inline style reflecting the style's properties
+- Click handler: apply the named style to the current selection (reuse existing apply-style IPC path)
+- Alignment is still accessible via the Format menu and cell editor; this story only removes it from the toolbar
+
+---
+
+### Story 19.5: Fix — Address Box Cannot Select Full Row/Column
+
+As a user,
+I want to type a full row or column address (e.g. `A:A` or `3:3`) in the address box to select the entire row or column,
+So that I can select whole rows/columns by address the same way I can by clicking the header.
+
+**Acceptance Criteria:**
+
+**Given** the address box is focused
+**When** the user types a full-column address like `B:B` and presses Enter
+**Then** the entire column B is selected (all cells in that column)
+
+**Given** the address box is focused
+**When** the user types a full-row address like `2:2` and presses Enter
+**Then** the entire row 2 is selected (all cells in that row)
+
+**Given** the address box is focused
+**When** the user types an invalid address (e.g. `ZZ:ZZ`, `0:0`)
+**Then** no selection change occurs and the address box reverts to the current selection address
+
+**Implementation notes:**
+- The address box parse logic (Story 17.4) currently only handles `A1`, `A1:B2`, and named ranges — extend it to recognize `col:col` (e.g. `B:B`) and `row:row` (e.g. `3:3`) patterns
+- Map `B:B` → select all rows in column B (open-ended column selection, same as clicking the column header)
+- Map `3:3` → select all columns in row 3 (open-ended row selection)
+- Reuse the open-ended range selection infrastructure from Story 17.5
+
+---
+
+### Story 19.6: Warn Before Pasting into Non-Empty Range
+
+As a user,
+I want a confirmation prompt when pasting a range that would overwrite existing cell values,
+So that I don't accidentally destroy data I hadn't intended to replace.
+
+**Acceptance Criteria:**
+
+**Given** the user copies a range and attempts to paste it
+**When** one or more destination cells already contain a non-empty value
+**Then** a confirmation dialog appears: "This will overwrite N cell(s). Continue?"
+
+**Given** the confirmation dialog is shown
+**When** the user clicks "OK" / confirms
+**Then** the paste proceeds and overwrites the existing values
+
+**Given** the confirmation dialog is shown
+**When** the user clicks "Cancel" / dismisses
+**Then** the paste is aborted and no cells are changed
+
+**Given** the destination range is entirely empty
+**When** the user pastes
+**Then** no confirmation is shown (paste proceeds immediately)
+
+**Implementation notes:**
+- Before writing paste results in the frontend paste handler, count non-empty cells in the destination range
+- If count > 0, show the existing modal confirmation (reuse `#modal-overlay` pattern)
+- Only count cells with a non-empty `textContent` / value; blank cells do not trigger the prompt
+- This applies to rectangular range paste (Story 17.3); single-cell paste does not require confirmation
+
+---
+
+## Epic 20: Agentic API Access Layer
 
 **Goal:** AI agents (and power users via scripts) can read spreadsheet data and propose changes through a structured, safe API — with the user approving a diff before any change is persisted.
 

@@ -13,6 +13,7 @@ import (
 	"gosheet/api/generated"
 	"gosheet/controller"
 	"gosheet/logutil"
+	"gosheet/model"
 )
 
 // Server holds HTTP handler dependencies and implements all API handlers.
@@ -488,6 +489,37 @@ func (s *Server) computeCSVExportBounds() (maxRow, maxCol int) {
 		}
 	}
 	return maxRow, maxCol
+}
+
+// HandleShiftFormula shifts cell/range references in a formula string by a row/col offset.
+// Stateless pure transformation — no spreadsheet state is read or written.
+// POST /api/formula/shift
+// Request:  { "formula": "=A1+B2", "row_offset": 1, "col_offset": 2 }
+// Response: { "success": true, "data": { "shifted": "=B2+D4" } }
+func (s *Server) HandleShiftFormula(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Formula   string `json:"formula"`
+		RowOffset int    `json:"row_offset"`
+		ColOffset int    `json:"col_offset"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	shifted, err := model.ShiftFormulaByOffset(req.Formula, req.RowOffset, req.ColOffset)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"data":    map[string]any{"shifted": shifted},
+	})
 }
 
 // buildCSVRecords builds the 2D string grid for CSV export.

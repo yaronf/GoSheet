@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 // formula_shift.go — rewrite formula cell refs when rows/cols are inserted or deleted.
 // Story 15.5: operates on the parsed AST (Cell.ParsedFormula) rather than doing string substitution.
 // After mutation the formula string is re-derived from the AST so Cell.Value always stays parseable.
@@ -192,4 +194,52 @@ func shiftRangeDeleteAxis(start, end *int, deletedIdx int) bool {
 		}
 	}
 	return true
+}
+
+// ShiftFormulaByOffset returns formula with all relative cell/range refs shifted by
+// (rowOffset, colOffset). Returns the original string unchanged if it is not a formula
+// or cannot be parsed. Refs that would land outside the grid (row < 0 or col < 0)
+// become #REF! in the returned string.
+func ShiftFormulaByOffset(formula string, rowOffset, colOffset int) (string, error) {
+	if !strings.HasPrefix(formula, "=") {
+		return formula, nil
+	}
+	raw := formula[1:]
+	ast, err := ParseFormula("=" + raw)
+	if err != nil {
+		return formula, nil // unparseable: return as-is, no error to caller
+	}
+	resolveAllCoords(ast)
+	WalkPrimaries(ast, func(prim *Primary) {
+		if prim.CellRef != nil && !prim.CellRef.Invalid {
+			newRow := prim.CellRef.Row + rowOffset
+			newCol := prim.CellRef.Col + colOffset
+			if newRow < 0 || newCol < 0 {
+				prim.CellRef.Invalid = true
+			} else {
+				prim.CellRef.Row = newRow
+				prim.CellRef.Col = newCol
+				prim.CellRef.Ref = CoordsToRef(newRow, newCol)
+			}
+		}
+		if prim.Range != nil && !prim.Range.Invalid {
+			sr := prim.Range.StartRow + rowOffset
+			sc := prim.Range.StartCol + colOffset
+			er := prim.Range.EndRow + rowOffset
+			ec := prim.Range.EndCol + colOffset
+			if sr < 0 || sc < 0 || er < 0 || ec < 0 {
+				prim.Range.Invalid = true
+			} else {
+				prim.Range.StartRow, prim.Range.StartCol = sr, sc
+				prim.Range.EndRow, prim.Range.EndCol = er, ec
+				prim.Range.Start = CoordsToRef(sr, sc)
+				prim.Range.End = CoordsToRef(er, ec)
+			}
+		}
+	})
+	result := SerializeForDisplay(ast)
+	if result == "" {
+		return formula, nil
+	}
+	return "=" + result, nil
 }

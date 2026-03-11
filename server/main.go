@@ -96,6 +96,7 @@ func main() {
 	http.HandleFunc("/api/styles/", cors(srv.HandleStyleByID))
 	http.HandleFunc("/api/undo", cors(srv.HandleUndo))
 	http.HandleFunc("/api/redo", cors(srv.HandleRedo))
+	http.HandleFunc("/api/formula/shift", cors(srv.HandleShiftFormula))
 	if logutil.Verbose {
 		http.HandleFunc("/api/debug/shutdown", cors(debugShutdownHandler))
 	}

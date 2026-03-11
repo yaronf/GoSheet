@@ -21,6 +21,7 @@ import {
   ClearRange,
   GetStyles,
   SetRangeAlignment,
+  ShiftFormula,
 } from './api-client.js';
 import { appState, OPEN_END } from './app-state.js';
 import { showAlert, announceToScreenReader, colToLetter } from './app-utils.js';
@@ -349,6 +350,27 @@ export async function copySelectionToClipboard() {
   }
 }
 
+// Build the cellsToSet array for a multi-cell TSV paste, shifting formula refs as needed.
+async function buildCellsToSet(parsedRows, targetRow, targetCol) {
+  const rowOffset = styleClipboard ? targetRow - styleClipboard.startRow : 0;
+  const colOffset = styleClipboard ? targetCol - styleClipboard.startCol : 0;
+  const shouldShift =
+    styleClipboard !== null && (rowOffset !== 0 || colOffset !== 0);
+  const cellsToSet = [];
+  for (let ri = 0; ri < parsedRows.length; ri++) {
+    const cells = parsedRows[ri].split('\t');
+    for (let ci = 0; ci < cells.length; ci++) {
+      let value = cells[ci];
+      if (shouldShift && value.startsWith('=')) {
+        // Shift relative formula references to match the paste destination.
+        value = await ShiftFormula(value, rowOffset, colOffset);
+      }
+      cellsToSet.push({ row: targetRow + ri, col: targetCol + ci, value });
+    }
+  }
+  return cellsToSet;
+}
+
 // Paste clipboard text (TSV or single value) starting at the selected cell.
 export async function pasteFromClipboard() {
   if (appState.isReadOnly) return;
@@ -368,9 +390,22 @@ export async function pasteFromClipboard() {
   const parsedRows = text.replace(/\n$/, '').split('\n');
 
   if (parsedRows.length === 1 && !parsedRows[0].includes('\t')) {
-    // Single-cell paste — existing behaviour
+    // Single-cell paste — shift formula if pasting to a different location
     try {
-      const result = await SetCellValue(targetRow, targetCol, parsedRows[0]);
+      let value = parsedRows[0];
+      if (
+        value.startsWith('=') &&
+        styleClipboard !== null &&
+        (targetRow !== styleClipboard.startRow ||
+          targetCol !== styleClipboard.startCol)
+      ) {
+        value = await ShiftFormula(
+          value,
+          targetRow - styleClipboard.startRow,
+          targetCol - styleClipboard.startCol
+        );
+      }
+      const result = await SetCellValue(targetRow, targetCol, value);
       applyUndoRedoState(result);
       await applyStyleClipboard(targetRow, targetCol);
       await window.refreshAllCells?.();
@@ -392,18 +427,7 @@ export async function pasteFromClipboard() {
   expandGridIfNeeded(maxPasteRow, maxPasteCol);
 
   try {
-    const cellsToSet = [];
-    for (let ri = 0; ri < parsedRows.length; ri++) {
-      const cells = parsedRows[ri].split('\t');
-      for (let ci = 0; ci < cells.length; ci++) {
-        // TODO: Adjust relative formula references on paste (Epic 18 scope)
-        cellsToSet.push({
-          row: targetRow + ri,
-          col: targetCol + ci,
-          value: cells[ci],
-        });
-      }
-    }
+    const cellsToSet = await buildCellsToSet(parsedRows, targetRow, targetCol);
     const result = await SetRangeValues(cellsToSet);
     applyUndoRedoState(result);
     await applyStyleClipboard(targetRow, targetCol);
