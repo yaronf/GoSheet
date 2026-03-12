@@ -11,7 +11,7 @@ import (
 // Formula lexer definition
 var formulaLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "Float", Pattern: `\d+\.\d+`},
-	{Name: "CellRef", Pattern: `[A-Z]+\d+`}, // Must come before Ident to match first
+	{Name: "CellRef", Pattern: `\$?[A-Z]+\$?\d+`}, // Must come before Ident; $ anchors optional
 	{Name: "Ident", Pattern: `[A-Za-z_][A-Za-z0-9_]*`},
 	{Name: "Int", Pattern: `\d+`},
 	{Name: "String", Pattern: `"(?:\\.|[^"])*"`},
@@ -78,7 +78,7 @@ func ParseFormula(formula string) (*Formula, error) {
 }
 
 // NormalizeFormula parses and re-serializes a formula to normalize it
-// (uppercase cell refs, remove extra spaces, consistent formatting)
+// (uppercase cell refs, remove extra spaces, consistent formatting, preserve $ anchors)
 func NormalizeFormula(formula string) (string, error) {
 	// Parse the formula
 	ast, err := ParseFormula(formula)
@@ -90,6 +90,8 @@ func NormalizeFormula(formula string) (string, error) {
 	if ast.Expr == nil {
 		return formula, fmt.Errorf("invalid parse result")
 	}
+	// resolveAllCoords populates Row/Col/AbsRow/AbsCol so serialization preserves $ markers
+	resolveAllCoords(ast)
 	return "=" + serializeComparison(ast.Expr.Comparison), nil
 }
 
@@ -218,6 +220,7 @@ func serializeUnary(unary *Unary) string {
 
 // serializePrimary converts a Primary AST back to a string.
 // Invalid refs are preserved as their original coord strings so cell.Value stays parseable.
+// Valid refs are serialized from coords+anchors (not Ref) so mutations are reflected.
 func serializePrimary(prim *Primary) string {
 	if prim == nil {
 		return ""
@@ -229,10 +232,18 @@ func serializePrimary(prim *Primary) string {
 		return *prim.String // Already includes quotes
 	}
 	if prim.CellRef != nil {
-		return prim.CellRef.Ref
+		if prim.CellRef.Invalid {
+			return prim.CellRef.Ref // preserve original for parseability
+		}
+		return coordsToRefWithAnchors(prim.CellRef.Row, prim.CellRef.Col, prim.CellRef.AbsRow, prim.CellRef.AbsCol)
 	}
 	if prim.Range != nil {
-		return prim.Range.Start + ":" + prim.Range.End
+		if prim.Range.Invalid {
+			return prim.Range.Start + ":" + prim.Range.End // preserve original
+		}
+		start := coordsToRefWithAnchors(prim.Range.StartRow, prim.Range.StartCol, prim.Range.StartAbsRow, prim.Range.StartAbsCol)
+		end := coordsToRefWithAnchors(prim.Range.EndRow, prim.Range.EndCol, prim.Range.EndAbsRow, prim.Range.EndAbsCol)
+		return start + ":" + end
 	}
 	if prim.FuncCall != nil {
 		return serializeFuncCall(prim.FuncCall)
@@ -262,10 +273,12 @@ func serializePrimaryDisplay(prim *Primary) string {
 		return *prim.String
 	}
 	if prim.CellRef != nil {
-		return prim.CellRef.Ref
+		return coordsToRefWithAnchors(prim.CellRef.Row, prim.CellRef.Col, prim.CellRef.AbsRow, prim.CellRef.AbsCol)
 	}
 	if prim.Range != nil {
-		return prim.Range.Start + ":" + prim.Range.End
+		start := coordsToRefWithAnchors(prim.Range.StartRow, prim.Range.StartCol, prim.Range.StartAbsRow, prim.Range.StartAbsCol)
+		end := coordsToRefWithAnchors(prim.Range.EndRow, prim.Range.EndCol, prim.Range.EndAbsRow, prim.Range.EndAbsCol)
+		return start + ":" + end
 	}
 	if prim.FuncCall != nil {
 		return serializeFuncCallDisplay(prim.FuncCall)

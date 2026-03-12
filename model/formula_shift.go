@@ -86,15 +86,16 @@ func shiftCellRef(ref *CellRef, deletedRow, deletedCol int, insert bool) {
 	if ref.Invalid {
 		return // already invalid, leave it
 	}
+	// TODO(19.2): decide if absolute refs should resist insert/delete shifts (currently they shift like relative refs)
 	if insert {
 		// Insert: shift refs at >= threshold up/right
 		if deletedRow >= 0 && ref.Row >= deletedRow {
 			ref.Row++
-			ref.Ref = CoordsToRef(ref.Row, ref.Col)
+			ref.Ref = coordsToRefWithAnchors(ref.Row, ref.Col, ref.AbsRow, ref.AbsCol)
 		}
 		if deletedCol >= 0 && ref.Col >= deletedCol {
 			ref.Col++
-			ref.Ref = CoordsToRef(ref.Row, ref.Col)
+			ref.Ref = coordsToRefWithAnchors(ref.Row, ref.Col, ref.AbsRow, ref.AbsCol)
 		}
 	} else {
 		// Delete: refs at threshold become invalid; refs beyond threshold shift
@@ -105,7 +106,7 @@ func shiftCellRef(ref *CellRef, deletedRow, deletedCol int, insert bool) {
 			}
 			if ref.Row > deletedRow {
 				ref.Row--
-				ref.Ref = CoordsToRef(ref.Row, ref.Col)
+				ref.Ref = coordsToRefWithAnchors(ref.Row, ref.Col, ref.AbsRow, ref.AbsCol)
 			}
 		}
 		if deletedCol >= 0 {
@@ -115,7 +116,7 @@ func shiftCellRef(ref *CellRef, deletedRow, deletedCol int, insert bool) {
 			}
 			if ref.Col > deletedCol {
 				ref.Col--
-				ref.Ref = CoordsToRef(ref.Row, ref.Col)
+				ref.Ref = coordsToRefWithAnchors(ref.Row, ref.Col, ref.AbsRow, ref.AbsCol)
 			}
 		}
 	}
@@ -150,8 +151,8 @@ func shiftRangeInsert(rng *Range, insertedRow, insertedCol int) {
 			rng.EndCol++
 		}
 	}
-	rng.Start = CoordsToRef(rng.StartRow, rng.StartCol)
-	rng.End = CoordsToRef(rng.EndRow, rng.EndCol)
+	rng.Start = coordsToRefWithAnchors(rng.StartRow, rng.StartCol, rng.StartAbsRow, rng.StartAbsCol)
+	rng.End = coordsToRefWithAnchors(rng.EndRow, rng.EndCol, rng.EndAbsRow, rng.EndAbsCol)
 }
 
 // shiftRangeDelete adjusts or invalidates range endpoints when a row or column is deleted.
@@ -168,8 +169,8 @@ func shiftRangeDelete(rng *Range, deletedRow, deletedCol int) {
 			return
 		}
 	}
-	rng.Start = CoordsToRef(rng.StartRow, rng.StartCol)
-	rng.End = CoordsToRef(rng.EndRow, rng.EndCol)
+	rng.Start = coordsToRefWithAnchors(rng.StartRow, rng.StartCol, rng.StartAbsRow, rng.StartAbsCol)
+	rng.End = coordsToRefWithAnchors(rng.EndRow, rng.EndCol, rng.EndAbsRow, rng.EndAbsCol)
 }
 
 // shiftRangeDeleteAxis adjusts start/end on one axis for a deletion at deletedIdx.
@@ -212,28 +213,46 @@ func ShiftFormulaByOffset(formula string, rowOffset, colOffset int) (string, err
 	resolveAllCoords(ast)
 	WalkPrimaries(ast, func(prim *Primary) {
 		if prim.CellRef != nil && !prim.CellRef.Invalid {
-			newRow := prim.CellRef.Row + rowOffset
-			newCol := prim.CellRef.Col + colOffset
+			newRow := prim.CellRef.Row
+			if !prim.CellRef.AbsRow {
+				newRow += rowOffset
+			}
+			newCol := prim.CellRef.Col
+			if !prim.CellRef.AbsCol {
+				newCol += colOffset
+			}
 			if newRow < 0 || newCol < 0 {
 				prim.CellRef.Invalid = true
 			} else {
 				prim.CellRef.Row = newRow
 				prim.CellRef.Col = newCol
-				prim.CellRef.Ref = CoordsToRef(newRow, newCol)
+				prim.CellRef.Ref = coordsToRefWithAnchors(newRow, newCol, prim.CellRef.AbsRow, prim.CellRef.AbsCol)
 			}
 		}
 		if prim.Range != nil && !prim.Range.Invalid {
-			sr := prim.Range.StartRow + rowOffset
-			sc := prim.Range.StartCol + colOffset
-			er := prim.Range.EndRow + rowOffset
-			ec := prim.Range.EndCol + colOffset
+			sr := prim.Range.StartRow
+			if !prim.Range.StartAbsRow {
+				sr += rowOffset
+			}
+			sc := prim.Range.StartCol
+			if !prim.Range.StartAbsCol {
+				sc += colOffset
+			}
+			er := prim.Range.EndRow
+			if !prim.Range.EndAbsRow {
+				er += rowOffset
+			}
+			ec := prim.Range.EndCol
+			if !prim.Range.EndAbsCol {
+				ec += colOffset
+			}
 			if sr < 0 || sc < 0 || er < 0 || ec < 0 {
 				prim.Range.Invalid = true
 			} else {
 				prim.Range.StartRow, prim.Range.StartCol = sr, sc
 				prim.Range.EndRow, prim.Range.EndCol = er, ec
-				prim.Range.Start = CoordsToRef(sr, sc)
-				prim.Range.End = CoordsToRef(er, ec)
+				prim.Range.Start = coordsToRefWithAnchors(sr, sc, prim.Range.StartAbsRow, prim.Range.StartAbsCol)
+				prim.Range.End = coordsToRefWithAnchors(er, ec, prim.Range.EndAbsRow, prim.Range.EndAbsCol)
 			}
 		}
 	})

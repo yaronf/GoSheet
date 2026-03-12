@@ -1,7 +1,5 @@
 package model
 
-import "fmt"
-
 // AST node definitions for formula parsing using participle
 
 // Formula is the root of the AST
@@ -53,40 +51,31 @@ type CellRef struct {
 	// Runtime fields (not parsed; populated by resolveAllCoords after parsing)
 	Row     int
 	Col     int
+	AbsRow  bool // true if the row is $-anchored (e.g. A$1)
+	AbsCol  bool // true if the col is $-anchored (e.g. $A1)
 	Invalid bool // true if this ref points to a deleted cell
 }
 
-// ToCoords converts CellRef to numeric coordinates
+// ToCoords converts CellRef to numeric coordinates (strips $ signs).
 func (c *CellRef) ToCoords() (row, col int) {
-	// Parse "A1" style reference
-	i := 0
-	for i < len(c.Ref) && (c.Ref[i] >= 'A' && c.Ref[i] <= 'Z') {
-		i++
-	}
-
-	colStr := c.Ref[:i]
-	rowStr := c.Ref[i:]
-
-	col = ColLetterToIndex(colStr)
-	var rowNum int
-	_, _ = fmt.Sscanf(rowStr, "%d", &rowNum)
-	row = rowNum - 1 // Convert to 0-indexed
-
-	return row, col
+	row, col, _, _ = parseRefWithAnchors(c.Ref)
+	return
 }
 
-// ResolveCoords populates Row, Col from the Ref string. Called once after parsing.
+// ResolveCoords populates Row, Col, AbsRow, AbsCol from the Ref string. Called once after parsing.
 func (c *CellRef) ResolveCoords() {
-	c.Row, c.Col = c.ToCoords()
+	c.Row, c.Col, c.AbsRow, c.AbsCol = parseRefWithAnchors(c.Ref)
 }
 
 type Range struct {
 	Start string `parser:"@CellRef"`
 	End   string `parser:"Colon @CellRef"`
 	// Runtime fields (not parsed; populated by resolveAllCoords after parsing)
-	StartRow, StartCol int
-	EndRow, EndCol     int
-	Invalid            bool // true if this range spans a deleted row/col
+	StartRow, StartCol       int
+	StartAbsRow, StartAbsCol bool // $ anchor flags for start endpoint
+	EndRow, EndCol           int
+	EndAbsRow, EndAbsCol     bool // $ anchor flags for end endpoint
+	Invalid                  bool // true if this range spans a deleted row/col
 }
 
 // GetStartCoords returns the start coordinates
@@ -99,12 +88,10 @@ func (r *Range) GetEndCoords() (row, col int) {
 	return r.EndRow, r.EndCol
 }
 
-// ResolveCoords populates the four coord fields from Start/End strings.
+// ResolveCoords populates the coord and anchor fields from Start/End strings.
 func (r *Range) ResolveCoords() {
-	startRef := &CellRef{Ref: r.Start}
-	endRef := &CellRef{Ref: r.End}
-	r.StartRow, r.StartCol = startRef.ToCoords()
-	r.EndRow, r.EndCol = endRef.ToCoords()
+	r.StartRow, r.StartCol, r.StartAbsRow, r.StartAbsCol = parseRefWithAnchors(r.Start)
+	r.EndRow, r.EndCol, r.EndAbsRow, r.EndAbsCol = parseRefWithAnchors(r.End)
 }
 
 // WalkPrimaries calls fn on every Primary node in the AST, in depth-first order.

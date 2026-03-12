@@ -261,7 +261,7 @@ development_status:
   # Epic 19: Formula Reference Shift & UI Menu Cleanup
   epic-19: in-progress
   19-1-formula-reference-shift-on-paste: done
-  19-2-absolute-cell-references: backlog
+  19-2-absolute-cell-references: done
   19-3-fold-insert-menu-into-edit-menu: backlog
   19-4-toolbar-style-buttons: backlog
   19-5-fix-address-box-full-row-col-select: backlog

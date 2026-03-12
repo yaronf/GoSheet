@@ -73,3 +73,43 @@ func RefToCoords(ref string) (row, col int, err error) {
 func CoordsToRef(row, col int) string {
 	return fmt.Sprintf("%s%d", ColIndexToLetter(col), row+1)
 }
+
+// coordsToRefWithAnchors is like CoordsToRef but prefixes $ on anchored axes.
+// absCol=true → "$A1"; absRow=true → "A$1"; both → "$A$1".
+func coordsToRefWithAnchors(row, col int, absRow, absCol bool) string {
+	colPart := ColIndexToLetter(col)
+	if absCol {
+		colPart = "$" + colPart
+	}
+	rowPart := fmt.Sprintf("%d", row+1)
+	if absRow {
+		rowPart = "$" + rowPart
+	}
+	return colPart + rowPart
+}
+
+// parseRefWithAnchors parses a cell reference string (with optional $ anchors) into
+// row/col coordinates and anchor flags. Handles: "A1", "$A1", "A$1", "$A$1".
+func parseRefWithAnchors(ref string) (row, col int, absRow, absCol bool) {
+	s := ref
+	if len(s) > 0 && s[0] == '$' {
+		absCol = true
+		s = s[1:]
+	}
+	// Find the boundary between column letters and row digits
+	i := 0
+	for i < len(s) && s[i] >= 'A' && s[i] <= 'Z' {
+		i++
+	}
+	colStr := s[:i]
+	s = s[i:]
+	if len(s) > 0 && s[0] == '$' {
+		absRow = true
+		s = s[1:]
+	}
+	col = ColLetterToIndex(colStr)
+	var rowNum int
+	_, _ = fmt.Sscanf(s, "%d", &rowNum)
+	row = rowNum - 1
+	return
+}
