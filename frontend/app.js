@@ -122,6 +122,7 @@ document.querySelector('#app').innerHTML = `
             <div id="toolbar-style-buttons" class="toolbar-style-group"></div>
         </div>
         <input type="file" id="file-input" accept=".gosheet" style="display: none;" aria-hidden="true" />
+        <span class="toolbar-separator" aria-hidden="true"></span>
         <div role="complementary" class="formula-bar-container" aria-label="Formula bar">
             <input type="text" class="cell-ref" id="cell-ref" title="Type cell or range address and press Enter" aria-label="Cell or range reference" value="A1" />
             <input type="text" class="formula-bar" id="formula-bar" placeholder="Enter value or formula..." title="Enter cell value or formula (start with = for formulas)" aria-label="Formula input" />

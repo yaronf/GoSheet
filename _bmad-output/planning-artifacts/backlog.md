@@ -14,7 +14,6 @@ See `[technical-agent-access-layer-research.md](research/technical-agent-access-
 ### Language-independent file format
 
 See `[technical-file-format-cross-language-random-access-research-2026-02-23.md](research/technical-file-format-cross-language-random-access-research-2026-02-23.md)`
-**Epic: TBD**
 
 ### Select cells/ranges for inclusion in formula
 
@@ -88,3 +87,7 @@ The box should be same height as the formula bar and aligned with it.
 
 When a range is copied, the formulas should have their references shifted. Absolute refs (`$A$1`) do not shift.
 **Epic: 19** (Stories 19.1 + 19.2)
+
+### Create debugging.md
+
+Document the debugging workflow for the GoSheet app: how to get renderer logs in the terminal (Story 16.8 unified logging: `console.error`/`console.warn` are forwarded unconditionally; `console.log` only with `--verbose`), how to run with `--verbose`, how to use `npm start 2>/tmp/gosheet-debug.log` to capture logs to a file, and what the log format looks like (`[ISO] [LEVEL] [SOURCE] message`).
