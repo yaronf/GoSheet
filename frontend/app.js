@@ -33,7 +33,6 @@ import {
 import {
   startEditing,
   applyCellValue,
-  applyAlignmentToSelection,
   handleKeydownFileOps,
   handleKeydownCellNavigation,
   saveCurrentEditOnCellSwitch,
@@ -118,23 +117,9 @@ document.querySelector('#app').innerHTML = `
                     <path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>
                 </svg>
             </button>
-            <!-- Alignment buttons (with gap from file buttons) -->
+            <!-- Story 19.4: Dynamic named-style buttons (replaces alignment buttons) -->
             <span class="toolbar-separator" aria-hidden="true"></span>
-            <button id="align-left-btn" class="toolbar-btn" title="Align left" aria-label="Align Left" aria-pressed="false">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/>
-                </svg>
-            </button>
-            <button id="align-center-btn" class="toolbar-btn" title="Align center" aria-label="Align Center" aria-pressed="false">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/>
-                </svg>
-            </button>
-            <button id="align-right-btn" class="toolbar-btn" title="Align right" aria-label="Align Right" aria-pressed="false">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="7" y2="18"/>
-                </svg>
-            </button>
+            <div id="toolbar-style-buttons" class="toolbar-style-group"></div>
         </div>
         <input type="file" id="file-input" accept=".gosheet" style="display: none;" aria-hidden="true" />
         <div role="complementary" class="formula-bar-container" aria-label="Formula bar">
@@ -896,16 +881,7 @@ document.getElementById('redo-btn').addEventListener('click', async () => {
   await performRedo();
 });
 
-// Story 13.8: Alignment toolbar button handlers
-document
-  .getElementById('align-left-btn')
-  .addEventListener('click', () => applyAlignmentToSelection('left'));
-document
-  .getElementById('align-center-btn')
-  .addEventListener('click', () => applyAlignmentToSelection('center'));
-document
-  .getElementById('align-right-btn')
-  .addEventListener('click', () => applyAlignmentToSelection('right'));
+// Story 19.4: Alignment toolbar buttons removed; alignment still available via View menu and context menu.
 
 // Story 7.1: Setup Electron menu event listeners
 setupElectronMenuListeners();

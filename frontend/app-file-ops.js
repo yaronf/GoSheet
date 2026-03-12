@@ -80,10 +80,10 @@ export function setReadOnly(value) {
   if (indicator) indicator.style.display = value ? 'inline' : 'none';
   const saveBtn = document.getElementById('save-btn');
   if (saveBtn) saveBtn.disabled = value || !window.currentHasUnsavedChanges;
-  for (const id of ['align-left-btn', 'align-center-btn', 'align-right-btn']) {
-    const btn = document.getElementById(id);
-    if (btn) btn.disabled = value;
-  }
+  // Story 19.4: disable/enable dynamic style buttons (alignment buttons removed)
+  document
+    .querySelectorAll('.toolbar-style-btn')
+    .forEach((btn) => (btn.disabled = value));
   updateUndoRedoToolbarForReadOnly(value);
   if (window.electronAPI?.updateMenuState) {
     window.electronAPI.updateMenuState({ isReadOnly: value });
@@ -151,6 +151,29 @@ export async function performRedo() {
   }
 }
 
+// Story 19.4: Build (or rebuild) dynamic style buttons in the toolbar.
+function buildToolbarStyleButtons(styles) {
+  const container = document.getElementById('toolbar-style-buttons');
+  if (!container) return;
+  container.innerHTML = '';
+  for (const s of styles) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = `style-btn-${s.id}`;
+    btn.className = 'toolbar-btn toolbar-style-btn';
+    btn.setAttribute('data-style-id', s.id);
+    btn.title = `Apply ${s.name} style`;
+    btn.setAttribute('aria-label', `Apply ${s.name} style`);
+    btn.textContent = s.name;
+    if (appState.isReadOnly) btn.disabled = true;
+    btn.addEventListener('click', () => {
+      window.__applyStyleToSelection?.(s.id);
+    });
+    container.appendChild(btn);
+  }
+}
+window.buildToolbarStyleButtons = buildToolbarStyleButtons;
+
 // Sync Format menu with styles from API — assigned at module load so always available
 window.syncFormatMenuFromApi = async function syncFormatMenuFromApi() {
   if (
@@ -160,6 +183,7 @@ window.syncFormatMenuFromApi = async function syncFormatMenuFromApi() {
   try {
     const styles = await GetStyles();
     window.electronAPI?.syncFormatMenu?.(styles);
+    buildToolbarStyleButtons(styles);
   } catch (err) {
     console.error('[App] Failed to sync Format menu:', err);
   }
@@ -621,6 +645,7 @@ function setupFormatMenuListeners() {
     }
   };
   window.__lastStyleError = null;
+  window.__applyStyleToSelection = applyStyleToSelection; // Story 19.4: exposed for toolbar buttons
   window.electronAPI.onMenuApplyStyle?.(applyStyleToSelection);
   window.electronAPI.onMenuStyleTitle?.(() =>
     applyStyleToSelection(STYLE_ID.TITLE)

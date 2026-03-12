@@ -218,7 +218,7 @@ development_status:
   14-1-pilot-electron-upgrade-compatibility: done
   14-2-complete-electron-upgrade: done
   14-3-port-chromium-click-tests-to-electron: done
-  14-4-update-build-and-ci-configuration: review
+  14-4-update-build-and-ci-configuration: done
   epic-14-retrospective: optional
 
   # Epic 15: Undo / Redo
@@ -244,7 +244,7 @@ development_status:
   epic-16-retrospective: optional
 
   # Epic 17: Selection & Range Operations
-  epic-17: in-progress
+  epic-17: done
   17-1-range-selection-shift-click-and-drag: done
   17-2-row-column-select-aesthetics: done
   17-3-copy-paste-rectangular-range: done
@@ -253,7 +253,7 @@ development_status:
   epic-17-retrospective: optional
 
   # Epic 18: Formula Editing Enhancements
-  epic-18: in-progress
+  epic-18: done
   18-1-click-to-insert-cell-reference: done
   18-2-drag-to-insert-range-reference: done
   epic-18-retrospective: optional
@@ -263,7 +263,7 @@ development_status:
   19-1-formula-reference-shift-on-paste: done
   19-2-absolute-cell-references: done
   19-3-fold-insert-menu-into-edit-menu: done
-  19-4-toolbar-style-buttons: backlog
+  19-4-toolbar-style-buttons: done
   19-5-fix-address-box-full-row-col-select: backlog
   19-6-warn-before-pasting-into-non-empty-range: backlog
   epic-19-retrospective: optional

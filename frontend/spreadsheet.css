@@ -1136,6 +1136,35 @@ input:focus-visible,
   background: var(--color-border);
 }
 
+/* Story 19.4: Toolbar style buttons — text label, auto width, same height as icon buttons */
+.toolbar-style-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-style-btn {
+  width: auto;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+/* Built-in style previews */
+.toolbar-style-btn[data-style-id='1'] {
+  font-weight: bold;
+}
+
+.toolbar-style-btn[data-style-id='2'] {
+  font-weight: bold;
+  color: var(--color-primary);
+}
+
+.toolbar-style-btn[data-style-id='3'] {
+  font-style: italic;
+}
+
 /* Toolbar separator between button groups */
 .toolbar-separator {
   display: inline-block;
