@@ -259,13 +259,13 @@ development_status:
   epic-18-retrospective: optional
 
   # Epic 19: Formula Reference Shift & UI Menu Cleanup
-  epic-19: in-progress
+  epic-19: done
   19-1-formula-reference-shift-on-paste: done
   19-2-absolute-cell-references: done
   19-3-fold-insert-menu-into-edit-menu: done
   19-4-toolbar-style-buttons: done
   19-5-fix-address-box-full-row-col-select: done
-  19-6-warn-before-pasting-into-non-empty-range: backlog
+  19-6-warn-before-pasting-into-non-empty-range: obsolete  # dropped: undo/redo makes this unnecessary
   epic-19-retrospective: optional
 
   # Epic 20: Agentic API Access Layer (deferred, stories TBD)
