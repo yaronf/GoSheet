@@ -24,7 +24,12 @@ import {
   ShiftFormula,
 } from './api-client.js';
 import { appState, OPEN_END } from './app-state.js';
-import { showAlert, announceToScreenReader, colToLetter } from './app-utils.js';
+import {
+  showAlert,
+  showConfirmDialog,
+  announceToScreenReader,
+  colToLetter,
+} from './app-utils.js';
 import {
   selectionOverlapsMerge,
   getMergeInfo,
@@ -395,6 +400,18 @@ async function buildCellsToSet(parsedRows, targetRow, targetCol) {
   return cellsToSet;
 }
 
+// Story 19.6: Returns true if any cell in the target rect already has content.
+async function targetRangeHasContent(targetRow, targetCol, rows, cols) {
+  const allCells = await GetAllCells();
+  for (let r = targetRow; r < targetRow + rows; r++) {
+    for (let c = targetCol; c < targetCol + cols; c++) {
+      const key = `${colToLetter(c)}${r + 1}`;
+      if (allCells[key]?.raw) return true;
+    }
+  }
+  return false;
+}
+
 // Paste clipboard text (TSV or single value) starting at the selected cell.
 export async function pasteFromClipboard() {
   if (appState.isReadOnly) return;
@@ -415,6 +432,13 @@ export async function pasteFromClipboard() {
 
   if (parsedRows.length === 1 && !parsedRows[0].includes('\t')) {
     // Single-cell paste — shift formula if pasting to a different location
+    // Story 19.6: warn if target cell is non-empty
+    if (await targetRangeHasContent(targetRow, targetCol, 1, 1)) {
+      const confirmed = await showConfirmDialog(
+        'Paste will overwrite existing content. Continue?'
+      );
+      if (!confirmed) return;
+    }
     try {
       let value = parsedRows[0];
       if (
@@ -443,12 +467,27 @@ export async function pasteFromClipboard() {
 
   // Multi-cell TSV paste — atomic: all cells in one undo entry via /api/range/set
   const maxPasteRow = targetRow + parsedRows.length - 1;
-  const maxPasteCol =
-    targetCol + Math.max(...parsedRows.map((r) => r.split('\t').length)) - 1;
+  const maxCols = Math.max(...parsedRows.map((r) => r.split('\t').length));
+  const maxPasteCol = targetCol + maxCols - 1;
   // TODO(M2): expandGridIfNeeded triggers an async DOM rebuild internally but returns
   // synchronously. SetRangeValues writes to the model (not the DOM) so this
   // is safe, but the DOM may not reflect the new rows until refreshAllCells() completes.
   expandGridIfNeeded(maxPasteRow, maxPasteCol);
+
+  // Story 19.6: warn if any target cell is non-empty
+  if (
+    await targetRangeHasContent(
+      targetRow,
+      targetCol,
+      parsedRows.length,
+      maxCols
+    )
+  ) {
+    const confirmed = await showConfirmDialog(
+      'Paste will overwrite existing content. Continue?'
+    );
+    if (!confirmed) return;
+  }
 
   try {
     const cellsToSet = await buildCellsToSet(parsedRows, targetRow, targetCol);
