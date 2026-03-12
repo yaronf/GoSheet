@@ -262,7 +262,7 @@ development_status:
   epic-19: in-progress
   19-1-formula-reference-shift-on-paste: done
   19-2-absolute-cell-references: done
-  19-3-fold-insert-menu-into-edit-menu: backlog
+  19-3-fold-insert-menu-into-edit-menu: done
   19-4-toolbar-style-buttons: backlog
   19-5-fix-address-box-full-row-col-select: backlog
   19-6-warn-before-pasting-into-non-empty-range: backlog
@@ -278,3 +278,5 @@ development_status:
   #   Expected: app quits (or shows unsaved-changes dialog then quits).
   # feature-copy-paste-whole-row-col: Allow copy/paste of open-ended row/column selections
   #   (currently blocked by "selection too large" guard in copySelectionToClipboard).
+  # ux-clear-and-clear-formatting: "Clear" in the context menu and "Format Cleanup" (Clear Formatting)
+  #   in the Format menu are confusing and need to be rethought.

@@ -46,6 +46,14 @@ Relevant: `[model/cell.go](../../model/cell.go)`, `[model/formula.go](../../mode
 
 Remove all formatting from selected cell(s) — font, color, style, alignment — returning them to the default unstyled state. Distinct from "Format Cleanup" (which removes unused styles from the registry). Likely a menu item under Format and/or a keyboard shortcut.
 
+### Bug: Dock right-click "Quit" navigates to Welcome screen instead of quitting
+
+In dev mode, right-clicking the dock icon and selecting "Quit" navigates to the Welcome screen instead of quitting the app. Expected: app quits (or shows unsaved-changes dialog then quits).
+
+### "Clear" and "Clear Formatting" UX rethink
+
+"Clear" in the context menu (clears cell content) and "Format Cleanup" in the Format menu are confusing — naming and placement need to be rethought. What exactly does each do, where should each live, and what should they be called?
+
 ### Text wrapping within cell
 
 At least a toggle. Does it also require control of row/column width?

@@ -4,7 +4,7 @@
  *
  * This module manages the application's native menu system, including:
  * - File menu with New, Open, Save, Save As, Import/Export CSV
- * - Edit menu with Cut, Copy, Paste, Select All
+ * - Edit menu with Cut, Copy, Paste, Go to Range, Insert/Delete Row/Column
  * - Help menu with About GoSheet
  * - Recent Files submenu
  * - Dynamic menu state management (enable/disable based on app state)
@@ -409,6 +409,57 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
             }
           },
         },
+        { type: 'separator' },
+        // Story 19.3 (moved from Insert menu): Insert/Delete row and column
+        {
+          id: 'insert-row',
+          label: 'Insert Row Above',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Insert Row triggered');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-insert-row');
+            }
+          },
+        },
+        {
+          id: 'insert-column',
+          label: 'Insert Column Before',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Insert Column triggered');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-insert-column');
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          id: 'delete-row',
+          label: 'Delete Row',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Delete Row triggered');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-delete-row');
+            }
+          },
+        },
+        {
+          id: 'delete-column',
+          label: 'Delete Column',
+          enabled: false,
+          click: () => {
+            if (DEBUG) console.log('[Menu] Delete Column triggered');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-delete-column');
+            }
+          },
+        },
       ],
     },
 
@@ -517,62 +568,6 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
       ],
     },
 
-    // Story 13.1: Insert menu (row/column)
-    {
-      label: 'Insert',
-      submenu: [
-        {
-          id: 'insert-row',
-          label: 'Insert Row Above',
-          enabled: false,
-          click: () => {
-            if (DEBUG) console.log('[Menu] Insert Row triggered');
-            const win = getTargetWindow();
-            if (win) {
-              win.webContents.send('menu-insert-row');
-            }
-          },
-        },
-        {
-          id: 'insert-column',
-          label: 'Insert Column Before',
-          enabled: false,
-          click: () => {
-            if (DEBUG) console.log('[Menu] Insert Column triggered');
-            const win = getTargetWindow();
-            if (win) {
-              win.webContents.send('menu-insert-column');
-            }
-          },
-        },
-        { type: 'separator' },
-        {
-          id: 'delete-row',
-          label: 'Delete Row',
-          enabled: false,
-          click: () => {
-            if (DEBUG) console.log('[Menu] Delete Row triggered');
-            const win = getTargetWindow();
-            if (win) {
-              win.webContents.send('menu-delete-row');
-            }
-          },
-        },
-        {
-          id: 'delete-column',
-          label: 'Delete Column',
-          enabled: false,
-          click: () => {
-            if (DEBUG) console.log('[Menu] Delete Column triggered');
-            const win = getTargetWindow();
-            if (win) {
-              win.webContents.send('menu-delete-column');
-            }
-          },
-        },
-      ],
-    },
-
     // Story 7.3: Help menu | Story 9.6: Formula Reference
     // Note: Don't use role: 'help' - it can prevent custom submenu items from receiving clicks on macOS
     {
@@ -631,7 +626,7 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
     console.log('[Menu] Template has', template.length, 'top-level menus');
   const fileMenuIndex = process.platform === 'darwin' ? 1 : 0;
   const editMenuIndex = process.platform === 'darwin' ? 2 : 1;
-  const helpMenuIndex = process.platform === 'darwin' ? 6 : 5; // View + Insert added
+  const helpMenuIndex = process.platform === 'darwin' ? 5 : 4; // macOS: App+File+Edit+Format+View+Help
   if (DEBUG)
     console.log(
       '[Menu] File menu has',

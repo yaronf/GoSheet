@@ -1,5 +1,5 @@
 // Story 13.1: Row/Column Selection and Insert - Playwright tests
-// Tests row/column header selection and Insert menu (Insert Row Above, Insert Column Before)
+// Tests row/column header selection and Edit menu (Insert Row Above, Insert Column Before)
 
 const { test, expect } = require('./fixtures');
 const {
@@ -36,15 +36,28 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
       timeout: 2000,
     });
 
-    const insertRowEnabled = await electronApp.evaluate(({ Menu }) => {
+    const menuState = await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
-      const insertMenu = menu?.items?.find((item) => item.label === 'Insert');
-      const insertRowItem = insertMenu?.submenu?.items?.find(
-        (item) => item.label === 'Insert Row Above'
-      );
-      return insertRowItem?.enabled ?? false;
+      const editMenu = menu?.items?.find((item) => item.label === 'Edit');
+      const items = editMenu?.submenu?.items;
+      return {
+        insertRowEnabled:
+          items?.find((item) => item.label === 'Insert Row Above')?.enabled ??
+          false,
+        deleteRowEnabled:
+          items?.find((item) => item.label === 'Delete Row')?.enabled ?? false,
+        insertColEnabled:
+          items?.find((item) => item.label === 'Insert Column Before')
+            ?.enabled ?? false,
+        deleteColEnabled:
+          items?.find((item) => item.label === 'Delete Column')?.enabled ??
+          false,
+      };
     });
-    expect(insertRowEnabled).toBe(true);
+    expect(menuState.insertRowEnabled).toBe(true);
+    expect(menuState.deleteRowEnabled).toBe(true);
+    expect(menuState.insertColEnabled).toBe(false);
+    expect(menuState.deleteColEnabled).toBe(false);
   });
 
   test('clicking column header selects column and enables Insert Column Before', async ({
@@ -57,15 +70,28 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
       timeout: 2000,
     });
 
-    const insertColEnabled = await electronApp.evaluate(({ Menu }) => {
+    const menuState = await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
-      const insertMenu = menu?.items?.find((item) => item.label === 'Insert');
-      const insertColItem = insertMenu?.submenu?.items?.find(
-        (item) => item.label === 'Insert Column Before'
-      );
-      return insertColItem?.enabled ?? false;
+      const editMenu = menu?.items?.find((item) => item.label === 'Edit');
+      const items = editMenu?.submenu?.items;
+      return {
+        insertRowEnabled:
+          items?.find((item) => item.label === 'Insert Row Above')?.enabled ??
+          false,
+        deleteRowEnabled:
+          items?.find((item) => item.label === 'Delete Row')?.enabled ?? false,
+        insertColEnabled:
+          items?.find((item) => item.label === 'Insert Column Before')
+            ?.enabled ?? false,
+        deleteColEnabled:
+          items?.find((item) => item.label === 'Delete Column')?.enabled ??
+          false,
+      };
     });
-    expect(insertColEnabled).toBe(true);
+    expect(menuState.insertColEnabled).toBe(true);
+    expect(menuState.deleteColEnabled).toBe(true);
+    expect(menuState.insertRowEnabled).toBe(false);
+    expect(menuState.deleteRowEnabled).toBe(false);
   });
 
   test('Insert Row Above inserts empty row and shifts data down', async ({
@@ -86,8 +112,8 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
     // so we wait for the DOM to reflect the insert rather than asserting immediately.
     await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
-      const insertMenu = menu.items.find((item) => item.label === 'Insert');
-      const insertRowItem = insertMenu?.submenu?.items.find(
+      const editMenu = menu.items.find((item) => item.label === 'Edit');
+      const insertRowItem = editMenu?.submenu?.items.find(
         (item) => item.label === 'Insert Row Above'
       );
       if (insertRowItem?.click) insertRowItem.click();
@@ -117,8 +143,8 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
     // Trigger insert column via the menu IPC path (main process → renderer).
     await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
-      const insertMenu = menu.items.find((item) => item.label === 'Insert');
-      const insertColItem = insertMenu?.submenu?.items.find(
+      const editMenu = menu.items.find((item) => item.label === 'Edit');
+      const insertColItem = editMenu?.submenu?.items.find(
         (item) => item.label === 'Insert Column Before'
       );
       if (insertColItem?.click) insertColItem.click();
@@ -141,19 +167,25 @@ test.describe('Row/Column selection and Insert (Story 13.1)', () => {
 
     const menuState = await electronApp.evaluate(({ Menu }) => {
       const menu = Menu.getApplicationMenu();
-      const insertMenu = menu?.items?.find((item) => item.label === 'Insert');
-      const insertRowItem = insertMenu?.submenu?.items?.find(
-        (item) => item.label === 'Insert Row Above'
-      );
-      const insertColItem = insertMenu?.submenu?.items?.find(
-        (item) => item.label === 'Insert Column Before'
-      );
+      const editMenu = menu?.items?.find((item) => item.label === 'Edit');
+      const items = editMenu?.submenu?.items;
       return {
-        insertRowEnabled: insertRowItem?.enabled ?? false,
-        insertColEnabled: insertColItem?.enabled ?? false,
+        insertRowEnabled:
+          items?.find((item) => item.label === 'Insert Row Above')?.enabled ??
+          false,
+        deleteRowEnabled:
+          items?.find((item) => item.label === 'Delete Row')?.enabled ?? false,
+        insertColEnabled:
+          items?.find((item) => item.label === 'Insert Column Before')
+            ?.enabled ?? false,
+        deleteColEnabled:
+          items?.find((item) => item.label === 'Delete Column')?.enabled ??
+          false,
       };
     });
     expect(menuState.insertRowEnabled).toBe(false);
+    expect(menuState.deleteRowEnabled).toBe(false);
     expect(menuState.insertColEnabled).toBe(false);
+    expect(menuState.deleteColEnabled).toBe(false);
   });
 });
