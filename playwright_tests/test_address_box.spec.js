@@ -126,4 +126,106 @@ test.describe('Address box (Story 17.4)', () => {
     );
     expect(await window.locator('#cell-ref').inputValue()).toBe('A1:C3');
   });
+
+  // Story 19.5: full row/column range entry
+  test('type B:B and press Enter selects full column B', async ({ window }) => {
+    const cellRef = window.locator('#cell-ref');
+    await cellRef.click();
+    await cellRef.fill('B:B');
+    await cellRef.press('Enter');
+
+    await window.waitForFunction(
+      () => {
+        const el = document.getElementById('cell-ref');
+        return el && el.value === 'B:B';
+      },
+      { timeout: 3000 }
+    );
+    expect(await cellRef.inputValue()).toBe('B:B');
+    // Column B header should be highlighted
+    await expect(window.locator('.column-header[data-col="1"]')).toHaveClass(
+      /selected/,
+      { timeout: 2000 }
+    );
+  });
+
+  test('type 3:3 and press Enter selects full row 3', async ({ window }) => {
+    const cellRef = window.locator('#cell-ref');
+    await cellRef.click();
+    await cellRef.fill('3:3');
+    await cellRef.press('Enter');
+
+    await window.waitForFunction(
+      () => {
+        const el = document.getElementById('cell-ref');
+        return el && el.value === '3:3';
+      },
+      { timeout: 3000 }
+    );
+    expect(await cellRef.inputValue()).toBe('3:3');
+    // Row 3 header should be highlighted
+    await expect(window.locator('.row-header[data-row="2"]')).toHaveClass(
+      /selected/,
+      { timeout: 2000 }
+    );
+  });
+
+  test('type B:D and press Enter selects columns B through D', async ({
+    window,
+  }) => {
+    const cellRef = window.locator('#cell-ref');
+    await cellRef.click();
+    await cellRef.fill('B:D');
+    await cellRef.press('Enter');
+
+    await window.waitForFunction(
+      () => {
+        const el = document.getElementById('cell-ref');
+        return el && el.value === 'B:D';
+      },
+      { timeout: 3000 }
+    );
+    expect(await cellRef.inputValue()).toBe('B:D');
+  });
+
+  test('type 2:5 and press Enter selects rows 2 through 5', async ({
+    window,
+  }) => {
+    const cellRef = window.locator('#cell-ref');
+    await cellRef.click();
+    await cellRef.fill('2:5');
+    await cellRef.press('Enter');
+
+    await window.waitForFunction(
+      () => {
+        const el = document.getElementById('cell-ref');
+        return el && el.value === '2:5';
+      },
+      { timeout: 3000 }
+    );
+    expect(await cellRef.inputValue()).toBe('2:5');
+  });
+
+  test('type 0:0 is invalid — no selection change', async ({ window }) => {
+    const cellRef = window.locator('#cell-ref');
+    // First establish a known selection
+    await cellRef.click();
+    await cellRef.fill('A1');
+    await cellRef.press('Enter');
+    await window.waitForFunction(
+      () => document.getElementById('cell-0-0')?.classList.contains('selected'),
+      { timeout: 2000 }
+    );
+
+    // Now type invalid row range
+    await cellRef.click();
+    await cellRef.fill('0:0');
+    await cellRef.press('Enter');
+
+    expect(
+      await cellRef.evaluate((el) => el.classList.contains('cell-ref-invalid'))
+    ).toBe(true);
+    // A1 still selected
+    await expect(window.locator('#cell-0-0')).toHaveClass(/selected/);
+  });
 });

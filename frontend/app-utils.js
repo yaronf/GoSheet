@@ -2,7 +2,7 @@
 // No shared mutable state dependencies (except announceToScreenReader which uses appState
 // indirectly via isEditing check in forceCleanupEditing).
 
-import { appState } from './app-state.js';
+import { appState, OPEN_END } from './app-state.js';
 
 // Story 10.7: Focus trap for dialogs - Tab cycles within dialog, Escape closes
 export function setupDialogFocusTrap(overlay, onClose) {
@@ -152,45 +152,92 @@ export function letterToCol(letter) {
   return col - 1;
 }
 
-// Story 17.4: Parse a cell or range address string into row/col bounds.
-// Returns { startRow, startCol, endRow, endCol } (0-indexed) or null if invalid.
+// Story 17.4 / 19.5: Parse a cell or range address string into row/col bounds.
+// Returns { startRow, startCol, endRow, endCol, mode } (0-indexed) or null if invalid.
+// mode: 'cell' | 'row' | 'column' — used by address box handler to set selectionMode.
 // Note: zero-padded rows (e.g. "A01") are accepted and treated as "A1" — parseInt
 // ignores leading zeros with radix 10. This matches Excel/Sheets behaviour.
 export function parseRangeAddress(text) {
   if (!text) return null;
   const upper = text.trim().toUpperCase();
-  const singleMatch = upper.match(/^([A-Z]+)(\d+)$/);
-  if (singleMatch) {
-    const col = letterToCol(singleMatch[1]);
-    const row = parseInt(singleMatch[2], 10) - 1;
-    if (col < 0 || row < 0 || col > 999 || row > 9999) return null;
-    return { startRow: row, startCol: col, endRow: row, endCol: col };
-  }
-  const rangeMatch = upper.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
-  if (rangeMatch) {
-    const startCol = letterToCol(rangeMatch[1]);
-    const startRow = parseInt(rangeMatch[2], 10) - 1;
-    const endCol = letterToCol(rangeMatch[3]);
-    const endRow = parseInt(rangeMatch[4], 10) - 1;
-    if (
-      startCol < 0 ||
-      startRow < 0 ||
-      endCol < 0 ||
-      endRow < 0 ||
-      startCol > 999 ||
-      endCol > 999 ||
-      startRow > 9999 ||
-      endRow > 9999
-    )
-      return null;
-    return {
-      startRow: Math.min(startRow, endRow),
-      startCol: Math.min(startCol, endCol),
-      endRow: Math.max(startRow, endRow),
-      endCol: Math.max(startCol, endCol),
-    };
-  }
-  return null;
+  return (
+    parseColRange(upper) ||
+    parseRowRange(upper) ||
+    parseSingleCell(upper) ||
+    parseCellRange(upper)
+  );
+}
+
+function parseColRange(upper) {
+  const m = upper.match(/^([A-Z]+):([A-Z]+)$/);
+  if (!m) return null;
+  const c1 = letterToCol(m[1]);
+  const c2 = letterToCol(m[2]);
+  if (c1 < 0 || c2 < 0 || c1 > 999 || c2 > 999) return null;
+  return {
+    startRow: 0,
+    startCol: Math.min(c1, c2),
+    endRow: OPEN_END,
+    endCol: Math.max(c1, c2),
+    mode: 'column',
+  };
+}
+
+function parseRowRange(upper) {
+  const m = upper.match(/^(\d+):(\d+)$/);
+  if (!m) return null;
+  const r1 = parseInt(m[1], 10) - 1;
+  const r2 = parseInt(m[2], 10) - 1;
+  if (r1 < 0 || r2 < 0 || r1 > 9999 || r2 > 9999) return null;
+  return {
+    startRow: Math.min(r1, r2),
+    startCol: 0,
+    endRow: Math.max(r1, r2),
+    endCol: OPEN_END,
+    mode: 'row',
+  };
+}
+
+function parseSingleCell(upper) {
+  const m = upper.match(/^([A-Z]+)(\d+)$/);
+  if (!m) return null;
+  const col = letterToCol(m[1]);
+  const row = parseInt(m[2], 10) - 1;
+  if (col < 0 || row < 0 || col > 999 || row > 9999) return null;
+  return {
+    startRow: row,
+    startCol: col,
+    endRow: row,
+    endCol: col,
+    mode: 'cell',
+  };
+}
+
+function parseCellRange(upper) {
+  const m = upper.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+  if (!m) return null;
+  const c1 = letterToCol(m[1]);
+  const r1 = parseInt(m[2], 10) - 1;
+  const c2 = letterToCol(m[3]);
+  const r2 = parseInt(m[4], 10) - 1;
+  if (
+    c1 < 0 ||
+    r1 < 0 ||
+    c2 < 0 ||
+    r2 < 0 ||
+    c1 > 999 ||
+    c2 > 999 ||
+    r1 > 9999 ||
+    r2 > 9999
+  )
+    return null;
+  return {
+    startRow: Math.min(r1, r2),
+    startCol: Math.min(c1, c2),
+    endRow: Math.max(r1, r2),
+    endCol: Math.max(c1, c2),
+    mode: 'cell',
+  };
 }
 
 // Story 10.7: Screen reader announcements (visually hidden, aria-live)

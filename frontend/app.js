@@ -780,7 +780,7 @@ if (cellRefInput) {
         return;
       }
       cellRefInput.classList.remove('cell-ref-invalid');
-      appState.selectionMode = 'cell';
+      appState.selectionMode = range.mode ?? 'cell'; // Story 19.5: honour row/column mode
       applySelectionRange(
         range.startRow,
         range.startCol,
