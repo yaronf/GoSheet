@@ -41,17 +41,9 @@ The Insert menu items (insert row/column) should live in the Edit menu, eliminat
 Replace with a typed `ErrorKind` enum (e.g. `ErrNone`, `ErrEval`, `ErrRef`, `ErrCircular`, `ErrParse`) on `Cell`, keeping `Computed` for the display string. Callers that need to branch on error type use the enum; the frontend continues to display `Computed` as-is. Note: `ErrorKind` must be gob-registered to survive save/load round-trips, and the file format version should be bumped.
 Relevant: `[model/cell.go](../../model/cell.go)`, `[model/formula.go](../../model/formula.go)`, `[controller/app.go](../../controller/app.go)`
 
-### Clear cell styling
-
-Remove all formatting from selected cell(s) — font, color, style, alignment — returning them to the default unstyled state. Distinct from "Format Cleanup" (which removes unused styles from the registry). Likely a menu item under Format and/or a keyboard shortcut.
-
 ### Bug: Dock right-click "Quit" navigates to Welcome screen instead of quitting
 
 In dev mode, right-clicking the dock icon and selecting "Quit" navigates to the Welcome screen instead of quitting the app. Expected: app quits (or shows unsaved-changes dialog then quits).
-
-### "Clear" and "Clear Formatting" UX rethink
-
-"Clear" in the context menu (clears cell content) and "Format Cleanup" in the Format menu are confusing — naming and placement need to be rethought. What exactly does each do, where should each live, and what should they be called?
 
 ### Text wrapping within cell
 
@@ -69,25 +61,8 @@ Today this is behind a "too many cells" check. Needs to be implemnted efficientl
 Or add an "are you sure" modal.
 **Epic: 19** (Story 19.6)
 
-### Logging: clean the default
-
-When running without --verbose, only error/warning logs should be printed. And maybe get rid of the Electron message:
-
-Electron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
-  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
-  this app to unnecessary security risks.
-
-Also maybe add a --debug flag, so --verbose is INFO, --debug is DEBUG.
-
-### Cell address box - UI
-
-The box should be same height as the formula bar and aligned with it.
-
 ### Copy/pasted formulas - bug
 
 When a range is copied, the formulas should have their references shifted. Absolute refs (`$A$1`) do not shift.
 **Epic: 19** (Stories 19.1 + 19.2)
 
-### Create debugging.md
-
-Document the debugging workflow for the GoSheet app: how to get renderer logs in the terminal (Story 16.8 unified logging: `console.error`/`console.warn` are forwarded unconditionally; `console.log` only with `--verbose`), how to run with `--verbose`, how to use `npm start 2>/tmp/gosheet-debug.log` to capture logs to a file, and what the log format looks like (`[ISO] [LEVEL] [SOURCE] message`).

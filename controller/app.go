@@ -473,6 +473,20 @@ func (c *AppController) CleanupFormat() {
 	c.Sheet.CleanupFormat()
 }
 
+// ClearRangeFormat clears styleId and alignment from cells in the range, recording in undo history.
+// Cell values are preserved. Only cells with non-zero style or non-empty alignment are affected.
+func (c *AppController) ClearRangeFormat(startRow, startCol, endRow, endCol int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.History.Push(&ClearRangeFormatCommand{
+		ctrl:     c,
+		startRow: startRow,
+		startCol: startCol,
+		endRow:   endRow,
+		endCol:   endCol,
+	})
+}
+
 // ClearRange clears cell values in the range, recording the operation in undo history.
 // Only clears anchors for merged regions (covered cells are skipped).
 // Story 13.2: Batch clear for context menu performance.

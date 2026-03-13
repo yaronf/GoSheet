@@ -272,6 +272,14 @@ development_status:
   epic-20: backlog
   epic-20-retrospective: optional
 
+  # Epic 21: UX Polish & Developer Experience
+  epic-21: done
+  21-1-clear-cell-styling: done
+  21-2-clear-formatting-naming-ux: done
+  21-3-logging-cleanup: done
+  21-4-create-debugging-md: done
+  epic-21-retrospective: optional
+
   # Backlog: Known issues / tech debt
   # bug-dock-right-click-quit: In dev mode, right-clicking the dock icon and selecting "Quit"
   #   does not quit the app — instead it navigates to the Welcome screen.

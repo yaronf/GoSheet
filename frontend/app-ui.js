@@ -303,6 +303,8 @@ async function dispatchContextMenuAction(action) {
     await applyAlignmentToSelection('center');
   } else if (action === 'align-right') {
     await applyAlignmentToSelection('right');
+  } else if (action === 'clear-formatting') {
+    window.clearFormattingFromSelection?.();
   } else if (action === 'clear') {
     const result = await ClearRange(startRow, startCol, endRow, endCol);
     if (result?.hasUnsavedChanges !== undefined)

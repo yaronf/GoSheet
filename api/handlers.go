@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -62,7 +61,7 @@ func GetFrontendDir() string {
 		logutil.Debugln("Found frontend at: ../frontend/")
 		return "../frontend"
 	}
-	log.Println("Warning: Could not find frontend directory, using ../frontend")
+	logutil.Warnf("Could not find frontend directory, using ../frontend")
 	return "../frontend"
 }
 

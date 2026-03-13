@@ -496,8 +496,21 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
         ...styleItems,
         { type: 'separator' },
         {
+          id: 'clear-formatting',
+          label: 'Clear Formatting',
+          accelerator: 'CmdOrCtrl+\\',
+          click: () => {
+            if (DEBUG) console.log('[Menu] Clear Formatting triggered');
+            const win = getTargetWindow();
+            if (win) {
+              win.webContents.send('menu-clear-formatting');
+            }
+          },
+        },
+        { type: 'separator' },
+        {
           id: 'format-cleanup',
-          label: 'Format Cleanup',
+          label: 'Remove Unused Styles',
           click: () => {
             if (DEBUG) console.log('[Menu] Format Cleanup triggered');
             const win = getTargetWindow();

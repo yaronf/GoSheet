@@ -217,26 +217,50 @@ test.describe('Undo/Redo (Story 15.2)', () => {
     await expect(window.locator('#undo-btn')).toBeDisabled();
   });
 
-  // HTTP API tests (direct, fast)
-  test('POST /api/undo returns correct state on empty stack', async ({
+  // HTTP API + UI state tests
+  test('POST /api/undo on empty stack: undo/redo buttons stay disabled', async ({
     window,
   }) => {
     const json = await apiUndo(window);
     expect(json.success).toBe(true);
     expect(json.data.canUndo).toBe(false);
     expect(json.data.canRedo).toBe(false);
+
+    // UI: toolbar buttons must reflect the empty undo stack
+    await window.evaluate(
+      (data) => window.applyUndoRedoState?.(data),
+      json.data
+    );
+    await expect(window.locator('#undo-btn')).toBeDisabled();
+    await expect(window.locator('#redo-btn')).toBeDisabled();
   });
 
-  test('POST /api/undo returns canRedo=true after undo', async ({ window }) => {
+  test('POST /api/undo after edit: cell cleared and redo button enabled', async ({
+    window,
+  }) => {
     await setCellViaApi(window, 0, 0, 'hello');
+    await expect(window.locator('#cell-0-0')).toHaveText('hello');
+
     const json = await apiUndo(window);
     expect(json.success).toBe(true);
     expect(json.data.canUndo).toBe(false);
     expect(json.data.canRedo).toBe(true);
     expect(json.data.redoDescription).toContain('A1');
+
+    // UI: cell must be cleared and redo button enabled
+    await window.evaluate(
+      (data) => window.applyUndoRedoState?.(data),
+      json.data
+    );
+    await window.evaluate(() => window.refreshAllCells?.());
+    await expect(window.locator('#cell-0-0')).toHaveText('', { timeout: 3000 });
+    await expect(window.locator('#redo-btn')).toBeEnabled({ timeout: 3000 });
+    await expect(window.locator('#undo-btn')).toBeDisabled();
   });
 
-  test('POST /api/redo re-applies undone edit', async ({ window }) => {
+  test('POST /api/redo re-applies undone edit: cell shows value', async ({
+    window,
+  }) => {
     await setCellViaApi(window, 0, 0, 'hello');
     await apiUndo(window);
     const json = await apiRedo(window);
@@ -244,12 +268,16 @@ test.describe('Undo/Redo (Story 15.2)', () => {
     expect(json.data.canUndo).toBe(true);
     expect(json.data.canRedo).toBe(false);
 
-    // Verify cell was actually restored via fetch (API test only — no UI refresh)
-    const cellRes = await window.evaluate(async () => {
-      const r = await fetch('/api/cell/value?row=0&col=0');
-      const j = await r.json();
-      return j.data?.computed ?? '';
+    // UI: cell must display the re-applied value
+    await window.evaluate(
+      (data) => window.applyUndoRedoState?.(data),
+      json.data
+    );
+    await window.evaluate(() => window.refreshAllCells?.());
+    await expect(window.locator('#cell-0-0')).toHaveText('hello', {
+      timeout: 3000,
     });
-    expect(cellRes).toBe('hello');
+    await expect(window.locator('#undo-btn')).toBeEnabled({ timeout: 3000 });
+    await expect(window.locator('#redo-btn')).toBeDisabled();
   });
 });

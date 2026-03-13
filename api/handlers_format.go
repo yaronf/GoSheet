@@ -166,6 +166,32 @@ func (s *Server) HandleClearRange(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleClearRangeFormat clears styleId and alignment from cells in the range without touching values.
+// POST /api/range/clear-format
+func (s *Server) HandleClearRangeFormat(w http.ResponseWriter, r *http.Request) {
+	var req ClearRangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.Ctrl.ClearRangeFormat(req.StartRow, req.StartCol, req.EndRow, req.EndCol); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	urState := s.Ctrl.UndoRedoState()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"data": map[string]any{
+			"hasUnsavedChanges": s.Ctrl.HasUnsavedChanges(),
+			"canUndo":           urState.CanUndo,
+			"canRedo":           urState.CanRedo,
+			"undoDescription":   urState.UndoDescription,
+			"redoDescription":   urState.RedoDescription,
+		},
+	})
+}
+
 // HandleFormatCleanup removes style from empty cells and deletes cells with no value and no style.
 // Story 12.3: POST /api/format/cleanup
 func (s *Server) HandleFormatCleanup(w http.ResponseWriter, r *http.Request) {

@@ -250,6 +250,17 @@ const DeleteStyle = async (id) => {
   return { hasUnsavedChanges: json.data?.hasUnsavedChanges ?? true };
 };
 
+// Story 21.1: Clear formatting (styleId + alignment) from a range without touching values
+const ClearRangeFormat = async (startRow, startCol, endRow, endCol) => {
+  const json = await fetchUnified('POST', '/api/range/clear-format', {
+    startRow,
+    startCol,
+    endRow,
+    endCol,
+  });
+  return json.data ?? { hasUnsavedChanges: true };
+};
+
 // Story 12.2: Apply style to cell or range
 const ApplyRangeStyle = async (startRow, startCol, endRow, endCol, styleId) => {
   const json = await fetchUnified('POST', '/api/range/style', {
@@ -486,6 +497,7 @@ export {
   GetMerges,
   SetMerge,
   Unmerge,
+  ClearRangeFormat,
   ApplyRangeStyle,
   GetStyles,
   UpdateStyle,

@@ -86,6 +86,7 @@ func main() {
 	http.HandleFunc("/api/cell/alignment", cors(srv.HandleSetCellAlignment))
 	http.HandleFunc("/api/range/alignment", cors(srv.HandleSetRangeAlignment))
 	http.HandleFunc("/api/range/clear", cors(srv.HandleClearRange))
+	http.HandleFunc("/api/range/clear-format", cors(srv.HandleClearRangeFormat))
 	http.HandleFunc("/api/range/set", cors(srv.HandleSetRangeValues))
 	http.HandleFunc("/api/format/cleanup", cors(srv.HandleFormatCleanup))
 	http.HandleFunc("/api/row/insert", cors(srv.HandleInsertRow))
@@ -113,12 +114,11 @@ func main() {
 	// accidental log output from corrupting the port signal.
 	portPipe := os.NewFile(3, "port-pipe")
 	if _, err := fmt.Fprintf(portPipe, "PORT=%d\n", port); err != nil {
-		log.Printf("Warning: failed to write port to fd 3: %v (running standalone?)", err)
+		logutil.Warnf("failed to write port to fd 3: %v (running standalone?)", err)
 	}
 	_ = portPipe.Close()
 
-	log.Printf("GoSheet server running at http://localhost:%d\n", port)
-	logutil.Debugf("Open http://localhost:%d in your browser\n", port)
+	logutil.Debugf("GoSheet server running at http://localhost:%d\n", port)
 
 	if err := http.Serve(listener, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)

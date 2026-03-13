@@ -260,7 +260,7 @@ test.describe('Format menu styles (Story 12.2)', () => {
     await expect(cell).toHaveText('Subtotal');
   });
 
-  test('Format → Format Cleanup removes style from empty cells (Story 12.3)', async ({
+  test('Format → Remove Unused Styles removes style from empty cells (Story 12.3)', async ({
     electronApp,
     window,
   }) => {
@@ -277,7 +277,7 @@ test.describe('Format menu styles (Story 12.2)', () => {
       const menu = Menu.getApplicationMenu();
       const formatMenu = menu.items.find((item) => item.label === 'Format');
       const cleanupItem = formatMenu?.submenu?.items.find(
-        (item) => item.label === 'Format Cleanup'
+        (item) => item.label === 'Remove Unused Styles'
       );
       if (cleanupItem?.click) cleanupItem.click();
     });

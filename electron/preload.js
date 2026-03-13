@@ -170,6 +170,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('menu:syncStyles', styles);
   },
 
+  // Story 21.1: Clear Formatting
+  onMenuClearFormatting: (callback) => {
+    ipcRenderer.removeAllListeners('menu-clear-formatting');
+    ipcRenderer.on('menu-clear-formatting', callback);
+  },
+
   // Story 12.3: Format Cleanup
   onMenuFormatCleanup: (callback) => {
     ipcRenderer.removeAllListeners('menu-format-cleanup');

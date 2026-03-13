@@ -172,9 +172,13 @@ document.querySelector('#app').innerHTML = `
         <div class="context-menu-separator"></div>
         <div id="context-menu-format-items"></div>
         <div class="context-menu-separator"></div>
+        <button type="button" class="context-menu-item" data-action="clear-formatting">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="m5 7 4 12"/><path d="m15 7 1.5 4.5"/><path d="m3 3 18 18"/></svg>
+            Clear Formatting
+        </button>
         <button type="button" class="context-menu-item" data-action="clear">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            Clear
+            Clear Contents
         </button>
     </div>
     <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-message">

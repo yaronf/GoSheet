@@ -691,6 +691,66 @@ func (cmd *SetRangeAlignmentCommand) Description() string {
 	return "Set Alignment " + start + ":" + end
 }
 
+// ClearRangeFormatCommand is a reversible clear-format operation.
+// It clears styleId and alignment for cells in the range without touching cell values.
+type ClearRangeFormatCommand struct {
+	ctrl               *AppController
+	startRow, startCol int
+	endRow, endCol     int
+	prevFormats        []cellFormatSnapshot // per-cell snapshots for undo
+}
+
+type cellFormatSnapshot struct {
+	row, col  int
+	styleId   int
+	alignment string
+}
+
+func (cmd *ClearRangeFormatCommand) Do() error {
+	cmd.prevFormats = nil
+	for r := cmd.startRow; r <= cmd.endRow; r++ {
+		for c := cmd.startCol; c <= cmd.endCol; c++ {
+			cell := cmd.ctrl.Sheet.GetCell(r, c)
+			if cell == nil || (cell.StyleId == 0 && cell.Alignment == "") {
+				continue
+			}
+			cmd.prevFormats = append(cmd.prevFormats, cellFormatSnapshot{
+				row: r, col: c, styleId: cell.StyleId, alignment: cell.Alignment,
+			})
+			cell.StyleId = 0
+			cell.Alignment = ""
+		}
+	}
+	if len(cmd.prevFormats) > 0 {
+		cmd.ctrl.Sheet.Modified = true
+	}
+	return nil
+}
+
+func (cmd *ClearRangeFormatCommand) Undo() error {
+	for _, snap := range cmd.prevFormats {
+		cell := cmd.ctrl.Sheet.GetCell(snap.row, snap.col)
+		if cell == nil {
+			continue
+		}
+		cell.StyleId = snap.styleId
+		cell.Alignment = snap.alignment
+	}
+	if len(cmd.prevFormats) > 0 {
+		cmd.ctrl.Sheet.Modified = true
+	}
+	return nil
+}
+
+func (cmd *ClearRangeFormatCommand) Description() string {
+	start := model.CoordsToRef(cmd.startRow, cmd.startCol)
+	end := model.CoordsToRef(cmd.endRow, cmd.endCol)
+	if start == end {
+		return "Clear Formatting " + start
+	}
+	return "Clear Formatting " + start + ":" + end
+}
+
 // SetMergeCommand is a reversible merge operation.
 // Validation (overlap check, nonEmpty check) runs inside Do() so that invalid
 // merges are rejected before being pushed onto the undo stack.

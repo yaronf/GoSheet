@@ -298,7 +298,10 @@ if (argFilePath && fs.existsSync(argFilePath)) {
 }
 
 // Story 7.11: Track whether we've decided to quit (for quit warning dialog — app-level)
+// isQuitting: user confirmed quit (or no unsaved changes) — skip dialog, allow close
+// isQuitInitiated: before-quit has been entered once — prevent re-entry loop
 let isQuitting = false;
+let isQuitInitiated = false;
 
 // Story 7.10: Listen for system theme changes — registered ONCE at module level.
 // Must NOT be inside createWindow() — each call would add another listener.
@@ -313,7 +316,7 @@ nativeTheme.on('updated', () => {
 // Story 3.3: Start Go HTTP Server as child process
 // Story 16.7: Returns { goServer, portReady } — no longer sets module-level globals
 function startGoServer() {
-  console.log('[Electron] Starting Go HTTP server...');
+  if (DEBUG) console.log('[Electron] Starting Go HTTP server...');
 
   // Determine Go server binary path
   // In development: use server/ directory relative to project root
@@ -398,10 +401,15 @@ function startGoServer() {
   });
 
   goServer.on('close', (code) => {
-    console.log(`[Electron] Go server exited with code ${code}`);
+    if (code !== 0) {
+      console.error(`[Electron] Go server exited with code ${code}`);
+    } else if (DEBUG) {
+      console.log(`[Electron] Go server exited with code ${code}`);
+    }
   });
 
-  console.log(`[Electron] Go server started with PID: ${goServer.pid}`);
+  if (DEBUG)
+    console.log(`[Electron] Go server started with PID: ${goServer.pid}`);
   return { goServer, portReady };
 }
 
@@ -660,8 +668,9 @@ function attachWindowCloseHandler(win) {
             win.destroy();
           }
         } else {
-          // User chose "Cancel" — reset debounce so user can try again
+          // User chose "Cancel" — reset so next Cmd+Q attempt works again
           winLastQuitAttempt = 0;
+          isQuitInitiated = false;
         }
       })
       .catch((error) => {
@@ -699,6 +708,7 @@ function attachWindowCloseHandler(win) {
               if (DEBUG)
                 console.log('[Electron] User chose to stay open after error');
               winLastQuitAttempt = 0;
+              isQuitInitiated = false;
             }
           })
           .catch((dialogError) => {
@@ -708,6 +718,7 @@ function attachWindowCloseHandler(win) {
               dialogError
             );
             winLastQuitAttempt = 0;
+            isQuitInitiated = false;
           });
       });
   });
@@ -1057,9 +1068,11 @@ app.on('before-quit', (event) => {
   // EXCEPT in test mode where we want clean shutdown without dialogs
   const isTestMode = process.env.NODE_ENV === 'test';
 
-  if (!isQuitting && !isTestMode) {
+  if (!isQuitting && !isQuitInitiated && !isTestMode) {
     event.preventDefault();
-    isQuitting = true;
+    isQuitInitiated = true;
+    // NOTE: do NOT set isQuitting here — the close handler must check unsaved changes first.
+    // isQuitting is set only after the user confirms (or there are no unsaved changes).
 
     // Trigger close on the focused window (unsaved-changes dialog runs per-window)
     const focused = BrowserWindow.getFocusedWindow();

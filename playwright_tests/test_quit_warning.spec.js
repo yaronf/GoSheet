@@ -180,4 +180,54 @@ test.describe('Quit Warning Dialog', () => {
       hasUnsavedChanges === statusText.includes('Unsaved');
     expect(variableMatchesUI).toBe(true);
   });
+
+  test('app.quit() with unsaved changes should not skip the dialog (isQuitting guard)', async () => {
+    // Bug: before-quit set isQuitting=true before triggering window.close(),
+    // so the close handler's `if (isQuitting) return` skipped the unsaved-changes dialog.
+    // Fix: before-quit uses isQuitInitiated (re-entry guard); isQuitting only set after confirmation.
+    //
+    // This test exercises the production before-quit path by temporarily unblocking it
+    // (clearing NODE_ENV=test), triggering app.quit(), then checking state before the
+    // window close handler runs. The dialog is stubbed to "Cancel" so the app stays open.
+
+    await setCellViaApi(window, 0, 0, 'quit-test');
+    await expect(window.locator('#file-status')).toContainText('Unsaved', {
+      timeout: 3000,
+    });
+
+    // Stub showMessageBox to return "Cancel" — user declines to quit
+    await stubDialog(electronApp, 'showMessageBox', { response: 0 });
+
+    // Exercise the production before-quit path: temporarily unset NODE_ENV=test so
+    // before-quit intercepts app.quit() and triggers window.close() instead.
+    // The window.close() handler will show the (stubbed) dialog and cancel.
+    const appExited = await electronApp.evaluate(
+      async ({ app, BrowserWindow }) => {
+        // Temporarily remove test mode so before-quit runs the real interception logic
+        const savedNodeEnv = process.env.NODE_ENV;
+        process.env.NODE_ENV = 'development';
+
+        // app.quit() will be intercepted by before-quit (since isQuitting=false, isQuitInitiated=false)
+        // before-quit will preventDefault, set isQuitInitiated=true, and trigger window.close()
+        // window.close() will show the dialog (stubbed to Cancel) and NOT quit
+        app.quit();
+
+        // Restore env
+        process.env.NODE_ENV = savedNodeEnv;
+
+        // Give the close handler a moment to run (it's async)
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Check if windows still exist (app did NOT quit)
+        const wins = BrowserWindow.getAllWindows();
+        return wins.length === 0; // true = app exited (bug), false = app stayed (correct)
+      }
+    );
+
+    // App must NOT have exited — dialog was shown and user cancelled
+    expect(appExited).toBe(false);
+
+    // Window should still be visible and functional
+    await expect(window.locator('#spreadsheet')).toBeVisible({ timeout: 3000 });
+  });
 });

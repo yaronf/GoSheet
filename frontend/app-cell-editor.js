@@ -403,6 +403,18 @@ export function applyCellValue(
  */
 export function applyCellStyleClasses(cell, styleId, styleFormats, isNum) {
   STYLE_CLASSES.forEach((c) => cell.classList.remove(c));
+  // Reset all inline CSS properties that formatToCssPreview can set, so that
+  // switching to styleId=0 (or a different style) doesn't leave stale values.
+  cell.style.fontFamily = '';
+  cell.style.fontSize = '';
+  cell.style.fontWeight = '';
+  cell.style.fontStyle = '';
+  cell.style.color = '';
+  cell.style.backgroundColor = '';
+  cell.style.removeProperty('border-left');
+  cell.style.removeProperty('border-right');
+  cell.style.removeProperty('border-top');
+  cell.style.removeProperty('border-bottom');
   cell.style.textAlign = '';
   cell.style.verticalAlign = '';
   if (styleId >= STYLE_ID.TITLE && styleId <= STYLE_ID.TOTAL) {
@@ -473,14 +485,12 @@ export async function applyAlignmentToSelection(alignment) {
 // Handle Cmd/Ctrl + O, S, N, Z (file/undo/redo keyboard shortcuts)
 export function handleKeydownFileOps(e) {
   if (!(e.metaKey || e.ctrlKey)) return false;
-  if (e.key === 'z' && !e.shiftKey) {
+  if (e.key === 'z') {
     e.preventDefault();
-    if (!appState.isReadOnly) window.performUndo?.();
-    return true;
-  }
-  if (e.key === 'z' && e.shiftKey) {
-    e.preventDefault();
-    if (!appState.isReadOnly) window.performRedo?.();
+    if (!appState.isReadOnly) {
+      if (e.shiftKey) window.performRedo?.();
+      else window.performUndo?.();
+    }
     return true;
   }
   if (e.key === 'o') {
@@ -499,6 +509,11 @@ export function handleKeydownFileOps(e) {
     e.preventDefault();
     window.ensureSpreadsheetView?.();
     document.getElementById('new-btn')?.click();
+    return true;
+  }
+  if (e.key === '\\') {
+    e.preventDefault();
+    window.clearFormattingFromSelection?.();
     return true;
   }
   return false;

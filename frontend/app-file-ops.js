@@ -9,6 +9,7 @@ import {
   SetMerge,
   Unmerge,
   ApplyRangeStyle,
+  ClearRangeFormat,
   CleanupFormat,
   InsertRow,
   InsertColumn,
@@ -657,6 +658,31 @@ function setupFormatMenuListeners() {
     applyStyleToSelection(STYLE_ID.TOTAL)
   );
 
+  // Story 21.1: Clear Formatting — removes styleId and alignment from selected cells
+  const clearFormattingFromSelection = async () => {
+    if (document.querySelector('#app')?.getAttribute('data-view') === 'welcome')
+      return;
+    if (appState.isReadOnly) return;
+    const { startRow, startCol, endRow, endCol } = appState.selectionRange;
+    const resolvedEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
+    const resolvedEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
+    try {
+      const result = await ClearRangeFormat(
+        startRow,
+        startCol,
+        resolvedEndRow,
+        resolvedEndCol
+      );
+      applyUndoRedoState(result);
+      await window.refreshAllCells?.();
+    } catch (error) {
+      console.error('[App] Error clearing formatting:', error);
+      await showAlert('Error clearing formatting: ' + error.message);
+    }
+  };
+  window.clearFormattingFromSelection = clearFormattingFromSelection;
+  window.electronAPI.onMenuClearFormatting?.(clearFormattingFromSelection);
+
   // Story 12.3: Format Cleanup
   window.electronAPI.onMenuFormatCleanup?.(async () => {
     if (window.__DEBUG__) console.log('[App] Menu Format Cleanup triggered');
@@ -669,7 +695,7 @@ function setupFormatMenuListeners() {
       await window.buildSpreadsheet?.();
       await window.refreshAllCells?.();
     } catch (error) {
-      await showAlert('Error during Format Cleanup: ' + error.message);
+      await showAlert('Error during Remove Unused Styles: ' + error.message);
     }
   });
 
