@@ -108,3 +108,114 @@ func TestStyleRegistry_RemoveStyle(t *testing.T) {
 		t.Error("Custom should be removed")
 	}
 }
+
+func TestStyleRegistry_GetStyleNameByID(t *testing.T) {
+	r := NewStyleRegistry()
+	// Built-in styles
+	if r.GetStyleNameByID(1) != "Title" {
+		t.Errorf("expected Title, got %q", r.GetStyleNameByID(1))
+	}
+	if r.GetStyleNameByID(2) != "Header" {
+		t.Errorf("expected Header, got %q", r.GetStyleNameByID(2))
+	}
+	// Out of range
+	if r.GetStyleNameByID(0) != "" {
+		t.Error("id 0 should return empty")
+	}
+	if r.GetStyleNameByID(99) != "" {
+		t.Error("id 99 should return empty")
+	}
+	// Nil registry
+	var nilReg *StyleRegistry
+	if nilReg.GetStyleNameByID(1) != "" {
+		t.Error("nil registry should return empty")
+	}
+}
+
+func TestStyleRegistry_UpdateStyle_FormatOnly(t *testing.T) {
+	r := NewStyleRegistry()
+	newFmt := &CellFormat{Font: Font{Bold: true, Size: 20}}
+	if err := r.UpdateStyle(1, newFmt, ""); err != nil {
+		t.Fatal(err)
+	}
+	f := r.GetFormat(1)
+	if !f.Font.Bold || f.Font.Size != 20 {
+		t.Errorf("expected bold 20pt after update, got %+v", f.Font)
+	}
+}
+
+func TestStyleRegistry_UpdateStyle_Rename(t *testing.T) {
+	r := NewStyleRegistry()
+	newFmt := &CellFormat{Font: Font{Size: 16}}
+	if err := r.UpdateStyle(1, newFmt, "MyTitle"); err != nil {
+		t.Fatal(err)
+	}
+	if r.GetStyleIDByName("MyTitle") != 1 {
+		t.Error("MyTitle should now map to id 1")
+	}
+	if r.GetStyleIDByName("Title") != 0 {
+		t.Error("old name Title should be gone")
+	}
+}
+
+func TestStyleRegistry_UpdateStyle_SameNameNoOp(t *testing.T) {
+	r := NewStyleRegistry()
+	if err := r.UpdateStyle(1, &CellFormat{}, "Title"); err != nil {
+		t.Fatal(err) // same name → no error
+	}
+	if r.GetStyleIDByName("Title") != 1 {
+		t.Error("Title should still map to 1")
+	}
+}
+
+func TestStyleRegistry_UpdateStyle_DuplicateNameError(t *testing.T) {
+	r := NewStyleRegistry()
+	if err := r.UpdateStyle(1, &CellFormat{}, "Header"); err == nil {
+		t.Error("expected error renaming Title to Header (already exists)")
+	}
+}
+
+func TestStyleRegistry_UpdateStyle_InvalidID(t *testing.T) {
+	r := NewStyleRegistry()
+	if err := r.UpdateStyle(99, &CellFormat{}, ""); err == nil {
+		t.Error("expected error for invalid id 99")
+	}
+	if err := r.UpdateStyle(0, &CellFormat{}, ""); err == nil {
+		t.Error("expected error for id 0")
+	}
+}
+
+func TestStyleRegistry_UpdateStyle_NilInputs(t *testing.T) {
+	r := NewStyleRegistry()
+	if err := r.UpdateStyle(1, nil, ""); err == nil {
+		t.Error("expected error for nil format")
+	}
+	var nilReg *StyleRegistry
+	if err := nilReg.UpdateStyle(1, &CellFormat{}, ""); err == nil {
+		t.Error("expected error for nil registry")
+	}
+}
+
+func TestStyleRegistry_AddStyle_NilFormat(t *testing.T) {
+	r := NewStyleRegistry()
+	if _, err := r.AddStyle("test", nil); err == nil {
+		t.Error("expected error for nil format")
+	}
+}
+
+func TestStyleRegistry_AddStyle_EmptyName(t *testing.T) {
+	r := NewStyleRegistry()
+	if _, err := r.AddStyle("", &CellFormat{}); err == nil {
+		t.Error("expected error for empty name")
+	}
+}
+
+func TestStyleRegistry_RemoveStyle_InvalidID(t *testing.T) {
+	r := NewStyleRegistry()
+	if err := r.RemoveStyle(0); err == nil {
+		t.Error("expected error for id 0")
+	}
+	if err := r.RemoveStyle(99); err == nil {
+		t.Error("expected error for id 99")
+	}
+}

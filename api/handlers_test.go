@@ -1296,4 +1296,387 @@ func TestHandleUnmerge_IncludesUndoState(t *testing.T) {
 	data := resp["data"].(map[string]any)
 	assert.Equal(t, true, data["canUndo"])
 	assert.Equal(t, "Unmerge A1", data["undoDescription"])
+}
+
+// --- HandleClearRange extra branches ---
+
+func TestHandleClearRange_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/range/clear", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleClearRange(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- HandleInsertRow / HandleInsertColumn / HandleDeleteRow / HandleDeleteColumn error branches ---
+
+func TestHandleInsertRow_WrongMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/row/insert", nil)
+	w := httptest.NewRecorder()
+	srv.HandleInsertRow(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleInsertRow_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/row/insert", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleInsertRow(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleInsertColumn_WrongMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/column/insert", nil)
+	w := httptest.NewRecorder()
+	srv.HandleInsertColumn(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleInsertColumn_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/column/insert", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleInsertColumn(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleDeleteRow_WrongMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/row/delete", nil)
+	w := httptest.NewRecorder()
+	srv.HandleDeleteRow(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleDeleteRow_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/row/delete", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleDeleteRow(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleDeleteColumn_WrongMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/column/delete", nil)
+	w := httptest.NewRecorder()
+	srv.HandleDeleteColumn(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleDeleteColumn_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/column/delete", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleDeleteColumn(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- HandleSetCellAlignment error branches ---
+
+func TestHandleSetCellAlignment_WrongMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/cell/alignment", nil)
+	w := httptest.NewRecorder()
+	srv.HandleSetCellAlignment(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleSetCellAlignment_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/cell/alignment", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleSetCellAlignment(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleSetCellAlignment_InvalidAlignment(t *testing.T) {
+	srv := newTestServer()
+	body, _ := json.Marshal(map[string]any{"row": 0, "col": 0, "alignment": "diagonal"})
+	req := httptest.NewRequest(http.MethodPost, "/api/cell/alignment", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleSetCellAlignment(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- HandleSetMerge / HandleUnmerge / HandleApplyCellStyle / HandleApplyRangeStyle error branches ---
+
+func TestHandleSetMerge_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/merge", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleSetMerge(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleUnmerge_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/unmerge", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleUnmerge(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleApplyCellStyle_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/cell/style", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleApplyCellStyle(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleApplyRangeStyle_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/range/style", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleApplyRangeStyle(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- HandleSetRangeValues ---
+
+func TestHandleSetRangeValues_Basic(t *testing.T) {
+	srv := newTestServer()
+	body, _ := json.Marshal(map[string]any{
+		"cells": []map[string]any{
+			{"row": 0, "col": 0, "value": "hello"},
+			{"row": 0, "col": 1, "value": "world"},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/range/values", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleSetRangeValues(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Equal(t, true, resp["success"])
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Paste 2 cell(s)", data["undoDescription"])
+	assert.Equal(t, "hello", srv.Ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "world", srv.Ctrl.GetCellValue(0, 1))
+}
+
+func TestHandleSetRangeValues_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/range/values", bytes.NewReader([]byte("not json")))
+	w := httptest.NewRecorder()
+	srv.HandleSetRangeValues(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- HandleShiftFormula ---
+
+func TestHandleShiftFormula_Basic(t *testing.T) {
+	srv := newTestServer()
+	body, _ := json.Marshal(map[string]any{
+		"formula":    "=A1+B2",
+		"row_offset": 1,
+		"col_offset": 2,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/formula/shift", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleShiftFormula(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Equal(t, true, resp["success"])
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, "=C2+D3", data["shifted"])
+}
+
+func TestHandleShiftFormula_WrongMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/formula/shift", nil)
+	w := httptest.NewRecorder()
+	srv.HandleShiftFormula(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleShiftFormula_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/formula/shift", bytes.NewReader([]byte("not json")))
+	w := httptest.NewRecorder()
+	srv.HandleShiftFormula(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- HandleClearRangeFormat ---
+
+func TestHandleClearRangeFormat_Basic(t *testing.T) {
+	srv := newTestServer()
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "styled"))
+	require.NoError(t, srv.Ctrl.ApplyStyleToCell(0, 0, 1))
+	srv.Ctrl.History.Clear()
+
+	body, _ := json.Marshal(map[string]any{"startRow": 0, "startCol": 0, "endRow": 0, "endCol": 0})
+	req := httptest.NewRequest(http.MethodPost, "/api/range/clear-format", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleClearRangeFormat(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Equal(t, true, resp["success"])
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "Clear Formatting A1", data["undoDescription"])
+	assert.Equal(t, 0, srv.Ctrl.Sheet.GetCell(0, 0).StyleId)
+}
+
+func TestHandleClearRangeFormat_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/range/clear-format", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleClearRangeFormat(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- HandleSetRangeAlignment ---
+
+func TestHandleSetRangeAlignment_Basic(t *testing.T) {
+	srv := newTestServer()
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "x"))
+	require.NoError(t, srv.Ctrl.SetCellValue(1, 0, "y"))
+	srv.Ctrl.History.Clear()
+
+	body, _ := json.Marshal(map[string]any{
+		"startRow": 0, "startCol": 0, "endRow": 1, "endCol": 0, "alignment": "center",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/range/alignment", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleSetRangeAlignment(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Equal(t, true, resp["success"])
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, true, data["canUndo"])
+	assert.Equal(t, "center", srv.Ctrl.Sheet.GetCell(0, 0).Alignment)
+	assert.Equal(t, "center", srv.Ctrl.Sheet.GetCell(1, 0).Alignment)
+}
+
+func TestHandleSetRangeAlignment_WrongMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/range/alignment", nil)
+	w := httptest.NewRecorder()
+	srv.HandleSetRangeAlignment(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleSetRangeAlignment_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/range/alignment", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleSetRangeAlignment(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleSetRangeAlignment_InvalidAlignment(t *testing.T) {
+	srv := newTestServer()
+	body, _ := json.Marshal(map[string]any{
+		"startRow": 0, "startCol": 0, "endRow": 0, "endCol": 0, "alignment": "diagonal",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/range/alignment", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleSetRangeAlignment(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- HandleStyles / HandleStyleByID low-coverage branches ---
+
+func TestHandleStyles_WrongMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodDelete, "/api/styles", nil)
+	w := httptest.NewRecorder()
+	srv.HandleStyles(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleStyles_WrongPath(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/styles/extra/path", nil)
+	w := httptest.NewRecorder()
+	srv.HandleStyles(w, req)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestHandleStyleByID_WrongMethod(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/styles/1", nil)
+	w := httptest.NewRecorder()
+	srv.HandleStyleByID(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestHandleStyleByID_InvalidID(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodDelete, "/api/styles/abc", nil)
+	w := httptest.NewRecorder()
+	srv.HandleStyleByID(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleStyleByID_NoID(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodDelete, "/api/styles/", nil)
+	w := httptest.NewRecorder()
+	srv.HandleStyleByID(w, req)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestHandleDeleteStyle_BadID(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodDelete, "/api/styles/99", nil)
+	w := httptest.NewRecorder()
+	srv.HandleStyleByID(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleUpdateStyle_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPut, "/api/styles/1", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleStyleByID(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleUpdateStyle_DuplicateName(t *testing.T) {
+	srv := newTestServer()
+	// Built-in styles: 1=Title, 2=Header, 3=Accent. Try renaming style 1 to "Header" (already style 2).
+	body, _ := json.Marshal(map[string]any{"name": "Header", "format": map[string]any{}})
+	req := httptest.NewRequest(http.MethodPut, "/api/styles/1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleStyleByID(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleAddStyle_BadBody(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodPost, "/api/styles", bytes.NewReader([]byte("bad")))
+	w := httptest.NewRecorder()
+	srv.HandleStyles(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleAddStyle_DuplicateName(t *testing.T) {
+	srv := newTestServer()
+	body, _ := json.Marshal(map[string]any{"name": "Title", "format": map[string]any{}})
+	req := httptest.NewRequest(http.MethodPost, "/api/styles", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleStyles(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 } //nolint:revive // file length exceeds 800-line limit; test files are exempt by convention (max 1500)

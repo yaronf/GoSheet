@@ -741,3 +741,115 @@ func TestDeleteColumn_RefError_UndoRedo(t *testing.T) {
 	assert.True(t, cell.IsError)
 	assert.Equal(t, "#REF!", cell.Computed)
 }
+
+// --- SetRangeValuesCommand ---
+
+func TestSetRangeValuesCommand_DoAndDescription(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetRangeValues([]RangeCell{
+		{Row: 0, Col: 0, Value: "a"},
+		{Row: 0, Col: 1, Value: "b"},
+		{Row: 1, Col: 0, Value: "c"},
+	}))
+	assert.Equal(t, "a", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "b", ctrl.GetCellValue(0, 1))
+	assert.Equal(t, "c", ctrl.GetCellValue(1, 0))
+	assert.Equal(t, "Paste 3 cell(s)", ctrl.History.UndoDescription())
+}
+
+func TestSetRangeValuesCommand_EmptyIsNoOp(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetRangeValues(nil))
+	assert.False(t, ctrl.History.CanUndo())
+}
+
+func TestSetRangeValuesCommand_UndoRestoresValues(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "original"))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.SetRangeValues([]RangeCell{
+		{Row: 0, Col: 0, Value: "pasted"},
+		{Row: 0, Col: 1, Value: "new"},
+	}))
+	assert.Equal(t, "pasted", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "new", ctrl.GetCellValue(0, 1))
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "original", ctrl.GetCellValue(0, 0))
+	assert.Equal(t, "", ctrl.GetCellValue(0, 1)) // was not there before
+}
+
+func TestSetRangeValuesCommand_UndoRestoresFormula(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "5"))
+	require.NoError(t, ctrl.SetCellValue(0, 1, "=A1*2"))
+	ctrl.History.Clear()
+
+	// Paste over the formula cell
+	require.NoError(t, ctrl.SetRangeValues([]RangeCell{
+		{Row: 0, Col: 1, Value: "99"},
+	}))
+	assert.Equal(t, "99", ctrl.GetCellValue(0, 1))
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	assert.Equal(t, "10", ctrl.GetCellValue(0, 1)) // formula restored and re-evaluated
+}
+
+// --- ClearRangeFormatCommand ---
+
+func TestClearRangeFormatCommand_DoAndDescription(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 1)) // style 1 = Title
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.ClearRangeFormat(0, 0, 0, 0))
+	cell := ctrl.Sheet.GetCell(0, 0)
+	require.NotNil(t, cell)
+	assert.Equal(t, 0, cell.StyleId)
+	assert.Equal(t, "", cell.Alignment)
+	assert.Equal(t, "Clear Formatting A1", ctrl.History.UndoDescription())
+}
+
+func TestClearRangeFormatCommand_RangeDescription(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "x"))
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 1))
+	require.NoError(t, ctrl.SetCellValue(1, 1, "y"))
+	require.NoError(t, ctrl.ApplyStyleToCell(1, 1, 2))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.ClearRangeFormat(0, 0, 1, 1))
+	assert.Equal(t, "Clear Formatting A1:B2", ctrl.History.UndoDescription())
+}
+
+func TestClearRangeFormatCommand_UndoRestoresStyle(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 1))
+	require.NoError(t, ctrl.SetCellAlignment(0, 0, "right"))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.ClearRangeFormat(0, 0, 0, 0))
+	assert.Equal(t, 0, ctrl.Sheet.GetCell(0, 0).StyleId)
+
+	_, err := ctrl.Undo()
+	require.NoError(t, err)
+	cell := ctrl.Sheet.GetCell(0, 0)
+	assert.Equal(t, 1, cell.StyleId)
+	assert.Equal(t, "right", cell.Alignment)
+}
+
+func TestClearRangeFormatCommand_SkipsCellsWithNoFormatting(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "no style"))
+	ctrl.History.Clear()
+	ctrl.Sheet.Modified = false // reset after setup
+
+	require.NoError(t, ctrl.ClearRangeFormat(0, 0, 0, 0))
+	// Nothing changed; Modified should not have been set by ClearRangeFormat
+	assert.False(t, ctrl.Sheet.Modified)
+}

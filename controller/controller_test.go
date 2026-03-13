@@ -456,3 +456,14 @@ func TestSetRangeAlignment_TooLarge(t *testing.T) {
 	// 101×100 = 10100 cells > 10000 max
 	assert.Error(t, ctrl.SetRangeAlignment(0, 0, 100, 99, "left"))
 }
+
+func TestClearRangeFormat_Basic(t *testing.T) {
+	ctrl := NewAppController()
+	require.NoError(t, ctrl.SetCellValue(0, 0, "x"))
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 1))
+	ctrl.History.Clear()
+
+	require.NoError(t, ctrl.ClearRangeFormat(0, 0, 0, 0))
+	assert.Equal(t, 0, ctrl.Sheet.GetCell(0, 0).StyleId)
+	assert.True(t, ctrl.History.CanUndo())
+}

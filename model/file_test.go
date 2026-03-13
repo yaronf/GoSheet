@@ -602,3 +602,75 @@ func TestSparseStorageEfficiency(t *testing.T) {
 		t.Errorf("Expected bounds (1000, 1000), got (%d, %d)", maxRow, maxCol)
 	}
 }
+
+func TestSaveToBytes_RoundTrip(t *testing.T) {
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "hello")
+	s.SetCell(1, 1, "world")
+
+	data, err := s.SaveToBytes()
+	require.NoError(t, err)
+	require.NotEmpty(t, data)
+
+	loaded, err := LoadFromBytes(data, "/fake/path.gosheet")
+	require.NoError(t, err)
+	if loaded.GetCell(0, 0) == nil || loaded.GetCell(0, 0).Value != "hello" {
+		t.Error("cell A1 not restored")
+	}
+	if loaded.GetCell(1, 1) == nil || loaded.GetCell(1, 1).Value != "world" {
+		t.Error("cell B2 not restored")
+	}
+}
+
+func TestSaveToBytes_NilStyles(t *testing.T) {
+	s := NewSpreadsheet()
+	s.Styles = nil
+	data, err := s.SaveToBytes()
+	require.NoError(t, err)
+	require.NotEmpty(t, data)
+}
+
+func TestAtomicWriteFile_WriteContentError(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "out.gosheet")
+	writeErr := os.ErrInvalid
+	err := atomicWriteFile(target, func(_ *os.File) error {
+		return writeErr
+	})
+	if err == nil {
+		t.Fatal("expected error from writeContent, got nil")
+	}
+	// Target should not have been created
+	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
+		t.Error("target file should not exist after write failure")
+	}
+}
+
+func TestAtomicWriteFile_BadTargetDir(t *testing.T) {
+	// Non-existent directory → CreateTemp should fail
+	err := atomicWriteFile("/nonexistent/dir/file.gosheet", func(_ *os.File) error {
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected error for non-existent directory")
+	}
+}
+
+func TestEncodeSpreadsheet_CorruptedDecode(t *testing.T) {
+	// Trying to decode garbage bytes should fail gracefully
+	_, err := decodeSpreadsheet(gob.NewDecoder(bytes.NewReader([]byte("not-gob"))), "/fake.gosheet")
+	if err == nil {
+		t.Fatal("expected error decoding garbage gob data")
+	}
+}
+
+func TestSaveToFile_InvalidPath_AtomicError(t *testing.T) {
+	s := NewSpreadsheet()
+	err := s.SaveToFile("/nonexistent/dir/file.gosheet")
+	if err == nil {
+		t.Fatal("expected error saving to non-existent directory")
+	}
+	if !strings.Contains(err.Error(), "temp file") && !strings.Contains(err.Error(), "no such file") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewSpreadsheet(t *testing.T) {
@@ -629,4 +630,97 @@ func TestDeleteColumn_MergeRegions(t *testing.T) {
 	assert.Equal(t, 2, sheet.Merges[0].ColSpan)
 	// Second merge (anchor at deleted col 1) should be removed
 	assert.Equal(t, 1, len(sheet.Merges))
+}
+
+// --- ShouldClearCell ---
+
+func TestShouldClearCell_UnmergedCell(t *testing.T) {
+	sheet := NewSpreadsheet()
+	assert.True(t, sheet.ShouldClearCell(0, 0))
+}
+
+func TestShouldClearCell_AnchorCell(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 0, StartCol: 0, RowSpan: 2, ColSpan: 2})
+	assert.True(t, sheet.ShouldClearCell(0, 0)) // anchor → clear allowed
+}
+
+func TestShouldClearCell_CoveredCell(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 0, StartCol: 0, RowSpan: 2, ColSpan: 2})
+	assert.False(t, sheet.ShouldClearCell(0, 1)) // covered → skip
+	assert.False(t, sheet.ShouldClearCell(1, 0)) // covered → skip
+	assert.False(t, sheet.ShouldClearCell(1, 1)) // covered → skip
+}
+
+func TestShouldClearCell_ZeroSpanMergeIgnored(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// Invalid merge with zero spans should be ignored
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 0, StartCol: 0, RowSpan: 0, ColSpan: 0})
+	assert.True(t, sheet.ShouldClearCell(0, 0))
+}
+
+// --- setCellAlignmentUnchecked ---
+
+func TestSetCellAlignmentUnchecked_CreatesCell(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.setCellAlignmentUnchecked(5, 5, "right")
+	cell := sheet.GetCell(5, 5)
+	require.NotNil(t, cell)
+	assert.Equal(t, "right", cell.Alignment)
+	assert.True(t, sheet.Modified)
+}
+
+func TestSetCellAlignmentUnchecked_UpdatesExistingCell(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(2, 2, "hello")
+	sheet.Modified = false
+	sheet.setCellAlignmentUnchecked(2, 2, "center")
+	assert.Equal(t, "center", sheet.GetCell(2, 2).Alignment)
+	assert.True(t, sheet.Modified)
+}
+
+// --- updateMergesForDeleteRow / updateMergesForDeleteColumn ---
+
+func TestUpdateMergesForDeleteRow_MergeBeforeDeletedRow(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// Merge at rows 0-1, delete row 5 → merge unchanged
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 0, StartCol: 0, RowSpan: 2, ColSpan: 1})
+	sheet.updateMergesForDeleteRow(5)
+	assert.Equal(t, 0, sheet.Merges[0].StartRow)
+	assert.Equal(t, 2, sheet.Merges[0].RowSpan)
+}
+
+func TestUpdateMergesForDeleteRow_MergeAfterDeletedRow(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// Merge at row 3, delete row 1 → shifts to row 2
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 3, StartCol: 0, RowSpan: 1, ColSpan: 1})
+	sheet.updateMergesForDeleteRow(1)
+	assert.Equal(t, 2, sheet.Merges[0].StartRow)
+}
+
+func TestUpdateMergesForDeleteRow_MergeSpansShrinks(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// Merge at rows 2-4 (StartRow=2, RowSpan=3), delete row 3 → RowSpan shrinks by 1
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 2, StartCol: 0, RowSpan: 3, ColSpan: 1})
+	sheet.updateMergesForDeleteRow(3)
+	assert.Equal(t, 2, sheet.Merges[0].StartRow)
+	assert.Equal(t, 2, sheet.Merges[0].RowSpan)
+}
+
+func TestUpdateMergesForDeleteColumn_MergeAfterDeletedCol(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// Merge at col 4, delete col 2 → shifts to col 3
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 0, StartCol: 4, RowSpan: 1, ColSpan: 1})
+	sheet.updateMergesForDeleteColumn(2)
+	assert.Equal(t, 3, sheet.Merges[0].StartCol)
+}
+
+func TestUpdateMergesForDeleteColumn_MergeSpansShrinks(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// Merge at cols 1-3 (StartCol=1, ColSpan=3), delete col 2 → ColSpan shrinks
+	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 0, StartCol: 1, RowSpan: 1, ColSpan: 3})
+	sheet.updateMergesForDeleteColumn(2)
+	assert.Equal(t, 1, sheet.Merges[0].StartCol)
+	assert.Equal(t, 2, sheet.Merges[0].ColSpan)
 }
