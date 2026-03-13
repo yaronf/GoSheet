@@ -3395,23 +3395,287 @@ So that I don't accidentally destroy data I hadn't intended to replace.
 
 ## Epic 20: Agentic API Access Layer
 
-**Goal:** AI agents (and power users via scripts) can read spreadsheet data and propose changes through a structured, safe API — with the user approving a diff before any change is persisted.
+**Goal:** AI agents (and power users via scripts) can read spreadsheet data and apply changes through a structured, safe API. The user can discard everything an agent did in one operation. No human approval step is required per-change — the agent operates autonomously and the user's safety valve is session rollback.
 
-**User Outcome:** Users can invoke an AI action, see a human-readable diff of proposed changes, and approve or reject before anything is written to their file.
+**User Outcome:** The user creates an agent session from the toolbar/menu, copies a bootstrap URL, hands it to an AI tool, and lets the agent do its work. Agent changes appear live in the spreadsheet. The user can roll back the entire session with one click, or save the result as-is.
 
 **Requirements covered:**
-- Agentic API research (`technical-agent-access-layer-research.md`) — reasonable subset:
-  - Scoped read endpoints (workbook summary, range data)
-  - Patch proposal + validation
-  - Diff preview
-  - Commit with user approval
-  - Basic audit log
+- See full technical design: `research/technical-epic20-agentic-api-design-2026-03-14.md`
+- Bearer token auth retroactively secures the existing API
+- Scoped agent tokens (R/O or R/W) issued by bootstrap token exchange
+- Single agent session per file at a time
+- Patch operations through existing command pattern; separate agent History instance
+- Commit = checkpoint (collapses agent history into single undo unit in user history)
+- End session / rollback callable by both agent and user
+- Audit log in userData
+- Agent bootstrapped via single URL (GET returns tool definitions + workbook context)
 
-**Why standalone:** Builds on existing Go HTTP API. Adds new endpoints without modifying existing ones. Frontend adds approval UI panel.
+**Why standalone:** Builds on existing Go HTTP API and command/history infrastructure. Adds new `/api/agent/*` endpoints without modifying existing ones. Retroactively adds auth to all existing endpoints. Frontend adds session management UI.
 
 **Implementation notes:**
-- Scope to a minimal but complete vertical slice (read + propose + preview + commit)
-- No scoped token system needed for v1 (local app, single user)
-- Expose agent-friendly tool endpoints on the existing Go HTTP server
-- Add diff preview panel to Electron frontend
-- Audit log as append-only JSON file in userData directory
+- See `research/technical-epic20-agentic-api-design-2026-03-14.md` for full design
+- Bootstrap token generated at Go server startup, passed to Electron on fd 3 alongside port
+- All existing API calls gain `Authorization: Bearer <bootstrap-token>` from the renderer
+- Agent tokens scoped to `/api/agent/*` only; agent tokens rejected on `/api/file/*`
+- One `History` instance per agent session; `AgentCommitCommand` collapses it into user history on commit/end
+- Tool definitions in OpenAI function calling schema (cross-vendor compatible)
+- Audit log: append-only JSONL in `~/Library/Application Support/GoSheet/agent-audit.jsonl`
+
+---
+
+### Story 20.1: Bootstrap Token & Auth Middleware
+
+As the app,
+I want all HTTP API calls to require a bearer token,
+So that the Go server is protected from local port scanning and unauthorized access.
+
+**Acceptance Criteria:**
+
+**Given** the Go server starts
+**When** it is ready to accept connections
+**Then** it generates a 32-byte CSPRNG bootstrap token (base64url encoded) and writes it to fd 3 as `TOKEN=<token>` alongside `PORT=<n>`
+
+**Given** a request arrives at any `/api/*` endpoint without an `Authorization: Bearer <token>` header
+**When** the token is missing or invalid
+**Then** the server returns HTTP 401
+
+**Given** Electron reads the token from fd 3
+**When** the renderer makes any API call via `api-client.js`
+**Then** the request includes `Authorization: Bearer <bootstrap-token>`
+
+**Given** the server is in test mode (`NODE_ENV=test`)
+**When** any request arrives
+**Then** auth is bypassed (no token required) so existing Playwright tests are unaffected
+
+**Implementation notes:**
+- Add `generateToken()` to `server/main.go`: `crypto/rand` 32 bytes, `base64.URLEncoding.EncodeToString`
+- Write `TOKEN=<token>\n` to fd 3 after `PORT=<n>\n`
+- Add `authMiddleware` wrapper applied to all handlers in the mux; reads `Authorization` header, validates against the single bootstrap token stored in server state
+- `NODE_ENV=test` or `--dev` flag skips auth entirely
+- Electron `main.js`: parse `TOKEN=` line from fd 3 pipe alongside existing `PORT=` parsing; store in `windowRegistry` entry; inject into `BrowserWindow` via `additionalArguments` or pass to preload
+- `api-client.js`: read token, add `Authorization` header to all `fetch` calls
+
+---
+
+### Story 20.2: Agent Token Issuance & Session Lifecycle
+
+As the Go server,
+I want to issue scoped agent tokens and manage session state,
+So that agents have controlled, attributable access with enforced scope.
+
+**Acceptance Criteria:**
+
+**Given** a `POST /api/agent/token` request with a valid bootstrap token and `{ "scope": "rw" }`
+**When** no agent session is currently active for this file
+**Then** the server returns `{ "agentToken": "...", "agentId": "agt_<random>" }` and records a history marker
+
+**Given** a `POST /api/agent/token` request
+**When** an agent session is already active for this file
+**Then** the server returns HTTP 409
+
+**Given** a valid agent token
+**When** it is used on a `/api/file/*` endpoint
+**Then** the server returns HTTP 403 (agent tokens are blocked from file operations)
+
+**Given** `POST /api/agent/commit` is called with a valid agent token
+**When** the request is processed
+**Then** all agent history since the last commit marker is collapsed into a single `AgentCommitCommand` and transferred to the user's undo history; a new marker is set; the token remains active; an `"outcome": "committed"` entry is written to the audit log
+
+**Given** `POST /api/agent/end` is called (by agent or FE) with a valid agent token
+**When** the request is processed
+**Then** any uncommitted agent history is collapsed into the user's undo history; the token is revoked; a `"session_end"` entry is written to the audit log
+
+**Given** `POST /api/agent/rollback` is called with a valid agent token
+**When** the request is processed
+**Then** the agent history stack is drained in reverse via `Undo()` calls back to the last commit marker (or session-open marker if no commit has occurred); the token is revoked; a `"rollback"` entry is written to the audit log
+
+**Given** a revoked agent token
+**When** it is used on any endpoint
+**Then** the server returns HTTP 401
+
+**Implementation notes:**
+- Add `AgentSession` struct to controller: `{ token, agentId, scope, history *History, commitMarker int }`
+- `AppController` holds `activeAgentSession *AgentSession` (one per controller instance = one per file)
+- `AgentCommitCommand` implements `Command`: `Do()` is a no-op (already applied), `Undo()` calls `Undo()` on each constituent command in reverse; `Description()` returns "Agent: N patches, M cells changed"
+- Rollback: drain `agentSession.history` in reverse, each patch command's `Undo()` restores prior cell state
+- Audit log writer: append JSONL to `userData/agent-audit.jsonl`; non-blocking (goroutine)
+
+---
+
+### Story 20.3: Agent Read Endpoints
+
+As an agent,
+I want to read the workbook structure and cell data,
+So that I can understand what I'm working with before proposing changes.
+
+**Acceptance Criteria:**
+
+**Given** `GET /api/agent/workbook` with a valid agent token (ro or rw)
+**When** the request is processed
+**Then** the response includes: file path, sheet dimensions (rows × cols), count of non-empty cells, and a list of non-empty row/col ranges (e.g. `[{"startRow":0,"startCol":0,"endRow":9,"endCol":3}]`)
+
+**Given** `GET /api/agent/range?range=A1:D10` with a valid agent token
+**When** the request is processed
+**Then** the response includes for each cell in the range: row, col, A1 address, raw value, computed value, isFormula, styleId, alignment
+
+**Given** a range query that exceeds 10,000 cells
+**When** the request is processed
+**Then** the server returns HTTP 400 with `"error": "range too large (max 10000 cells)"`
+
+**Given** an R/O agent token
+**When** `POST /api/agent/patch` is attempted
+**Then** the server returns HTTP 403
+
+**Implementation notes:**
+- `GET /api/agent/workbook`: iterate `sheet.Cells`, compute bounding box and non-empty regions; no new model methods needed
+- `GET /api/agent/range`: parse A1 notation (reuse/extend existing `parseCellRange` logic); iterate cells in range; return sparse array (omit empty cells or include with empty values — include for predictability)
+- Max cells guard: `(endRow-startRow+1) * (endCol-startCol+1) > 10000` → 400
+- Scope check middleware: `ro` tokens rejected on any `POST` agent endpoint
+
+---
+
+### Story 20.4: Agent Patch Endpoint
+
+As an agent,
+I want to submit a batch of operations that are applied atomically,
+So that I can make multi-cell changes in a single call that is either fully applied or fully rejected.
+
+**Acceptance Criteria:**
+
+**Given** a `POST /api/agent/patch` with a valid rw token and a well-formed ops array
+**When** all ops are valid
+**Then** all ops are applied in order, recorded as a single entry in the agent history, the spreadsheet is marked modified, and the audit log records the patch
+
+**Given** a patch where one op is invalid (e.g. out-of-bounds row, unknown op type)
+**When** the request is processed
+**Then** no ops are applied (atomic rejection), HTTP 400 is returned with the failing op index and reason
+
+**Given** the following op types in a patch
+**Then** each is supported:
+- `SetCell`: `{ "op": "SetCell", "row": N, "col": N, "value": "..." }`
+- `ClearRange`: `{ "op": "ClearRange", "startRow": N, "startCol": N, "endRow": N, "endCol": N }`
+- `InsertRow`: `{ "op": "InsertRow", "row": N }`
+- `DeleteRow`: `{ "op": "DeleteRow", "row": N }`
+- `InsertColumn`: `{ "op": "InsertColumn", "col": N }`
+- `DeleteColumn`: `{ "op": "DeleteColumn", "col": N }`
+- `SetStyle`: `{ "op": "SetStyle", "row": N, "col": N, "styleId": N, "alignment": "..." }` (alignment optional)
+- `AddStyle`: `{ "op": "AddStyle", "name": "...", "fontColor": "...", "fillColor": "..." }`
+- `ClearFormat`: `{ "op": "ClearFormat", "startRow": N, "startCol": N, "endRow": N, "endCol": N }`
+
+**Given** a patch `description` field
+**When** the patch is applied
+**Then** the description is recorded in the audit log; it does not appear in the user's undo stack
+
+**Implementation notes:**
+- Validate all ops before applying any (two-pass: validate then execute)
+- Each op maps to an existing `Command` type; collect them all, then call `Do()` in sequence under the controller lock
+- Wrap the entire set in an `AgentPatchCommand` that holds all constituent commands; push to `agentSession.history`
+- `AgentPatchCommand.Undo()` calls constituent commands' `Undo()` in reverse
+- `AddStyle` creates a new entry in the `StyleRegistry`; returns the new `styleId` in the response for subsequent `SetStyle` ops to reference
+- Response: `{ "success": true, "patchId": "...", "cellsAffected": N }`
+
+---
+
+### Story 20.5: Bootstrap Endpoint & Tool Definitions
+
+As an agent,
+I want a single URL I can GET to receive everything I need to start working,
+So that session setup requires no hardcoded knowledge of the API.
+
+**Acceptance Criteria:**
+
+**Given** `GET /api/agent/bootstrap?token=<agent-token>`
+**When** the token is valid
+**Then** the response includes:
+- `tools`: array of tool definitions in OpenAI function calling schema (JSON Schema `input_schema`) for: `get_workbook`, `get_range`, `apply_patch`, `commit`, `end_session`, `rollback`
+- `workbook`: file path, sheet dimensions, non-empty region summary (same as `GET /api/agent/workbook`)
+- `session`: agentId, scope, baseUrl
+
+**Given** the tool definitions in the response
+**When** an LLM agent uses them directly
+**Then** they accurately describe the required parameters, return shapes, and semantics of each endpoint
+
+**Given** `GET /api/agent/bootstrap?token=<invalid-or-missing>`
+**When** the request is processed
+**Then** HTTP 401 is returned
+
+**Implementation notes:**
+- Tool definitions are static JSON embedded in the Go server (not generated at runtime); kept in a `agent_tools.go` file as a Go string constant or embedded file
+- `baseUrl` in the response is `http://localhost:<port>` — the agent uses this for all subsequent calls
+- The bootstrap endpoint is the only agent endpoint that accepts the token as a query param (for copy-paste UX); all other agent endpoints require the `Authorization: Bearer` header
+
+---
+
+### Story 20.6: Agent Session UI
+
+As a user,
+I want to create and manage agent sessions from the app UI,
+So that I can hand an agent access to my spreadsheet and revoke it when done.
+
+**Acceptance Criteria:**
+
+**Given** the app is open with a spreadsheet
+**When** the user clicks the toolbar "Agent" button or uses File → "Create Agent Session..."
+**Then** a modal opens with a scope selector (R/O / R/W), a "Create Session" button, and instructions
+
+**Given** the user selects a scope and clicks "Create Session"
+**When** the session is created
+**Then** the modal displays the full bootstrap URL with a copy button and the instruction "Paste this URL into your AI tool"
+
+**Given** an agent session is active
+**When** the user looks at the status bar
+**Then** "Agent session active" is shown, with "End Session" and "Discard Session" buttons
+
+**Given** the user clicks "End Session"
+**When** the request completes
+**Then** `POST /api/agent/end` is called, the session indicator clears, and any committed agent changes remain in the spreadsheet (marked unsaved)
+
+**Given** the user clicks "Discard Session"
+**When** the request completes
+**Then** `POST /api/agent/rollback` is called, agent changes since the last commit are reverted, and the session indicator clears
+
+**Given** the agent calls `POST /api/agent/end` autonomously
+**When** the FE polls or receives notification
+**Then** the session indicator clears without user action
+
+**Implementation notes:**
+- Toolbar button: add an "Agent" button (or key icon) to `frontend/index.html` toolbar; hide when session active (replace with "End" + "Discard" buttons)
+- Modal: reuse existing `#modal-overlay` pattern; add `#agent-session-modal` with scope radio, create button, URL display, copy button
+- Session polling: `GET /api/agent/session/status` returns `{ "active": bool, "agentId": "..." }`; poll every 5s while session is active to detect autonomous end; stop polling when session ends
+- Add `GET /api/agent/session/status` endpoint (requires bootstrap token, not agent token)
+- FE stores current agent session state in `appState` (`agentSessionActive`, `agentSessionId`)
+- File → "Create Agent Session..." menu item added to Electron menu
+
+---
+
+### Story 20.7: Audit Log
+
+As a user,
+I want a persistent record of what agents have done to my spreadsheets,
+So that I can review past agent activity.
+
+**Acceptance Criteria:**
+
+**Given** any of the following events occur: session open, patch applied, commit, end, rollback
+**When** the event is processed
+**Then** a JSONL record is appended to `~/Library/Application Support/GoSheet/agent-audit.jsonl`
+
+**Given** the audit log record for a patch
+**Then** it includes: `ts` (ISO 8601), `agentId`, `event` (`"patch"`), `filePath`, `description`, `opsCount`, `outcome` (`"applied"` or `"rejected"`)
+
+**Given** the audit log record for session lifecycle events
+**Then** it includes: `ts`, `agentId`, `event` (`"session_open"` | `"commit"` | `"end"` | `"rollback"`), `filePath`
+
+**Given** the audit log file does not exist
+**When** the first event is recorded
+**Then** the file is created automatically
+
+**Given** the audit log write fails (e.g. disk full)
+**When** the write fails
+**Then** the failure is logged at WARN level but does not affect the API response or spreadsheet state
+
+**Implementation notes:**
+- `audit.go` in `controller/`: `AuditLogger` struct with append-only file handle; write in a goroutine via a buffered channel (non-blocking to callers)
+- File path: use Electron's `app.getPath('userData')` passed to Go server as a startup flag (`--userData=<path>`); fall back to `os.UserConfigDir()/GoSheet` if flag absent
+- JSONL format: one JSON object per line, newline-terminated
+- No rotation in v1 (file grows unbounded; acceptable for local app)

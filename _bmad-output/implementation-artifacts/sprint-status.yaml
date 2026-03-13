@@ -268,8 +268,15 @@ development_status:
   19-6-warn-before-pasting-into-non-empty-range: obsolete  # dropped: undo/redo makes this unnecessary
   epic-19-retrospective: optional
 
-  # Epic 20: Agentic API Access Layer (deferred, stories TBD)
+  # Epic 20: Agentic API Access Layer
   epic-20: backlog
+  20-1-bootstrap-token-auth-middleware: backlog
+  20-2-agent-token-issuance-session-lifecycle: backlog
+  20-3-agent-read-endpoints: backlog
+  20-4-agent-patch-endpoint: backlog
+  20-5-bootstrap-endpoint-tool-definitions: backlog
+  20-6-agent-session-ui: backlog
+  20-7-audit-log: backlog
   epic-20-retrospective: optional
 
   # Epic 21: UX Polish & Developer Experience
