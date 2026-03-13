@@ -1,7 +1,7 @@
 # GoSheet - Makefile for Electron Development
 # See README.md for "When to Run Which Tests" guidance
 
-.PHONY: install test test-unit test-electron test-all build build-server-arm64 build-server-x64 build-server-universal build-electron run run-electron lint complexity coverage clean
+.PHONY: install test test-unit test-electron test-all build build-server-arm64 build-server-x64 build-server-universal build-electron run run-electron lint complexity coverage coverage-js coverage-all clean
 
 # Install Node.js dependencies
 install:
@@ -81,6 +81,22 @@ coverage:
 	@echo ""
 	@echo "Total:"
 	@test -f coverage.out && go tool cover -func=coverage.out 2>/dev/null | grep "^total:" || echo "(no coverage.out)"
+
+# JS frontend coverage via Istanbul instrumentation + Playwright E2E
+# Instruments frontend/*.js, runs all 344 Playwright tests, then reports.
+# Output: coverage/ (HTML), .nyc_output/ (raw JSON).
+# See docs/coverage.md for interpretation and targets.
+coverage-js:
+	@echo "Instrumenting frontend JS..."
+	@node scripts/instrument-frontend.js
+	@echo "Running Playwright tests with coverage..."
+	@COVERAGE=1 NODE_ENV=test npx playwright test || true
+	@echo ""
+	@echo "JS Coverage summary:"
+	@npm run coverage:report --silent
+
+# Run both Go and JS coverage in sequence
+coverage-all: coverage coverage-js
 
 # Complexity analysis for Go (cyclomatic complexity)
 complexity:
