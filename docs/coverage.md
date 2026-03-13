@@ -69,13 +69,13 @@ Reports are written to `coverage/` (HTML) and printed to stdout as a text summar
 
 ### Current baselines (as of 2026-03-13, 344 tests)
 
-| Metric | Result | Target |
-|--------|--------|--------|
-| Lines | 81.6% | 80% |
-| Branches | 62.2% | 65% |
-| Functions | 81.0% | 80% |
+| Metric | Result | Gate (CI fail) | Goal |
+|--------|--------|----------------|------|
+| Lines | 81.6% | 80% | 85% |
+| Branches | 62.2% | 65% | 75% |
+| Functions | 81.0% | 80% | 90% |
 
-Branch coverage at 62.2% is below the 65% target. This is expected for E2E-only coverage — many error-handling branches and edge-case paths are never exercised by happy-path tests. The HTML report in `coverage/` shows exactly which branches are uncovered and is the primary tool for finding coverage gaps.
+Branch coverage at 62.2% is currently below the 65% gate. This is expected for E2E-only coverage — many error-handling branches and edge-case paths are never exercised by happy-path tests. The gate is not yet enforced in CI (report-only); reaching 65% will require targeted tests for uncovered branches. The HTML report in `coverage/` shows exactly which branches are uncovered and is the primary tool for finding coverage gaps.
 
 ### Interpreting the results
 

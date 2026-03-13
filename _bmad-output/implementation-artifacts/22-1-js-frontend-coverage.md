@@ -41,11 +41,11 @@ Approach: Istanbul source instrumentation (Option C from research). Pre-instrume
 
 ## Coverage Targets (informational, not CI gates yet)
 
-| Metric   | Baseline goal |
-|----------|--------------|
-| Line     | 80%          |
-| Branch   | 65%          |
-| Function | 80%          |
+| Metric   | Gate (CI fail) | Goal |
+|----------|---------------|------|
+| Line     | 80%           | 85%  |
+| Branch   | 65%           | 75%  |
+| Function | 80%           | 90%  |
 
 ## Tasks
 
