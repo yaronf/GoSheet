@@ -18,12 +18,13 @@ async function apiPost(window, path, body) {
         body: JSON.stringify(body),
       });
       const json = await res.json();
-      if (
-        json.success &&
-        json.data &&
-        typeof window.applyUndoRedoState === 'function'
-      ) {
-        window.applyUndoRedoState(json.data);
+      if (json.success && json.data) {
+        if (typeof window.applyUndoRedoState === 'function') {
+          window.applyUndoRedoState(json.data);
+        }
+        if (typeof window.refreshAllCells === 'function') {
+          window.refreshAllCells();
+        }
       }
       return json;
     },
