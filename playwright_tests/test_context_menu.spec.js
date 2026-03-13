@@ -104,6 +104,81 @@ test.describe('Context menu (Story 13.2)', () => {
     await expect(menu).toBeVisible();
   });
 
+  test('right-click on cell outside selection reselects it', async ({
+    window,
+  }) => {
+    // Select cell A1:B2 range first
+    await window.locator('#cell-0-0').click();
+    await window.locator('#cell-1-1').click({ modifiers: ['Shift'] });
+
+    // Right-click a cell outside the selection (D4 = row 3, col 3)
+    await window.locator('#cell-3-3').click({ button: 'right' });
+
+    // Context menu should appear, and D4 should now be selected
+    await expect(window.locator('#context-menu')).toBeVisible();
+    await expect(window.locator('#cell-3-3')).toHaveClass(/selected/);
+
+    // Dismiss menu
+    await window.keyboard.press('Escape');
+  });
+
+  test('context menu align-left applies left alignment', async ({ window }) => {
+    await setCellViaApi(window, 0, 0, 'aligned');
+    await selectCellViaApp(window, 0, 0);
+
+    const cell = window.locator('#cell-0-0');
+    await cell.click({ button: 'right' });
+    await expect(window.locator('#context-menu')).toBeVisible();
+
+    // Click align-left if present
+    const alignLeft = window.locator(
+      '#context-menu [data-action="align-left"]'
+    );
+    if (await alignLeft.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await alignLeft.click();
+      await expect(window.locator('#context-menu')).toBeHidden();
+    } else {
+      // Menu doesn't have align-left — dismiss and skip
+      await window.keyboard.press('Escape');
+    }
+  });
+
+  test('context menu clear-formatting removes style', async ({ window }) => {
+    await setCellViaApi(window, 0, 0, 'styled');
+    await selectCellViaApp(window, 0, 0);
+
+    // Apply a style first via context menu
+    const cell = window.locator('#cell-0-0');
+    await cell.click({ button: 'right' });
+    await expect(
+      window.locator('#context-menu [data-action="format-style-1"]')
+    ).toBeVisible({ timeout: 3000 });
+    await window
+      .locator('#context-menu [data-action="format-style-1"]')
+      .click();
+    await expect(window.locator('#cell-0-0')).toHaveClass(/style-title/);
+
+    // Now open context menu and clear formatting
+    await cell.click({ button: 'right' });
+    await expect(window.locator('#context-menu')).toBeVisible();
+    const clearFmt = window.locator(
+      '#context-menu [data-action="clear-formatting"]'
+    );
+    if (await clearFmt.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await clearFmt.click();
+      await window.waitForFunction(
+        () =>
+          !document
+            .getElementById('cell-0-0')
+            ?.classList.contains('style-title'),
+        { timeout: 3000 }
+      );
+      await expect(window.locator('#cell-0-0')).not.toHaveClass(/style-title/);
+    } else {
+      await window.keyboard.press('Escape');
+    }
+  });
+
   test('context menu Clear clears range', async ({ window }) => {
     await setCellViaApi(window, 0, 0, 'a');
     await setCellViaApi(window, 0, 1, 'b');

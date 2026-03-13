@@ -191,6 +191,86 @@ test.describe('File Operation Tests', () => {
     }
   });
 
+  test('Escape dismisses confirm dialog (same as Cancel)', async ({
+    window,
+  }) => {
+    await expect(window.locator('#spreadsheet')).toBeVisible();
+    await setCellViaApi(window, 0, 0, 'escape-test');
+    await expect(window.locator('#file-status')).toContainText('Unsaved', {
+      timeout: 5000,
+    });
+
+    // Click new-btn to trigger unsaved-changes confirm
+    await window.locator('#new-btn').click();
+    const confirmModal = window.locator('#modal-overlay.active');
+    await expect(confirmModal).toBeVisible({ timeout: 3000 });
+
+    // Press Escape — should dismiss (same as Cancel)
+    await window.keyboard.press('Escape');
+    await expect(confirmModal).toBeHidden({ timeout: 2000 });
+
+    // Data must still be there
+    await expect(window.locator('#cell-0-0')).toHaveText('escape-test');
+  });
+
+  test('load button: unsaved changes cancel keeps current data', async ({
+    window,
+  }) => {
+    await expect(window.locator('#spreadsheet')).toBeVisible();
+    await setCellViaApi(window, 0, 0, 'dont-lose-me');
+    await expect(window.locator('#file-status')).toContainText('Unsaved', {
+      timeout: 5000,
+    });
+
+    // Click load-btn — triggers unsaved-changes confirm dialog (no dialog stub needed
+    // because the confirm fires before the file-open dialog)
+    await window.locator('#load-btn').click();
+
+    const confirmModal = window.locator('#modal-overlay.active');
+    await expect(confirmModal).toBeVisible({ timeout: 3000 });
+    await expect(window.locator('#modal-message')).toContainText('unsaved');
+
+    // Cancel — load should be aborted
+    await window.locator('#modal-cancel').click();
+    await expect(confirmModal).toBeHidden();
+
+    // Data must still be there
+    await expect(window.locator('#cell-0-0')).toHaveText('dont-lose-me');
+    await expect(window.locator('#file-status')).toContainText('Unsaved');
+  });
+
+  test('load file by path: unsaved changes cancel aborts load', async ({
+    window,
+  }) => {
+    await expect(window.locator('#spreadsheet')).toBeVisible();
+
+    // Create unsaved data
+    await setCellViaApi(window, 0, 0, 'important');
+    await expect(window.locator('#file-status')).toContainText('Unsaved', {
+      timeout: 5000,
+    });
+
+    // Call loadFileByPath with a non-existent path (the cancel happens before load)
+    // Fire without await — it will block on the confirm dialog
+    window
+      .evaluate(() => window.loadFileByPath('/tmp/nonexistent.sheet'))
+      .catch(() => {});
+
+    // Confirm dialog should appear asking about unsaved changes
+    await expect(window.locator('#modal-overlay.active')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(window.locator('#modal-message')).toContainText('unsaved');
+
+    // Cancel — should abort the load
+    await window.locator('#modal-cancel').click();
+    await expect(window.locator('#modal-overlay')).toBeHidden();
+
+    // Data should still be there
+    await expect(window.locator('#cell-0-0')).toHaveText('important');
+    await expect(window.locator('#file-status')).toContainText('Unsaved');
+  });
+
   test('dialog cancellation handling', async ({ electronApp, window }) => {
     await expect(window.locator('#spreadsheet')).toBeVisible();
 

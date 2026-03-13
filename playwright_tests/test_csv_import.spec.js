@@ -268,6 +268,47 @@ test.describe('CSV Import Dialog', () => {
     fs.rmdirSync(testDir);
   });
 
+  test('CSV import: cancel unsaved changes warning aborts import', async ({
+    window,
+    electronApp,
+  }) => {
+    await ensureSpreadsheetView(window);
+    // Create some unsaved data
+    await setCellViaApi(window, 0, 0, 'keep-me');
+    await expect(window.locator('#file-status')).toContainText('Unsaved', {
+      timeout: 5000,
+    });
+
+    // Create test CSV
+    const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gosheet-csv-test-'));
+    const csvPath = path.join(testDir, 'test.csv');
+    fs.writeFileSync(csvPath, 'New,Data\n1,2');
+
+    try {
+      await triggerImportCSV(electronApp, { filePaths: [csvPath] });
+      const previewModal = window.locator('#csv-preview-modal.active');
+      await expect(previewModal).toBeVisible({ timeout: 5000 });
+
+      // Click Import to trigger the unsaved-changes confirm dialog
+      await window.locator('#csv-preview-import').click();
+
+      // Unsaved changes confirm dialog should appear
+      const confirmModal = window.locator('#modal-overlay.active');
+      await expect(confirmModal).toBeVisible({ timeout: 5000 });
+      await expect(window.locator('#modal-message')).toContainText('unsaved');
+
+      // Cancel — import should be aborted
+      await window.locator('#modal-cancel').click();
+      await expect(confirmModal).toBeHidden();
+
+      // Original data should be intact
+      await expect(window.locator('#cell-0-0')).toHaveText('keep-me');
+    } finally {
+      fs.unlinkSync(csvPath);
+      fs.rmdirSync(testDir);
+    }
+  });
+
   test('CSV import clears existing data', async ({ window, electronApp }) => {
     await ensureSpreadsheetView(window);
     // First, create some data

@@ -2,7 +2,8 @@
 // Tests: row-selected band, col-selected band, header highlight, clear on cell click
 
 const { test, expect } = require('./fixtures');
-const { ensureSpreadsheetView } = require('./helpers');
+const { ensureSpreadsheetView, setCellViaApi } = require('./helpers');
+const { clickMenuItemById } = require('electron-playwright-helpers');
 
 test.describe('Row/column select aesthetics (Story 17.2)', () => {
   test.describe.configure({ mode: 'serial' });
@@ -103,6 +104,151 @@ test.describe('Row/column select aesthetics (Story 17.2)', () => {
     );
     expect(await window.locator('.cell.row-selected').count()).toBe(0);
     expect(await window.locator('.cell.col-selected').count()).toBe(0);
+  });
+
+  test('insert row via menu when row selected', async ({
+    window,
+    electronApp,
+  }) => {
+    await setCellViaApi(window, 1, 0, 'row1');
+    await setCellViaApi(window, 2, 0, 'row2');
+
+    // Select row 1 by clicking its header
+    await window.locator('.row-header[data-row="1"]').click();
+    await window.waitForFunction(
+      () =>
+        document
+          .querySelector('.row-header[data-row="1"]')
+          ?.classList.contains('row-header-selected'),
+      { timeout: 3000 }
+    );
+
+    // Insert row via menu
+    await clickMenuItemById(electronApp, 'insert-row');
+
+    // row2 should now be pushed down to row 3
+    await window.waitForFunction(
+      () => document.getElementById('cell-3-0')?.textContent?.trim() === 'row2',
+      { timeout: 3000 }
+    );
+    await expect(window.locator('#cell-2-0')).toHaveText('row1');
+    await expect(window.locator('#cell-3-0')).toHaveText('row2');
+  });
+
+  test('delete row via menu when row selected', async ({
+    window,
+    electronApp,
+  }) => {
+    await setCellViaApi(window, 0, 0, 'keep');
+    await setCellViaApi(window, 1, 0, 'delete-me');
+    await setCellViaApi(window, 2, 0, 'after');
+
+    // Select row 1
+    await window.locator('.row-header[data-row="1"]').click();
+    await window.waitForFunction(
+      () =>
+        document
+          .querySelector('.row-header[data-row="1"]')
+          ?.classList.contains('row-header-selected'),
+      { timeout: 3000 }
+    );
+
+    // Delete row via menu
+    await clickMenuItemById(electronApp, 'delete-row');
+
+    // 'after' should now be at row 1
+    await window.waitForFunction(
+      () =>
+        document.getElementById('cell-1-0')?.textContent?.trim() === 'after',
+      { timeout: 3000 }
+    );
+    await expect(window.locator('#cell-0-0')).toHaveText('keep');
+    await expect(window.locator('#cell-1-0')).toHaveText('after');
+  });
+
+  test('insert column via menu when column selected', async ({
+    window,
+    electronApp,
+  }) => {
+    await setCellViaApi(window, 0, 1, 'colB');
+    await setCellViaApi(window, 0, 2, 'colC');
+
+    // Select column 1 (B) by clicking its header
+    await window.locator('.column-header[data-col="1"]').click();
+    await window.waitForFunction(
+      () =>
+        document
+          .querySelector('.column-header[data-col="1"]')
+          ?.classList.contains('col-header-selected'),
+      { timeout: 3000 }
+    );
+
+    // Insert column via menu
+    await clickMenuItemById(electronApp, 'insert-column');
+
+    // colB should now be at col 2
+    await window.waitForFunction(
+      () => document.getElementById('cell-0-2')?.textContent?.trim() === 'colB',
+      { timeout: 3000 }
+    );
+    await expect(window.locator('#cell-0-2')).toHaveText('colB');
+    await expect(window.locator('#cell-0-3')).toHaveText('colC');
+  });
+
+  test('delete column via menu when column selected', async ({
+    window,
+    electronApp,
+  }) => {
+    await setCellViaApi(window, 0, 0, 'A');
+    await setCellViaApi(window, 0, 1, 'del');
+    await setCellViaApi(window, 0, 2, 'C');
+
+    // Select column 1 (B)
+    await window.locator('.column-header[data-col="1"]').click();
+    await window.waitForFunction(
+      () =>
+        document
+          .querySelector('.column-header[data-col="1"]')
+          ?.classList.contains('col-header-selected'),
+      { timeout: 3000 }
+    );
+
+    // Delete column via menu
+    await clickMenuItemById(electronApp, 'delete-column');
+
+    // C should now be at col 1
+    await window.waitForFunction(
+      () => document.getElementById('cell-0-1')?.textContent?.trim() === 'C',
+      { timeout: 3000 }
+    );
+    await expect(window.locator('#cell-0-0')).toHaveText('A');
+    await expect(window.locator('#cell-0-1')).toHaveText('C');
+  });
+
+  test('insert/delete row ignored when read-only', async ({
+    window,
+    electronApp,
+  }) => {
+    await setCellViaApi(window, 0, 0, 'original');
+
+    // Enable read-only
+    await window.waitForFunction(
+      () => typeof window.__testSetReadOnly === 'function',
+      { timeout: 5000 }
+    );
+    await window.evaluate(() => window.__testSetReadOnly(true));
+
+    // Select a row
+    await window.locator('.row-header[data-row="0"]').click();
+
+    // Try insert row — should be a no-op
+    await clickMenuItemById(electronApp, 'insert-row');
+    await window.waitForFunction(() => true); // let async settle
+
+    // Grid should be unchanged
+    await expect(window.locator('#cell-0-0')).toHaveText('original');
+
+    await window.evaluate(() => window.__testSetReadOnly(false));
   });
 
   test('rectangular range selection shows outer border only (edge classes)', async ({

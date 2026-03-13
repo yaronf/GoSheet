@@ -216,6 +216,86 @@ test.describe('Keyboard Shortcuts Tests', () => {
     );
   });
 
+  test('ArrowUp at top row does not move selection', async ({ window }) => {
+    // Select A1 (row 0) — pressing ArrowUp should be a no-op
+    await window.locator('#cell-0-0').click();
+    await expect(window.locator('#cell-0-0')).toHaveClass(/selected/);
+    await window.keyboard.press('ArrowUp');
+    // Should still be on row 0
+    await expect(window.locator('#cell-0-0')).toHaveClass(/selected/, {
+      timeout: 1000,
+    });
+  });
+
+  test('ArrowLeft at col 0 does not move selection', async ({ window }) => {
+    await window.locator('#cell-0-0').click();
+    await expect(window.locator('#cell-0-0')).toHaveClass(/selected/);
+    await window.keyboard.press('ArrowLeft');
+    await expect(window.locator('#cell-0-0')).toHaveClass(/selected/, {
+      timeout: 1000,
+    });
+  });
+
+  test('Tab key moves selection to next cell', async ({ window }) => {
+    const { setCellViaApi } = require('./helpers');
+    await setCellViaApi(window, 0, 0, 'start');
+    // Click cell A1 to select it
+    await window.locator('#cell-0-0').click();
+    await expect(window.locator('#cell-0-0')).toHaveClass(/selected/);
+
+    // Press Tab — should move to B1
+    await window.keyboard.press('Tab');
+    await expect(window.locator('#cell-0-1')).toHaveClass(/selected/, {
+      timeout: 2000,
+    });
+  });
+
+  test('Enter key starts editing the selected cell', async ({ window }) => {
+    const { setCellViaApi } = require('./helpers');
+    await setCellViaApi(window, 1, 0, 'editable');
+    await window.locator('#cell-1-0').click();
+    await expect(window.locator('#cell-1-0')).toHaveClass(/selected/);
+
+    // Press Enter — should open edit mode
+    await window.keyboard.press('Enter');
+    await expect(window.locator('.cell-editor')).toBeVisible({ timeout: 2000 });
+    await window.keyboard.press('Escape');
+    await expect(window.locator('.cell-editor')).toBeHidden();
+  });
+
+  test('F2 key starts editing the selected cell', async ({ window }) => {
+    await window.locator('#cell-2-0').click();
+    await expect(window.locator('#cell-2-0')).toHaveClass(/selected/);
+
+    // Press F2 — should open edit mode
+    await window.keyboard.press('F2');
+    await expect(window.locator('.cell-editor')).toBeVisible({ timeout: 2000 });
+    await window.keyboard.press('Escape');
+    await expect(window.locator('.cell-editor')).toBeHidden();
+  });
+
+  test('Ctrl+Backslash clears formatting from selected cell', async ({
+    window,
+  }) => {
+    const { setCellViaApi, setStyleViaApi } = require('./helpers');
+    await setCellViaApi(window, 0, 2, 'styled');
+    await setStyleViaApi(window, 0, 2, 0, 2, 1); // Title style
+    await expect(window.locator('#cell-0-2')).toHaveClass(/style-title/);
+
+    // Select the cell
+    await window.locator('#cell-0-2').click();
+    await expect(window.locator('#cell-0-2')).toHaveClass(/selected/);
+
+    // Press Ctrl+\ — clears formatting
+    await window.keyboard.press('Control+\\');
+    await window.waitForFunction(
+      () =>
+        !document.getElementById('cell-0-2')?.classList.contains('style-title'),
+      { timeout: 3000 }
+    );
+    await expect(window.locator('#cell-0-2')).not.toHaveClass(/style-title/);
+  });
+
   test('Formula bar allows text editing shortcuts', async ({ window }) => {
     await window.waitForLoadState('domcontentloaded');
 

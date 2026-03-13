@@ -91,10 +91,10 @@ export function showAlert(message) {
 
     messageEl.textContent = message;
     cancelBtn.style.display = 'none';
-    overlay.classList.add('active');
+    overlay.classList.add('active', 'modal-confirm');
 
     const handleOk = () => {
-      overlay.classList.remove('active');
+      overlay.classList.remove('active', 'modal-confirm');
       cancelBtn.style.display = '';
       okBtn.removeEventListener('click', handleOk);
       document.removeEventListener('keydown', handleKeyDown);

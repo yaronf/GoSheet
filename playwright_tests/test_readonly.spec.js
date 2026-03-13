@@ -148,6 +148,34 @@ test.describe('Read-Only Mode (Story 16.4)', () => {
     });
   });
 
+  // Menu Undo/Redo are no-ops in read-only mode
+  test('undo via Cmd+Z is blocked in read-only mode', async ({
+    window,
+    electronApp,
+  }) => {
+    const { setCellViaApi } = require('./helpers');
+    await setCellViaApi(window, 0, 0, 'before-undo');
+    await expect(window.locator('#cell-0-0')).toHaveText('before-undo');
+
+    await window.evaluate(() => window.__testSetReadOnly(true));
+
+    // Trigger undo via menu (exercises onMenuUndo read-only guard)
+    await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      const editMenu = menu.items.find((item) => item.label === 'Edit');
+      const undoItem = editMenu?.submenu?.items?.find(
+        (item) => item.label === 'Undo'
+      );
+      undoItem?.click?.();
+    });
+
+    // Wait a tick — undo should have been a no-op
+    await window.waitForFunction(() => true);
+    await expect(window.locator('#cell-0-0')).toHaveText('before-undo');
+
+    await window.evaluate(() => window.__testSetReadOnly(false));
+  });
+
   // AC 4: setReadOnly(false) re-enables editing
   test('editing is re-enabled after setReadOnly(false)', async ({ window }) => {
     await setCellViaApi(window, 0, 0, 'before');

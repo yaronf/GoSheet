@@ -228,4 +228,19 @@ test.describe('Address box (Story 17.4)', () => {
     // A1 still selected
     await expect(window.locator('#cell-0-0')).toHaveClass(/selected/);
   });
+
+  test('out-of-bounds range address adds cell-ref-invalid class', async ({
+    window,
+  }) => {
+    const cellRef = window.locator('#cell-ref');
+    // Row 10001 exceeds the 9999 limit in parseCellRange
+    await cellRef.click();
+    await cellRef.fill('A1:B10001');
+    await cellRef.press('Enter');
+
+    const hasInvalidClass = await cellRef.evaluate((el) =>
+      el.classList.contains('cell-ref-invalid')
+    );
+    expect(hasInvalidClass).toBe(true);
+  });
 });

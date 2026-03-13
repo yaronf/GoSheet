@@ -423,4 +423,64 @@ test.describe('Copy/paste range (Story 17.3)', () => {
     await expect(window.locator('#cell-1-3')).toHaveClass(/style-header/);
     await expect(window.locator('#cell-1-4')).toHaveClass(/style-header/);
   });
+
+  test('paste is blocked in read-only mode', async ({
+    electronApp,
+    window,
+  }) => {
+    // Write to clipboard
+    await window.evaluate(async () => {
+      await navigator.clipboard.writeText('blocked');
+    });
+
+    // Enable read-only
+    await window.waitForFunction(
+      () => typeof window.__testSetReadOnly === 'function',
+      { timeout: 5000 }
+    );
+    await window.evaluate(() => window.__testSetReadOnly(true));
+
+    // Select A1
+    await window.locator('#cell-0-0').click();
+
+    // Attempt paste — should be silently blocked
+    await menuPaste(electronApp);
+
+    // Wait a tick for any async side-effects to settle
+    await window.waitForFunction(() => true);
+
+    // Cell should remain empty (paste did nothing)
+    await expect(window.locator('#cell-0-0')).toHaveText('');
+
+    // Restore non-read-only for teardown
+    await window.evaluate(() => window.__testSetReadOnly(false));
+  });
+
+  test('copy of entire row (open-ended) shows alert', async ({
+    electronApp,
+    window,
+  }) => {
+    // Click a row header to select the entire row (sets endCol = Infinity / OPEN_END)
+    await window.locator('.row-header[data-row="0"]').click();
+
+    // Wait for row to be selected
+    await window.waitForFunction(
+      () =>
+        document
+          .querySelector('.row-header[data-row="0"]')
+          ?.classList.contains('row-header-selected'),
+      { timeout: 3000 }
+    );
+
+    // Trigger copy via menu — copySelectionToClipboard checks !Number.isFinite(endCol)
+    await menuCopy(electronApp);
+
+    // Alert modal should appear with "too large" message
+    await window
+      .locator('#modal-overlay.active')
+      .waitFor({ state: 'visible', timeout: 5000 });
+    await expect(window.locator('#modal-message')).toContainText('too large');
+    await window.locator('#modal-ok').click();
+    await expect(window.locator('#modal-overlay')).toBeHidden();
+  });
 });

@@ -142,6 +142,96 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await window.waitForTimeout(200);
   });
 
+  test('add style with duplicate name shows alert and does not save', async ({
+    window,
+    electronApp,
+  }) => {
+    await openManageStylesModal(electronApp, window);
+    // Try to add a style named "Title" which already exists
+    await window.locator('#manage-styles-add').click();
+    await expect(window.locator('#manage-styles-form')).toBeVisible();
+    await window.locator('#manage-styles-name').fill('Title');
+    await window.locator('#manage-styles-form-save').click();
+
+    // Alert modal should appear with duplicate-name message
+    await expect(window.locator('#modal-overlay.active')).toBeVisible({
+      timeout: 3000,
+    });
+    await expect(window.locator('#modal-message')).toContainText(
+      'already exists'
+    );
+    await window.locator('#modal-ok').click();
+    await expect(window.locator('#modal-overlay')).toBeHidden();
+
+    // Form should still be visible (save was aborted)
+    await expect(window.locator('#manage-styles-form')).toBeVisible();
+    // Style count should be unchanged (still 3)
+    await window.locator('#manage-styles-form-cancel').click();
+    await expect(window.locator('.manage-styles-item')).toHaveCount(3);
+    await window.locator('#manage-styles-close').click();
+  });
+
+  test('Escape dismisses alert dialog', async ({ window, electronApp }) => {
+    await openManageStylesModal(electronApp, window);
+    await window.locator('#manage-styles-add').click();
+    await expect(window.locator('#manage-styles-form')).toBeVisible();
+    // Trigger alert via empty name save
+    await window.locator('#manage-styles-name').fill('');
+    await window.locator('#manage-styles-form-save').click();
+    await expect(window.locator('#modal-overlay.active')).toBeVisible({
+      timeout: 3000,
+    });
+    // Press Escape to dismiss (same as clicking OK)
+    await window.keyboard.press('Escape');
+    await expect(window.locator('#modal-overlay')).toBeHidden({
+      timeout: 2000,
+    });
+    await window.locator('#manage-styles-form-cancel').click();
+    await window.locator('#manage-styles-close').click();
+  });
+
+  test('clicking overlay background dismisses alert dialog', async ({
+    window,
+    electronApp,
+  }) => {
+    await openManageStylesModal(electronApp, window);
+    await window.locator('#manage-styles-add').click();
+    await expect(window.locator('#manage-styles-form')).toBeVisible();
+    await window.locator('#manage-styles-name').fill('');
+    await window.locator('#manage-styles-form-save').click();
+    await expect(window.locator('#modal-overlay.active')).toBeVisible({
+      timeout: 3000,
+    });
+    // Click the overlay background (outside the dialog box) to dismiss
+    await window.locator('#modal-overlay').click({ position: { x: 5, y: 5 } });
+    await expect(window.locator('#modal-overlay')).toBeHidden({
+      timeout: 2000,
+    });
+    await window.locator('#manage-styles-form-cancel').click();
+    await window.locator('#manage-styles-close').click();
+  });
+
+  test('add style with empty name shows alert', async ({
+    window,
+    electronApp,
+  }) => {
+    await openManageStylesModal(electronApp, window);
+    await window.locator('#manage-styles-add').click();
+    await expect(window.locator('#manage-styles-form')).toBeVisible();
+    // Leave name blank and save
+    await window.locator('#manage-styles-name').fill('');
+    await window.locator('#manage-styles-form-save').click();
+
+    // Alert modal should appear
+    await expect(window.locator('#modal-overlay.active')).toBeVisible({
+      timeout: 3000,
+    });
+    await expect(window.locator('#modal-message')).toContainText('style name');
+    await window.locator('#modal-ok').click();
+    await window.locator('#manage-styles-form-cancel').click();
+    await window.locator('#manage-styles-close').click();
+  });
+
   test('delete style shows confirmation dialog; Cancel aborts', async ({
     window,
     electronApp,
@@ -160,6 +250,42 @@ test.describe('Manage Styles (Story 13.3)', () => {
     await expect(
       window.locator('.manage-styles-item[data-id="1"]')
     ).toBeVisible();
+  });
+
+  test('close with unsaved form changes shows confirm; Cancel keeps modal open', async ({
+    window,
+    electronApp,
+  }) => {
+    await openManageStylesModal(electronApp, window);
+    // Open the edit form for Title style
+    await window.locator('.manage-styles-edit[data-id="1"]').click();
+    await expect(window.locator('#manage-styles-form')).toBeVisible();
+
+    // Change the font size to mark the form as dirty
+    await window.locator('#manage-styles-font-size').evaluate((el) => {
+      el.value = '30';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // Click Close — should show unsaved-changes confirm dialog
+    await window.locator('#manage-styles-close').click();
+    await expect(window.locator('#modal-overlay.active')).toBeVisible({
+      timeout: 3000,
+    });
+    await expect(window.locator('#modal-message')).toContainText(
+      'unsaved changes'
+    );
+
+    // Cancel — modal should remain open
+    await window.locator('#modal-cancel').click();
+    await expect(window.locator('#manage-styles-modal.active')).toBeVisible();
+
+    // Now cancel the form and close cleanly
+    await window.locator('#manage-styles-form-cancel').click();
+    await window.locator('#manage-styles-close').click();
+    await expect(window.locator('#manage-styles-modal')).not.toHaveClass(
+      'active'
+    );
   });
 
   test('custom style appears in context menu and Format menu', async ({
