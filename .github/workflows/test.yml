@@ -86,6 +86,26 @@ jobs:
         ELECTRON_SHOW_WINDOW: 1
         DEBUG: pw:api
 
+    - name: JS Coverage (instrument + run + report, report only)
+      run: |
+        node scripts/instrument-frontend.js
+        xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npx playwright test --project=electron
+        npm run coverage:report || true
+      env:
+        NODE_ENV: test
+        COVERAGE: "1"
+        ELECTRON_SHOW_WINDOW: 1
+      continue-on-error: true
+
+    - name: Upload JS coverage report
+      if: always()
+      uses: actions/upload-artifact@v4
+      continue-on-error: true
+      with:
+        name: js-coverage-report
+        path: coverage/
+        retention-days: 7
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4

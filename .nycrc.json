@@ -1,0 +1,9 @@
+{
+  "include": ["frontend/**/*.js"],
+  "exclude": [],
+  "reporter": ["html", "lcov", "text-summary"],
+  "report-dir": "coverage",
+  "all": true,
+  "instrument": false,
+  "source-map": false
+}

@@ -50,6 +50,11 @@ web
 # Claude Code
 .claude/
 
+# JS coverage
+frontend-instrumented/
+.nyc_output/
+coverage/
+
 # BMAD framework (ignore framework subdirs, keep project BMAD.md)
 _bmad/*
 !_bmad/BMAD.md

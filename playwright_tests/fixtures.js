@@ -4,6 +4,7 @@
 const base = require('@playwright/test');
 const playwright = require('playwright');
 const path = require('path');
+const fs = require('fs');
 
 // Extend base test with Electron fixtures
 exports.test = base.test.extend({
@@ -36,6 +37,26 @@ exports.test = base.test.extend({
 
     // Provide app to test
     await use(electronApp);
+
+    // Coverage: extract window.__coverage__ before closing (only when COVERAGE=1)
+    if (process.env.COVERAGE === '1') {
+      try {
+        const win = await electronApp.firstWindow();
+        const coverage = await win.evaluate(() => window.__coverage__);
+        if (coverage) {
+          const nycDir = path.join(__dirname, '..', '.nyc_output');
+          if (!fs.existsSync(nycDir)) fs.mkdirSync(nycDir);
+          // Each worker writes a uniquely named file; nyc merges them automatically
+          const outFile = path.join(
+            nycDir,
+            `coverage-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
+          );
+          fs.writeFileSync(outFile, JSON.stringify(coverage));
+        }
+      } catch (e) {
+        console.warn('[coverage] Failed to extract coverage:', e.message);
+      }
+    }
 
     // Cleanup: close app after test
     await electronApp.close();

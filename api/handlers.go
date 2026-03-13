@@ -41,9 +41,18 @@ func (s *Server) ServeStatic(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetFrontendDir returns the frontend directory path for Electron and standalone modes.
+// When the COVERAGE environment variable is set to "1", the instrumented copy of the
+// frontend is served so that Istanbul coverage counters are active in the renderer.
 func GetFrontendDir() string {
 	if cwd, err := os.Getwd(); err == nil {
 		logutil.Debugf("Current working directory: %s", cwd)
+	}
+	if os.Getenv("COVERAGE") == "1" {
+		if _, err := os.Stat("frontend-instrumented/index.html"); err == nil {
+			logutil.Debugln("COVERAGE=1: serving instrumented frontend at: frontend-instrumented/")
+			return "frontend-instrumented"
+		}
+		logutil.Warnf("COVERAGE=1 set but frontend-instrumented/ not found; falling back to frontend/")
 	}
 	if _, err := os.Stat("frontend/index.html"); err == nil {
 		logutil.Debugln("Found frontend at: frontend/")
