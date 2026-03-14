@@ -6,11 +6,6 @@ Future ideas and feature notes. Promote to sprint via `/bmad-bmm-correct-course`
 
 ## Ideas
 
-### Agentic API
-
-See `[technical-agent-access-layer-research.md](research/technical-agent-access-layer-research.md)`
-**Epic: 20**
-
 ### Language-independent file format
 
 See `[technical-file-format-cross-language-random-access-research-2026-02-23.md](research/technical-file-format-cross-language-random-access-research-2026-02-23.md)`
@@ -18,21 +13,11 @@ See `[technical-file-format-cross-language-random-access-research-2026-02-23.md]
 ### Select cells/ranges for inclusion in formula
 
 While editing a formula, click a cell/range to include a reference in the formula.
-**Epic: 18** ✓ Done
+**Epic: 18** ✓ Done -- Later: I'm not sure. I think this works for individual cells, not for ranges.
 
 ### User doc
 
-Ensure user documentation is updated once per story, when applicable.
-
-### Toolbar
-
-Remove the alignment buttons, add style buttons. And make them dynamic: new styles add buttons etc. And of course rendered as the style.
-**Epic: 19** (Story 19.4)
-
-### Fold Insert menu into Edit menu
-
-The Insert menu items (insert row/column) should live in the Edit menu, eliminating the separate Insert menu.
-**Epic: 19** (Story 19.3)
+Ensure user documentation is updated once per epic, when applicable.
 
 ### Typed cell error enum instead of string sentinels
 
@@ -53,16 +38,8 @@ At least a toggle. Does it also require control of row/column width?
 
 Today this is behind a "too many cells" check. Needs to be implemnted efficiently.
 
-### Bug Cannot select whole row/col from the cell selection box
-**Epic: 19** (Story 19.5)
+### Recent Files on Welcome Page
 
-### Prevent copying ranges into non-empty ranges
+If the file cannot be opened, add an indication (dialog?) and/or remove it from the list. Bug: a dialog is apparently opened and is only shown when the spreadsheet is opened.
 
-Or add an "are you sure" modal.
-**Epic: 19** (Story 19.6)
-
-### Copy/pasted formulas - bug
-
-When a range is copied, the formulas should have their references shifted. Absolute refs (`$A$1`) do not shift.
-**Epic: 19** (Stories 19.1 + 19.2)
 
