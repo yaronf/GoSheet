@@ -13,7 +13,8 @@ See `[technical-file-format-cross-language-random-access-research-2026-02-23.md]
 ### Select cells/ranges for inclusion in formula
 
 While editing a formula, click a cell/range to include a reference in the formula.
-**Epic: 18** ✓ Done -- Later: I'm not sure. I think this works for individual cells, not for ranges.
+**Epic: 18** ✓ Done -- Later: I'm not sure. I think this works for individual cells, not for ranges. Specifically drag doesn't work
+when editing in the formula bar. It does work when editing inline (in a cell) but then it's somehow hidden - the cell may need to be physically expanded or the formula physically shifted to show its last characters.
 
 ### User doc
 
@@ -42,4 +43,12 @@ Today this is behind a "too many cells" check. Needs to be implemnted efficientl
 
 If the file cannot be opened, add an indication (dialog?) and/or remove it from the list. Bug: a dialog is apparently opened and is only shown when the spreadsheet is opened.
 
+### Security warning while building for Electron
+
+installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=darwin arch=x64 electron=40.7.0 appOutDir=dist/mac-universal-x64-temp
+  • searching for node modules  pm=npm searchDir=/Users/ysheffer/misc/spreadsheet
+(node:53685) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
 
