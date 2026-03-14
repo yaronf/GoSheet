@@ -31,6 +31,26 @@ A modern spreadsheet application with a Go backend and web frontend, designed fo
 - ✅ **Accessibility**: Screen reader support, keyboard navigation, ARIA labels
 - ✅ **Comprehensive Testing**: Over 100 Playwright tests + over 50 Go unit tests
 
+## Agentic API
+
+GoSheet exposes a REST API that lets AI agents (LLMs) read and modify spreadsheets programmatically.
+
+**How it works:**
+1. The user opens the Agent Session modal in GoSheet and creates a scoped session (read-only or read-write).
+2. GoSheet displays a **bootstrap URL** containing a one-time token.
+3. The user pastes the URL into their AI agent (Claude, ChatGPT, etc.).
+4. The agent calls `GET /api/agent/bootstrap?token=<token>` to receive an agent token, a workbook summary, and OpenAI-compatible tool definitions.
+5. The agent uses the tool definitions to read ranges, apply atomic patches, commit, or rollback.
+6. Real-time push notifications are delivered via **Server-Sent Events** (`GET /api/events`) so the GoSheet UI updates immediately when the agent writes data.
+
+**Key endpoints:** `/api/agent/bootstrap`, `/api/agent/workbook`, `/api/agent/range`, `/api/agent/patch`, `/api/agent/commit`, `/api/agent/rollback`, `/api/agent/end`
+
+**Session UI:** A built-in modal lets the user create, monitor, and end agent sessions directly from the GoSheet toolbar — including scope selection (read-only / read-write) and a live status indicator showing when an agent is connected.
+
+**Security:** Bootstrap token (CSPRNG, base64url) authenticates all requests. Scoped agent tokens enforce read-only vs read-write access. Agent tokens are blocked from file operations. All agent activity is recorded in an audit log.
+
+See [api/openapi.yaml](api/openapi.yaml) for the full API spec.
+
 ## User Documentation
 
 See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for end-user documentation: getting started, formulas, keyboard shortcuts, CSV import/export, and troubleshooting.
