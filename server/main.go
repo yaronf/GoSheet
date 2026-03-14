@@ -9,12 +9,16 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"gosheet/api"
 	"gosheet/controller"
@@ -25,7 +29,9 @@ import (
 // It is written to fd 3 alongside the port so Electron can inject it into the renderer.
 var bootstrapToken string
 
-// debugShutdownHandler cleanly exits the process. Only registered when --verbose is set.
+// debugShutdownHandler triggers graceful shutdown. Only registered when --verbose is set.
+// Sends SIGINT to self so the signal handler in main() runs the full shutdown sequence
+// (http.Server.Shutdown → broker.Close → audit.Close) instead of os.Exit bypassing it.
 func debugShutdownHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
@@ -33,7 +39,8 @@ func debugShutdownHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.(http.Flusher).Flush()
-	os.Exit(0)
+	p, _ := os.FindProcess(os.Getpid())
+	_ = p.Signal(os.Interrupt)
 }
 
 func main() {
@@ -60,7 +67,9 @@ func main() {
 		}
 	}
 
+	broker := api.NewSSEBroker()
 	srv := api.NewServer(ctrl, bootstrapToken)
+	srv.Broker = broker
 
 	// cors wraps handlers with permissive CORS headers. The wildcard origin is
 	// intentional: this server runs locally and is accessed only by the Electron
@@ -130,6 +139,7 @@ func main() {
 	http.HandleFunc("/api/agent/patch", wrap(srv.HandleAgentPatch, true))
 	http.HandleFunc("/api/agent/session/status", wrap(srv.HandleAgentSessionStatus, true))
 	http.HandleFunc("/api/agent/session/end", wrap(srv.HandleAdminEndSession, true))
+	http.HandleFunc("/api/events", wrap(broker.ServeHTTP, true))
 	if logutil.Verbose {
 		http.HandleFunc("/api/debug/shutdown", wrap(debugShutdownHandler, false))
 	}
@@ -156,7 +166,23 @@ func main() {
 
 	logutil.Debugf("GoSheet server running at http://localhost:%d\n", port)
 
-	if err := http.Serve(listener, nil); err != nil {
+	httpSrv := &http.Server{}
+
+	// Graceful shutdown: SIGTERM / SIGINT → Shutdown → broker.Close → audit.Close
+	// This also fixes tech-debt-audit-no-graceful-shutdown (up to 256 buffered events
+	// could be lost on SIGKILL; calling audit.Close() flushes the ring buffer).
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = httpSrv.Shutdown(shutCtx) // closes all SSE handler goroutines via ctx.Done()
+		broker.Close()
+		ctrl.Audit.Close()
+	}()
+
+	if err := httpSrv.Serve(listener); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

@@ -1110,16 +1110,20 @@ if (window.__GOSHEET_TOKEN__) {
     }
   });
 
-  // Initial fetch on load — after that, updates come via session_changed IPC event.
+  // Initial fetch on load — after that, updates arrive via SSE.
   refreshAgentStatus();
 
-  // Story 20.6: Go server push — react immediately to server events via Electron IPC.
-  window.electronAPI?.onGoEvent?.((eventName) => {
-    if (eventName === 'cells_changed') {
-      refreshAllCells();
-      updateFileStatus();
-    } else if (eventName === 'session_changed') {
-      refreshAgentStatus();
-    }
+  // Story 20.8: Subscribe to server-sent events for push notifications.
+  // EventSource authenticates via the ?token= query param (EventSource cannot
+  // set Authorization headers).  Token is absent in test mode (auth disabled).
+  const sseToken = window.__GOSHEET_TOKEN__ || '';
+  const sseURL = `${window.location.origin}/api/events${sseToken ? `?token=${sseToken}` : ''}`;
+  const evtSource = new EventSource(sseURL);
+  evtSource.addEventListener('cells_changed', () => {
+    refreshAllCells();
+    updateFileStatus();
+  });
+  evtSource.addEventListener('session_changed', () => {
+    refreshAgentStatus();
   });
 }

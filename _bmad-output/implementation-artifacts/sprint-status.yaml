@@ -269,7 +269,7 @@ development_status:
   epic-19-retrospective: optional
 
   # Epic 20: Agentic API Access Layer
-  epic-20: in-progress
+  epic-20: done
   20-1-bootstrap-token-auth-middleware: done
   20-2-agent-token-issuance-session-lifecycle: done
   20-3-agent-read-endpoints: done
@@ -277,7 +277,7 @@ development_status:
   20-5-bootstrap-endpoint-tool-definitions: done
   20-6-agent-session-ui: done
   20-7-audit-log: done
-  20-8-replace-stdout-event-channel: ready-for-dev
+  20-8-replace-stdout-event-channel: done
   epic-20-retrospective: optional
 
   # Epic 21: UX Polish & Developer Experience
@@ -309,3 +309,9 @@ development_status:
   # bug-epic20-patch-hangs: FIXED — root cause was = padding corrupting the agent token in URLs, causing 401 loops; no Go deadlock found.
   # tech-debt-audit-no-graceful-shutdown: AuditLogger.Close() is not called on Go server shutdown.
   #   Up to 256 buffered events may be lost on SIGKILL. Fix: signal.Notify + defer audit.Close() in server/main.go.
+  # feature-epic20-agent-bootstrap-skill: HandleAgentBootstrap (api/handlers_agent.go) returns no
+  #   application-level context or instructions to the agent — only session, workbook summary, and tool schemas.
+  #   A calling LLM has no system prompt, no behavioral constraints (always commit when done, rollback on error),
+  #   no scope semantics explanation, and no formula syntax hints.
+  #   Fix: add an "instructions" field to the bootstrap response, returned by getAgentInstructions(scope string).
+  #   Text managed in api/handlers_agent.go or a companion api/agent_context.go.

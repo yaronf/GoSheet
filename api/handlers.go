@@ -20,8 +20,9 @@ import (
 // Testable: inject a controller (or mock) for unit tests.
 type Server struct {
 	Ctrl           *controller.AppController
-	frontendDir    string // cached at construction time
-	bootstrapToken string // empty string disables auth (test mode)
+	Broker         controller.EventBroker // push events to connected SSE clients
+	frontendDir    string                 // cached at construction time
+	bootstrapToken string                 // empty string disables auth (test mode)
 }
 
 // NewServer creates a Server with the given controller and bootstrap token.

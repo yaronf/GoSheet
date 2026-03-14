@@ -16,6 +16,7 @@ type AppController struct {
 	Sheet   *model.Spreadsheet
 	History *History
 	Agent   *AgentManager
+	Audit   *AuditLogger // exported for graceful shutdown in server/main.go
 }
 
 // NewAppController creates a new application controller with an empty userData dir
@@ -31,6 +32,7 @@ func NewAppControllerWithUserData(userDataDir string) *AppController {
 		Sheet:   model.NewSpreadsheet(),
 		History: NewHistory(),
 		Agent:   newAgentManager(audit),
+		Audit:   audit,
 	}
 }
 

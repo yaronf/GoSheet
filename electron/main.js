@@ -395,29 +395,14 @@ function startGoServer() {
   //   [ISO] [LEVEL] [go] message
   // Bypassing console.log/error avoids double-prefixing from the timestamp wrapper.
   // Write to logStream (--log-file) if active, then to the original stderr/stdout.
-  //
-  // Story 20.6: Lines starting with "EVENT " are push notifications from the Go server.
-  // They are relayed to the renderer via IPC instead of forwarded to the terminal.
-  // Format: "EVENT <event-name>\n"
+  // Push events (cells_changed, session_changed) are now delivered via SSE on
+  // GET /api/events — no stdout side-channel needed (Story 20.8).
   const forwardGoOutput = (data) => {
     const text = data.toString();
-    // Split on newlines but preserve non-empty lines only to avoid emitting
-    // blank lines for trailing \n in each data chunk.
     for (const line of text.split('\n')) {
       if (line === '') continue;
-      if (line.startsWith('EVENT ')) {
-        const eventName = line.slice(6).trim();
-        // Reverse-lookup the window that owns this goServer instance.
-        for (const [win, state] of windowRegistry) {
-          if (state.goServer === goServer && !win.isDestroyed()) {
-            win.webContents.send('go:event', eventName);
-            break;
-          }
-        }
-      } else {
-        if (logStream) logStream.write(line + '\n');
-        process.stderr.write(line + '\n');
-      }
+      if (logStream) logStream.write(line + '\n');
+      process.stderr.write(line + '\n');
     }
   };
   goServer.stdout.on('data', forwardGoOutput);

@@ -1642,3 +1642,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/events:
+    get:
+      operationId: subscribeEvents
+      summary: Subscribe to server-sent events (SSE)
+      description: |
+        Long-lived SSE connection streaming push notifications from the Go server.
+        Event types: `cells_changed` (after agent patch), `session_changed` (after
+        agent session start/end/rollback). Auth via `?token=` query param because
+        EventSource cannot set Authorization headers. Browser-native auto-reconnect.
+      tags:
+        - Events
+      security:
+        - BootstrapAuth: []
+      parameters:
+        - in: query
+          name: token
+          schema:
+            type: string
+          description: Bootstrap token (EventSource cannot set headers)
+      responses:
+        '200':
+          description: SSE stream opened
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized
+        '405':
+          description: Method not allowed (GET only)

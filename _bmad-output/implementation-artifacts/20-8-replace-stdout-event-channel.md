@@ -1,6 +1,6 @@
 # Story 20.8: Replace stdout Event Channel with SSE
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -46,50 +46,50 @@ See full transport evaluation: `_bmad-output/planning-artifacts/research/technic
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1**: Define `EventBroker` interface in `controller/event_broker.go` (AC: 6)
-  - [ ] Interface with `Broadcast(event Event)` and `Close()` methods
-  - [ ] `Event` struct: `Name string`, `Data string` (JSON payload, omitempty)
+- [x] **Task 1**: Define `EventBroker` interface in `controller/event_broker.go` (AC: 6)
+  - [x] Interface with `Broadcast(event Event)` and `Close()` methods
+  - [x] `Event` struct: `Name string`, `Data string` (JSON payload, omitempty)
 
-- [ ] **Task 2**: Implement `SSEBroker` satisfying `EventBroker` in `api/sse_broker.go` (AC: 1, 5, 7, 8)
-  - [ ] Broker struct with `clients map[*sseClient]struct{}`, `mu sync.Mutex`, `ch chan Event`, `quit chan struct{}`
-  - [ ] `Start()` goroutine: fan-out loop, non-blocking sends, slow-client miss counter → disconnect
-  - [ ] `ServeHTTP`: set SSE headers, register client, select on `c.ch` and `r.Context().Done()`
-  - [ ] `Close()`: close quit channel, drain clients
+- [x] **Task 2**: Implement `SSEBroker` satisfying `EventBroker` in `api/sse_broker.go` (AC: 1, 5, 7, 8)
+  - [x] Broker struct with `clients map[*sseClient]struct{}`, `mu sync.Mutex`, `ch chan Event`, `quit chan struct{}`
+  - [x] `Start()` goroutine: fan-out loop, non-blocking sends, slow-client miss counter → disconnect
+  - [x] `ServeHTTP`: set SSE headers, register client, select on `c.ch` and `r.Context().Done()`
+  - [x] `Close()`: close quit channel, drain clients
 
-- [ ] **Task 3**: Wire SSE broker into `server/main.go` (AC: 4, 7)
-  - [ ] Create broker at startup, inject into `api.Server`
-  - [ ] Register `GET /api/events` endpoint (auth-required — same `wrap()` as all other API endpoints)
-  - [ ] Wire `SIGTERM` → `http.Server.Shutdown(ctx)` → `broker.Close()` (this also fixes `tech-debt-audit-no-graceful-shutdown`: call `ctrl.Agent.Audit.Close()` in the same shutdown sequence)
+- [x] **Task 3**: Wire SSE broker into `server/main.go` (AC: 4, 7)
+  - [x] Create broker at startup, inject into `api.Server`
+  - [x] Register `GET /api/events` endpoint (auth-required — same `wrap()` as all other API endpoints)
+  - [x] Wire `SIGTERM` → `http.Server.Shutdown(ctx)` → `broker.Close()` (this also fixes `tech-debt-audit-no-graceful-shutdown`: call `ctrl.Agent.Audit.Close()` in the same shutdown sequence)
 
-- [ ] **Task 4**: Replace `fmt.Fprintln(os.Stdout, "EVENT ...")` with `broker.Broadcast(...)` (AC: 1, 2, 3)
-  - [ ] `api/handlers_agent.go:186` — `HandleAgentEnd` → `broker.Broadcast(Event{Name: "session_changed"})`
-  - [ ] `api/handlers_agent.go:210` — `HandleAgentRollback` → same
-  - [ ] `api/handlers_agent.go:235` — `HandleAdminEndSession` → same
-  - [ ] `api/handlers_agent.go:465` — `HandleAgentPatch` → `broker.Broadcast(Event{Name: "cells_changed"})`
-  - [ ] Remove `"os"` from imports if no longer used
+- [x] **Task 4**: Replace `fmt.Fprintln(os.Stdout, "EVENT ...")` with `broker.Broadcast(...)` (AC: 1, 2, 3)
+  - [x] `api/handlers_agent.go` — `HandleAgentEnd` → `s.broadcastEvent("session_changed")`
+  - [x] `api/handlers_agent.go` — `HandleAgentRollback` → same
+  - [x] `api/handlers_agent.go` — `HandleAdminEndSession` → same
+  - [x] `api/handlers_agent.go` — `HandleAgentPatch` → `s.broadcastEvent("cells_changed")`
+  - [x] Remove `"os"` from imports (no longer used)
 
-- [ ] **Task 5**: Remove `EVENT ` prefix parsing from `electron/main.js` (AC: 3)
-  - [ ] Simplify `forwardGoOutput` — remove the `line.startsWith('EVENT ')` branch entirely
-  - [ ] All Go stdout/stderr now flows to `logStream` and `process.stderr` unconditionally
+- [x] **Task 5**: Remove `EVENT ` prefix parsing from `electron/main.js` (AC: 3)
+  - [x] Simplify `forwardGoOutput` — remove the `line.startsWith('EVENT ')` branch entirely
+  - [x] All Go stdout/stderr now flows to `logStream` and `process.stderr` unconditionally
 
-- [ ] **Task 6**: Update frontend event subscription in `frontend/app.js` (AC: 1, 4)
-  - [ ] Replace `window.electronAPI?.onGoEvent?.(...)` handler with `new EventSource(...)`
-  - [ ] Fetch the port (already available as `window.__GOSHEET_PORT__` or equivalent) to construct the SSE URL
-  - [ ] Auth: pass the bootstrap token as a query param `?token=<bootstrapToken>` (ticket pattern — token is already available in the renderer as `window.__GOSHEET_TOKEN__` injected via `additionalArguments` in `electron/main.js`)
-  - [ ] Event listeners: `evtSource.addEventListener('cells_changed', ...)` and `evtSource.addEventListener('session_changed', ...)`
-  - [ ] Keep the initial `refreshAgentStatus()` call on load
+- [x] **Task 6**: Update frontend event subscription in `frontend/app.js` (AC: 1, 4)
+  - [x] Replace `window.electronAPI?.onGoEvent?.(...)` handler with `new EventSource(...)`
+  - [x] URL constructed from `window.location.origin` (works for Electron and standalone browser)
+  - [x] Auth: pass the bootstrap token as a query param `?token=<bootstrapToken>`
+  - [x] Event listeners: `evtSource.addEventListener('cells_changed', ...)` and `evtSource.addEventListener('session_changed', ...)`
+  - [x] Keep the initial `refreshAgentStatus()` call on load
 
-- [ ] **Task 7**: Remove `onGoEvent` bridge from `electron/preload.js` (AC: 3)
-  - [ ] Remove `onGoEvent: (callback) => { ipcRenderer.removeAllListeners('go:event'); ipcRenderer.on(...) }` from `contextBridge.exposeInMainWorld`
+- [x] **Task 7**: Remove `onGoEvent` bridge from `electron/preload.js` (AC: 3)
+  - [x] Removed `onGoEvent` from `contextBridge.exposeInMainWorld`
 
-- [ ] **Task 8**: Write Go unit tests for `SSEBroker` (AC: 1, 5, 7, 8)
-  - [ ] `TestSSEBrokerFanOut` — two clients both receive a broadcast event
-  - [ ] `TestSSEBrokerHeaders` — verify `Content-Type: text/event-stream`, `Cache-Control: no-cache`
-  - [ ] `TestSSEBrokerClientDisconnect` — cancel request context, assert client channel is removed
-  - [ ] `TestSSEBrokerSlowClientDrop` — fill client channel, assert non-blocking drop (does not hang)
-  - [ ] `TestSSEBrokerGracefulShutdown` — call `Close()`, assert handler goroutine exits via `ctx`
+- [x] **Task 8**: Write Go unit tests for `SSEBroker` (AC: 1, 5, 7, 8)
+  - [x] `TestSSEBrokerFanOut` — two clients both receive a broadcast event
+  - [x] `TestSSEBrokerHeaders` — verify `Content-Type: text/event-stream`, `Cache-Control: no-cache`
+  - [x] `TestSSEBrokerClientDisconnect` — cancel request context, assert client channel is removed
+  - [x] `TestSSEBrokerSlowClientDrop` — fill client channel, assert non-blocking drop (does not hang)
+  - [x] `TestSSEBrokerGracefulShutdown` — call `Close()`, assert handler goroutine exits via `ctx`
 
-- [ ] **Task 9**: Update design doc §12 in `_bmad-output/planning-artifacts/research/technical-epic20-agentic-api-design-2026-03-14.md`
+- [x] **Task 9**: Update design doc §12 in `_bmad-output/planning-artifacts/research/technical-epic20-agentic-api-design-2026-03-14.md`
 
 ## Dev Notes
 
@@ -299,15 +299,53 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None — implementation completed cleanly.
+
 ### Completion Notes List
+
+- Implemented `EventBroker` interface + `Event` struct in `controller/event_broker.go`
+- `SSEBroker` in `api/sse_broker.go`: non-blocking fan-out, slow-client miss counter (threshold 10), `": connected"` keepalive to flush headers immediately on connect, clean `Close()` draining client map
+- Broker injected into `api.Server` via new exported `Broker controller.EventBroker` field; `broadcastEvent()` helper on `Server` is nil-safe (test mode has no broker)
+- `AppController` gains exported `Audit *AuditLogger` field so `server/main.go` can call `ctrl.Audit.Close()` on shutdown without breaking encapsulation
+- Graceful shutdown wired in `server/main.go`: `SIGTERM/SIGINT → http.Server.Shutdown(5s ctx) → broker.Close() → ctrl.Audit.Close()`; replaces bare `http.Serve` with `httpSrv.Serve(listener)`; simultaneously fixes `tech-debt-audit-no-graceful-shutdown`
+- All 4 `fmt.Fprintln(os.Stdout, "EVENT ...")` calls replaced; `"os"` import removed from `handlers_agent.go`
+- `forwardGoOutput()` in `electron/main.js` simplified to 5 lines — `EVENT` branch removed
+- `onGoEvent` bridge removed from `electron/preload.js`
+- Frontend SSE subscription uses `window.location.origin` for URL (works in both Electron and standalone browser); auth via `?token=` query param; EventSource auto-reconnects natively
+- 5 unit tests for SSEBroker all pass; full Go suite passes (no regressions)
 
 ### File List
 
-- `controller/event_broker.go` — `Event` struct, `EventBroker` interface
-- `api/sse_broker.go` — `SSEBroker` implementation
-- `api/sse_broker_test.go` — unit tests
-- `api/handlers_agent.go` — remove 4 stdout EVENT calls, add broker.Broadcast calls
-- `server/main.go` — create broker, register /api/events, wire SIGTERM shutdown
-- `electron/main.js` — simplify forwardGoOutput (remove EVENT branch)
-- `electron/preload.js` — remove onGoEvent bridge
-- `frontend/app.js` — replace onGoEvent handler with EventSource subscription
+- `controller/event_broker.go` — NEW: `Event` struct, `EventBroker` interface
+- `controller/app.go` — added exported `Audit *AuditLogger` field to `AppController`
+- `api/sse_broker.go` — NEW: `SSEBroker` implementation
+- `api/sse_broker_test.go` — NEW: 5 unit tests for SSEBroker
+- `api/handlers.go` — added `Broker controller.EventBroker` field to `Server`
+- `api/handlers_agent.go` — replaced 4 stdout EVENT calls with `s.broadcastEvent()`; removed `"os"` import; added `broadcastEvent()` helper
+- `server/main.go` — create broker, register `/api/events`, wire SIGTERM graceful shutdown
+- `electron/main.js` — simplified `forwardGoOutput()` (removed EVENT branch)
+- `electron/preload.js` — removed `onGoEvent` bridge
+- `frontend/app.js` — replaced `onGoEvent` handler with `EventSource` subscription
+- `_bmad-output/planning-artifacts/research/technical-epic20-agentic-api-design-2026-03-14.md` — updated §12
+- `api/openapi.yaml` — added `GET /api/events` SSE endpoint documentation
+
+## Senior Developer Review (AI)
+
+**Review Date:** 2026-03-14
+**Reviewer:** claude-opus-4-6
+**Outcome:** Changes Requested (all fixed in-place)
+
+### Action Items
+
+- [x] **[HIGH] H1:** SSEBroker.ServeHTTP missing GET method guard — any HTTP method accepted into long-poll loop (`api/sse_broker.go:69`)
+- [x] **[MEDIUM] M1:** debugShutdownHandler uses os.Exit(0) bypassing graceful shutdown sequence (`server/main.go:40`)
+- [x] **[MEDIUM] M2:** Close()/Broadcast slow-client removal does not close client channels — orphaned goroutines drain stale events (`api/sse_broker.go:52,63`)
+- [x] **[MEDIUM] M3:** readSSEEvent test helper has misleading busy-wait select before blocking ReadString (`api/sse_broker_test.go:24`)
+- [x] **[MEDIUM] M4:** time.Sleep in tests violates project "no sleeps" policy — should use require.Eventually (`api/sse_broker_test.go:91,115`)
+- [x] **[LOW] L1:** EventSource scoping — SSE inside token guard is correct; AC4 server-side verified by Go tests (no change needed)
+- [x] **[LOW] L2:** GET /api/events missing from openapi.yaml (`api/openapi.yaml`)
+
+## Change Log
+
+- 2026-03-14: Story implemented — replaced stdout `EVENT` side-channel with SSE (`GET /api/events`); added `EventBroker` interface; wired graceful shutdown (fixes `tech-debt-audit-no-graceful-shutdown`); 5 unit tests added; all ACs satisfied.
+- 2026-03-14: Code review fixes — added GET method guard on SSE handler; debugShutdownHandler now sends SIGINT to self for graceful shutdown; Close()/Broadcast close client channels to unblock orphaned goroutines; removed time.Sleep from tests (replaced with require.Eventually); removed misleading busy-wait select in test helper; added /api/events to openapi.yaml.

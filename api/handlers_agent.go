@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"gosheet/controller"
@@ -183,7 +182,7 @@ func (s *Server) HandleAgentEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintln(os.Stdout, "EVENT session_changed")
+	s.broadcastEvent("session_changed")
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -207,7 +206,7 @@ func (s *Server) HandleAgentRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintln(os.Stdout, "EVENT session_changed")
+	s.broadcastEvent("session_changed")
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -232,7 +231,7 @@ func (s *Server) HandleAdminEndSession(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "error": err.Error()})
 		return
 	}
-	fmt.Fprintln(os.Stdout, "EVENT session_changed")
+	s.broadcastEvent("session_changed")
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -461,8 +460,7 @@ func (s *Server) HandleAgentPatch(w http.ResponseWriter, r *http.Request) {
 
 	s.Ctrl.Agent.LogPatch(sess.AgentID, filePath, req.Description, len(req.Ops), "applied")
 
-	// Notify Electron main process so it can push a cells_changed IPC event to the renderer.
-	fmt.Fprintln(os.Stdout, "EVENT cells_changed")
+	s.broadcastEvent("cells_changed")
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":  true,
@@ -471,6 +469,14 @@ func (s *Server) HandleAgentPatch(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// broadcastEvent sends an event to all connected SSE clients via the broker.
+// No-op if the broker is not set (test mode or standalone dev without SSE).
+func (s *Server) broadcastEvent(name string) {
+	if s.Broker != nil {
+		s.Broker.Broadcast(controller.Event{Name: name})
+	}
+}
 
 func validatePatchOp(op patchOp) error {
 	switch op.Op {
