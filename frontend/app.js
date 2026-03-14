@@ -9,6 +9,9 @@ import {
   NewFile,
   SaveFile,
   LoadFile,
+  AgentIssueToken,
+  AgentSessionStatus,
+  AgentEndSession,
 } from './api-client.js';
 
 import { appState, OPEN_END } from './app-state.js';
@@ -120,6 +123,19 @@ document.querySelector('#app').innerHTML = `
             <!-- Story 19.4: Dynamic named-style buttons (replaces alignment buttons) -->
             <span class="toolbar-separator" aria-hidden="true"></span>
             <div id="toolbar-style-buttons" class="toolbar-style-group"></div>
+            <!-- Story 20.6: Agent session button (only rendered when bootstrap token present) -->
+            ${
+              window.__GOSHEET_TOKEN__
+                ? `<span class="toolbar-separator" aria-hidden="true"></span>
+            <button id="agent-btn" class="toolbar-btn" title="Agent API session" aria-label="Agent Session">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="8" r="5"/><path d="M3 21v-2a7 7 0 0 1 14 0v2"/>
+                    <circle cx="19" cy="8" r="2"/><path d="M21 14a4 4 0 0 1 0 7"/>
+                </svg>
+                <span id="agent-status-dot" class="agent-status-dot agent-status-idle" aria-hidden="true"></span>
+            </button>`
+                : ''
+            }
         </div>
         <input type="file" id="file-input" accept=".gosheet" style="display: none;" aria-hidden="true" />
         <span class="toolbar-separator" aria-hidden="true"></span>
@@ -342,6 +358,36 @@ document.querySelector('#app').innerHTML = `
             </div>
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-primary" id="manage-styles-close">Close</button>
+            </div>
+        </div>
+    </div>
+    <!-- Story 20.6: Agent session modal -->
+    <div class="modal-overlay" id="agent-modal" role="dialog" aria-modal="true" aria-labelledby="agent-modal-header" style="display:none">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h2 id="agent-modal-header">Agent API Session</h2>
+            </div>
+            <div class="modal-body" id="agent-modal-body">
+                <p id="agent-modal-status-text"></p>
+                <div id="agent-modal-url-section" style="display:none">
+                    <label style="font-weight:bold;display:block;margin-bottom:4px">Bootstrap URL</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <input type="text" id="agent-bootstrap-url" readonly style="flex:1;font-size:12px;font-family:monospace" aria-label="Bootstrap URL" />
+                        <button class="modal-btn modal-btn-secondary" id="agent-copy-url">Copy</button>
+                    </div>
+                    <p style="font-size:12px;color:var(--color-text-muted);margin-top:6px">
+                        Give this URL to your AI agent. It contains the session token and will return tool definitions.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <select id="agent-modal-scope" style="display:none">
+                    <option value="rw">Read-Write (rw)</option>
+                    <option value="ro">Read-Only (ro)</option>
+                </select>
+                <button class="modal-btn modal-btn-secondary" id="agent-modal-issue" style="display:none">Issue Token</button>
+                <button class="modal-btn modal-btn-danger" id="agent-modal-end" style="display:none">End Session</button>
+                <button class="modal-btn modal-btn-primary" id="agent-modal-close">Close</button>
             </div>
         </div>
     </div>
@@ -929,3 +975,151 @@ if (window.matchMedia) {
 }
 
 if (window.__DEBUG__) console.log('GoSheet initialized');
+
+// ── Story 20.6: Agent Session UI ──────────────────────────────────────────────
+if (window.__GOSHEET_TOKEN__) {
+  const agentBtn = document.getElementById('agent-btn');
+  const agentModal = document.getElementById('agent-modal');
+  const agentStatusDot = document.getElementById('agent-status-dot');
+  const agentModalStatusText = document.getElementById(
+    'agent-modal-status-text'
+  );
+  const agentUrlSection = document.getElementById('agent-modal-url-section');
+  const agentBootstrapUrl = document.getElementById('agent-bootstrap-url');
+  const agentCopyUrl = document.getElementById('agent-copy-url');
+  const agentScopeSelect = document.getElementById('agent-modal-scope');
+  const agentIssueBtn = document.getElementById('agent-modal-issue');
+  const agentEndBtn = document.getElementById('agent-modal-end');
+  const agentCloseBtn = document.getElementById('agent-modal-close');
+
+  let agentSessionState = {
+    active: false,
+    agentId: null,
+    scope: null,
+    token: null,
+  };
+
+  function updateAgentStatusDot() {
+    if (!agentStatusDot) return;
+    agentStatusDot.className =
+      'agent-status-dot ' +
+      (agentSessionState.active ? 'agent-status-active' : 'agent-status-idle');
+  }
+
+  function renderAgentModal() {
+    if (agentSessionState.active) {
+      agentModalStatusText.textContent = `Session active — agent ID: ${agentSessionState.agentId} (scope: ${agentSessionState.scope})`;
+      agentUrlSection.style.display = 'block';
+      const url = `${location.origin}/api/agent/bootstrap?token=${encodeURIComponent(agentSessionState.token || '')}`;
+      agentBootstrapUrl.value = url;
+      agentScopeSelect.style.display = 'none';
+      agentIssueBtn.style.display = 'none';
+      agentEndBtn.style.display = '';
+    } else {
+      agentModalStatusText.textContent = 'No active agent session.';
+      agentUrlSection.style.display = 'none';
+      agentScopeSelect.style.display = '';
+      agentIssueBtn.style.display = '';
+      agentEndBtn.style.display = 'none';
+    }
+  }
+
+  async function refreshAgentStatus() {
+    try {
+      const data = await AgentSessionStatus();
+      agentSessionState = {
+        active: data.active || false,
+        agentId: data.agentId || null,
+        scope: data.scope || null,
+        token: agentSessionState.token, // preserve token from issuance
+      };
+      updateAgentStatusDot();
+    } catch (e) {
+      if (window.__DEBUG__) console.warn('[agent] status poll failed:', e);
+    }
+  }
+
+  // No poll needed — session state changes are pushed via Electron IPC (session_changed event).
+
+  agentBtn?.addEventListener('click', async () => {
+    await refreshAgentStatus();
+    renderAgentModal();
+    agentModal.style.display = 'flex';
+  });
+
+  agentCloseBtn?.addEventListener('click', () => {
+    agentModal.style.display = 'none';
+  });
+
+  // Esc closes the agent modal (listen on document since the modal div is not focusable)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && agentModal?.style.display !== 'none') {
+      agentModal.style.display = 'none';
+    }
+  });
+
+  agentCopyUrl?.addEventListener('click', () => {
+    if (agentBootstrapUrl.value) {
+      navigator.clipboard
+        .writeText(agentBootstrapUrl.value)
+        .then(() => {
+          agentCopyUrl.textContent = 'Copied!';
+          setTimeout(() => {
+            agentCopyUrl.textContent = 'Copy';
+          }, 1500);
+        })
+        .catch(() => {
+          agentCopyUrl.textContent = 'Copy failed';
+          setTimeout(() => {
+            agentCopyUrl.textContent = 'Copy';
+          }, 1500);
+        });
+    }
+  });
+
+  agentIssueBtn?.addEventListener('click', async () => {
+    try {
+      const scope = agentScopeSelect?.value || 'rw';
+      const data = await AgentIssueToken(scope);
+      agentSessionState = {
+        active: true,
+        agentId: data.agentId,
+        scope,
+        token: data.agentToken,
+      };
+      updateAgentStatusDot();
+      renderAgentModal();
+    } catch (e) {
+      await showAlert('Failed to issue agent token: ' + e.message);
+    }
+  });
+
+  agentEndBtn?.addEventListener('click', async () => {
+    try {
+      await AgentEndSession();
+      agentSessionState = {
+        active: false,
+        agentId: null,
+        scope: null,
+        token: null,
+      };
+      updateAgentStatusDot();
+      renderAgentModal();
+    } catch (e) {
+      await showAlert('Failed to end agent session: ' + e.message);
+    }
+  });
+
+  // Initial fetch on load — after that, updates come via session_changed IPC event.
+  refreshAgentStatus();
+
+  // Story 20.6: Go server push — react immediately to server events via Electron IPC.
+  window.electronAPI?.onGoEvent?.((eventName) => {
+    if (eventName === 'cells_changed') {
+      refreshAllCells();
+      updateFileStatus();
+    } else if (eventName === 'session_changed') {
+      refreshAgentStatus();
+    }
+  });
+}

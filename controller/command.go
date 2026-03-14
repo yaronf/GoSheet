@@ -97,6 +97,23 @@ func (h *History) Redo() error {
 	return nil
 }
 
+// PushDone records a command that has already been executed (Do() already called).
+// Used by the agent patch handler to record individual operations onto the agent
+// history after executing them, without calling Do() again.
+func (h *History) PushDone(cmd Command) {
+	h.undoStack = append(h.undoStack, cmd)
+	h.redoStack = nil
+	if len(h.undoStack) > HistoryCap {
+		h.undoStack = h.undoStack[1:]
+		if h.savedDepthValid {
+			h.savedUndoDepth--
+			if h.savedUndoDepth < 0 {
+				h.savedDepthValid = false
+			}
+		}
+	}
+}
+
 // Clear empties both stacks and resets the save point. Called on NewFile and LoadFile.
 func (h *History) Clear() {
 	h.undoStack = nil

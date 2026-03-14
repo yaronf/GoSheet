@@ -15,13 +15,22 @@ type AppController struct {
 	mu      sync.RWMutex
 	Sheet   *model.Spreadsheet
 	History *History
+	Agent   *AgentManager
 }
 
-// NewAppController creates a new application controller
+// NewAppController creates a new application controller with an empty userData dir
+// (audit logger uses the OS default config dir).
 func NewAppController() *AppController {
+	return NewAppControllerWithUserData("")
+}
+
+// NewAppControllerWithUserData creates a controller whose audit log is written to userDataDir.
+func NewAppControllerWithUserData(userDataDir string) *AppController {
+	audit := NewAuditLogger(userDataDir)
 	return &AppController{
 		Sheet:   model.NewSpreadsheet(),
 		History: NewHistory(),
+		Agent:   newAgentManager(audit),
 	}
 }
 
@@ -604,3 +613,16 @@ func (c *AppController) DeleteStyle(id int) error {
 	defer c.mu.Unlock()
 	return c.Sheet.DeleteStyle(id)
 }
+
+// LockForAgent acquires the write lock. Used by agent handlers in the api package
+// which cannot access the unexported c.mu directly.
+func (c *AppController) LockForAgent() { c.mu.Lock() }
+
+// UnlockForAgent releases the write lock.
+func (c *AppController) UnlockForAgent() { c.mu.Unlock() }
+
+// RLockForAgent acquires the read lock.
+func (c *AppController) RLockForAgent() { c.mu.RLock() }
+
+// RUnlockForAgent releases the read lock.
+func (c *AppController) RUnlockForAgent() { c.mu.RUnlock() }

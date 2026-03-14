@@ -39,6 +39,12 @@ async function fetchUnified(method, path, body = null) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
+  // Story 20.1: Inject bootstrap token for API authentication.
+  // In test mode (NODE_ENV=test) the server disables auth and the token is absent.
+  const token = typeof window !== 'undefined' && window.__GOSHEET_TOKEN__;
+  if (token) {
+    opts.headers['Authorization'] = `Bearer ${token}`;
+  }
   const res = await fetch(`${API_BASE}${path}`, opts);
   const text = await res.text();
   let json;
@@ -486,6 +492,21 @@ const ShiftFormula = async (formula, rowOffset, colOffset) => {
 };
 
 // Export for app.js (now a module)
+// ── Agent API (Story 20) ──────────────────────────────────────────────────────
+
+async function AgentIssueToken(scope = 'rw') {
+  return fetchUnified('POST', '/api/agent/token', { scope });
+}
+
+async function AgentSessionStatus() {
+  return fetchUnified('GET', '/api/agent/session/status');
+}
+
+async function AgentEndSession() {
+  // Admin end — uses bootstrap token, does not require the agent token
+  return fetchUnified('POST', '/api/agent/session/end');
+}
+
 export {
   GetCellValue,
   GetCellRawValue,
@@ -523,4 +544,7 @@ export {
   Undo,
   Redo,
   ShiftFormula,
+  AgentIssueToken,
+  AgentSessionStatus,
+  AgentEndSession,
 };

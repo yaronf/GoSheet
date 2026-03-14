@@ -18,12 +18,12 @@ import (
 )
 
 func newTestServer() *Server {
-	return NewServer(controller.NewAppController())
+	return NewServer(controller.NewAppController(), "") // empty token = auth disabled
 }
 
 func TestNewServer(t *testing.T) {
 	ctrl := controller.NewAppController()
-	srv := NewServer(ctrl)
+	srv := NewServer(ctrl, "")
 	assert.NotNil(t, srv)
 	assert.Equal(t, ctrl, srv.Ctrl)
 }

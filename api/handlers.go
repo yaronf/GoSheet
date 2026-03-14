@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"gosheet/api/generated"
 	"gosheet/controller"
@@ -18,13 +19,74 @@ import (
 // Server holds HTTP handler dependencies and implements all API handlers.
 // Testable: inject a controller (or mock) for unit tests.
 type Server struct {
-	Ctrl        *controller.AppController
-	frontendDir string // cached at construction time
+	Ctrl           *controller.AppController
+	frontendDir    string // cached at construction time
+	bootstrapToken string // empty string disables auth (test mode)
 }
 
-// NewServer creates a Server with the given controller.
-func NewServer(ctrl *controller.AppController) *Server {
-	return &Server{Ctrl: ctrl, frontendDir: GetFrontendDir()}
+// NewServer creates a Server with the given controller and bootstrap token.
+// If bootstrapToken is empty, auth is disabled (used in test mode).
+func NewServer(ctrl *controller.AppController, bootstrapToken string) *Server {
+	return &Server{Ctrl: ctrl, frontendDir: GetFrontendDir(), bootstrapToken: bootstrapToken}
+}
+
+// AuthMiddleware validates the Authorization: Bearer header against the bootstrap token.
+// If bootstrapToken is empty (test mode), all requests are allowed through.
+// Agent tokens on /api/file/* endpoints are always rejected.
+func (s *Server) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if s.bootstrapToken == "" {
+			// Auth disabled (test mode or standalone dev)
+			next(w, r)
+			return
+		}
+
+		authHeader := r.Header.Get("Authorization")
+		var token string
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			token = authHeader[7:]
+		}
+		// Bootstrap URL copy-paste UX: accept ?token= for agent endpoints (e.g. /api/agent/bootstrap)
+		if token == "" {
+			token = r.URL.Query().Get("token")
+		}
+
+		if token == "" {
+			writeJSONError(w, http.StatusUnauthorized, "missing authorization token")
+			return
+		}
+
+		// Bootstrap token — full access (except we still pass through to handler)
+		if token == s.bootstrapToken {
+			next(w, r)
+			return
+		}
+
+		// Agent token — validate and enforce scope
+		sess, err := s.Ctrl.Agent.Validate(token)
+		if err != nil {
+			writeJSONError(w, http.StatusUnauthorized, "invalid or expired token")
+			return
+		}
+
+		// Block agent tokens from file operations regardless of scope
+		if isFileEndpoint(r.URL.Path) {
+			writeJSONError(w, http.StatusForbidden, "agent tokens cannot perform file operations")
+			return
+		}
+
+		// Block write operations for read-only agent tokens
+		if sess.Scope == controller.ScopeReadOnly && r.Method != http.MethodGet && r.Method != http.MethodOptions {
+			writeJSONError(w, http.StatusForbidden, "agent token is read-only")
+			return
+		}
+
+		next(w, r)
+	}
+}
+
+func isFileEndpoint(path string) bool {
+	return strings.HasPrefix(path, "/api/file/")
 }
 
 // ServeStatic serves frontend files (index.html, JS, CSS).

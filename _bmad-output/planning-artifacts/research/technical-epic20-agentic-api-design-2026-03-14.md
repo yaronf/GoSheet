@@ -233,7 +233,44 @@ A human-readable version (Markdown) will be maintained in the docs for users who
 
 ---
 
-## 12. Forward Compatibility Notes
+## 12. Design Gap: Frontend Refresh After Agent Writes
+
+**Problem identified during manual testing (2026-03-14):** When an agent applies a patch via `POST /api/agent/patch`, the Go model is updated but the Electron renderer has no mechanism to learn about the change. The frontend is driven by user interactions; there is no push channel from server to renderer.
+
+**Options considered:**
+
+| Option | Latency | Complexity | Notes |
+|--------|---------|------------|-------|
+| Periodic poll (`setInterval`) while session active | 0–5 s | Low | Wasteful even when nothing changed; laggy UX |
+| Version counter on status poll | 0–5 s | Low | Piggybacks on existing 5 s status poll; only calls `refreshAllCells` when seq changes — zero wasted cell fetches if no writes happened |
+| **SSE (Server-Sent Events)** | **~0 ms** | **Medium** | Go server emits `cells_changed` after each patch; frontend subscribes with `EventSource` and calls `refreshAllCells()`. Immediate, no wasted requests. Standard `net/http` + `text/event-stream`. |
+| WebSocket | ~0 ms | High | Overkill for a one-way push channel |
+
+**Recommended approach (v1):** SSE.
+
+- Go adds a `GET /api/events` endpoint using `text/event-stream` (no third-party library needed).
+- The server maintains a simple broadcast channel (a `sync.Mutex`-protected slice of response writers, or a single-subscriber channel since there's only one renderer).
+- After every successful `POST /api/agent/patch`, the server emits `data: {"event":"cells_changed"}\n\n`.
+- The frontend opens `new EventSource('/api/events', { headers: { Authorization: 'Bearer ...' } })` on load (when `__GOSHEET_TOKEN__` is present) and calls `refreshAllCells()` on `cells_changed`.
+- EventSource reconnects automatically on disconnect (built into the browser API).
+- The same channel can be reused for future push events (e.g., `session_ended`, multi-window sync from Epic 16.7).
+
+**Electron IPC alternative (preferred for local-only v1):** Since the Go server is a child process of Electron's main process, there is a simpler and more appropriate mechanism than SSE:
+
+1. After each successful patch, the Go server writes a structured notification to stdout (e.g., `EVENT cells_changed`).
+2. Electron's main process already reads the Go server's stdout for log forwarding. It detects the `EVENT` prefix and calls `win.webContents.send('agent:cells-changed')`.
+3. The preload script exposes this event to the renderer via `ipcRenderer.on('agent:cells-changed', cb)`.
+4. The frontend calls `refreshAllCells()` on receipt.
+
+This requires no persistent HTTP connection, no `EventSource`, no auth header forwarding, and no new Go endpoint. The Go server doesn't need to know about Electron IPC — it just writes to stdout, which it already does. This pattern also generalises: any server-side event (session ended, rollback completed) can be pushed to the renderer the same way.
+
+SSE remains the right answer if this app ever goes remote (the IPC channel won't exist). The two approaches share the same frontend contract (`cells_changed` event → `refreshAllCells()`), so migrating from IPC to SSE later is a server + preload change only.
+
+**v0 workaround (current state):** The user must manually trigger a cell refresh (e.g., click another cell, or we add a "Refresh" button to the agent modal). This is acceptable for the initial Epic 20 implementation; the IPC-based push story should be added to the backlog.
+
+---
+
+## 13. Forward Compatibility Notes (was §12)
 
 This design is intentionally structured for future remote deployment:
 

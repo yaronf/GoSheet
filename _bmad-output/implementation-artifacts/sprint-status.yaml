@@ -269,14 +269,15 @@ development_status:
   epic-19-retrospective: optional
 
   # Epic 20: Agentic API Access Layer
-  epic-20: backlog
-  20-1-bootstrap-token-auth-middleware: backlog
-  20-2-agent-token-issuance-session-lifecycle: backlog
-  20-3-agent-read-endpoints: backlog
-  20-4-agent-patch-endpoint: backlog
-  20-5-bootstrap-endpoint-tool-definitions: backlog
-  20-6-agent-session-ui: backlog
-  20-7-audit-log: backlog
+  epic-20: in-progress
+  20-1-bootstrap-token-auth-middleware: done
+  20-2-agent-token-issuance-session-lifecycle: done
+  20-3-agent-read-endpoints: done
+  20-4-agent-patch-endpoint: done
+  20-5-bootstrap-endpoint-tool-definitions: done
+  20-6-agent-session-ui: done
+  20-7-audit-log: done
+  20-8-replace-stdout-event-channel: ready-for-dev
   epic-20-retrospective: optional
 
   # Epic 21: UX Polish & Developer Experience
@@ -295,3 +296,16 @@ development_status:
   #   (currently blocked by "selection too large" guard in copySelectionToClipboard).
   # ux-clear-and-clear-formatting: "Clear" in the context menu and "Format Cleanup" (Clear Formatting)
   #   in the Format menu are confusing and need to be rethought.
+  #
+  # bug-epic20-patch-no-unsaved-flag: FIXED (20.4 CR) — HandleAgentPatch now sets
+  #   s.Ctrl.Sheet.Modified = true after a successful execution pass. Frontend cells_changed
+  #   handler also calls updateFileStatus() to refresh the status bar immediately.
+  #
+  # Epic 20 bugs found during manual testing — all fixed:
+  # bug-epic20-agent-dialog-rw-only: FIXED — scope dropdown (rw/ro) added to agent modal.
+  # bug-epic20-agent-modal-esc: FIXED — document keydown listener closes modal on Esc.
+  # bug-epic20-token-not-url-safe: FIXED — GenerateToken() now uses RawURLEncoding (no = padding).
+  # bug-epic20-bootstrap-requires-auth-header: FIXED — was caused by = padding mangling ?token=; resolved by token fix.
+  # bug-epic20-patch-hangs: FIXED — root cause was = padding corrupting the agent token in URLs, causing 401 loops; no Go deadlock found.
+  # tech-debt-audit-no-graceful-shutdown: AuditLogger.Close() is not called on Go server shutdown.
+  #   Up to 256 buffered events may be lost on SIGKILL. Fix: signal.Notify + defer audit.Close() in server/main.go.

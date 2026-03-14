@@ -355,6 +355,7 @@ function startGoServer() {
 
   const spawnArgs = [];
   if (DEBUG) spawnArgs.push('--verbose');
+  spawnArgs.push(`--userData=${app.getPath('userData')}`); // Story 20.7: audit log path
   const goServer = spawn(serverPath, spawnArgs, {
     cwd: serverCwd,
     // fd 3 is a dedicated port-announcement pipe (Story 16.5).
@@ -368,14 +369,21 @@ function startGoServer() {
     _rejectPort = reject;
   });
 
-  // Read bound port from fd 3 (one-shot; Go closes the pipe immediately after writing)
+  // Read bound port (and bootstrap token) from fd 3.
+  // Go writes "PORT=<n>\nTOKEN=<t>\n" then closes the pipe.
+  // TOKEN is absent in test mode (NODE_ENV=test) — auth is disabled server-side.
   goServer.stdio[3].once('data', (data) => {
     const raw = data.toString();
-    const match = raw.match(/PORT=(\d+)/);
-    if (match) {
-      const port = parseInt(match[1], 10);
-      if (DEBUG) console.log(`[Electron] Go server bound to port: ${port}`);
-      _resolvePort(port);
+    const portMatch = raw.match(/PORT=(\d+)/);
+    if (portMatch) {
+      const port = parseInt(portMatch[1], 10);
+      const tokenMatch = raw.match(/TOKEN=([^\n]+)/);
+      const token = tokenMatch ? tokenMatch[1].trim() : '';
+      if (DEBUG)
+        console.log(
+          `[Electron] Go server bound to port: ${port}, token present: ${token.length > 0}`
+        );
+      _resolvePort({ port, token });
     } else {
       const msg = `Failed to parse port from Go server fd 3: "${raw.trim()}"`;
       console.error('[Electron]', msg);
@@ -387,10 +395,30 @@ function startGoServer() {
   //   [ISO] [LEVEL] [go] message
   // Bypassing console.log/error avoids double-prefixing from the timestamp wrapper.
   // Write to logStream (--log-file) if active, then to the original stderr/stdout.
+  //
+  // Story 20.6: Lines starting with "EVENT " are push notifications from the Go server.
+  // They are relayed to the renderer via IPC instead of forwarded to the terminal.
+  // Format: "EVENT <event-name>\n"
   const forwardGoOutput = (data) => {
     const text = data.toString();
-    if (logStream) logStream.write(text);
-    process.stderr.write(text);
+    // Split on newlines but preserve non-empty lines only to avoid emitting
+    // blank lines for trailing \n in each data chunk.
+    for (const line of text.split('\n')) {
+      if (line === '') continue;
+      if (line.startsWith('EVENT ')) {
+        const eventName = line.slice(6).trim();
+        // Reverse-lookup the window that owns this goServer instance.
+        for (const [win, state] of windowRegistry) {
+          if (state.goServer === goServer && !win.isDestroyed()) {
+            win.webContents.send('go:event', eventName);
+            break;
+          }
+        }
+      } else {
+        if (logStream) logStream.write(line + '\n');
+        process.stderr.write(line + '\n');
+      }
+    }
   };
   goServer.stdout.on('data', forwardGoOutput);
   goServer.stderr.on('data', forwardGoOutput);
@@ -422,14 +450,16 @@ async function createWindow(filePath = null) {
   if (!serverResult) return null; // startGoServer already showed error + quit
 
   const { goServer, portReady } = serverResult;
-  let port;
+  let port, bootstrapToken;
   try {
-    port = await Promise.race([
+    const result = await Promise.race([
       portReady,
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Go server startup timeout')), 10000)
       ),
     ]);
+    port = result.port;
+    bootstrapToken = result.token;
   } catch (err) {
     console.error('[Electron] Go server failed to start:', err.message);
     dialog.showErrorBox(
@@ -461,6 +491,7 @@ async function createWindow(filePath = null) {
   windowRegistry.set(win, {
     goServer,
     goServerPort: port,
+    bootstrapToken,
     currentFilePath: filePath,
   });
   attachWindowCloseHandler(win);
@@ -476,9 +507,11 @@ async function createWindow(filePath = null) {
 
   // Load frontend from Go HTTP server (append ?debug=1 for verbose frontend logs)
   // If a file will be opened, pass ?file= so the renderer skips the welcome flash.
+  // Story 20.1: pass bootstrap token so renderer can authenticate API calls.
   const params = new URLSearchParams();
   if (DEBUG) params.set('debug', '1');
   if (filePath) params.set('file', filePath);
+  if (bootstrapToken) params.set('token', bootstrapToken);
   const paramStr = params.toString();
   const serverUrl = `http://localhost:${port}${paramStr ? '?' + paramStr : ''}`;
   if (DEBUG) console.log(`[Electron] Loading frontend from: ${serverUrl}`);

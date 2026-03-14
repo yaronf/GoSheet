@@ -247,6 +247,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Story 13.10: Settings persistence (RTL mode, future settings)
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
+
+  // Story 20.6: Go server push events (e.g. cells_changed after agent patch)
+  onGoEvent: (callback) => {
+    ipcRenderer.removeAllListeners('go:event');
+    ipcRenderer.on('go:event', (_event, eventName) => callback(eventName));
+  },
 });
 
 if (DEBUG) console.log('[Preload] electronAPI exposed to renderer');

@@ -15,8 +15,14 @@
 <body>
     <div id="app"></div>
     <!-- Story 10.8: Set __DEBUG__ before modules load (web: ?debug=1, Electron: from preload) -->
+    <!-- Story 20.1: Bootstrap token passed via ?token= query param by Electron main process -->
     <script>
       window.__DEBUG__ = window.__DEBUG__ || (typeof location !== 'undefined' && location.search.includes('debug=1'));
+      (function() {
+        const p = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+        const t = p.get('token');
+        if (t) window.__GOSHEET_TOKEN__ = t;
+      })();
     </script>
     <!-- ES6 modules -->
     <script type="module" src="api-client.js"></script>

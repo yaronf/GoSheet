@@ -1499,3 +1499,40 @@ input:focus-visible,
 .manage-styles-error {
   color: var(--color-error, #c00);
 }
+
+/* Story 20.6: Agent session UI */
+.agent-status-dot {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-bg, #fff);
+}
+
+.agent-status-idle {
+  background: #aaa;
+}
+
+.agent-status-active {
+  background: #22c55e;
+}
+
+#agent-btn {
+  position: relative;
+}
+
+.modal-btn-danger {
+  background: var(--color-error, #c00);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.modal-btn-danger:hover {
+  background: #a00;
+}
