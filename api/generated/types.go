@@ -471,6 +471,12 @@ type GetCellValueParams struct {
 	Col int `form:"col" json:"col"`
 }
 
+// SubscribeEventsParams defines parameters for SubscribeEvents.
+type SubscribeEventsParams struct {
+	// Token Bootstrap token (EventSource cannot set headers)
+	Token *string `form:"token,omitempty" json:"token,omitempty"`
+}
+
 // AgentPatchJSONRequestBody defines body for AgentPatch for application/json ContentType.
 type AgentPatchJSONRequestBody = AgentPatchRequest
 

@@ -200,7 +200,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Save spreadsheet to file */
+        /**
+         * Save spreadsheet to file
+         * @description Requires bootstrap token. Agent tokens are rejected on all `/api/file/*` endpoints.
+         */
         post: operations["saveFile"];
         delete?: never;
         options?: never;
@@ -217,7 +220,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Load spreadsheet from file */
+        /**
+         * Load spreadsheet from file
+         * @description Requires bootstrap token. Agent tokens are rejected on all `/api/file/*` endpoints.
+         */
         post: operations["loadFile"];
         delete?: never;
         options?: never;
@@ -234,7 +240,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create new empty spreadsheet */
+        /**
+         * Create new empty spreadsheet
+         * @description Requires bootstrap token. Agent tokens are rejected on all `/api/file/*` endpoints.
+         */
         post: operations["newFile"];
         delete?: never;
         options?: never;
@@ -249,7 +258,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get file status */
+        /**
+         * Get file status
+         * @description Requires bootstrap token. Agent tokens are rejected on all `/api/file/*` endpoints.
+         */
         get: operations["getFileStatus"];
         put?: never;
         post?: never;
@@ -266,7 +278,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download spreadsheet as binary file */
+        /**
+         * Download spreadsheet as binary file
+         * @description Requires bootstrap token. Agent tokens are rejected on all `/api/file/*` endpoints.
+         */
         get: operations["downloadFile"];
         put?: never;
         post?: never;
@@ -285,7 +300,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload spreadsheet from binary data */
+        /**
+         * Upload spreadsheet from binary data
+         * @description Requires bootstrap token. Agent tokens are rejected on all `/api/file/*` endpoints.
+         */
         post: operations["uploadFile"];
         delete?: never;
         options?: never;
@@ -327,6 +345,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/formula/shift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Shift cell/range references in a formula string by a row/col offset
+         * @description Stateless pure transformation — no spreadsheet state is read or written. Relative refs that shift out of bounds become
+         */
+        post: operations["shiftFormula"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/csv/export": {
         parameters: {
             query?: never;
@@ -338,6 +376,245 @@ export interface paths {
         put?: never;
         /** Export spreadsheet to CSV file */
         post: operations["exportCsv"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue a scoped agent token
+         * @description Exchanges the bootstrap token for a scoped agent token. Only one agent session
+         *     may be active per file at a time — a second call returns 409 while a session is active.
+         */
+        post: operations["issueAgentToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agent entry point — returns tool definitions and workbook context
+         * @description The single URL handed to an AI agent. Returns everything needed to start working:
+         *     validated token confirmation, tool definitions in OpenAI function calling schema,
+         *     workbook summary, and session metadata.
+         *
+         *     Uniquely, this endpoint accepts the agent token as a `?token=` query parameter
+         *     in addition to the `Authorization: Bearer` header, enabling copy-paste UX.
+         */
+        get: operations["agentBootstrap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/workbook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get workbook summary (file path, dimensions, cell count)
+         * @description Accessible with ro or rw scope.
+         */
+        get: operations["getAgentWorkbook"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/range": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read cells in an A1-notation range
+         * @description Returns raw value, computed value, formula flag, styleId, and alignment for every cell
+         *     in the range. Empty cells are included with empty string values for predictable indexing.
+         *     Maximum 10,000 cells per request.
+         */
+        get: operations["getAgentRange"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/patch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a batch of operations atomically
+         * @description All ops are validated before any are executed. If any op is invalid the entire
+         *     batch is rejected (no partial apply). Requires rw scope.
+         */
+        post: operations["agentPatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checkpoint — collapse agent history into a single user undo entry
+         * @description All agent operations since the last commit (or session open) are collapsed into a
+         *     single `AgentCommitCommand` and transferred to the user's undo history. The token
+         *     remains active; a new history marker is effectively set.
+         */
+        post: operations["agentCommit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End the agent session cleanly, revoking the token
+         * @description Any uncommitted agent history since the last commit is collapsed into the user's
+         *     undo history. The token is revoked. The spreadsheet is marked as having unsaved changes.
+         */
+        post: operations["agentEnd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard all agent changes and end the session
+         * @description Drains the agent history back to the session-open marker (or last commit checkpoint)
+         *     by replaying `Undo()` calls in reverse order. The token is revoked. No changes are
+         *     transferred to the user's undo history.
+         */
+        post: operations["agentRollback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/session/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current agent session status
+         * @description Returns whether a session is active and its metadata. Requires bootstrap token.
+         */
+        get: operations["getAgentSessionStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/session/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forcibly end any active agent session (admin/UI use)
+         * @description Ends the active session without requiring the agent token — intended for the UI
+         *     "End Session" button which only has the bootstrap token. Any uncommitted agent
+         *     history is collapsed into the user's undo history. No-op if no session is active.
+         */
+        post: operations["adminEndAgentSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Subscribe to server-sent events (SSE)
+         * @description Long-lived SSE connection streaming push notifications from the Go server.
+         *     Event types: `cells_changed` (after agent patch), `session_changed` (after
+         *     agent session start/end/rollback). Auth via `?token=` query param because
+         *     EventSource cannot set Authorization headers. Browser-native auto-reconnect.
+         */
+        get: operations["subscribeEvents"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -468,6 +745,18 @@ export interface components {
                 hasUnsavedChanges?: boolean;
             };
         };
+        ShiftFormulaRequest: {
+            /** @example =A1+B2 */
+            formula: string;
+            row_offset: number;
+            col_offset: number;
+        };
+        ShiftFormulaResponse: components["schemas"]["ApiResponse"] & {
+            data?: {
+                /** @example =B2+D4 */
+                shifted?: string;
+            };
+        };
         ApplyCellStyleRequest: {
             row: number;
             col: number;
@@ -484,6 +773,126 @@ export interface components {
             data?: {
                 hasUnsavedChanges?: boolean;
             };
+        };
+        /**
+         * @description `ro` — read-only (GET agent endpoints only).
+         *     `rw` — read + write (all agent endpoints).
+         * @enum {string}
+         */
+        AgentScope: "ro" | "rw";
+        AgentTokenRequest: {
+            scope: components["schemas"]["AgentScope"];
+        };
+        AgentTokenResponse: {
+            success: boolean;
+            /** @description Opaque bearer token for the agent to use on all subsequent calls. */
+            agentToken: string;
+            /** @description Human-readable session identifier (e.g. `agt_a1b2c3d4`). */
+            agentId: string;
+        };
+        AgentSessionStatus: {
+            success: boolean;
+            active: boolean;
+            agentId?: string;
+            scope?: components["schemas"]["AgentScope"];
+        };
+        AgentWorkbookDimensions: {
+            rows?: number;
+            cols?: number;
+            /** @description A1 notation bounding box of non-empty cells (e.g. `A1:D10`). */
+            usedRange?: string;
+        };
+        AgentWorkbook: {
+            filePath: string;
+            cellCount: number;
+            dimensions: components["schemas"]["AgentWorkbookDimensions"];
+            modified: boolean;
+        };
+        AgentWorkbookResponse: {
+            success: boolean;
+            workbook: components["schemas"]["AgentWorkbook"];
+        };
+        AgentCellEntry: {
+            row: number;
+            col: number;
+            /** @description A1 notation cell reference (e.g. `B3`). */
+            ref: string;
+            /** @description Raw value or formula string (e.g. `=A1+1` or `hello`). */
+            raw: string;
+            /** @description Evaluated string value. */
+            computed: string;
+            isFormula: boolean;
+            styleId: number;
+            /** @enum {string} */
+            alignment: "" | "left" | "center" | "right";
+        };
+        AgentRangeResponse: {
+            success: boolean;
+            /** @description The range that was queried (echoed back). */
+            range: string;
+            cells: components["schemas"]["AgentCellEntry"][];
+        };
+        /**
+         * @description One operation in a patch batch. Supported `op` values:
+         *     - `SetCell` — requires `row`, `col`, `value`
+         *     - `ClearRange` — requires `startRow`, `startCol`, `endRow`, `endCol`
+         *     - `InsertRow` — requires `row`
+         *     - `DeleteRow` — requires `row`
+         *     - `InsertColumn` — requires `col`
+         *     - `DeleteColumn` — requires `col`
+         *     - `SetStyle` — requires `row`, `col`; optional `styleId`, `alignment`
+         *     - `AddStyle` — requires `name`; optional `fontColor`, `fillColor`
+         *     - `ClearFormat` — requires `startRow`, `startCol`, `endRow`, `endCol`
+         */
+        AgentPatchOp: {
+            /** @enum {string} */
+            op: "SetCell" | "ClearRange" | "InsertRow" | "DeleteRow" | "InsertColumn" | "DeleteColumn" | "SetStyle" | "AddStyle" | "ClearFormat";
+            row?: number;
+            col?: number;
+            startRow?: number;
+            startCol?: number;
+            endRow?: number;
+            endCol?: number;
+            value?: string;
+            styleId?: number;
+            /** @enum {string} */
+            alignment?: "" | "left" | "center" | "right";
+            /** @description Style name (for AddStyle). */
+            name?: string;
+            /** @description Hex color string, e.g. `#FF0000` (for AddStyle). */
+            fontColor?: string;
+            /** @description Hex color string, e.g. `#FFFF00` (for AddStyle). */
+            fillColor?: string;
+        };
+        AgentPatchRequest: {
+            /** @description Human-readable description recorded in the audit log only. */
+            description?: string;
+            ops: components["schemas"]["AgentPatchOp"][];
+        };
+        AgentPatchResponse: {
+            success: boolean;
+            opsCount: number;
+            /** @description Index of the first failing op (only present on 400 responses). */
+            failingOpIdx?: number;
+            error?: string;
+        };
+        /** @description OpenAI function calling schema compatible tool definition. */
+        AgentToolDefinition: {
+            name: string;
+            description: string;
+            /** @description JSON Schema describing the tool's input parameters. */
+            input_schema: Record<string, never>;
+        };
+        AgentBootstrapResponse: {
+            success: boolean;
+            session: {
+                agentId: string;
+                scope: components["schemas"]["AgentScope"];
+                /** @description Base URL for all subsequent API calls (e.g. `http://localhost:49213`). */
+                baseUrl: string;
+            };
+            workbook: components["schemas"]["AgentWorkbook"];
+            tools: components["schemas"]["AgentToolDefinition"][];
         };
     };
     responses: never;
@@ -517,6 +926,15 @@ export interface operations {
             };
             /** @description Bad request (invalid or missing row/col) */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized (missing or invalid token) */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -558,6 +976,15 @@ export interface operations {
             };
             /** @description Bad request (invalid or missing row/col) */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -607,6 +1034,24 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent token with ro scope, or agent token on file endpoint) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error (e.g. circular ref, invalid formula) */
             500: {
                 headers: {
@@ -648,6 +1093,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -677,8 +1131,8 @@ export interface operations {
                     "application/json": components["schemas"]["MergesResponse"];
                 };
             };
-            /** @description Bad request */
-            400: {
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -728,6 +1182,24 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent token with ro scope) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -763,6 +1235,15 @@ export interface operations {
             };
             /** @description Bad request (anchor not found) */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -812,6 +1293,24 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent token with ro scope) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -854,6 +1353,24 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent token with ro scope) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -881,6 +1398,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApplyStyleResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Method not allowed (POST required) */
@@ -921,8 +1447,8 @@ export interface operations {
                     "application/json": components["schemas"]["AllCellsResponse"];
                 };
             };
-            /** @description Bad request */
-            400: {
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -972,6 +1498,24 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent tokens cannot perform file operations) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error (e.g. file write error) */
             500: {
                 headers: {
@@ -1014,6 +1558,24 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent tokens cannot perform file operations) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error (e.g. file not found, read error) */
             500: {
                 headers: {
@@ -1043,8 +1605,17 @@ export interface operations {
                     "application/json": components["schemas"]["SuccessResponse"];
                 };
             };
-            /** @description Bad request */
-            400: {
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent tokens cannot perform file operations) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1081,8 +1652,17 @@ export interface operations {
                     "application/json": components["schemas"]["FileStatusResponse"];
                 };
             };
-            /** @description Bad request */
-            400: {
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent tokens cannot perform file operations) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1119,8 +1699,17 @@ export interface operations {
                     "application/octet-stream": string;
                 };
             };
-            /** @description Bad request */
-            400: {
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent tokens cannot perform file operations) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1170,6 +1759,24 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (agent tokens cannot perform file operations) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -1205,6 +1812,15 @@ export interface operations {
             };
             /** @description Bad request (missing path) */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1254,7 +1870,76 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error (e.g. parse error) */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    shiftFormula: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShiftFormulaRequest"];
+            };
+        };
+        responses: {
+            /** @description Shifted formula string */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShiftFormulaResponse"];
+                };
+            };
+            /** @description Bad request (invalid body) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Method not allowed (POST required) */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -1296,6 +1981,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Internal server error (e.g. file write error) */
             500: {
                 headers: {
@@ -1304,6 +1998,392 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
+            };
+        };
+    };
+    issueAgentToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Agent token issued, session opened. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentTokenResponse"];
+                };
+            };
+            /** @description Bad request (invalid scope) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized (missing or invalid bootstrap token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict — an agent session is already active for this file. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    agentBootstrap: {
+        parameters: {
+            query?: {
+                /** @description Agent token (alternative to Authorization header for copy-paste UX). */
+                token?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bootstrap data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentBootstrapResponse"];
+                };
+            };
+            /** @description Unauthorized (missing or invalid agent token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getAgentWorkbook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workbook summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentWorkbookResponse"];
+                };
+            };
+            /** @description Unauthorized (missing or invalid agent token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getAgentRange: {
+        parameters: {
+            query: {
+                /** @description A1 range notation, e.g. `A1:D10` or single cell `B3`. */
+                range: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cell data for the requested range. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRangeResponse"];
+                };
+            };
+            /** @description Bad request (missing range param, invalid notation, range too large). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    agentPatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Patch applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPatchResponse"];
+                };
+            };
+            /** @description Validation failure — patch rejected atomically. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPatchResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (ro scope token) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    agentCommit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Commit successful. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    agentEnd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session ended. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    agentRollback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rollback successful, session ended. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getAgentSessionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSessionStatus"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminEndAgentSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session ended (or was already inactive). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    subscribeEvents: {
+        parameters: {
+            query?: {
+                /** @description Bootstrap token (EventSource cannot set headers) */
+                token?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SSE stream opened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Method not allowed (GET only) */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
