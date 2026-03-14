@@ -96,12 +96,23 @@ func (c *refCollector) walkUnary(u *Unary) {
 	}
 }
 
+// walkExponentiation recurses through exponentiation terms.
+func (c *refCollector) walkExponentiation(e *Exponentiation) {
+	if e == nil {
+		return
+	}
+	c.walkUnary(e.Left)
+	if e.Right != nil {
+		c.walkExponentiation(e.Right)
+	}
+}
+
 // walkMultiplication recurses through multiplication/division terms.
 func (c *refCollector) walkMultiplication(m *Multiplication) {
 	if m == nil {
 		return
 	}
-	c.walkUnary(m.Left)
+	c.walkExponentiation(m.Left)
 	if m.Right != nil {
 		c.walkMultiplication(m.Right)
 	}

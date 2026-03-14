@@ -28,6 +28,7 @@ const FORMULA_HELP_HTML = `
 <tr><td>*</td><td>Multiply</td><td><code>=A1*B1</code></td></tr>
 <tr><td>/</td><td>Divide</td><td><code>=A1/B1</code></td></tr>
 <tr><td>%</td><td>Modulo</td><td><code>=A1%B1</code></td></tr>
+<tr><td>^</td><td>Exponentiation (right-associative)</td><td><code>=2^10</code> → 1024</td></tr>
 </tbody>
 </table>
 
@@ -58,6 +59,12 @@ const FORMULA_HELP_HTML = `
 <tr><td>MIN</td><td>MIN(range)</td><td><code>=MIN(A1:A20)</code></td></tr>
 <tr><td>MAX</td><td>MAX(range)</td><td><code>=MAX(A1:A20)</code></td></tr>
 <tr><td>COUNT</td><td>COUNT(range)</td><td><code>=COUNT(A1:A10)</code></td></tr>
+<tr><td>SQRT</td><td>SQRT(number)</td><td><code>=SQRT(A1)</code></td></tr>
+<tr><td>STDEV</td><td>STDEV(range) — sample std dev</td><td><code>=STDEV(A1:A10)</code></td></tr>
+<tr><td>ABS</td><td>ABS(number)</td><td><code>=ABS(A1-B1)</code></td></tr>
+<tr><td>ROUND</td><td>ROUND(number, decimals)</td><td><code>=ROUND(A1,2)</code></td></tr>
+<tr><td>FLOOR</td><td>FLOOR(number)</td><td><code>=FLOOR(A1)</code></td></tr>
+<tr><td>CEIL</td><td>CEIL(number)</td><td><code>=CEIL(A1)</code></td></tr>
 </tbody>
 </table>
 

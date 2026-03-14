@@ -204,9 +204,46 @@ func evaluateAddition(add *Addition, sheet *Spreadsheet) (Value, error) {
 	}
 }
 
+// evaluateExponentiation evaluates an Exponentiation node (right-associative)
+func evaluateExponentiation(exp *Exponentiation, sheet *Spreadsheet) (Value, error) {
+	left, err := evaluateUnary(exp.Left, sheet)
+	if err != nil {
+		return ErrorValue{err}, err
+	}
+
+	if exp.Op == nil {
+		return left, nil
+	}
+
+	if isErrorLike(left) {
+		return left, nil
+	}
+
+	right, err := evaluateExponentiation(exp.Right, sheet)
+	if err != nil {
+		return ErrorValue{err}, err
+	}
+
+	if isErrorLike(right) {
+		return right, nil
+	}
+
+	leftNum, err := toNumber(left)
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+
+	rightNum, err := toNumber(right)
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+
+	return NumberValue{math.Pow(leftNum, rightNum)}, nil
+}
+
 // evaluateMultiplication evaluates a Multiplication node
 func evaluateMultiplication(mult *Multiplication, sheet *Spreadsheet) (Value, error) {
-	left, err := evaluateUnary(mult.Left, sheet)
+	left, err := evaluateExponentiation(mult.Left, sheet)
 	if err != nil {
 		return ErrorValue{err}, err
 	}

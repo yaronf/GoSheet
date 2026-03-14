@@ -15,6 +15,14 @@ var builtinFunctions = map[string]func([]Value) (Value, error){
 	"MAX":   maxFunction,
 	"COUNT": countFunction,
 
+	// Math functions
+	"SQRT":  sqrtFunction,
+	"STDEV": stdevFunction,
+	"ABS":   absFunction,
+	"ROUND": roundFunction,
+	"FLOOR": floorFunction,
+	"CEIL":  ceilFunction,
+
 	// String functions
 	"CONCAT": concatFunction,
 	"UPPER":  upperFunction,
@@ -297,6 +305,123 @@ func rightFunction(args []Value) (Value, error) {
 
 	start := len(str) - length
 	return StringValue{str[start:]}, nil
+}
+
+// sqrtFunction implements SQRT - square root
+func sqrtFunction(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return ErrorValue{fmt.Errorf("SQRT requires exactly 1 argument")}, nil
+	}
+	num, err := toNumber(args[0])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	if num < 0 {
+		return ErrorValue{fmt.Errorf("SQRT of negative number")}, nil
+	}
+	return NumberValue{math.Sqrt(num)}, nil
+}
+
+// collectNumbers extracts all numeric values from args (scalars and vectors), ignoring strings.
+// Returns an error if any ErrorValue is encountered.
+func collectNumbers(args []Value) ([]float64, error) {
+	var nums []float64
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case NumberValue:
+			nums = append(nums, v.Value)
+		case VectorValue:
+			for _, val := range v.Values {
+				switch vv := val.(type) {
+				case NumberValue:
+					nums = append(nums, vv.Value)
+				case ErrorValue:
+					return nil, vv.Error
+				}
+			}
+		case StringValue:
+			// ignore
+		case ErrorValue:
+			return nil, v.Error
+		}
+	}
+	return nums, nil
+}
+
+// stdevFunction implements STDEV - sample standard deviation
+func stdevFunction(args []Value) (Value, error) {
+	nums, err := collectNumbers(args)
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	if len(nums) < 2 {
+		return ErrorValue{fmt.Errorf("STDEV requires at least 2 numeric values")}, nil
+	}
+	mean := 0.0
+	for _, n := range nums {
+		mean += n
+	}
+	mean /= float64(len(nums))
+	variance := 0.0
+	for _, n := range nums {
+		d := n - mean
+		variance += d * d
+	}
+	variance /= float64(len(nums) - 1) // sample std dev (Bessel's correction)
+	return NumberValue{math.Sqrt(variance)}, nil
+}
+
+// absFunction implements ABS - absolute value
+func absFunction(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return ErrorValue{fmt.Errorf("ABS requires exactly 1 argument")}, nil
+	}
+	num, err := toNumber(args[0])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	return NumberValue{math.Abs(num)}, nil
+}
+
+// roundFunction implements ROUND - round to n decimal places
+func roundFunction(args []Value) (Value, error) {
+	if len(args) != 2 {
+		return ErrorValue{fmt.Errorf("ROUND requires exactly 2 arguments")}, nil
+	}
+	num, err := toNumber(args[0])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	places, err := toNumber(args[1])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	factor := math.Pow(10, places)
+	return NumberValue{math.Round(num*factor) / factor}, nil
+}
+
+// floorFunction implements FLOOR - round down to integer
+func floorFunction(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return ErrorValue{fmt.Errorf("FLOOR requires exactly 1 argument")}, nil
+	}
+	num, err := toNumber(args[0])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	return NumberValue{math.Floor(num)}, nil
+}
+
+// ceilFunction implements CEIL - round up to integer
+func ceilFunction(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return ErrorValue{fmt.Errorf("CEIL requires exactly 1 argument")}, nil
+	}
+	num, err := toNumber(args[0])
+	if err != nil {
+		return ErrorValue{err}, nil
+	}
+	return NumberValue{math.Ceil(num)}, nil
 }
 
 // midFunction implements MID - substring

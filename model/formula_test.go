@@ -877,6 +877,119 @@ func TestRefErrorValue_PropagatesThroughCellRef(t *testing.T) {
 	assert.Equal(t, "#REF!", valueToString(val))
 }
 
+func TestExponentiationOperator(t *testing.T) {
+	sheet := NewSpreadsheet()
+
+	tests := []struct {
+		formula  string
+		expected string
+	}{
+		{"=2^3", "8"},
+		{"=5^2", "25"},
+		{"=4^0.5", "2"}, // sqrt(4)
+		{"=2^0", "1"},
+		{"=10^-1", "0.1"},
+		{"=2^3^2", "512"}, // right-associative: 2^(3^2) = 2^9 = 512
+		{"=2^3*2", "16"},  // precedence: (2^3)*2
+		{"=2+3^2", "11"},  // precedence: 2+(3^2)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.formula, func(t *testing.T) {
+			val, err := EvaluateFormula(tt.formula, nil, sheet)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, valueToString(val))
+		})
+	}
+}
+
+func TestSqrtFunction(t *testing.T) {
+	sheet := NewSpreadsheet()
+
+	tests := []struct {
+		formula  string
+		expected float64
+	}{
+		{"=SQRT(4)", 2},
+		{"=SQRT(9)", 3},
+		{"=SQRT(0)", 0},
+		{"=SQRT(2)", 1.4142135623730951},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.formula, func(t *testing.T) {
+			val, err := EvaluateFormula(tt.formula, nil, sheet)
+			assert.NoError(t, err)
+			num, ok := val.(NumberValue)
+			require.True(t, ok)
+			assert.InDelta(t, tt.expected, num.Value, 1e-9)
+		})
+	}
+}
+
+func TestSqrtErrors(t *testing.T) {
+	sheet := NewSpreadsheet()
+
+	val, err := EvaluateFormula("=SQRT(-1)", nil, sheet)
+	assert.NoError(t, err)
+	assert.True(t, isErrorLike(val))
+
+	val, err = EvaluateFormula("=SQRT(1,2)", nil, sheet)
+	assert.NoError(t, err)
+	assert.True(t, isErrorLike(val))
+}
+
+func TestStdevFunction(t *testing.T) {
+	sheet := NewSpreadsheet()
+
+	// Classic dataset: {2, 4, 4, 4, 5, 5, 7, 9} — sample stdev = 2
+	data := []string{"2", "4", "4", "4", "5", "5", "7", "9"}
+	for i, v := range data {
+		sheet.SetCell(i, 0, v)
+		sheet.GetCell(i, 0).SetComputed(v)
+	}
+
+	val, err := EvaluateFormula("=STDEV(A1:A8)", nil, sheet)
+	assert.NoError(t, err)
+	num, ok := val.(NumberValue)
+	require.True(t, ok)
+	// Sample stdev (Bessel's correction): sqrt(32/7) ≈ 2.1381
+	assert.InDelta(t, 2.138089935299395, num.Value, 1e-9)
+
+	// Fewer than 2 values → error
+	val, err = EvaluateFormula("=STDEV(1)", nil, sheet)
+	assert.NoError(t, err)
+	assert.True(t, isErrorLike(val))
+}
+
+func TestMathFunctions(t *testing.T) {
+	sheet := NewSpreadsheet()
+
+	tests := []struct {
+		formula  string
+		expected float64
+	}{
+		{"=ABS(-5)", 5},
+		{"=ABS(5)", 5},
+		{"=ROUND(3.14159,2)", 3.14},
+		{"=ROUND(2.5,0)", 3},
+		{"=FLOOR(3.9)", 3},
+		{"=FLOOR(-3.1)", -4},
+		{"=CEIL(3.1)", 4},
+		{"=CEIL(-3.9)", -3},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.formula, func(t *testing.T) {
+			val, err := EvaluateFormula(tt.formula, nil, sheet)
+			assert.NoError(t, err)
+			num, ok := val.(NumberValue)
+			require.True(t, ok)
+			assert.InDelta(t, tt.expected, num.Value, 1e-9)
+		})
+	}
+}
+
 // TestRefErrorValue_ChainedCellRef verifies #REF! propagates through a chain:
 // A1=#REF! → B1=A1 → C1=B1 all show #REF!
 func TestRefErrorValue_ChainedCellRef(t *testing.T) {

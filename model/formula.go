@@ -27,6 +27,7 @@ var formulaLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "Star", Pattern: `\*`},
 	{Name: "Slash", Pattern: `/`},
 	{Name: "Percent", Pattern: `%`},
+	{Name: "Caret", Pattern: `\^`},
 	{Name: "LParen", Pattern: `\(`},
 	{Name: "RParen", Pattern: `\)`},
 	{Name: "Comma", Pattern: `,`},
@@ -124,9 +125,17 @@ func serializeAdditionDisplay(add *Addition) string {
 }
 
 func serializeMultiplicationDisplay(mult *Multiplication) string {
-	result := serializeUnaryDisplay(mult.Left)
+	result := serializeExponentiationDisplay(mult.Left)
 	if mult.Op != nil && mult.Right != nil {
 		result += *mult.Op + serializeMultiplicationDisplay(mult.Right)
+	}
+	return result
+}
+
+func serializeExponentiationDisplay(exp *Exponentiation) string {
+	result := serializeUnaryDisplay(exp.Left)
+	if exp.Op != nil && exp.Right != nil {
+		result += *exp.Op + serializeExponentiationDisplay(exp.Right)
 	}
 	return result
 }
@@ -196,9 +205,18 @@ func serializeAddition(add *Addition) string {
 
 // serializeMultiplication converts a Multiplication AST back to a string
 func serializeMultiplication(mult *Multiplication) string {
-	result := serializeUnary(mult.Left)
+	result := serializeExponentiation(mult.Left)
 	if mult.Op != nil && mult.Right != nil {
 		result += *mult.Op + serializeMultiplication(mult.Right)
+	}
+	return result
+}
+
+// serializeExponentiation converts an Exponentiation AST back to a string
+func serializeExponentiation(exp *Exponentiation) string {
+	result := serializeUnary(exp.Left)
+	if exp.Op != nil && exp.Right != nil {
+		result += *exp.Op + serializeExponentiation(exp.Right)
 	}
 	return result
 }

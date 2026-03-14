@@ -25,9 +25,15 @@ type Addition struct {
 }
 
 type Multiplication struct {
-	Left  *Unary          `parser:"@@"`
+	Left  *Exponentiation `parser:"@@"`
 	Op    *string         `parser:"[ @( Star | Slash | Percent )"`
 	Right *Multiplication `parser:"  @@ ]"`
+}
+
+type Exponentiation struct {
+	Left  *Unary          `parser:"@@"`
+	Op    *string         `parser:"[ @Caret"`
+	Right *Exponentiation `parser:"  @@ ]"`
 }
 
 type Unary struct {
@@ -124,8 +130,16 @@ func walkMultiplication(mult *Multiplication, fn func(*Primary)) {
 	if mult == nil {
 		return
 	}
-	walkUnary(mult.Left, fn)
+	walkExponentiation(mult.Left, fn)
 	walkMultiplication(mult.Right, fn)
+}
+
+func walkExponentiation(exp *Exponentiation, fn func(*Primary)) {
+	if exp == nil {
+		return
+	}
+	walkUnary(exp.Left, fn)
+	walkExponentiation(exp.Right, fn)
 }
 
 func walkUnary(unary *Unary, fn func(*Primary)) {
