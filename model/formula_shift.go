@@ -123,6 +123,9 @@ func shiftCellRef(ref *CellRef, deletedRow, deletedCol int, insert bool) {
 }
 
 func shiftRange(rng *Range, deletedRow, deletedCol int, insert bool) {
+	if rng.ColRange != nil || rng.RowRange != nil {
+		return // full-row/col ranges not supported; no shift
+	}
 	if rng.Invalid {
 		return // already invalid, leave it
 	}
@@ -229,7 +232,7 @@ func ShiftFormulaByOffset(formula string, rowOffset, colOffset int) (string, err
 				prim.CellRef.Ref = coordsToRefWithAnchors(newRow, newCol, prim.CellRef.AbsRow, prim.CellRef.AbsCol)
 			}
 		}
-		if prim.Range != nil && !prim.Range.Invalid {
+		if prim.Range != nil && !prim.Range.Invalid && prim.Range.ColRange == nil && prim.Range.RowRange == nil {
 			sr := prim.Range.StartRow
 			if !prim.Range.StartAbsRow {
 				sr += rowOffset

@@ -522,6 +522,27 @@ func TestFormulaDivisionByZero(t *testing.T) {
 	assert.Contains(t, valueToString(val), "division by zero")
 }
 
+func TestFormulaFullRowColRangeError(t *testing.T) {
+	sheet := NewSpreadsheet()
+	// Full column range A:A
+	val, err := EvaluateFormula("=A:A", nil, sheet)
+	assert.NoError(t, err)
+	assert.True(t, isErrorLike(val))
+	assert.Contains(t, valueToString(val), "cannot use full-row/col ranges")
+
+	// Full row range 7:7
+	val2, err2 := EvaluateFormula("=7:7", nil, sheet)
+	assert.NoError(t, err2)
+	assert.True(t, isErrorLike(val2))
+	assert.Contains(t, valueToString(val2), "cannot use full-row/col ranges")
+
+	// Inside function
+	val3, err3 := EvaluateFormula("=SUM(A:A)", nil, sheet)
+	assert.NoError(t, err3)
+	assert.True(t, isErrorLike(val3))
+	assert.Contains(t, valueToString(val3), "cannot use full-row/col ranges")
+}
+
 func TestFormulaModuloByZero(t *testing.T) {
 	sheet := NewSpreadsheet()
 	val, err := EvaluateFormula("=10%0", nil, sheet)

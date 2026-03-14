@@ -65,6 +65,10 @@ func (c *refCollector) walkPrimary(prim *Primary) {
 		c.addRef(prim.CellRef.Ref)
 	}
 	if prim.Range != nil {
+		if prim.Range.ColRange != nil || prim.Range.RowRange != nil {
+			// Full-row/col ranges not supported in formulas; skip dependency extraction
+			return
+		}
 		rangeStr := prim.Range.Start + ":" + prim.Range.End
 		expanded, err := ExpandRange(rangeStr)
 		if err == nil {

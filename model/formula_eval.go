@@ -399,6 +399,9 @@ func evaluateCellRef(ref *CellRef, sheet *Spreadsheet) (Value, error) {
 
 // evaluateRange evaluates a range and returns a VectorValue
 func evaluateRange(rng *Range, sheet *Spreadsheet) (Value, error) {
+	if rng.ColRange != nil || rng.RowRange != nil {
+		return ErrorValue{fmt.Errorf("cannot use full-row/col ranges")}, nil
+	}
 	if rng.Invalid {
 		return RefErrorValue{}, nil
 	}

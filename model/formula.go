@@ -11,7 +11,9 @@ import (
 // Formula lexer definition
 var formulaLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "Float", Pattern: `\d+\.\d+`},
-	{Name: "CellRef", Pattern: `\$?[A-Z]+\$?\d+`}, // Must come before Ident; $ anchors optional
+	{Name: "ColRange", Pattern: `\$?[A-Z]+:\$?[A-Z]+`}, // A:A, $B:$C — must come before CellRef/Ident
+	{Name: "RowRange", Pattern: `\d+:\d+`},             // 1:1, 3:10 — must come before Int
+	{Name: "CellRef", Pattern: `\$?[A-Z]+\$?\d+`},      // Must come before Ident; $ anchors optional
 	{Name: "Ident", Pattern: `[A-Za-z_][A-Za-z0-9_]*`},
 	{Name: "Int", Pattern: `\d+`},
 	{Name: "String", Pattern: `"(?:\\.|[^"])*"`},
@@ -256,6 +258,12 @@ func serializePrimary(prim *Primary) string {
 		return coordsToRefWithAnchors(prim.CellRef.Row, prim.CellRef.Col, prim.CellRef.AbsRow, prim.CellRef.AbsCol)
 	}
 	if prim.Range != nil {
+		if prim.Range.ColRange != nil {
+			return *prim.Range.ColRange
+		}
+		if prim.Range.RowRange != nil {
+			return *prim.Range.RowRange
+		}
 		if prim.Range.Invalid {
 			return prim.Range.Start + ":" + prim.Range.End // preserve original
 		}
@@ -283,6 +291,13 @@ func serializePrimaryDisplay(prim *Primary) string {
 	}
 	if prim.Range != nil && prim.Range.Invalid {
 		return "#REF!"
+	}
+	if prim.Range != nil && (prim.Range.ColRange != nil || prim.Range.RowRange != nil) {
+		// Full-row/col ranges: show original (eval returns error)
+		if prim.Range.ColRange != nil {
+			return *prim.Range.ColRange
+		}
+		return *prim.Range.RowRange
 	}
 	if prim.Number != nil {
 		return fmt.Sprintf("%g", *prim.Number)

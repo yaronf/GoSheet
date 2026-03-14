@@ -74,8 +74,10 @@ func (c *CellRef) ResolveCoords() {
 }
 
 type Range struct {
-	Start string `parser:"@CellRef"`
-	End   string `parser:"Colon @CellRef"`
+	ColRange *string `parser:"  @ColRange"`    // A:A, B:C — full column range (not supported in formulas)
+	RowRange *string `parser:"| @RowRange"`    // 1:1, 7:7 — full row range (not supported in formulas)
+	Start    string  `parser:"| @CellRef"`     // start of cell range
+	End      string  `parser:"Colon @CellRef"` // end of cell range
 	// Runtime fields (not parsed; populated by resolveAllCoords after parsing)
 	StartRow, StartCol       int
 	StartAbsRow, StartAbsCol bool // $ anchor flags for start endpoint
@@ -95,7 +97,11 @@ func (r *Range) GetEndCoords() (row, col int) {
 }
 
 // ResolveCoords populates the coord and anchor fields from Start/End strings.
+// No-op for full-row/col ranges (ColRange/RowRange); those are rejected at eval.
 func (r *Range) ResolveCoords() {
+	if r.ColRange != nil || r.RowRange != nil {
+		return
+	}
 	r.StartRow, r.StartCol, r.StartAbsRow, r.StartAbsCol = parseRefWithAnchors(r.Start)
 	r.EndRow, r.EndCol, r.EndAbsRow, r.EndAbsCol = parseRefWithAnchors(r.End)
 }
@@ -201,7 +207,7 @@ func applyInvalidRefs(ast *Formula, invalidRefs []string) {
 		if prim.CellRef != nil && refSet[prim.CellRef.Ref] {
 			prim.CellRef.Invalid = true
 		}
-		if prim.Range != nil {
+		if prim.Range != nil && prim.Range.ColRange == nil && prim.Range.RowRange == nil {
 			key := prim.Range.Start + ":" + prim.Range.End
 			if refSet[key] {
 				prim.Range.Invalid = true

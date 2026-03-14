@@ -42,6 +42,18 @@ test.describe('Formula Error Handling', () => {
     expect(text).toMatch(/^#ERROR/);
   });
 
+  test('full-row/col range shows error and tooltip', async ({ window }) => {
+    await setCellViaApi(window, 0, 0, '=SUM(A:A)');
+    const cell = window.locator('#cell-0-0');
+    await expect(cell).toHaveClass(/error-cell/);
+    const text = await cell.textContent();
+    expect(text).toMatch(/^#ERROR/);
+    expect(text).toContain('cannot use full-row/col ranges');
+    const title = await cell.getAttribute('title');
+    expect(title).toBeTruthy();
+    expect(title).toContain('cannot use full-row/col ranges');
+  });
+
   test('non-error formula cell does not have error-cell class', async ({
     window,
   }) => {
