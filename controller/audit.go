@@ -67,7 +67,7 @@ func (al *AuditLogger) run(logPath string) {
 		}
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	for ev := range al.ch {
 		line, err := json.Marshal(ev)

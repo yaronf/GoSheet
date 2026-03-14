@@ -230,10 +230,6 @@ func TestAgentCommitCommandUndo(t *testing.T) {
 
 func TestAgentPatchCommandUndoReversesInOrder(t *testing.T) {
 	order := []string{}
-	type trackedCmd struct {
-		name string
-		list *[]string
-	}
 	tc := func(name string) Command {
 		return &struct {
 			name string

@@ -88,7 +88,7 @@ func (b *SSEBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Send an SSE comment as a keepalive to flush the response headers immediately.
 	// Without a first write, the HTTP client won't receive the 200 status until
 	// the first event is broadcast, causing long hangs in low-traffic scenarios.
-	fmt.Fprintf(w, ": connected\n\n")
+	_, _ = fmt.Fprintf(w, ": connected\n\n")
 	flusher.Flush()
 
 	c := &sseClient{ch: make(chan controller.Event, 16)}
@@ -115,7 +115,7 @@ func (b *SSEBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if data == "" {
 				data = "{}"
 			}
-			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Name, data)
+			_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Name, data)
 			flusher.Flush()
 		}
 	}
