@@ -62,7 +62,10 @@ test.describe('Agent API (Epic 20)', () => {
     // End any active agent session before resetting the sheet
     await apiFetch(window, 'POST', '/api/agent/session/end');
 
-    // Reset to clean spreadsheet — handle the unsaved-changes modal if it appears
+    // Reset to clean spreadsheet via API (avoids race: new-btn click is async)
+    await apiFetch(window, 'POST', '/api/file/new');
+
+    // Sync UI: click new-btn in case it shows modal, then ensure grid visible
     await window.locator('#new-btn').click();
     const modal = window.locator('#modal-overlay');
     if (await modal.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -240,7 +243,7 @@ test.describe('Agent API (Epic 20)', () => {
       'GET',
       '/api/cell/value?row=1&col=1'
     );
-    expect(cellJson.value).toBe('Patched');
+    expect(cellJson.data?.computed).toBe('Patched');
 
     await apiFetch(window, 'POST', '/api/agent/session/end');
   });
@@ -354,7 +357,7 @@ test.describe('Agent API (Epic 20)', () => {
       'GET',
       '/api/cell/value?row=0&col=0'
     );
-    expect(cellA.value).toBe('A');
+    expect(cellA.data?.computed).toBe('A');
 
     // Undo once → both cells cleared (single undo entry from agent commit)
     const { json: undoJson } = await apiFetch(window, 'POST', '/api/undo');
@@ -365,13 +368,13 @@ test.describe('Agent API (Epic 20)', () => {
       'GET',
       '/api/cell/value?row=0&col=0'
     );
-    expect(cellAAfter.value).toBe('');
+    expect(cellAAfter.data?.computed ?? '').toBe('');
     const { json: cellBAfter } = await apiFetch(
       window,
       'GET',
       '/api/cell/value?row=0&col=1'
     );
-    expect(cellBAfter.value).toBe('');
+    expect(cellBAfter.data?.computed ?? '').toBe('');
   });
 
   test('rollback reverts patch and revokes token', async ({ window }) => {
@@ -403,7 +406,7 @@ test.describe('Agent API (Epic 20)', () => {
       'GET',
       '/api/cell/value?row=2&col=0'
     );
-    expect(before.value).toBe('WillBeRolledBack');
+    expect(before.data?.computed).toBe('WillBeRolledBack');
 
     // Rollback
     const { status: rollbackStatus } = await window.evaluate(
@@ -424,7 +427,7 @@ test.describe('Agent API (Epic 20)', () => {
       'GET',
       '/api/cell/value?row=2&col=0'
     );
-    expect(after.value).toBe('');
+    expect(after.data?.computed ?? '').toBe('');
 
     // Session should be gone
     const { json: statusJson } = await apiFetch(
@@ -574,7 +577,7 @@ test.describe('Agent API (Epic 20)', () => {
       'GET',
       '/api/cell/value?row=1&col=0'
     );
-    expect(cell.value).toBe('Top');
+    expect(cell.data?.computed).toBe('Top');
 
     await apiFetch(window, 'POST', '/api/agent/session/end');
   });
@@ -617,7 +620,7 @@ test.describe('Agent API (Epic 20)', () => {
       'GET',
       '/api/cell/value?row=1&col=0'
     );
-    expect(cell.value).toBe('After');
+    expect(cell.data?.computed).toBe('After');
 
     await apiFetch(window, 'POST', '/api/agent/session/end');
   });
@@ -657,13 +660,13 @@ test.describe('Agent API (Epic 20)', () => {
       'GET',
       '/api/cell/value?row=0&col=0'
     );
-    expect(cellA.value).toBe('');
+    expect(cellA.data?.computed ?? '').toBe('');
     const { json: cellB } = await apiFetch(
       window,
       'GET',
       '/api/cell/value?row=0&col=1'
     );
-    expect(cellB.value).toBe('');
+    expect(cellB.data?.computed ?? '').toBe('');
 
     await apiFetch(window, 'POST', '/api/agent/session/end');
   });
@@ -726,7 +729,7 @@ test.describe('Agent API (Epic 20)', () => {
       'GET',
       '/api/cell/value?row=0&col=0'
     );
-    expect(cell.value).toBe('');
+    expect(cell.data?.computed ?? '').toBe('');
 
     await apiFetch(window, 'POST', '/api/agent/session/end');
   });
