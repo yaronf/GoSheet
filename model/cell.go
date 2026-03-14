@@ -1,10 +1,5 @@
 package model
 
-import (
-	"bytes"
-	"encoding/gob"
-)
-
 // Cell represents a single spreadsheet cell
 type Cell struct {
 	Value         string   // Raw value: bare expression for formulas (no "="), plain text otherwise
@@ -18,59 +13,17 @@ type Cell struct {
 	ParsedFormula *Formula // Runtime only — not persisted; rebuilt from Value on load
 }
 
-// cellPersist is the shadow struct used for gob encode/decode.
-// ParsedFormula is intentionally excluded — participle AST has unexported fields gob cannot handle.
+// cellPersist is the shadow struct used for MessagePack encode/decode.
+// ParsedFormula is intentionally excluded — participle AST has unexported fields.
 // It is rebuilt from Value on load.
 type cellPersist struct {
-	Value         string
-	Computed      string
-	IsFormula     bool
-	IsQuotePrefix bool
-	IsError       bool
-	StyleId       int
-	Alignment     string
-	InvalidRefs   []string
-}
-
-// GobEncode encodes only the persistable fields, excluding ParsedFormula.
-// Pointer receiver is required: the map stores *Cell, so gob must find GobEncode on *Cell.
-func (c *Cell) GobEncode() ([]byte, error) {
-	p := cellPersist{
-		Value:         c.Value,
-		Computed:      c.Computed,
-		IsFormula:     c.IsFormula,
-		IsQuotePrefix: c.IsQuotePrefix,
-		IsError:       c.IsError,
-		StyleId:       c.StyleId,
-		Alignment:     c.Alignment,
-		InvalidRefs:   c.InvalidRefs,
-	}
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(p); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-// GobDecode restores persistable fields; ParsedFormula is left nil and rebuilt by the load path.
-func (c *Cell) GobDecode(data []byte) error {
-	var p cellPersist
-	buf := bytes.NewReader(data)
-	dec := gob.NewDecoder(buf)
-	if err := dec.Decode(&p); err != nil {
-		return err
-	}
-	c.Value = p.Value
-	c.Computed = p.Computed
-	c.IsFormula = p.IsFormula
-	c.IsQuotePrefix = p.IsQuotePrefix
-	c.IsError = p.IsError
-	c.StyleId = p.StyleId
-	c.Alignment = p.Alignment
-	c.InvalidRefs = p.InvalidRefs
-	c.ParsedFormula = nil // rebuilt on load
-	return nil
+	Value         string   `msgpack:"value"`
+	IsFormula     bool     `msgpack:"is_formula"`
+	IsQuotePrefix bool     `msgpack:"is_quote_prefix"`
+	IsError       bool     `msgpack:"is_error"`
+	StyleId       int      `msgpack:"style_id"`
+	Alignment     string   `msgpack:"alignment"`
+	InvalidRefs   []string `msgpack:"invalid_refs"`
 }
 
 // RawValue returns the user-facing raw string: "=<expr>" for formulas, Value otherwise.

@@ -355,7 +355,7 @@ func (c *AppController) LoadFile(path string) error {
 	return c.loadSheet(sheet)
 }
 
-// LoadFromBytes loads a spreadsheet from gob-encoded bytes (e.g., from FileService.ReadFile).
+// LoadFromBytes loads a spreadsheet from MessagePack-encoded bytes (e.g., from FileService.ReadFile).
 func (c *AppController) LoadFromBytes(data []byte, path string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

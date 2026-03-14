@@ -208,7 +208,7 @@ go test -cover ./tests/...
 - Cell model and coordinate conversion
 - Formula parser and evaluator
 - Dependency graph and formula updates
-- File I/O (gob encoding/decoding)
+- File I/O (MessagePack encoding; see `docs/FILE_FORMAT.md`)
 - Spreadsheet operations
 - Formula normalization
 

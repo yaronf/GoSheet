@@ -2,18 +2,31 @@ package model
 
 import (
 	"bytes"
-	"encoding/gob"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/vmihailenco/msgpack/v5"
 	"gosheet/logutil"
 )
 
+// File format version for MessagePack encoding.
+const FileFormatVersion = "2.0"
+
 // FileHeader contains metadata about the saved spreadsheet file
 type FileHeader struct {
-	Version   string // File format version (e.g., "1.1")
-	CellCount int    // Number of cells in the file
+	Version   string `msgpack:"version"`
+	CellCount int    `msgpack:"cell_count"`
+}
+
+// fileContentV2 is the MessagePack payload structure (v2.0).
+type fileContentV2 struct {
+	Version   string                       `msgpack:"version"`
+	CellCount int                          `msgpack:"cell_count"`
+	Cells     map[int]map[int]*cellPersist `msgpack:"cells"`
+	Merges    []MergeRegion                `msgpack:"merges"`
+	Styles    *StyleRegistry               `msgpack:"styles"`
 }
 
 // atomicWriteFile writes content via writeContent to a temp file in the same
@@ -62,29 +75,109 @@ func atomicWriteFile(targetPath string, writeContent func(f *os.File) error) err
 	return nil
 }
 
-// encodeSpreadsheet writes header, cells, merges, and styles to enc in the
-// canonical v1.2 order. Shared by SaveToFile and SaveToBytes.
-func encodeSpreadsheet(enc *gob.Encoder, s *Spreadsheet, styles *StyleRegistry) error {
-	header := FileHeader{
-		Version:   "1.2",
+// cellsToPersist converts Cell map to cellPersist map for encoding.
+func cellsToPersist(cells map[int]map[int]*Cell) map[int]map[int]*cellPersist {
+	if cells == nil {
+		return nil
+	}
+	out := make(map[int]map[int]*cellPersist, len(cells))
+	for row, rowMap := range cells {
+		outRow := make(map[int]*cellPersist, len(rowMap))
+		for col, c := range rowMap {
+			if c != nil {
+				outRow[col] = &cellPersist{
+					Value:         c.Value,
+					IsFormula:     c.IsFormula,
+					IsQuotePrefix: c.IsQuotePrefix,
+					IsError:       c.IsError,
+					StyleId:       c.StyleId,
+					Alignment:     c.Alignment,
+					InvalidRefs:   c.InvalidRefs,
+				}
+			}
+		}
+		out[row] = outRow
+	}
+	return out
+}
+
+// cellsFromPersist converts cellPersist map to Cell map after decoding.
+func cellsFromPersist(p map[int]map[int]*cellPersist) map[int]map[int]*Cell {
+	if p == nil {
+		return nil
+	}
+	out := make(map[int]map[int]*Cell, len(p))
+	for row, rowMap := range p {
+		outRow := make(map[int]*Cell, len(rowMap))
+		for col, cp := range rowMap {
+			if cp != nil {
+				computed := ""
+				if cp.IsQuotePrefix && len(cp.Value) > 0 {
+					computed = cp.Value[1:] // strip leading quote
+				} else if !cp.IsFormula {
+					computed = cp.Value // plain cells: computed = value
+				}
+				// Formula cells: computed left empty; RecalculateAll sets it
+				outRow[col] = &Cell{
+					Value:         cp.Value,
+					Computed:      computed,
+					IsFormula:     cp.IsFormula,
+					IsQuotePrefix: cp.IsQuotePrefix,
+					IsError:       cp.IsError,
+					StyleId:       cp.StyleId,
+					Alignment:     cp.Alignment,
+					InvalidRefs:   cp.InvalidRefs,
+					ParsedFormula: nil, // rebuilt on load
+				}
+			}
+		}
+		out[row] = outRow
+	}
+	return out
+}
+
+// encodeSpreadsheet writes the spreadsheet to w using MessagePack (v2.0).
+func encodeSpreadsheet(w io.Writer, s *Spreadsheet, styles *StyleRegistry) error {
+	content := fileContentV2{
+		Version:   FileFormatVersion,
 		CellCount: s.GetCellCount(),
+		Cells:     cellsToPersist(s.Cells),
+		Merges:    s.Merges,
+		Styles:    styles,
 	}
-	if err := enc.Encode(header); err != nil {
-		return fmt.Errorf("failed to encode header: %w", err)
-	}
-	if err := enc.Encode(s.Cells); err != nil {
-		return fmt.Errorf("failed to encode cells: %w", err)
-	}
-	if err := enc.Encode(s.Merges); err != nil {
-		return fmt.Errorf("failed to encode merges: %w", err)
-	}
-	if err := enc.Encode(styles); err != nil {
-		return fmt.Errorf("failed to encode styles: %w", err)
+	enc := msgpack.NewEncoder(w)
+	enc.SetSortMapKeys(true) // deterministic output for tests
+	if err := enc.Encode(&content); err != nil {
+		return fmt.Errorf("failed to encode spreadsheet: %w", err)
 	}
 	return nil
 }
 
-// SaveToFile saves the spreadsheet to a binary file using gob encoding.
+// decodeSpreadsheet reads a spreadsheet from r (MessagePack v2.0).
+func decodeSpreadsheet(r io.Reader, filePath string) (*Spreadsheet, error) {
+	dec := msgpack.NewDecoder(r)
+	var content fileContentV2
+	if err := dec.Decode(&content); err != nil {
+		return nil, fmt.Errorf("failed to decode spreadsheet: %w", err)
+	}
+	if content.Version != FileFormatVersion {
+		return nil, fmt.Errorf("unsupported file version: %s", content.Version)
+	}
+	cells := cellsFromPersist(content.Cells)
+	if content.Styles == nil {
+		content.Styles = NewStyleRegistry()
+	}
+	return &Spreadsheet{
+		Cells:        cells,
+		Merges:       content.Merges,
+		Styles:       content.Styles,
+		Modified:     false,
+		FilePath:     filePath,
+		Dependencies: NewDependencyGraph(),
+	}, nil
+}
+
+// SaveToFile saves the spreadsheet to a binary file using MessagePack encoding.
 // The write is performed atomically: content is written to a temp file in the
 // same directory, then renamed to the target path, so a crash mid-write never
 // corrupts an existing file.
@@ -95,7 +188,7 @@ func (s *Spreadsheet) SaveToFile(filePath string) error {
 	}
 
 	err := atomicWriteFile(filePath, func(f *os.File) error {
-		return encodeSpreadsheet(gob.NewEncoder(f), s, styles)
+		return encodeSpreadsheet(f, s, styles)
 	})
 	if err != nil {
 		return err
@@ -107,54 +200,14 @@ func (s *Spreadsheet) SaveToFile(filePath string) error {
 	return nil
 }
 
-// decodeSpreadsheet reads a spreadsheet from a gob decoder and returns a new Spreadsheet.
-func decodeSpreadsheet(decoder *gob.Decoder, filePath string) (*Spreadsheet, error) {
-	var header FileHeader
-	if err := decoder.Decode(&header); err != nil {
-		return nil, fmt.Errorf("failed to decode header: %w", err)
-	}
-	if header.Version != "1.1" && header.Version != "1.2" {
-		return nil, fmt.Errorf("unsupported file version: %s", header.Version)
-	}
-
-	var cells map[int]map[int]*Cell
-	if err := decoder.Decode(&cells); err != nil {
-		return nil, fmt.Errorf("failed to decode cells: %w", err)
-	}
-
-	var merges []MergeRegion
-	if err := decoder.Decode(&merges); err != nil {
-		return nil, fmt.Errorf("failed to decode merges: %w", err)
-	}
-
-	var styles *StyleRegistry
-	if header.Version == "1.2" {
-		if err := decoder.Decode(&styles); err != nil {
-			return nil, fmt.Errorf("failed to decode styles: %w", err)
-		}
-	}
-	if styles == nil {
-		styles = NewStyleRegistry()
-	}
-
-	return &Spreadsheet{
-		Cells:        cells,
-		Merges:       merges,
-		Styles:       styles,
-		Modified:     false,
-		FilePath:     filePath,
-		Dependencies: NewDependencyGraph(),
-	}, nil
-}
-
-// LoadFromFile loads a spreadsheet from a binary file using gob decoding
+// LoadFromFile loads a spreadsheet from a binary file using MessagePack decoding.
 func LoadFromFile(filePath string) (*Spreadsheet, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() { _ = file.Close() }()
-	return decodeSpreadsheet(gob.NewDecoder(file), filePath)
+	return decodeSpreadsheet(file, filePath)
 }
 
 // SaveAs saves the spreadsheet to a new file path
@@ -167,13 +220,13 @@ func (s *Spreadsheet) HasUnsavedChanges() bool {
 	return s.Modified
 }
 
-// LoadFromBytes loads a spreadsheet from gob-encoded bytes.
+// LoadFromBytes loads a spreadsheet from MessagePack-encoded bytes.
 // Used when reading via FileService.ReadFile (e.g., native Open dialog flow).
 func LoadFromBytes(data []byte, filePath string) (*Spreadsheet, error) {
-	return decodeSpreadsheet(gob.NewDecoder(bytes.NewReader(data)), filePath)
+	return decodeSpreadsheet(bytes.NewReader(data), filePath)
 }
 
-// SaveToBytes serializes the spreadsheet to gob-encoded bytes.
+// SaveToBytes serializes the spreadsheet to MessagePack-encoded bytes.
 // Used when writing via FileService.WriteFile (e.g., native Save dialog flow).
 func (s *Spreadsheet) SaveToBytes() ([]byte, error) {
 	styles := s.Styles
@@ -181,7 +234,7 @@ func (s *Spreadsheet) SaveToBytes() ([]byte, error) {
 		styles = NewStyleRegistry()
 	}
 	var buf bytes.Buffer
-	if err := encodeSpreadsheet(gob.NewEncoder(&buf), s, styles); err != nil {
+	if err := encodeSpreadsheet(&buf, s, styles); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

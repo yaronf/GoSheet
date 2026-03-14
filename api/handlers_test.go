@@ -627,8 +627,8 @@ func TestHandleUploadFile(t *testing.T) {
 
 func TestHandleUploadFile_InvalidData(t *testing.T) {
 	srv := newTestServer()
-	// Corrupt gob data - LoadFile will fail
-	req := httptest.NewRequest(http.MethodPost, "/api/file/upload", bytes.NewReader([]byte("not valid gob")))
+	// Corrupt MessagePack data - LoadFile will fail
+	req := httptest.NewRequest(http.MethodPost, "/api/file/upload", bytes.NewReader([]byte("not valid msgpack")))
 	w := httptest.NewRecorder()
 	srv.HandleUploadFile(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -636,7 +636,7 @@ func TestHandleUploadFile_InvalidData(t *testing.T) {
 
 func TestHandleUploadFile_EmptyBody(t *testing.T) {
 	srv := newTestServer()
-	// Empty body - LoadFile on empty gob will fail
+	// Empty body - LoadFile on empty MessagePack will fail
 	req := httptest.NewRequest(http.MethodPost, "/api/file/upload", bytes.NewReader(nil))
 	w := httptest.NewRecorder()
 	srv.HandleUploadFile(w, req)

@@ -8,7 +8,12 @@ Future ideas and feature notes. Promote to sprint via `/bmad-bmm-correct-course`
 
 ### Language-independent file format
 
-See `[technical-file-format-cross-language-random-access-research-2026-02-23.md](research/technical-file-format-cross-language-random-access-research-2026-02-23.md)`
+See `[technical-file-format-cross-language-random-access-research-2026-02-23.md](research/technical-file-format-cross-language-random-access-research-2026-02-23.md)`  
+→ **Promoted** to Epic 22 (MessagePack) — `[sprint-change-proposal-2026-03-15.md](sprint-change-proposal-2026-03-15.md)`
+
+### Generic font fallback
+
+When applying styles, use a fallback stack (e.g. `"CustomFont", sans-serif`) so that if a font in a .sheet file is not installed, the renderer uses a sensible default instead of the browser's generic. Relevant: `frontend/app-modals.js` `formatToCssPreview`, `docs/FILE_FORMAT.md` (unknown fonts section).
 
 ### Select cells/ranges for inclusion in formula
 

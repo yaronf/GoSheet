@@ -164,7 +164,7 @@ func TestControllerLoadFromBytes(t *testing.T) {
 
 func TestControllerLoadFromBytes_InvalidData(t *testing.T) {
 	ctrl := NewAppController()
-	err := ctrl.LoadFromBytes([]byte("not valid gob"), "/x.sheet")
+	err := ctrl.LoadFromBytes([]byte("not valid msgpack"), "/x.sheet")
 	assert.Error(t, err)
 }
 

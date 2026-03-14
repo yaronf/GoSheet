@@ -362,7 +362,7 @@ CSV files contain **data only**.
 - **Native GoSheet format**
 - Preserves formulas, cell references, and structure
 - Use for regular work and when you need to keep formulas
-- Only GoSheet can open .sheet files
+- GoSheet opens .sheet files; the format can also be read by other tools (developers: see `docs/FILE_FORMAT.md`)
 
 ### .csv Format
 

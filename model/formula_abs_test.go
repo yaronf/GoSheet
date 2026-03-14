@@ -216,20 +216,20 @@ func TestNormalizeFormulaWithAnchors(t *testing.T) {
 	assert.Equal(t, "=$A$1+C1", result)
 }
 
-// TestGobRoundTripAbsRef verifies that gob encode/decode preserves $ anchor in formula string.
-func TestGobRoundTripAbsRef(t *testing.T) {
-	cell := &Cell{}
-	cell.SetValue("=$A$1+C1")
+// TestMessagePackRoundTripAbsRef verifies that MessagePack encode/decode preserves $ anchor in formula string.
+func TestMessagePackRoundTripAbsRef(t *testing.T) {
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "=$A$1+C1")
 
-	// gob encode
-	data, err := cell.GobEncode()
+	data, err := s.SaveToBytes()
 	require.NoError(t, err)
 
-	// decode into a new cell
-	restored := &Cell{}
-	require.NoError(t, restored.GobDecode(data))
+	loaded, err := LoadFromBytes(data, "/test.sheet")
+	require.NoError(t, err)
 
-	assert.Equal(t, "$A$1+C1", restored.Value, "Value should preserve $ after gob round-trip")
+	restored := loaded.GetCell(0, 0)
+	require.NotNil(t, restored)
+	assert.Equal(t, "$A$1+C1", restored.Value, "Value should preserve $ after MessagePack round-trip")
 	assert.Equal(t, "=$A$1+C1", restored.RawValue(), "RawValue should restore = prefix")
 	assert.True(t, restored.IsFormula, "should be recognised as formula")
 }

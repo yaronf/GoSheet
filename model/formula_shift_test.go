@@ -274,11 +274,15 @@ func TestInvalidRefsRoundTrip(t *testing.T) {
 	unshiftFormulaRefsForDeleteRow(cell, 1) // A2 becomes invalid
 	assert.Contains(t, cell.InvalidRefs, "A2")
 
-	// GobEncode → GobDecode
-	data, err := cell.GobEncode()
+	// Save/Load via MessagePack round-trip
+	s := NewSpreadsheet()
+	s.Cells[0] = map[int]*Cell{0: cell}
+	data, err := s.SaveToBytes()
 	require.NoError(t, err)
-	restored := &Cell{}
-	require.NoError(t, restored.GobDecode(data))
+	loaded, err := LoadFromBytes(data, "/test.sheet")
+	require.NoError(t, err)
+	restored := loaded.GetCell(0, 0)
+	require.NotNil(t, restored)
 
 	// ParsedFormula is nil after decode (intentional)
 	assert.Nil(t, restored.ParsedFormula)

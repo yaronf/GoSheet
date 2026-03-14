@@ -146,18 +146,18 @@ Eval:   SUM creates Vector{A1:A1000}, iterates lazily
         No expansion of 1000 cells into memory
 ```
 
-### 3. File Handler (`io/serializer.go`)
+### 3. File Handler (`model/file.go`)
 **Responsibility**: Save/Load spreadsheet files using binary serialization
 
 **Key Methods**:
-- `Save(sheet *Spreadsheet, path string) error`
-- `Load(path string) (*Spreadsheet, error)`
+- `SaveToFile(path string)`, `LoadFromFile(path string)`
+- `SaveToBytes()`, `LoadFromBytes(data []byte, path string)`
 
 **Format**:
-- Custom binary format using Go's `encoding/gob`
-- Efficient serialization of sparse cell data
+- MessagePack encoding (cross-language; see `docs/FILE_FORMAT.md`)
+- Version 2.0; efficient sparse cell storage
 - Preserves formulas and computed values
-- File extension: `.gsh` (GoSheet format)
+- File extension: `.sheet`
 
 ### 4. UI Components
 

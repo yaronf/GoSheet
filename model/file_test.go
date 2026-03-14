@@ -2,13 +2,13 @@ package model
 
 import (
 	"bytes"
-	"encoding/gob"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func TestSaveAndLoadEmptySpreadsheet(t *testing.T) {
@@ -125,6 +125,7 @@ func TestSaveAndLoadFormulas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFromFile failed: %v", err)
 	}
+	_ = loaded.RecalculateAll() // formulas: computed is derived, not persisted
 
 	// Verify formula cells
 	cell1 := loaded.GetCell(0, 2)
@@ -144,6 +145,9 @@ func TestSaveAndLoadFormulas(t *testing.T) {
 	}
 	if cell2.RawValue() != "=SUM(A1:B1)" {
 		t.Errorf("Cell A2: expected formula '=SUM(A1:B1)', got %q", cell2.RawValue())
+	}
+	if cell2.Computed != "30" {
+		t.Errorf("Cell A2: expected computed value '30', got %q", cell2.Computed)
 	}
 }
 
@@ -209,49 +213,43 @@ func TestSaveToFile_InvalidPath(t *testing.T) {
 	}
 }
 
-func TestLoadFromFile_InvalidGob(t *testing.T) {
-	tmpfile := filepath.Join(t.TempDir(), "badgob.gosheet")
-	if err := os.WriteFile(tmpfile, []byte("not valid gob content"), 0644); err != nil {
+func TestLoadFromFile_InvalidMessagePack(t *testing.T) {
+	tmpfile := filepath.Join(t.TempDir(), "bad.gosheet")
+	if err := os.WriteFile(tmpfile, []byte("not valid msgpack content"), 0644); err != nil {
 		t.Fatalf("WriteFile failed: %v", err)
 	}
 	_, err := LoadFromFile(tmpfile)
 	if err == nil {
-		t.Error("Expected error when loading invalid gob file")
+		t.Error("Expected error when loading invalid MessagePack file")
 	}
 }
 
-func TestLoadFromFile_InvalidCellsGob(t *testing.T) {
-	// Valid header but invalid cells structure (wrong type encoded)
+func TestLoadFromFile_InvalidCellsMessagePack(t *testing.T) {
+	// Valid MessagePack but wrong structure - encode a string instead of fileContentV2
 	tmpfile := filepath.Join(t.TempDir(), "badcells.gosheet")
-	f, err := os.Create(tmpfile)
-	if err != nil {
-		t.Fatalf("Create failed: %v", err)
+	if err := os.WriteFile(tmpfile, []byte("\xa1x"), 0644); err != nil { // msgpack fixstr "x"
+		t.Fatalf("WriteFile failed: %v", err)
 	}
-	enc := gob.NewEncoder(f)
-	_ = enc.Encode(FileHeader{Version: "1.1", CellCount: 0})
-	_ = enc.Encode("not a map") // Wrong type - should be map[int]map[int]*Cell
-	_ = f.Close()
-
-	_, err = LoadFromFile(tmpfile)
+	_, err := LoadFromFile(tmpfile)
 	if err == nil {
-		t.Error("Expected error when loading file with invalid cells structure")
+		t.Error("Expected error when loading file with invalid MessagePack structure")
 	}
 }
 
 func TestLoadFromFile_InvalidVersion(t *testing.T) {
+	// Create valid MessagePack with unsupported version "3.0"
+	content := fileContentV2{
+		Version:   "3.0",
+		CellCount: 0,
+		Cells:     map[int]map[int]*cellPersist{},
+		Merges:    []MergeRegion{},
+		Styles:    NewStyleRegistry(),
+	}
+	data, err := msgpack.Marshal(&content)
+	require.NoError(t, err)
+
 	tmpfile := filepath.Join(t.TempDir(), "badversion.gosheet")
-	f, err := os.Create(tmpfile)
-	if err != nil {
-		t.Fatalf("Create failed: %v", err)
-	}
-	enc := gob.NewEncoder(f)
-	if encErr := enc.Encode(FileHeader{Version: "2.0", CellCount: 0}); encErr != nil {
-		t.Fatalf("Encode header failed: %v", encErr)
-	}
-	if encErr := enc.Encode(map[int]map[int]*Cell{}); encErr != nil {
-		t.Fatalf("Encode cells failed: %v", encErr)
-	}
-	require.NoError(t, f.Close())
+	require.NoError(t, os.WriteFile(tmpfile, data, 0644))
 
 	_, err = LoadFromFile(tmpfile)
 	if err == nil {
@@ -326,7 +324,6 @@ func TestLoadFromBytesAndSaveToBytes(t *testing.T) {
 }
 
 func TestLoadFromBytesInvalidVersion(t *testing.T) {
-	// Create valid gob data with wrong version by manually constructing
 	s := NewSpreadsheet()
 	s.SetCell(0, 0, "x")
 	data, _ := s.SaveToBytes()
@@ -337,19 +334,23 @@ func TestLoadFromBytesInvalidVersion(t *testing.T) {
 		t.Error("Expected error when loading empty bytes")
 	}
 
-	// Truncated data (invalid gob)
+	// Truncated data (invalid MessagePack)
 	_, err = LoadFromBytes(data[:10], "/x.sheet")
 	if err == nil {
 		t.Error("Expected error when loading truncated bytes")
 	}
 
-	// Valid gob structure but wrong version (v1.1 required)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	_ = enc.Encode(FileHeader{Version: "2.0", CellCount: 0})
-	_ = enc.Encode(map[int]map[int]*Cell{})
-	_ = enc.Encode([]MergeRegion{})
-	_, err = LoadFromBytes(buf.Bytes(), "/x.sheet")
+	// Valid MessagePack but wrong version "3.0"
+	content := fileContentV2{
+		Version:   "3.0",
+		CellCount: 0,
+		Cells:     map[int]map[int]*cellPersist{},
+		Merges:    []MergeRegion{},
+		Styles:    NewStyleRegistry(),
+	}
+	badData, marshalErr := msgpack.Marshal(&content)
+	require.NoError(t, marshalErr)
+	_, err = LoadFromBytes(badData, "/x.sheet")
 	if err == nil {
 		t.Error("Expected error when loading bytes with unsupported version")
 	}
@@ -420,33 +421,6 @@ func TestSaveAndLoadWithStyles(t *testing.T) {
 	}
 	if loaded.Styles == nil {
 		t.Error("Loaded spreadsheet should have Styles registry")
-	}
-}
-
-func TestLoadFromBytes_V1_1BackwardCompat(t *testing.T) {
-	// Manually create v1.1 format (header + cells + merges, no styles)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	require.NoError(t, enc.Encode(FileHeader{Version: "1.1", CellCount: 2}))
-	cells := map[int]map[int]*Cell{
-		0: {0: {Value: "A", Computed: "A", IsFormula: false, StyleId: 0}},
-		1: {0: {Value: "B", Computed: "B", IsFormula: false, StyleId: 0}},
-	}
-	require.NoError(t, enc.Encode(cells))
-	require.NoError(t, enc.Encode([]MergeRegion{}))
-
-	loaded, err := LoadFromBytes(buf.Bytes(), "/test/v11.sheet")
-	if err != nil {
-		t.Fatalf("LoadFromBytes v1.1 failed: %v", err)
-	}
-	if loaded.GetCellCount() != 2 {
-		t.Errorf("Expected 2 cells, got %d", loaded.GetCellCount())
-	}
-	if loaded.GetCell(0, 0).StyleId != 0 {
-		t.Errorf("v1.1 cell should have StyleId 0, got %d", loaded.GetCell(0, 0).StyleId)
-	}
-	if loaded.Styles == nil {
-		t.Error("Loaded v1.1 should have default Styles registry")
 	}
 }
 
@@ -658,9 +632,9 @@ func TestAtomicWriteFile_BadTargetDir(t *testing.T) {
 
 func TestEncodeSpreadsheet_CorruptedDecode(t *testing.T) {
 	// Trying to decode garbage bytes should fail gracefully
-	_, err := decodeSpreadsheet(gob.NewDecoder(bytes.NewReader([]byte("not-gob"))), "/fake.gosheet")
+	_, err := decodeSpreadsheet(bytes.NewReader([]byte("not-msgpack")), "/fake.gosheet")
 	if err == nil {
-		t.Fatal("expected error decoding garbage gob data")
+		t.Fatal("expected error decoding garbage MessagePack data")
 	}
 }
 

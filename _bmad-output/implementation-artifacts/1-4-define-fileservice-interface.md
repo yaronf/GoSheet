@@ -275,10 +275,10 @@ The current `server/main.go` has HTTP handlers for file operations:
 
 ### File Format
 
-The `.sheet` file format uses Go's `gob` encoding (binary serialization):
+The `.sheet` file format uses MessagePack encoding (binary, cross-language):
 - Defined in `model/file.go`
-- Functions: `SaveToFile(path string)`, `LoadFromFile(path string)`
-- Format is stable and must remain compatible (NFR-C3)
+- Functions: `SaveToFile(path string)`, `LoadFromFile(path string)`, `SaveToBytes()`, `LoadFromBytes()`
+- Format spec: `docs/FILE_FORMAT.md` (v2.0)
 
 ---
 

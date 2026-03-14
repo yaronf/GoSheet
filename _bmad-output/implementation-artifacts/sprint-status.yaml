@@ -1,5 +1,5 @@
 # generated: 2026-02-23
-# last_updated: 2026-03-06 (stories 14.1–14.4 done, epic-14 done; story 15.1 done)
+# last_updated: 2026-03-15 (Epic 22 added; 22-2 MessagePack done)
 # project: spreadsheet
 # project_key: NOKEY
 # tracking_system: file-system
@@ -287,6 +287,13 @@ development_status:
   21-3-logging-cleanup: done
   21-4-create-debugging-md: done
   epic-21-retrospective: optional
+
+  # Epic 22: MessagePack File Format (Cross-Language)
+  # Source: sprint-change-proposal-2026-03-15.md
+  epic-22: in-progress
+  22-1-js-frontend-coverage: in-progress
+  22-2-replace-gob-with-msgpack-persistence: done
+  epic-22-retrospective: optional
 
   # Backlog: Known issues / tech debt
   # bug-dock-right-click-quit: In dev mode, right-clicking the dock icon and selecting "Quit"

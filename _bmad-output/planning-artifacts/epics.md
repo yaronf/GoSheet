@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update', 'epic-9-added', 'epic-11-added', 'epics-14-19-added']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update', 'epic-9-added', 'epic-11-added', 'epics-14-19-added', 'epic-21-added', 'epic-22-added']
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/architecture.md'
@@ -9,16 +9,18 @@ inputDocuments:
   - '_bmad-output/implementation-artifacts/TECHNICAL-DEBT.md'
   - '_bmad-output/planning-artifacts/backlog.md'
   - '_bmad-output/planning-artifacts/research/technical-agent-access-layer-research.md'
-epicCount: 20
+  - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-03-13.md'
+  - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-03-15.md'
+epicCount: 22
 totalFRs: 51
 totalNFRs: 23
-totalStories: 52
+totalStories: 56
 status: 'updated'
 validationStatus: 'passed'
 readyForDevelopment: true
 completedDate: '2026-02-14'
-lastUpdated: '2026-03-10'
-updateReason: 'Replaced Epic 19 (Agentic API → deferred to Epic 20) with Formula Ref Shift + UI Cleanup (2026-03-10)'
+lastUpdated: '2026-03-15'
+updateReason: 'Added Epic 21 (UX Polish), Epic 22 (MessagePack file format); Story 22-2 done'
 ---
 
 # spreadsheet - Epic Breakdown
@@ -3679,3 +3681,35 @@ So that I can review past agent activity.
 - File path: use Electron's `app.getPath('userData')` passed to Go server as a startup flag (`--userData=<path>`); fall back to `os.UserConfigDir()/GoSheet` if flag absent
 - JSONL format: one JSON object per line, newline-terminated
 - No rotation in v1 (file grows unbounded; acceptable for local app)
+
+---
+
+## Epic 21: UX Polish & Developer Experience
+
+**Goal:** Address small UX and developer experience friction points that don't belong in other epics.
+
+**Stories:**
+- **21-1** Clear cell styling — Add "Clear Formatting" (Cmd+\\) to context menu, Format menu; removes styleId and alignment from selected cells
+- **21-2** Rethink Clear / Clear Formatting naming — Audit "Clear" vs "Format Cleanup"; rename and reposition for clarity
+- **21-3** Logging cleanup — Suppress INFO-level logs without `--verbose`; fix/suppress Electron CSP warning
+- **21-4** Create debugging.md — Document debugging workflow, log forwarding, `--verbose` flag
+
+**Source:** `sprint-change-proposal-2026-03-13.md`
+
+---
+
+## Epic 22: MessagePack File Format (Cross-Language)
+
+**Goal:** Replace gob with MessagePack so `.sheet` files can be read/written by non-Go languages (Python, JavaScript, Rust, etc.).
+
+**Requirements covered:**
+- Cross-language file access (backlog item "Language-independent file format")
+- No backward compatibility with gob (clean break)
+
+**Stories:**
+- **22-1** JavaScript frontend coverage — Istanbul-based branch/line/function coverage for frontend JS (see `22-1-js-frontend-coverage.md`)
+- **22-2** Replace gob with MessagePack persistence — ✓ Done. MessagePack v2.0; `docs/FILE_FORMAT.md`; see `22-2-replace-gob-with-msgpack-persistence.md`
+- **22-3** Round-trip tests — Covered in 22-2
+- **22-4** Update documentation — ✓ Done. `docs/FILE_FORMAT.md`, TECH_SPEC, README, USER_GUIDE, 1-4 updated
+
+**Source:** `sprint-change-proposal-2026-03-15.md`
