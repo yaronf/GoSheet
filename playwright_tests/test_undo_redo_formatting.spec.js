@@ -157,7 +157,7 @@ test.describe('Undo/Redo formatting operations (Story 15.4)', () => {
 
     const result = await apiSetAlignment(window, 0, 0, 'center');
     expect(result.data.canUndo).toBe(true);
-    expect(result.data.undoDescription).toContain('Set Alignment');
+    expect(result.data.undoDescription).toContain('Align');
 
     expect(await getCellAlignment(window, 0, 0)).toBe('center');
 

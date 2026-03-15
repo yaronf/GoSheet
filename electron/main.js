@@ -365,8 +365,12 @@ function startGoServer() {
   const spawnArgs = [];
   if (DEBUG) spawnArgs.push('--verbose');
   spawnArgs.push(`--userData=${app.getPath('userData')}`); // Story 20.7: audit log path
+  // Pass env explicitly so NODE_ENV=test reliably reaches the Go server (Playwright sets it).
+  // Go uses NODE_ENV=test to disable auth and enforce agent-token file block.
+  const goEnv = { ...process.env };
   const goServer = spawn(serverPath, spawnArgs, {
     cwd: serverCwd,
+    env: goEnv,
     // fd 3 is a dedicated port-announcement pipe (Story 16.5).
     // Go writes "PORT=<n>\n" to fd 3 then closes it — isolated from stdout/stderr logs.
     stdio: ['ignore', 'pipe', 'pipe', 'pipe'],

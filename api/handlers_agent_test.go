@@ -149,6 +149,35 @@ func TestAuthMiddleware_Disabled(t *testing.T) {
 	assert.True(t, called)
 }
 
+// TestAuthMiddleware_DisabledAgentTokenBlockedOnFileEndpoint: in test mode (bootstrapToken==""),
+// agent tokens must still be rejected on /api/file/* endpoints.
+func TestAuthMiddleware_DisabledAgentTokenBlockedOnFileEndpoint(t *testing.T) {
+	srv := newTestServer() // empty token = auth disabled (simulates NODE_ENV=test)
+	// In disabled mode we can issue agent token without bootstrap
+	body := `{"scope":"rw"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/agent/token", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleAgentToken(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	tok, ok := resp["agentToken"].(string)
+	require.True(t, ok && tok != "")
+
+	called := false
+	handler := srv.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+	req2 := httptest.NewRequest(http.MethodGet, "/api/file/status", nil)
+	req2.Header.Set(agentHeader(tok))
+	w2 := httptest.NewRecorder()
+	handler(w2, req2)
+	assert.Equal(t, http.StatusForbidden, w2.Code)
+	assert.False(t, called)
+}
+
 func TestAuthMiddleware_QueryParamTokenOnNonAgentEndpoint(t *testing.T) {
 	srv := newAgentServer()
 	called := false

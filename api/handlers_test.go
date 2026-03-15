@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -849,6 +850,38 @@ func TestHandleApplyRangeStyle(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	srv.HandleApplyRangeStyle(w2, req2)
 	assert.Equal(t, http.StatusBadRequest, w2.Code)
+}
+
+func TestHandleGetAllCells_FormulaWithEmptyComputed(t *testing.T) {
+	// Formula cells like =B1 compute to "" when B1 is empty; GetAllCells must still include them (for copy).
+	srv := newTestServer()
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "=B1"))
+	require.NoError(t, srv.Ctrl.SetCellValue(1, 0, "=B2"))
+	require.NoError(t, srv.Ctrl.SetCellValue(2, 0, "=B3"))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/cells/all", nil)
+	w := httptest.NewRecorder()
+	srv.HandleGetAllCells(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Success bool `json:"success"`
+		Data    []struct {
+			Row   int    `json:"row"`
+			Col   int    `json:"col"`
+			Value string `json:"value"`
+		} `json:"data"`
+	}
+	assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp.Success)
+	assert.Len(t, resp.Data, 3)
+	byRC := make(map[string]string)
+	for _, c := range resp.Data {
+		byRC[fmt.Sprintf("%d,%d", c.Row, c.Col)] = c.Value
+	}
+	assert.Equal(t, "=B1", byRC["0,0"])
+	assert.Equal(t, "=B2", byRC["1,0"])
+	assert.Equal(t, "=B3", byRC["2,0"])
 }
 
 func TestHandleGetAllCells_WithStyleId(t *testing.T) {

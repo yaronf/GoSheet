@@ -322,6 +322,11 @@ function setupFileMenuListeners() {
 // { startRow, startCol, rows, cols, cells: [{rowOffset, colOffset, styleId, alignment}] }
 let styleClipboard = null;
 
+/** Clear in-memory style clipboard (e.g. on new file to avoid stale paste offsets). */
+export function clearStyleClipboard() {
+  styleClipboard = null;
+}
+
 const COPY_CELL_LIMIT = 10_000;
 
 /** Get effective bounds for iteration. Returns { minR, maxR, minC, maxC } or null if single cell. */

@@ -388,13 +388,14 @@ export function applyCellValue(
   const needsTooltip =
     isErrorCell || (safeValue && safeValue.length > TOOLTIP_LENGTH_THRESHOLD);
   const tooltipText = needsTooltip ? safeValue || '#ERROR' : '';
-  // Use data-tooltip for custom tooltip (bypasses native title quirks with long error text)
+  // Use data-tooltip for custom tooltip; also set title for native fallback and accessibility
   if (tooltipText) {
     cell.dataset.tooltip = tooltipText;
-    cell.title = '';
+    cell.title = tooltipText;
     cell.setAttribute('aria-label', tooltipText);
   } else {
     delete cell.dataset.tooltip;
+    cell.title = '';
     cell.removeAttribute('aria-label');
   }
   cell.classList.toggle('error-cell', isErrorCell);

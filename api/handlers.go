@@ -32,16 +32,10 @@ func NewServer(ctrl *controller.AppController, bootstrapToken string) *Server {
 }
 
 // AuthMiddleware validates the Authorization: Bearer header against the bootstrap token.
-// If bootstrapToken is empty (test mode), all requests are allowed through.
-// Agent tokens on /api/file/* endpoints are always rejected.
+// If bootstrapToken is empty (test mode), all requests are allowed through except agent
+// tokens on /api/file/* endpoints, which are always rejected.
 func (s *Server) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.bootstrapToken == "" {
-			// Auth disabled (test mode or standalone dev)
-			next(w, r)
-			return
-		}
-
 		authHeader := r.Header.Get("Authorization")
 		var token string
 		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
@@ -50,6 +44,20 @@ func (s *Server) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		// Bootstrap URL copy-paste UX: accept ?token= for agent endpoints (e.g. /api/agent/bootstrap)
 		if token == "" {
 			token = r.URL.Query().Get("token")
+		}
+
+		if s.bootstrapToken == "" {
+			// Auth disabled (test mode) — but still block agent tokens on file endpoints
+			if token != "" {
+				if _, err := s.Ctrl.Agent.Validate(token); err == nil {
+					if isFileEndpoint(r.URL.Path) {
+						writeJSONError(w, http.StatusForbidden, "agent tokens cannot perform file operations")
+						return
+					}
+				}
+			}
+			next(w, r)
+			return
 		}
 
 		if token == "" {
@@ -301,15 +309,18 @@ func (s *Server) computeGridBounds() (maxRow, maxCol int) {
 // has content worth including; (nil, false) if the cell is empty and unstyled.
 func (s *Server) buildCellEntry(row, col int) (map[string]any, bool) {
 	value := s.Ctrl.GetCellValue(row, col)
+	rawValue := s.Ctrl.GetCellRawValue(row, col)
 	cell := s.Ctrl.Sheet.GetCell(row, col)
-	if value == "" && (cell == nil || cell.StyleId == 0) {
+	// Include cell if it has computed value, raw value (e.g. formula), or style.
+	// Formula cells like =B1 can compute to "" when B1 is empty; we must still include them.
+	if value == "" && rawValue == "" && (cell == nil || cell.StyleId == 0) {
 		return nil, false
 	}
 	entry := map[string]any{
 		"row": row, "col": col,
 		"computed": value,
 		"isError":  cell != nil && cell.IsError(),
-		"value":    s.Ctrl.GetCellRawValue(row, col),
+		"value":    rawValue,
 	}
 	if cell != nil && cell.StyleId != 0 {
 		entry["styleId"] = cell.StyleId

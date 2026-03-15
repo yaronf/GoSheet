@@ -52,6 +52,7 @@ import {
   performRedo,
   handleExportCSV,
   setupElectronMenuListeners,
+  clearStyleClipboard,
 } from './app-file-ops.js';
 import {
   showWelcome,
@@ -370,6 +371,14 @@ if (table) {
       fbar &&
       fbar.value.startsWith('=') &&
       (document.activeElement === fbar || formulaBarHadFocusBeforeBlur);
+    if (typeof window.__LOG_FORMULA_BAR__ !== 'undefined') {
+      console.log('[formula-bar] mousedown cell', row, col, {
+        fbarValue: fbar?.value,
+        activeElId: document.activeElement?.id,
+        formulaBarHadFocusBeforeBlur,
+        formulaBarActive,
+      });
+    }
     if (formulaBarActive) {
       formulaBarHadFocusBeforeBlur = false;
       e.preventDefault();
@@ -489,7 +498,8 @@ if (table) {
       const inputEl = formulaDragState.inputEl;
       clearRefHighlights();
       formulaDragState = null;
-      suppressNextCellClick = false;
+      // Do NOT clear suppressNextCellClick here — click fires after mouseup, and
+      // the click handler must see it to avoid calling selectCell (which clears the formula bar).
       // Only focus if the input is still in the DOM (guard against H1 scenario)
       if (inputEl.isConnected) inputEl.focus();
       return;
@@ -526,9 +536,18 @@ const formulaBar = document.getElementById('formula-bar');
 if (formulaBar) {
   formulaBar.addEventListener('focus', () => {
     formulaBarHadFocusBeforeBlur = true;
+    if (typeof window.__LOG_FORMULA_BAR__ !== 'undefined') {
+      console.log('[formula-bar] focus, set formulaBarHadFocusBeforeBlur=true');
+    }
   });
   formulaBar.addEventListener('blur', () => {
     if (formulaBar.value.startsWith('=')) formulaBarHadFocusBeforeBlur = true;
+    if (typeof window.__LOG_FORMULA_BAR__ !== 'undefined') {
+      console.log('[formula-bar] blur', {
+        value: formulaBar.value,
+        setFlag: formulaBar.value.startsWith('='),
+      });
+    }
   });
   formulaBar.addEventListener('keydown', async (e) => {
     // Story 18.1: any key typed in formula bar resets the replace-span
@@ -608,6 +627,7 @@ document.getElementById('new-btn').addEventListener('click', async () => {
   }
   try {
     setReadOnly(false);
+    clearStyleClipboard();
     await NewFile();
     appState.ROWS = 100;
     appState.COLS = 26;

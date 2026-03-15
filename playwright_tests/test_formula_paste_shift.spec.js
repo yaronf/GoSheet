@@ -151,23 +151,26 @@ test.describe('Formula reference shift on paste (Story 19.1)', () => {
     await setCellViaApi(window, 1, 0, '=B2');
     await setCellViaApi(window, 2, 0, '=B3');
 
-    // Select A1:A3 via Shift-click
+    // Select A1:A3 via Shift-click, then copy via menu
     await window.locator('#cell-0-0').click();
     await window.locator('#cell-2-0').click({ modifiers: ['Shift'] });
+    await expect(window.locator('#cell-0-0.selected')).toBeVisible();
+    await expect(window.locator('#cell-2-0.selected')).toBeVisible();
     await menuCopy(electronApp);
 
     // Wait for multi-row TSV in clipboard
     await window.waitForFunction(
       async () => {
         const t = await navigator.clipboard.readText();
-        return t.includes('\n');
+        return t.includes('\n') && t.includes('=B1');
       },
       null,
       { timeout: 5000 }
     );
 
-    // Paste into C1 (colOffset=2, rowOffset=0)
+    // Paste into C1 via menu
     await window.locator('#cell-0-2').click();
+    await expect(window.locator('#cell-0-2.selected')).toBeVisible();
     await menuPaste(electronApp);
 
     // C1:C3 should have =D1, =D2, =D3
