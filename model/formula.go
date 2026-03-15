@@ -105,7 +105,7 @@ func FormatFormulaParseError(formula string, parseErr error) string {
 			// All letters/numbers/underscore
 			allIdent := true
 			for _, c := range rest {
-				if !((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+				if (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' {
 					allIdent = false
 					break
 				}

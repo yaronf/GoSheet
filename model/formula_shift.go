@@ -200,6 +200,58 @@ func shiftRangeDeleteAxis(start, end *int, deletedIdx int) bool {
 	return true
 }
 
+// shiftCellRefByOffset applies row/col offset to a cell ref; marks invalid if result < 0.
+func shiftCellRefByOffset(ref *CellRef, rowOffset, colOffset int) {
+	if ref == nil || ref.Invalid {
+		return
+	}
+	newRow := ref.Row
+	if !ref.AbsRow {
+		newRow += rowOffset
+	}
+	newCol := ref.Col
+	if !ref.AbsCol {
+		newCol += colOffset
+	}
+	if newRow < 0 || newCol < 0 {
+		ref.Invalid = true
+	} else {
+		ref.Row, ref.Col = newRow, newCol
+		ref.Ref = coordsToRefWithAnchors(newRow, newCol, ref.AbsRow, ref.AbsCol)
+	}
+}
+
+// shiftRangeByOffset applies row/col offset to a range ref; marks invalid if any coord < 0.
+func shiftRangeByOffset(rng *Range, rowOffset, colOffset int) {
+	if rng == nil || rng.Invalid || rng.ColRange != nil || rng.RowRange != nil {
+		return
+	}
+	sr := rng.StartRow
+	if !rng.StartAbsRow {
+		sr += rowOffset
+	}
+	sc := rng.StartCol
+	if !rng.StartAbsCol {
+		sc += colOffset
+	}
+	er := rng.EndRow
+	if !rng.EndAbsRow {
+		er += rowOffset
+	}
+	ec := rng.EndCol
+	if !rng.EndAbsCol {
+		ec += colOffset
+	}
+	if sr < 0 || sc < 0 || er < 0 || ec < 0 {
+		rng.Invalid = true
+	} else {
+		rng.StartRow, rng.StartCol = sr, sc
+		rng.EndRow, rng.EndCol = er, ec
+		rng.Start = coordsToRefWithAnchors(sr, sc, rng.StartAbsRow, rng.StartAbsCol)
+		rng.End = coordsToRefWithAnchors(er, ec, rng.EndAbsRow, rng.EndAbsCol)
+	}
+}
+
 // ShiftFormulaByOffset returns formula with all relative cell/range refs shifted by
 // (rowOffset, colOffset). Returns the original string unchanged if it is not a formula
 // or cannot be parsed. Refs that would land outside the grid (row < 0 or col < 0)
@@ -215,49 +267,8 @@ func ShiftFormulaByOffset(formula string, rowOffset, colOffset int) (string, err
 	}
 	resolveAllCoords(ast)
 	WalkPrimaries(ast, func(prim *Primary) {
-		if prim.CellRef != nil && !prim.CellRef.Invalid {
-			newRow := prim.CellRef.Row
-			if !prim.CellRef.AbsRow {
-				newRow += rowOffset
-			}
-			newCol := prim.CellRef.Col
-			if !prim.CellRef.AbsCol {
-				newCol += colOffset
-			}
-			if newRow < 0 || newCol < 0 {
-				prim.CellRef.Invalid = true
-			} else {
-				prim.CellRef.Row = newRow
-				prim.CellRef.Col = newCol
-				prim.CellRef.Ref = coordsToRefWithAnchors(newRow, newCol, prim.CellRef.AbsRow, prim.CellRef.AbsCol)
-			}
-		}
-		if prim.Range != nil && !prim.Range.Invalid && prim.Range.ColRange == nil && prim.Range.RowRange == nil {
-			sr := prim.Range.StartRow
-			if !prim.Range.StartAbsRow {
-				sr += rowOffset
-			}
-			sc := prim.Range.StartCol
-			if !prim.Range.StartAbsCol {
-				sc += colOffset
-			}
-			er := prim.Range.EndRow
-			if !prim.Range.EndAbsRow {
-				er += rowOffset
-			}
-			ec := prim.Range.EndCol
-			if !prim.Range.EndAbsCol {
-				ec += colOffset
-			}
-			if sr < 0 || sc < 0 || er < 0 || ec < 0 {
-				prim.Range.Invalid = true
-			} else {
-				prim.Range.StartRow, prim.Range.StartCol = sr, sc
-				prim.Range.EndRow, prim.Range.EndCol = er, ec
-				prim.Range.Start = coordsToRefWithAnchors(sr, sc, prim.Range.StartAbsRow, prim.Range.StartAbsCol)
-				prim.Range.End = coordsToRefWithAnchors(er, ec, prim.Range.EndAbsRow, prim.Range.EndAbsCol)
-			}
-		}
+		shiftCellRefByOffset(prim.CellRef, rowOffset, colOffset)
+		shiftRangeByOffset(prim.Range, rowOffset, colOffset)
 	})
 	result := SerializeForDisplay(ast)
 	if result == "" {
