@@ -347,69 +347,6 @@ func (s *Spreadsheet) ApplyStyleToCell(row, col int, styleId int) error {
 	return nil
 }
 
-// validAlignments is the set of accepted cell-level alignment values.
-var validAlignments = map[string]bool{"": true, "left": true, "center": true, "right": true}
-
-// SetCellAlignment sets the horizontal alignment for the cell at (row, col).
-// alignment must be "", "left", "center", or "right".
-func (s *Spreadsheet) SetCellAlignment(row, col int, alignment string) error {
-	if !validAlignments[alignment] {
-		return fmt.Errorf("invalid alignment %q: must be left, center, right, or empty", alignment)
-	}
-	if row < 0 || col < 0 {
-		return fmt.Errorf("invalid cell: row and col must be >= 0")
-	}
-	if s.Cells[row] == nil {
-		s.Cells[row] = make(map[int]*Cell)
-	}
-	cell := s.Cells[row][col]
-	if cell == nil {
-		cell = NewCell("")
-		s.Cells[row][col] = cell
-	}
-	cell.Alignment = alignment
-	s.Modified = true
-	return nil
-}
-
-// SetRangeAlignment sets alignment on all cells in [startRow,endRow] x [startCol,endCol].
-func (s *Spreadsheet) SetRangeAlignment(startRow, startCol, endRow, endCol int, alignment string) error {
-	if !validAlignments[alignment] {
-		return fmt.Errorf("invalid alignment %q: must be left, center, right, or empty", alignment)
-	}
-	if startRow < 0 || startCol < 0 || endRow < 0 || endCol < 0 {
-		return fmt.Errorf("invalid range: row and col must be >= 0")
-	}
-	if startRow > endRow || startCol > endCol {
-		return fmt.Errorf("invalid range: start must be <= end")
-	}
-	const maxRangeCells = 10000
-	if (endRow-startRow+1)*(endCol-startCol+1) > maxRangeCells {
-		return fmt.Errorf("invalid range: too large (max %d cells)", maxRangeCells)
-	}
-	// Use setCellAlignmentUnchecked to avoid re-validating alignment on every cell
-	for row := startRow; row <= endRow; row++ {
-		for col := startCol; col <= endCol; col++ {
-			s.setCellAlignmentUnchecked(row, col, alignment)
-		}
-	}
-	return nil
-}
-
-// setCellAlignmentUnchecked sets alignment directly, skipping validation (caller must pre-validate).
-func (s *Spreadsheet) setCellAlignmentUnchecked(row, col int, alignment string) {
-	if s.Cells[row] == nil {
-		s.Cells[row] = make(map[int]*Cell)
-	}
-	cell := s.Cells[row][col]
-	if cell == nil {
-		cell = NewCell("")
-		s.Cells[row][col] = cell
-	}
-	cell.Alignment = alignment
-	s.Modified = true
-}
-
 // isMergeAnchor returns true if (row, col) is the anchor of any merge region.
 func (s *Spreadsheet) isMergeAnchor(row, col int) bool {
 	for _, m := range s.Merges {

@@ -8,7 +8,6 @@ type Cell struct {
 	IsQuotePrefix bool     // True if Value starts with "'" (Excel-style text force)
 	IsError       bool     // True if the computed value is an error
 	StyleId       int      // 0 = no style; 1=Title, 2=Header, 3=Total
-	Alignment     string   // Cell-level alignment: "" (inherit), "left", "center", "right"
 	InvalidRefs   []string // Persisted list of ref/range strings that are invalid (e.g. "B2", "A1:A1")
 	ParsedFormula *Formula // Runtime only — not persisted; rebuilt from Value on load
 }
@@ -22,7 +21,6 @@ type cellPersist struct {
 	IsQuotePrefix bool     `msgpack:"is_quote_prefix"`
 	IsError       bool     `msgpack:"is_error"`
 	StyleId       int      `msgpack:"style_id"`
-	Alignment     string   `msgpack:"alignment"`
 	InvalidRefs   []string `msgpack:"invalid_refs"`
 }
 

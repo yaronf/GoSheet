@@ -21,7 +21,6 @@ import {
   SetRangeValues,
   ClearRange,
   GetStyles,
-  SetRangeAlignment,
   ShiftFormula,
 } from './api-client.js';
 import { appState, OPEN_END } from './app-state.js';
@@ -351,12 +350,11 @@ export async function copySelectionToClipboard() {
       for (let c = startCol; c <= endCol; c++) {
         const ref = `${colToLetter(c)}${r + 1}`;
         const data = allCells[ref];
-        if (data?.styleId || data?.alignment) {
+        if (data?.styleId) {
           styleCells.push({
             rowOffset: r - startRow,
             colOffset: c - startCol,
-            styleId: data.styleId || 0,
-            alignment: data.alignment || '',
+            styleId: data.styleId,
           });
         }
       }
@@ -469,12 +467,11 @@ export async function pasteFromClipboard() {
 async function applyStyleClipboard(targetRow, targetCol) {
   if (!styleClipboard || styleClipboard.cells.length === 0) return;
   const styleCalls = styleClipboard.cells.map(
-    ({ rowOffset, colOffset, styleId, alignment }) => {
+    ({ rowOffset, colOffset, styleId }) => {
       const r = targetRow + rowOffset;
       const c = targetCol + colOffset;
       const calls = [];
       if (styleId) calls.push(ApplyRangeStyle(r, c, r, c, styleId));
-      if (alignment) calls.push(SetRangeAlignment(r, c, r, c, alignment));
       return calls;
     }
   );

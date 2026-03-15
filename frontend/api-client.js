@@ -127,7 +127,7 @@ const GetAllCells = async () => {
       raw,
       isError: c.isError ?? false,
       styleId: c.styleId,
-      alignment: c.alignment ?? '',
+      alignment: c.alignment,
     };
   });
   return cells;

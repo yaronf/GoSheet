@@ -389,72 +389,39 @@ func TestSetMerge_AllowsWhenNoCellsHaveContent(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// Story 13.8: SetCellAlignment / SetRangeAlignment unit tests
+// Story 23.2: ApplyAlignmentToRange applies alignment via style variants
 
-func TestSetCellAlignment_ValidValues(t *testing.T) {
+func TestApplyAlignmentToRange_CreatesStyleVariant(t *testing.T) {
 	ctrl := NewAppController()
 	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 1)) // Title
 
-	for _, alignment := range []string{"left", "center", "right", ""} {
-		err := ctrl.SetCellAlignment(0, 0, alignment)
-		assert.NoError(t, err, "alignment %q should be valid", alignment)
-		cell := ctrl.Sheet.GetCell(0, 0)
-		assert.Equal(t, alignment, cell.Alignment)
-	}
-}
-
-func TestSetCellAlignment_InvalidValue(t *testing.T) {
-	ctrl := NewAppController()
-	err := ctrl.SetCellAlignment(0, 0, "justify")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid alignment")
-}
-
-func TestSetCellAlignment_NegativeCoords(t *testing.T) {
-	ctrl := NewAppController()
-	assert.Error(t, ctrl.SetCellAlignment(-1, 0, "left"))
-	assert.Error(t, ctrl.SetCellAlignment(0, -1, "left"))
-}
-
-func TestSetCellAlignment_CreatesCell(t *testing.T) {
-	ctrl := NewAppController()
-	// Cell doesn't exist yet — SetCellAlignment should create it
-	err := ctrl.SetCellAlignment(5, 5, "right")
+	err := ctrl.ApplyAlignmentToRange(0, 0, 0, 0, "left")
 	assert.NoError(t, err)
-	cell := ctrl.Sheet.GetCell(5, 5)
-	assert.NotNil(t, cell)
-	assert.Equal(t, "right", cell.Alignment)
+	cell := ctrl.Sheet.GetCell(0, 0)
+	require.NotNil(t, cell)
+	assert.Greater(t, cell.StyleId, 0)
+	format := ctrl.Sheet.Styles.GetFormat(cell.StyleId)
+	require.NotNil(t, format)
+	assert.Equal(t, "left", format.Alignment.Horizontal)
 }
 
-func TestSetRangeAlignment_ValidRange(t *testing.T) {
+func TestApplyAlignmentToRange_ValidRange(t *testing.T) {
 	ctrl := NewAppController()
 	require.NoError(t, ctrl.SetCellValue(0, 0, "A"))
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 1))
 	require.NoError(t, ctrl.SetCellValue(0, 1, "B"))
-	require.NoError(t, ctrl.SetCellValue(0, 2, "C"))
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 1, 1))
 
-	err := ctrl.SetRangeAlignment(0, 0, 0, 2, "center")
+	err := ctrl.ApplyAlignmentToRange(0, 0, 0, 1, "center")
 	assert.NoError(t, err)
-	for col := 0; col <= 2; col++ {
+	for col := 0; col <= 1; col++ {
 		cell := ctrl.Sheet.GetCell(0, col)
-		assert.NotNil(t, cell)
-		assert.Equal(t, "center", cell.Alignment)
+		require.NotNil(t, cell)
+		format := ctrl.Sheet.Styles.GetFormat(cell.StyleId)
+		require.NotNil(t, format)
+		assert.Equal(t, "center", format.Alignment.Horizontal)
 	}
-}
-
-func TestSetRangeAlignment_InvalidAlignment(t *testing.T) {
-	ctrl := NewAppController()
-	assert.Error(t, ctrl.SetRangeAlignment(0, 0, 1, 1, "bad"))
-}
-
-func TestSetRangeAlignment_InvertedRange(t *testing.T) {
-	ctrl := NewAppController()
-	assert.Error(t, ctrl.SetRangeAlignment(5, 5, 0, 0, "left"))
-}
-
-func TestSetRangeAlignment_TooLarge(t *testing.T) {
-	ctrl := NewAppController()
-	// 101×100 = 10100 cells > 10000 max
-	assert.Error(t, ctrl.SetRangeAlignment(0, 0, 100, 99, "left"))
 }
 
 func TestClearRangeFormat_Basic(t *testing.T) {

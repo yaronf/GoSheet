@@ -1261,7 +1261,48 @@ func TestHandleSetCellAlignment_IncludesUndoState(t *testing.T) {
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 	data := resp["data"].(map[string]any)
 	assert.Equal(t, true, data["canUndo"])
-	assert.Equal(t, "Set Alignment A1", data["undoDescription"])
+	assert.Equal(t, "Align A1", data["undoDescription"])
+}
+
+func TestHandleSetCellAlignment_GetAllCellsReturnsStyleId(t *testing.T) {
+	srv := newTestServer()
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "hello"))
+	body, _ := json.Marshal(SetCellAlignmentRequest{Row: 0, Col: 0, Alignment: "center"})
+	req := httptest.NewRequest(http.MethodPost, "/api/cell/alignment", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.HandleSetCellAlignment(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	req2 := httptest.NewRequest(http.MethodGet, "/api/cells/all", nil)
+	w2 := httptest.NewRecorder()
+	srv.HandleGetAllCells(w2, req2)
+	require.Equal(t, http.StatusOK, w2.Code)
+	var cellsResp struct {
+		Success bool `json:"success"`
+		Data    []struct {
+			Row     int `json:"row"`
+			Col     int `json:"col"`
+			StyleId int `json:"styleId"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.NewDecoder(w2.Body).Decode(&cellsResp))
+	require.True(t, cellsResp.Success)
+	require.Len(t, cellsResp.Data, 1)
+	assert.Greater(t, cellsResp.Data[0].StyleId, 0, "cell should have styleId after alignment")
+
+	// Verify alignment is included in response (derived from style format)
+	req3 := httptest.NewRequest(http.MethodGet, "/api/cells/all", nil)
+	w3 := httptest.NewRecorder()
+	srv.HandleGetAllCells(w3, req3)
+	var cellsResp2 struct {
+		Data []struct {
+			Alignment string `json:"alignment"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.NewDecoder(w3.Body).Decode(&cellsResp2))
+	require.Len(t, cellsResp2.Data, 1)
+	assert.Equal(t, "center", cellsResp2.Data[0].Alignment)
 }
 
 func TestHandleSetMerge_IncludesUndoState(t *testing.T) {
@@ -1562,8 +1603,14 @@ func TestHandleSetRangeAlignment_Basic(t *testing.T) {
 	assert.Equal(t, true, resp["success"])
 	data := resp["data"].(map[string]any)
 	assert.Equal(t, true, data["canUndo"])
-	assert.Equal(t, "center", srv.Ctrl.Sheet.GetCell(0, 0).Alignment)
-	assert.Equal(t, "center", srv.Ctrl.Sheet.GetCell(1, 0).Alignment)
+	// Alignment is now in style
+	for _, row := range []int{0, 1} {
+		cell := srv.Ctrl.Sheet.GetCell(row, 0)
+		require.NotNil(t, cell)
+		format := srv.Ctrl.Sheet.Styles.GetFormat(cell.StyleId)
+		require.NotNil(t, format)
+		assert.Equal(t, "center", format.Alignment.Horizontal)
+	}
 }
 
 func TestHandleSetRangeAlignment_WrongMethod(t *testing.T) {

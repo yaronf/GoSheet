@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewSpreadsheet(t *testing.T) {
@@ -658,26 +657,6 @@ func TestShouldClearCell_ZeroSpanMergeIgnored(t *testing.T) {
 	// Invalid merge with zero spans should be ignored
 	sheet.Merges = append(sheet.Merges, MergeRegion{StartRow: 0, StartCol: 0, RowSpan: 0, ColSpan: 0})
 	assert.True(t, sheet.ShouldClearCell(0, 0))
-}
-
-// --- setCellAlignmentUnchecked ---
-
-func TestSetCellAlignmentUnchecked_CreatesCell(t *testing.T) {
-	sheet := NewSpreadsheet()
-	sheet.setCellAlignmentUnchecked(5, 5, "right")
-	cell := sheet.GetCell(5, 5)
-	require.NotNil(t, cell)
-	assert.Equal(t, "right", cell.Alignment)
-	assert.True(t, sheet.Modified)
-}
-
-func TestSetCellAlignmentUnchecked_UpdatesExistingCell(t *testing.T) {
-	sheet := NewSpreadsheet()
-	sheet.SetCell(2, 2, "hello")
-	sheet.Modified = false
-	sheet.setCellAlignmentUnchecked(2, 2, "center")
-	assert.Equal(t, "center", sheet.GetCell(2, 2).Alignment)
-	assert.True(t, sheet.Modified)
 }
 
 // --- updateMergesForDeleteRow / updateMergesForDeleteColumn ---

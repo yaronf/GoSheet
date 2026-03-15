@@ -60,7 +60,7 @@ async function getCellData(window, row, col) {
       const cell = (json.data ?? []).find(
         (c) => c.row === row && c.col === col
       );
-      return cell ?? { styleId: 0, alignment: '', value: '' };
+      return cell ?? { styleId: 0, value: '' };
     },
     { row, col }
   );
@@ -147,12 +147,11 @@ test.describe('Clear Formatting (Story 21.1)', () => {
     await setCellViaApi(window, 1, 1, 'B2');
 
     await apiApplyStyle(window, 0, 0, 1, 1, 1);
-    await apiSetAlignment(window, 0, 0, 'center');
+    await apiSetAlignment(window, 0, 0, 'center'); // creates style variant with center alignment
 
-    // Verify formatting applied
+    // Verify formatting applied (styleId is the variant, e.g. Title-center)
     let d = await getCellData(window, 0, 0);
-    expect(d.styleId).toBe(1);
-    expect(d.alignment).toBe('center');
+    expect(d.styleId).toBeGreaterThan(0);
 
     // Select range A1:B2 by clicking A1 then shift-clicking B2
     await selectCellByClick(window, 0, 0);
@@ -172,11 +171,11 @@ test.describe('Clear Formatting (Story 21.1)', () => {
         [1, 1],
       ].every(([r, c]) => {
         const cell = cells.find((x) => x.row === r && x.col === c);
-        return (cell?.styleId ?? 0) === 0 && (cell?.alignment ?? '') === '';
+        return (cell?.styleId ?? 0) === 0;
       });
     });
 
-    // Verify all 4 cells cleared
+    // Verify all 4 cells cleared (styleId=0; alignment was in style)
     for (const [r, c, v] of [
       [0, 0, 'A1'],
       [0, 1, 'B1'],
@@ -185,7 +184,6 @@ test.describe('Clear Formatting (Story 21.1)', () => {
     ]) {
       const data = await getCellData(window, r, c);
       expect(data.styleId ?? 0).toBe(0);
-      expect(data.alignment ?? '').toBe('');
       expect(data.value).toBe(v);
     }
   });
@@ -242,10 +240,12 @@ test.describe('Clear Formatting (Story 21.1)', () => {
     await apiApplyStyle(window, 0, 0, 0, 0, 1);
     await apiSetAlignment(window, 0, 0, 'right');
 
-    // Verify applied
+    // Verify applied — alignment creates style variant (e.g. Title-right), so styleId may be > 1
     let data = await getCellData(window, 0, 0);
-    expect(data.styleId).toBe(1);
-    expect(data.alignment).toBe('right');
+    const expectedStyleId = data.styleId;
+    const expectedAlignment = data.alignment;
+    expect(expectedStyleId).toBeGreaterThan(0);
+    expect(expectedAlignment).toBe('right');
 
     await selectCellByClick(window, 0, 0);
     await window.evaluate(() => window.clearFormattingFromSelection?.());
@@ -272,8 +272,8 @@ test.describe('Clear Formatting (Story 21.1)', () => {
     });
 
     data = await getCellData(window, 0, 0);
-    expect(data.styleId).toBe(1);
-    expect(data.alignment).toBe('right');
+    expect(data.styleId).toBe(expectedStyleId);
+    expect(data.alignment).toBe(expectedAlignment);
     expect(data.value).toBe('test');
   });
 });

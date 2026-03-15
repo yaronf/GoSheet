@@ -85,7 +85,6 @@ func cellsToPersist(cells map[int]map[int]*Cell) map[int]map[int]*cellPersist {
 					IsQuotePrefix: c.IsQuotePrefix,
 					IsError:       c.IsError,
 					StyleId:       c.StyleId,
-					Alignment:     c.Alignment,
 					InvalidRefs:   c.InvalidRefs,
 				}
 			}
@@ -119,7 +118,6 @@ func cellsFromPersist(p map[int]map[int]*cellPersist) map[int]map[int]*Cell {
 					IsQuotePrefix: cp.IsQuotePrefix,
 					IsError:       cp.IsError,
 					StyleId:       cp.StyleId,
-					Alignment:     cp.Alignment,
 					InvalidRefs:   cp.InvalidRefs,
 					ParsedFormula: nil, // rebuilt on load
 				}

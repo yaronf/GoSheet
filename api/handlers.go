@@ -302,7 +302,7 @@ func (s *Server) computeGridBounds() (maxRow, maxCol int) {
 func (s *Server) buildCellEntry(row, col int) (map[string]any, bool) {
 	value := s.Ctrl.GetCellValue(row, col)
 	cell := s.Ctrl.Sheet.GetCell(row, col)
-	if value == "" && (cell == nil || (cell.StyleId == 0 && cell.Alignment == "")) {
+	if value == "" && (cell == nil || cell.StyleId == 0) {
 		return nil, false
 	}
 	entry := map[string]any{
@@ -313,9 +313,12 @@ func (s *Server) buildCellEntry(row, col int) (map[string]any, bool) {
 	}
 	if cell != nil && cell.StyleId != 0 {
 		entry["styleId"] = cell.StyleId
-	}
-	if cell != nil && cell.Alignment != "" {
-		entry["alignment"] = cell.Alignment
+		// Include alignment from style format so frontend can apply text-align
+		if s.Ctrl.Sheet.Styles != nil {
+			if fmt := s.Ctrl.Sheet.Styles.GetFormat(cell.StyleId); fmt != nil && fmt.Alignment.Horizontal != "" {
+				entry["alignment"] = fmt.Alignment.Horizontal
+			}
+		}
 	}
 	return entry, true
 }

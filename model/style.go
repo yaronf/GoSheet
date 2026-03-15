@@ -44,10 +44,11 @@ type Border struct {
 	Bottom BorderSide `json:"bottom"`
 }
 
-// Alignment holds horizontal and vertical alignment.
+// Alignment holds horizontal and vertical alignment, and text wrap.
 type Alignment struct {
 	Horizontal string `json:"horizontal"`
 	Vertical   string `json:"vertical"`
+	Wrap       bool   `json:"wrap"`
 }
 
 // CellFormat groups font, fill, border, and alignment.

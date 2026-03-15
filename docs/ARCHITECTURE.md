@@ -119,7 +119,7 @@ The frontend detects **Electron mode** via `window.electronAPI` and uses IPC for
 | Package | Responsibility |
 |---------|----------------|
 | `spreadsheet.go` | Cells, merges, styles; `GetCell`, `SetCell`, `RecalculateAll` |
-| `cell.go` | Cell struct (Value, Computed, IsFormula, StyleId, Alignment) |
+| `cell.go` | Cell struct (Value, Computed, IsFormula, StyleId) |
 | `formula.go` | Parser (Participle), AST, builtins (SUM, AVG, MIN, MAX, COUNT) |
 | `formula_eval.go` | Evaluation, range expansion, error handling |
 | `formula_shift.go` | Reference shifting on paste/insert/delete |
@@ -259,7 +259,7 @@ flowchart LR
 
 **Top-level structure** (`fileContentV2`): `version` (string "2.0"), `cell_count` (int), `cells` (map: row → col → cellPersist), `merges` (MergeRegion[]), `styles` (StyleRegistry).
 
-**Cell object** (`cellPersist`): `value`, `is_formula`, `is_quote_prefix`, `is_error`, `style_id`, `alignment`.
+**Cell object** (`cellPersist`): `value`, `is_formula`, `is_quote_prefix`, `is_error`, `style_id`. Alignment is in style format, not per-cell.
 
 - **Sparse storage**: only non-empty cells are persisted
 - **Computed** is derived on load (not stored)

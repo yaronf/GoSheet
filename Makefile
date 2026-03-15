@@ -1,7 +1,7 @@
 # GoSheet - Makefile for Electron Development
 # See README.md for "When to Run Which Tests" guidance
 
-.PHONY: install test test-unit test-electron test-all build build-server-arm64 build-server-x64 build-server-universal build-electron run run-electron lint complexity coverage coverage-js coverage-all clean
+.PHONY: install install-app test test-unit test-electron test-all build build-server-arm64 build-server-x64 build-server-universal build-electron run run-electron lint complexity coverage coverage-js coverage-all clean
 
 # Install Node.js dependencies
 install:
@@ -107,7 +107,7 @@ complexity:
 	@go run github.com/fzipp/gocyclo/cmd/gocyclo@latest -over 15 . 2>/dev/null || true
 
 # Build and install app to /Applications
-install: build-electron
+install-app: build-electron
 	@echo "Installing GoSheet to /Applications..."
 	@APP=$$([ -d "dist/mac-universal/GoSheet.app" ] && echo "dist/mac-universal/GoSheet.app" || \
 	       ([ -d "dist/mac-arm64/GoSheet.app" ] && echo "dist/mac-arm64/GoSheet.app" || echo "dist/mac/GoSheet.app")); \

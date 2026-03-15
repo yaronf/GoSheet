@@ -480,7 +480,7 @@ func (s *Server) HandleSetCellAlignment(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := s.Ctrl.SetCellAlignment(req.Row, req.Col, req.Alignment); err != nil {
+	if err := s.Ctrl.ApplyAlignmentToRange(req.Row, req.Col, req.Row, req.Col, req.Alignment); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

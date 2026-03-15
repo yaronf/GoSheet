@@ -547,45 +547,27 @@ func TestApplyRangeStyleCommand_UndoRedo(t *testing.T) {
 	assert.Equal(t, 3, ctrl.Sheet.GetCell(0, 1).StyleId)
 }
 
-func TestSetCellAlignmentCommand_UndoRedo(t *testing.T) {
-	ctrl := NewAppController()
-	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
-	ctrl.History.Clear()
-
-	require.NoError(t, ctrl.SetCellAlignment(0, 0, "center"))
-	assert.Equal(t, "center", ctrl.Sheet.GetCell(0, 0).Alignment)
-	assert.Equal(t, "Set Alignment A1", ctrl.History.UndoDescription())
-
-	_, err := ctrl.Undo()
-	require.NoError(t, err)
-	assert.Equal(t, "", ctrl.Sheet.GetCell(0, 0).Alignment)
-
-	_, err = ctrl.Redo()
-	require.NoError(t, err)
-	assert.Equal(t, "center", ctrl.Sheet.GetCell(0, 0).Alignment)
-}
-
-func TestSetRangeAlignmentCommand_UndoRedo(t *testing.T) {
+func TestApplyAlignmentToRangeCommand_UndoRedo(t *testing.T) {
 	ctrl := NewAppController()
 	require.NoError(t, ctrl.SetCellValue(0, 0, "A"))
-	require.NoError(t, ctrl.SetCellValue(0, 1, "B"))
-	ctrl.Sheet.GetCell(0, 0).Alignment = "left"
+	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 1)) // Title style
 	ctrl.History.Clear()
 
-	require.NoError(t, ctrl.SetRangeAlignment(0, 0, 0, 1, "right"))
-	assert.Equal(t, "right", ctrl.Sheet.GetCell(0, 0).Alignment)
-	assert.Equal(t, "right", ctrl.Sheet.GetCell(0, 1).Alignment)
-	assert.Equal(t, "Set Alignment A1:B1", ctrl.History.UndoDescription())
+	require.NoError(t, ctrl.ApplyAlignmentToRange(0, 0, 0, 0, "left"))
+	// Alignment is now in style; we created a style variant Title-left
+	styleId := ctrl.Sheet.GetCell(0, 0).StyleId
+	assert.Greater(t, styleId, 0)
+	format := ctrl.Sheet.Styles.GetFormat(styleId)
+	require.NotNil(t, format)
+	assert.Equal(t, "left", format.Alignment.Horizontal)
 
 	_, err := ctrl.Undo()
 	require.NoError(t, err)
-	assert.Equal(t, "left", ctrl.Sheet.GetCell(0, 0).Alignment) // restored to "left"
-	assert.Equal(t, "", ctrl.Sheet.GetCell(0, 1).Alignment)     // B1 had no alignment → ""
+	assert.Equal(t, 1, ctrl.Sheet.GetCell(0, 0).StyleId) // restored to Title
 
 	_, err = ctrl.Redo()
 	require.NoError(t, err)
-	assert.Equal(t, "right", ctrl.Sheet.GetCell(0, 0).Alignment)
-	assert.Equal(t, "right", ctrl.Sheet.GetCell(0, 1).Alignment)
+	assert.Equal(t, styleId, ctrl.Sheet.GetCell(0, 0).StyleId)
 }
 
 func TestSetMergeCommand_UndoRedo(t *testing.T) {
@@ -810,7 +792,6 @@ func TestClearRangeFormatCommand_DoAndDescription(t *testing.T) {
 	cell := ctrl.Sheet.GetCell(0, 0)
 	require.NotNil(t, cell)
 	assert.Equal(t, 0, cell.StyleId)
-	assert.Equal(t, "", cell.Alignment)
 	assert.Equal(t, "Clear Formatting A1", ctrl.History.UndoDescription())
 }
 
@@ -830,7 +811,6 @@ func TestClearRangeFormatCommand_UndoRestoresStyle(t *testing.T) {
 	ctrl := NewAppController()
 	require.NoError(t, ctrl.SetCellValue(0, 0, "hello"))
 	require.NoError(t, ctrl.ApplyStyleToCell(0, 0, 1))
-	require.NoError(t, ctrl.SetCellAlignment(0, 0, "right"))
 	ctrl.History.Clear()
 
 	require.NoError(t, ctrl.ClearRangeFormat(0, 0, 0, 0))
@@ -838,9 +818,7 @@ func TestClearRangeFormatCommand_UndoRestoresStyle(t *testing.T) {
 
 	_, err := ctrl.Undo()
 	require.NoError(t, err)
-	cell := ctrl.Sheet.GetCell(0, 0)
-	assert.Equal(t, 1, cell.StyleId)
-	assert.Equal(t, "right", cell.Alignment)
+	assert.Equal(t, 1, ctrl.Sheet.GetCell(0, 0).StyleId)
 }
 
 func TestClearRangeFormatCommand_SkipsCellsWithNoFormatting(t *testing.T) {

@@ -38,25 +38,6 @@ func TestCellSetValue_NonQuotePrefix(t *testing.T) {
 	assert.False(t, cell2.IsQuotePrefix, "formula must not set IsQuotePrefix")
 }
 
-// TestCell_Alignment verifies the Alignment field defaults and stores values correctly.
-func TestCell_Alignment(t *testing.T) {
-	cell := NewCell("hello")
-	assert.Equal(t, "", cell.Alignment, "new cell should have empty (inherit) alignment")
-
-	cell.Alignment = "left"
-	assert.Equal(t, "left", cell.Alignment)
-
-	cell.Alignment = "center"
-	assert.Equal(t, "center", cell.Alignment)
-
-	cell.Alignment = "right"
-	assert.Equal(t, "right", cell.Alignment)
-
-	// SetValue should not clear alignment
-	cell.SetValue("new value")
-	assert.Equal(t, "right", cell.Alignment, "SetValue must not reset Alignment")
-}
-
 // TestCellSetValue_InvalidFormula exercises the branch where NormalizeFormula fails.
 // Invalid formulas must be treated as formulas-with-error, NOT plain text.
 func TestCellSetValue_InvalidFormula(t *testing.T) {

@@ -462,18 +462,19 @@ func (c *AppController) ApplyStyleToRange(startRow, startCol, endRow, endCol int
 	return c.History.Push(&ApplyRangeStyleCommand{ctrl: c, startRow: startRow, startCol: startCol, endRow: endRow, endCol: endCol, newStyleId: styleId})
 }
 
-// SetCellAlignment sets horizontal alignment for a single cell, recording the operation in undo history.
-func (c *AppController) SetCellAlignment(row, col int, alignment string) error {
+// ApplyAlignmentToRange applies horizontal alignment by creating style variants and applying them.
+// For each cell, copies its style format, sets Alignment.Horizontal, finds or creates the style, and applies it.
+func (c *AppController) ApplyAlignmentToRange(startRow, startCol, endRow, endCol int, alignment string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.History.Push(&SetCellAlignmentCommand{ctrl: c, row: row, col: col, newAlignment: alignment})
-}
-
-// SetRangeAlignment sets horizontal alignment for a range of cells, recording the operation in undo history.
-func (c *AppController) SetRangeAlignment(startRow, startCol, endRow, endCol int, alignment string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.History.Push(&SetRangeAlignmentCommand{ctrl: c, startRow: startRow, startCol: startCol, endRow: endRow, endCol: endCol, newAlignment: alignment})
+	return c.History.Push(&ApplyAlignmentToRangeCommand{
+		ctrl:      c,
+		startRow:  startRow,
+		startCol:  startCol,
+		endRow:    endRow,
+		endCol:    endCol,
+		alignment: alignment,
+	})
 }
 
 // CleanupFormat removes style from empty cells and deletes cells with no value and no style.
@@ -484,8 +485,8 @@ func (c *AppController) CleanupFormat() {
 	c.Sheet.CleanupFormat()
 }
 
-// ClearRangeFormat clears styleId and alignment from cells in the range, recording in undo history.
-// Cell values are preserved. Only cells with non-zero style or non-empty alignment are affected.
+// ClearRangeFormat clears styleId from cells in the range, recording in undo history.
+// Cell values are preserved. Only cells with non-zero style are affected. Alignment is in style.
 func (c *AppController) ClearRangeFormat(startRow, startCol, endRow, endCol int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

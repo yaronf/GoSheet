@@ -910,7 +910,7 @@ func TestHandleAgentPatch_SetStyleAlignment(t *testing.T) {
 	tok := issueAgentToken(t, srv, "rw")
 	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "styled"))
 
-	// styleId=0 skips the style registry; alignment is applied directly.
+	// styleId=0 with alignment creates Align-center style and applies it
 	body := `{"ops":[{"op":"SetStyle","row":0,"col":0,"styleId":0,"alignment":"center"}]}`
 	req := httptest.NewRequest(http.MethodPost, "/api/agent/patch", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -920,7 +920,9 @@ func TestHandleAgentPatch_SetStyleAlignment(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	cell := srv.Ctrl.Sheet.GetCell(0, 0)
 	require.NotNil(t, cell)
-	assert.Equal(t, "center", cell.Alignment)
+	format := srv.Ctrl.Sheet.Styles.GetFormat(cell.StyleId)
+	require.NotNil(t, format)
+	assert.Equal(t, "center", format.Alignment.Horizontal)
 }
 
 func TestHandleAgentPatch_ClearFormat(t *testing.T) {

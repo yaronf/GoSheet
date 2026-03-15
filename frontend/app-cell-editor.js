@@ -365,15 +365,15 @@ export function startEditingWithChar(row, col, initialChar) {
   setupEditorHandlers(input, row, col, cell, originalContent);
 }
 
-// Apply a cell's value, style, and alignment to its DOM element
+// Apply a cell's value and style to its DOM element. Alignment comes from style format or cellData.alignment.
 export function applyCellValue(
   cell,
   value,
   rawValue,
   styleId,
   styleFormats = null,
-  alignment = '',
-  isError = false
+  isError = false,
+  alignment = null
 ) {
   const safeValue = value ?? '';
   cell.textContent = safeValue;
@@ -393,15 +393,38 @@ export function applyCellValue(
   const isNum =
     !isQuotePrefix && safeValue && !isNaN(safeValue) && safeValue.trim() !== '';
   cell.classList.toggle('number-cell', !!isNum);
-  applyCellStyleClasses(cell, styleId, styleFormats, isNum);
-  cell.style.textAlign = alignment || '';
+  applyCellStyleClasses(cell, styleId, styleFormats, isNum, alignment);
+}
+
+const VALID_ALIGNMENTS = new Set(['left', 'center', 'right']);
+
+/** Apply format CSS to cell; handle default alignment for numbers vs text. */
+function applyFormatCssToCell(cell, format, isNum) {
+  const css = formatToCssPreview(format);
+  for (const [k, v] of Object.entries(css)) {
+    const prop = k.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
+    const isBorder = prop.startsWith('border-');
+    cell.style.setProperty(prop, v, isBorder ? 'important' : '');
+  }
+  const align = format.alignment;
+  const hDefault = align?.horizontal === '' || align?.horizontal === 'default';
+  if (hDefault) cell.style.setProperty('text-align', isNum ? 'right' : 'left');
+  const vDefault = align?.vertical === '' || align?.vertical === 'default';
+  if (vDefault) cell.style.removeProperty('vertical-align');
 }
 
 /**
  * Apply named style classes and inline CSS from styleFormats to a cell element.
  * Story 12.2: styleId 1=Title, 2=Header, 3=Total; also applies format CSS.
+ * When alignment is provided (from API), use it to override or supply text-align when style lacks it.
  */
-export function applyCellStyleClasses(cell, styleId, styleFormats, isNum) {
+export function applyCellStyleClasses(
+  cell,
+  styleId,
+  styleFormats,
+  isNum,
+  alignment = null
+) {
   STYLE_CLASSES.forEach((c) => cell.classList.remove(c));
   // Reset all inline CSS properties that formatToCssPreview can set, so that
   // switching to styleId=0 (or a different style) doesn't leave stale values.
@@ -417,27 +440,20 @@ export function applyCellStyleClasses(cell, styleId, styleFormats, isNum) {
   cell.style.removeProperty('border-bottom');
   cell.style.textAlign = '';
   cell.style.verticalAlign = '';
+  cell.style.whiteSpace = '';
+  cell.style.wordWrap = '';
   if (styleId >= STYLE_ID.TITLE && styleId <= STYLE_ID.TOTAL) {
     cell.classList.add(STYLE_CLASSES[styleId - 1]);
   }
   if (styleId > 0 && styleFormats) {
-    const style = styleFormats.find((s) => s.id === styleId);
+    const style = styleFormats.find(
+      (s) => s.id === styleId || Number(s.id) === Number(styleId)
+    );
     const format = style?.format;
-    if (format) {
-      const css = formatToCssPreview(format);
-      for (const [k, v] of Object.entries(css)) {
-        const prop = k.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
-        const isBorder = prop.startsWith('border-');
-        cell.style.setProperty(prop, v, isBorder ? 'important' : '');
-      }
-      const align = format.alignment;
-      if (align?.horizontal === '' || align?.horizontal === 'default') {
-        cell.style.setProperty('text-align', isNum ? 'right' : 'left');
-      }
-      if (align?.vertical === '' || align?.vertical === 'default') {
-        cell.style.removeProperty('vertical-align');
-      }
-    }
+    if (format) applyFormatCssToCell(cell, format, isNum);
+  }
+  if (VALID_ALIGNMENTS.has(alignment)) {
+    cell.style.setProperty('text-align', alignment, 'important');
   }
 }
 

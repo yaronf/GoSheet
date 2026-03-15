@@ -254,8 +254,8 @@ export async function loadCells() {
             cellData.raw ?? '',
             cellData.styleId,
             styles,
-            cellData.alignment ?? '',
-            cellData.isError ?? false
+            cellData.isError ?? false,
+            cellData.alignment
           );
       }
     }
@@ -296,8 +296,8 @@ export async function refreshAllCells() {
             cellData.raw ?? '',
             cellData.styleId,
             styles,
-            cellData.alignment ?? '',
-            cellData.isError ?? false
+            cellData.isError ?? false,
+            cellData.alignment
           );
       }
     }

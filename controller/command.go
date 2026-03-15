@@ -627,89 +627,105 @@ func (cmd *ApplyRangeStyleCommand) Description() string {
 	return "Apply Style to " + start + ":" + end
 }
 
-// SetCellAlignmentCommand is a reversible set-alignment-on-cell operation.
-type SetCellAlignmentCommand struct {
-	ctrl          *AppController
-	row, col      int
-	newAlignment  string
-	prevAlignment string // captured in Do()
-}
-
-func (cmd *SetCellAlignmentCommand) Do() error {
-	cell := cmd.ctrl.Sheet.GetCell(cmd.row, cmd.col)
-	if cell != nil {
-		cmd.prevAlignment = cell.Alignment
-	}
-	return cmd.ctrl.Sheet.SetCellAlignment(cmd.row, cmd.col, cmd.newAlignment)
-}
-
-func (cmd *SetCellAlignmentCommand) Undo() error {
-	cell := cmd.ctrl.Sheet.GetCell(cmd.row, cmd.col)
-	if cell != nil {
-		cell.Alignment = cmd.prevAlignment
-		cmd.ctrl.Sheet.Modified = true
-	}
-	return nil
-}
-
-func (cmd *SetCellAlignmentCommand) Description() string {
-	return "Set Alignment " + model.CoordsToRef(cmd.row, cmd.col)
-}
-
-// SetRangeAlignmentCommand is a reversible set-alignment-on-range operation.
-type SetRangeAlignmentCommand struct {
+// ApplyAlignmentToRangeCommand applies alignment via style variants.
+type ApplyAlignmentToRangeCommand struct {
 	ctrl               *AppController
 	startRow, startCol int
 	endRow, endCol     int
-	newAlignment       string
-	prevAlignments     map[int]map[int]string // [row][col] → prevAlignment
+	alignment          string
+	prevStyles         map[int]map[int]int // [row][col] → prevStyleId
+	createdStyleIds    []int               // styles we created (for undo we restore prev, don't delete)
 }
 
-func (cmd *SetRangeAlignmentCommand) Do() error {
-	cmd.prevAlignments = make(map[int]map[int]string)
-	for r := cmd.startRow; r <= cmd.endRow; r++ {
-		for c := cmd.startCol; c <= cmd.endCol; c++ {
-			cell := cmd.ctrl.Sheet.GetCell(r, c)
-			if cell != nil && cell.Alignment != "" {
-				if cmd.prevAlignments[r] == nil {
-					cmd.prevAlignments[r] = make(map[int]string)
-				}
-				cmd.prevAlignments[r][c] = cell.Alignment
-			}
-		}
+var validAlignments = map[string]bool{"left": true, "center": true, "right": true}
+
+func (cmd *ApplyAlignmentToRangeCommand) Do() error {
+	if !validAlignments[cmd.alignment] {
+		return fmt.Errorf("invalid alignment %q: must be left, center, or right", cmd.alignment)
 	}
-	return cmd.ctrl.Sheet.SetRangeAlignment(cmd.startRow, cmd.startCol, cmd.endRow, cmd.endCol, cmd.newAlignment)
-}
-
-func (cmd *SetRangeAlignmentCommand) Undo() error {
+	cmd.prevStyles = make(map[int]map[int]int)
+	// Map: (styleId) -> newStyleId (style variant with alignment)
+	variantCache := make(map[int]int)
 	for r := cmd.startRow; r <= cmd.endRow; r++ {
 		for c := cmd.startCol; c <= cmd.endCol; c++ {
 			cell := cmd.ctrl.Sheet.GetCell(r, c)
 			if cell == nil {
 				continue
 			}
-			prev := ""
-			if cmd.prevAlignments[r] != nil {
-				prev = cmd.prevAlignments[r][c]
+			if cmd.prevStyles[r] == nil {
+				cmd.prevStyles[r] = make(map[int]int)
 			}
-			cell.Alignment = prev
+			cmd.prevStyles[r][c] = cell.StyleId
+			styleId := cell.StyleId
+			if variant, ok := variantCache[styleId]; ok {
+				_ = cmd.ctrl.Sheet.ApplyStyleToCell(r, c, variant)
+				continue
+			}
+			var format *model.CellFormat
+			baseName := ""
+			if styleId > 0 {
+				format = cmd.ctrl.Sheet.Styles.GetFormat(styleId)
+				baseName = cmd.ctrl.Sheet.Styles.GetStyleNameByID(styleId)
+			}
+			if format == nil {
+				format = &model.CellFormat{}
+			} else {
+				cp := *format
+				format = &cp
+			}
+			format.Alignment.Horizontal = cmd.alignment
+			name := baseName + "-" + cmd.alignment
+			if baseName == "" {
+				name = "Align-" + cmd.alignment
+			}
+			id := cmd.ctrl.Sheet.Styles.GetStyleIDByName(name)
+			if id == 0 {
+				var err error
+				id, err = cmd.ctrl.Sheet.Styles.AddStyle(name, format)
+				if err != nil {
+					return err
+				}
+				cmd.createdStyleIds = append(cmd.createdStyleIds, id)
+			}
+			variantCache[styleId] = id
+			_ = cmd.ctrl.Sheet.ApplyStyleToCell(r, c, id)
+		}
+	}
+	if len(cmd.prevStyles) > 0 {
+		cmd.ctrl.Sheet.Modified = true
+	}
+	return nil
+}
+
+func (cmd *ApplyAlignmentToRangeCommand) Undo() error {
+	for r := cmd.startRow; r <= cmd.endRow; r++ {
+		for c := cmd.startCol; c <= cmd.endCol; c++ {
+			cell := cmd.ctrl.Sheet.GetCell(r, c)
+			if cell == nil {
+				continue
+			}
+			prev := 0
+			if cmd.prevStyles[r] != nil {
+				prev = cmd.prevStyles[r][c]
+			}
+			cell.StyleId = prev
 		}
 	}
 	cmd.ctrl.Sheet.Modified = true
 	return nil
 }
 
-func (cmd *SetRangeAlignmentCommand) Description() string {
+func (cmd *ApplyAlignmentToRangeCommand) Description() string {
 	start := model.CoordsToRef(cmd.startRow, cmd.startCol)
 	end := model.CoordsToRef(cmd.endRow, cmd.endCol)
 	if start == end {
-		return "Set Alignment " + start
+		return "Align " + start
 	}
-	return "Set Alignment " + start + ":" + end
+	return "Align " + start + ":" + end
 }
 
 // ClearRangeFormatCommand is a reversible clear-format operation.
-// It clears styleId and alignment for cells in the range without touching cell values.
+// It clears styleId for cells in the range without touching cell values. Alignment is in style.
 type ClearRangeFormatCommand struct {
 	ctrl               *AppController
 	startRow, startCol int
@@ -718,9 +734,8 @@ type ClearRangeFormatCommand struct {
 }
 
 type cellFormatSnapshot struct {
-	row, col  int
-	styleId   int
-	alignment string
+	row, col int
+	styleId  int
 }
 
 func (cmd *ClearRangeFormatCommand) Do() error {
@@ -728,14 +743,13 @@ func (cmd *ClearRangeFormatCommand) Do() error {
 	for r := cmd.startRow; r <= cmd.endRow; r++ {
 		for c := cmd.startCol; c <= cmd.endCol; c++ {
 			cell := cmd.ctrl.Sheet.GetCell(r, c)
-			if cell == nil || (cell.StyleId == 0 && cell.Alignment == "") {
+			if cell == nil || cell.StyleId == 0 {
 				continue
 			}
 			cmd.prevFormats = append(cmd.prevFormats, cellFormatSnapshot{
-				row: r, col: c, styleId: cell.StyleId, alignment: cell.Alignment,
+				row: r, col: c, styleId: cell.StyleId,
 			})
 			cell.StyleId = 0
-			cell.Alignment = ""
 		}
 	}
 	if len(cmd.prevFormats) > 0 {
@@ -751,7 +765,6 @@ func (cmd *ClearRangeFormatCommand) Undo() error {
 			continue
 		}
 		cell.StyleId = snap.styleId
-		cell.Alignment = snap.alignment
 	}
 	if len(cmd.prevFormats) > 0 {
 		cmd.ctrl.Sheet.Modified = true

@@ -45,8 +45,9 @@ A `.sheet` file is a single MessagePack-encoded map (object) containing:
 | `is_quote_prefix` | bool | True if value starts with `'` (Excel-style text force) |
 | `is_error`      | bool   | True if computed value is an error |
 | `style_id`      | int    | 0 = none; 1=Title, 2=Header, 3=Total |
-| `alignment`     | string | `""` (inherit), `"left"`, `"center"`, `"right"` |
 | `invalid_refs`  | array of string | Refs that failed to parse (e.g. `["B2"]`) |
+
+Alignment (horizontal, vertical, wrap) is stored in the style's `CellFormat.Alignment`, not per-cell.
 
 **Formula handling:** For formula cells, `value` holds the bare expression (e.g. `A1+B1`). The leading `=` is implied. On load, the application parses `value` to rebuild the formula AST and recalculates. The displayed value (`computed`) is derived, not persisted.
 
@@ -81,7 +82,7 @@ Only the anchor cell (top-left) holds data; covered cells are hidden.
 | `Font`      | object| `Name`, `Size`, `Bold`, `Italic`, `Color` |
 | `Fill`      | object| `Pattern`, `FgColor`, `BgColor` |
 | `Border`    | object| `Left`, `Right`, `Top`, `Bottom` (each: `Style`, `Color`) |
-| `Alignment` | object| `Horizontal`, `Vertical` |
+| `Alignment` | object| `Horizontal`, `Vertical`, `Wrap` (bool) |
 
 Built-in styles: index 1 = Title, 2 = Header, 3 = Total.
 

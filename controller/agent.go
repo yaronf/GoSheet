@@ -360,29 +360,52 @@ func NewAgentSetStyleCommand(ctrl *AppController, row, col, styleID int, alignme
 	return &agentSetStyleCommand{ctrl: ctrl, row: row, col: col, styleID: styleID, alignment: alignment}
 }
 
-// agentSetStyleCommand applies styleId and alignment to a cell atomically.
+// agentSetStyleCommand applies styleId and/or alignment to a cell atomically.
+// When alignment is set, creates a style variant (current format + alignment) and applies it.
 type agentSetStyleCommand struct {
-	ctrl          *AppController
-	row, col      int
-	styleID       int
-	alignment     string
-	prevStyleID   int
-	prevAlignment string
+	ctrl        *AppController
+	row, col    int
+	styleID     int
+	alignment   string
+	prevStyleID int
 }
 
 func (c *agentSetStyleCommand) Do() error {
 	cell := c.ctrl.Sheet.GetCell(c.row, c.col)
 	if cell != nil {
 		c.prevStyleID = cell.StyleId
-		c.prevAlignment = cell.Alignment
 	}
-	if c.styleID != 0 {
-		if err := c.ctrl.Sheet.ApplyStyleToCell(c.row, c.col, c.styleID); err != nil {
-			return err
-		}
-	}
+	styleID := c.styleID
 	if c.alignment != "" {
-		if err := c.ctrl.Sheet.SetCellAlignment(c.row, c.col, c.alignment); err != nil {
+		var format *model.CellFormat
+		baseName := ""
+		if styleID > 0 {
+			format = c.ctrl.Sheet.Styles.GetFormat(styleID)
+			baseName = c.ctrl.Sheet.Styles.GetStyleNameByID(styleID)
+		}
+		if format == nil {
+			format = &model.CellFormat{}
+		} else {
+			cp := *format
+			format = &cp
+		}
+		format.Alignment.Horizontal = c.alignment
+		name := baseName + "-" + c.alignment
+		if baseName == "" {
+			name = "Align-" + c.alignment
+		}
+		id := c.ctrl.Sheet.Styles.GetStyleIDByName(name)
+		if id == 0 {
+			var err error
+			id, err = c.ctrl.Sheet.Styles.AddStyle(name, format)
+			if err != nil {
+				return err
+			}
+		}
+		styleID = id
+	}
+	if styleID != 0 {
+		if err := c.ctrl.Sheet.ApplyStyleToCell(c.row, c.col, styleID); err != nil {
 			return err
 		}
 	}
@@ -395,7 +418,6 @@ func (c *agentSetStyleCommand) Undo() error {
 		return nil
 	}
 	cell.StyleId = c.prevStyleID
-	cell.Alignment = c.prevAlignment
 	c.ctrl.Sheet.Modified = true
 	return nil
 }

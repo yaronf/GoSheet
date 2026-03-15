@@ -3,6 +3,8 @@
 
 import {
   SetCellValue,
+  SetCellAlignment,
+  SetRangeAlignment,
   GetFileStatus,
   GetSettings,
   SetSetting,
@@ -93,6 +95,8 @@ window.showManageStylesModal = showManageStylesModal;
 window.handleExportCSV = handleExportCSV;
 window.showAlert = showAlert;
 window.applyCellValue = applyCellValue;
+window.SetCellAlignment = SetCellAlignment;
+window.SetRangeAlignment = SetRangeAlignment;
 window.saveCurrentEditOnCellSwitch = saveCurrentEditOnCellSwitch;
 window.forceCleanupEditing = forceCleanupEditing;
 window.setReadOnly = setReadOnly;

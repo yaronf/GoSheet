@@ -68,7 +68,7 @@ func (s *Server) HandleSetRangeAlignment(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := s.Ctrl.SetRangeAlignment(req.StartRow, req.StartCol, req.EndRow, req.EndCol, req.Alignment); err != nil {
+	if err := s.Ctrl.ApplyAlignmentToRange(req.StartRow, req.StartCol, req.EndRow, req.EndCol, req.Alignment); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
