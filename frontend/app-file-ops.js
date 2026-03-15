@@ -293,12 +293,15 @@ function setupFileMenuListeners() {
   const handleOpenFileError = async (filePath) => {
     if (window.__DEBUG__)
       console.log('[App] Open file error — file not found:', filePath);
+    if (window.electronAPI?.removeRecentFile) {
+      await window.electronAPI.removeRecentFile(filePath);
+    }
+    window.showWelcome?.();
     await showAlert(
       'File not found: ' +
         filePath +
         '\n\nThe file may have been moved or deleted.'
     );
-    window.showWelcome?.();
   };
   window.electronAPI.onOpenFileError?.(handleOpenFileError);
   window.__testOpenFileError = handleOpenFileError;

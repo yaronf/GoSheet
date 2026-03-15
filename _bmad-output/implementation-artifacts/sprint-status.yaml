@@ -301,7 +301,7 @@ development_status:
   23-1-generic-font-fallback: done
   23-2-text-wrapping-within-cell: done
   23-3-copy-paste-full-rows-cols: done
-  23-4-recent-files-error-handling: backlog
+  23-4-recent-files-error-handling: done
   23-5-formula-reference-ux-polish: backlog
   epic-23-retrospective: optional
 

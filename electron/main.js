@@ -132,6 +132,13 @@ function addToRecentFiles(filePath) {
   syncRecentFilesMenu();
 }
 
+// Story 23.4: Remove file from recent list (e.g. when load fails)
+function removeFromRecentFiles(filePath) {
+  let files = loadRecentFiles().filter((p) => p !== filePath);
+  saveRecentFiles(files);
+  syncRecentFilesMenu();
+}
+
 function clearRecentFiles() {
   saveRecentFiles([]);
   syncRecentFilesMenu();
@@ -243,6 +250,8 @@ function updateDockMenu(recentFiles) {
               '[Electron] Dock: recent file no longer exists:',
               filePath
             );
+            removeFromRecentFiles(filePath);
+            syncRecentFilesMenu();
             return;
           }
           createWindow(filePath);
@@ -876,6 +885,13 @@ function setupIpcHandlers() {
   // Story 8.2: Get recent files for welcome screen (from custom storage)
   ipcMain.handle('file:getRecent', async () => {
     return loadRecentFiles().slice(0, 5);
+  });
+
+  // Story 23.4: Remove file from recent list (e.g. when load fails)
+  ipcMain.handle('file:removeRecent', async (event, filePath) => {
+    if (DEBUG) console.log('[Electron] Removing from recent:', filePath);
+    removeFromRecentFiles(filePath);
+    return true;
   });
 
   // User Guide: Read docs/USER_GUIDE.md, render with showdown, return HTML

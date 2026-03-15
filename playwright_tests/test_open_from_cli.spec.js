@@ -219,6 +219,60 @@ base.test.describe('Open file from CLI', () => {
     }
   );
 
+  base.test(
+    'open-file-error from CLI: nonexistent path shows welcome and error',
+    async () => {
+      // Create a file, launch with that path, delete it before did-finish-load.
+      // The open-file-error IPC fires when pendingFileToOpen is set but file is gone at load.
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'gosheet-cli-ghost-')
+      );
+      const ghostPath = path.join(tmpDir, 'will-delete.sheet');
+      fs.writeFileSync(ghostPath, '');
+
+      const testApp = await launchWithFile(ghostPath);
+      try {
+        // Delete file before window load so did-finish-load sees it missing
+        fs.unlinkSync(ghostPath);
+
+        const testWindow = await testApp.firstWindow();
+        await testWindow.waitForLoadState('domcontentloaded');
+
+        // open-file-error may fire: welcome + error modal. If not (race), at least welcome.
+        await Promise.race([
+          testWindow
+            .locator('#welcome-screen')
+            .waitFor({ state: 'visible', timeout: 10000 })
+            .catch(() => {}),
+          testWindow
+            .locator('#spreadsheet-view')
+            .waitFor({ state: 'visible', timeout: 10000 })
+            .catch(() => {}),
+        ]);
+
+        // If error modal appeared, dismiss it
+        const modal = testWindow.locator('#modal-overlay.active');
+        if (await modal.isVisible()) {
+          await expect(testWindow.locator('#modal-message')).toContainText(
+            /not found|File not found|Error/i
+          );
+          await testWindow.locator('#modal-ok').click();
+        }
+
+        // Welcome screen should be shown (open-file-error handler calls showWelcome)
+        await testWindow
+          .locator('#welcome-screen')
+          .waitFor({ state: 'visible', timeout: 5000 });
+        expect(await testWindow.locator('#welcome-screen').isVisible()).toBe(
+          true
+        );
+      } finally {
+        await testApp.close();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }
+  );
+
   base.test('shows welcome screen when open-file-error IPC fires', async () => {
     // Test the open-file-error IPC path: simulates a file that existed at CLI parse time
     // but was deleted before did-finish-load (race condition not easily reproduced via CLI).

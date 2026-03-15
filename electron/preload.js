@@ -215,6 +215,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Story 8.2: Get recent files for welcome screen
   getRecentFiles: () => ipcRenderer.invoke('file:getRecent'),
 
+  // Story 23.4: Remove file from recent list (e.g. when load fails)
+  removeRecentFile: (filePath) =>
+    ipcRenderer.invoke('file:removeRecent', filePath),
+
   // Story 8.2: Sync menu when welcome screen is shown
   syncRecentFilesMenu: () => ipcRenderer.send('menu:syncRecentFiles'),
 

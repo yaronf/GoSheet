@@ -63,6 +63,21 @@ async function populateWelcomeRecentFiles() {
   }
 }
 
+// Story 23.4: Build user-friendly error message for load failures
+function formatLoadError(error, filePath) {
+  const errMsg = error.message?.toLowerCase() ?? '';
+  const isNotFound =
+    errMsg.includes('no such file') ||
+    errMsg.includes('not found') ||
+    errMsg.includes('enoent');
+  const isPermissionDenied =
+    errMsg.includes('permission denied') || error.code === 'EACCES';
+  if (isNotFound) return `File not found: ${filePath}`;
+  if (isPermissionDenied) return `Permission denied: ${filePath}`;
+  const raw = String(error.message ?? 'Unknown error');
+  return `Error loading file: ${raw.length > 200 ? raw.slice(0, 200) + '…' : raw}`;
+}
+
 // Story 8.2: Load file by path (shared by menu-open-recent and welcome recent files)
 export async function loadFileByPath(filePath) {
   const status = await GetFileStatus();
@@ -88,8 +103,15 @@ export async function loadFileByPath(filePath) {
     window.syncFormatMenuFromApi?.();
   } catch (error) {
     console.error('[App] Error loading file:', error);
-    showWelcome();
-    await showAlert('Error loading file: ' + error.message);
+    const wasOnWelcome =
+      document.querySelector('#app')?.getAttribute('data-view') === 'welcome';
+    if (filePath && window.electronAPI?.removeRecentFile) {
+      await window.electronAPI.removeRecentFile(filePath);
+    }
+    if (wasOnWelcome) {
+      showWelcome();
+    }
+    await showAlert(formatLoadError(error, filePath));
   }
 }
 

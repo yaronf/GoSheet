@@ -10,6 +10,7 @@ interface ElectronAPI {
   updateMenuState: (state: Record<string, unknown>) => void;
   addRecentFile: (filePath: string) => Promise<void>;
   getRecentFiles: () => Promise<string[]>;
+  removeRecentFile?: (filePath: string) => Promise<void>;
   getSettings: () => Promise<Record<string, unknown>>;
   setSetting: (key: string, value: unknown) => Promise<void>;
   syncFormatMenu?: (styles: unknown) => void;

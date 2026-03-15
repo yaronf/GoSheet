@@ -271,6 +271,86 @@ test.describe('File Operation Tests', () => {
     await expect(window.locator('#file-status')).toContainText('Unsaved');
   });
 
+  // Story 23.4: Recent files error handling
+  test('recent file load failure from welcome: error shown, file removed from list', async ({
+    window,
+  }) => {
+    const ghostPath = path.join(os.tmpdir(), 'test-23-4-ghost.sheet');
+    if (fs.existsSync(ghostPath)) fs.unlinkSync(ghostPath);
+
+    // Add ghost path to recent, then show welcome (order matters: add first so list has it)
+    await window.evaluate(
+      async ({ p }) => {
+        if (window.electronAPI?.addRecentFile) {
+          await window.electronAPI.addRecentFile(p);
+        }
+        if (window.showWelcome) window.showWelcome();
+      },
+      { p: ghostPath }
+    );
+
+    await window
+      .locator('#welcome-screen')
+      .waitFor({ state: 'visible', timeout: 5000 });
+    await expect(
+      window.locator('.welcome-recent-item').filter({ hasText: 'ghost' })
+    ).toBeVisible({ timeout: 3000 });
+
+    // Click the recent file (triggers loadFileByPath)
+    window.evaluate((p) => window.loadFileByPath(p), ghostPath).catch(() => {});
+
+    // Error modal appears (wait for visible, then click OK)
+    await window
+      .locator('#modal-overlay.active')
+      .waitFor({ state: 'visible', timeout: 5000 });
+    await expect(window.locator('#modal-message')).toContainText(
+      /not found|Error loading|File not found/i,
+      { timeout: 5000 }
+    );
+    await window.locator('#modal-ok').click();
+    await expect(window.locator('#modal-overlay')).toBeHidden();
+
+    // File should be removed from list — ghost item should be gone
+    await expect(
+      window.locator('.welcome-recent-item').filter({ hasText: 'ghost' })
+    ).toHaveCount(0, { timeout: 3000 });
+  });
+
+  test('recent file load failure from spreadsheet: stay in spreadsheet, error shown', async ({
+    window,
+  }) => {
+    await expect(window.locator('#spreadsheet')).toBeVisible();
+
+    const ghostPath = path.join(
+      os.tmpdir(),
+      'test-23-4-ghost-spreadsheet.sheet'
+    );
+    if (fs.existsSync(ghostPath)) fs.unlinkSync(ghostPath);
+
+    // Add to recent and trigger load (simulates File → Open Recent)
+    await window.evaluate(async (p) => {
+      if (window.electronAPI?.addRecentFile) {
+        await window.electronAPI.addRecentFile(p);
+      }
+    }, ghostPath);
+
+    window.evaluate((p) => window.loadFileByPath(p), ghostPath).catch(() => {});
+
+    // Error modal appears
+    await window
+      .locator('#modal-overlay.active')
+      .waitFor({ state: 'visible', timeout: 5000 });
+    await expect(window.locator('#modal-message')).toContainText(
+      /not found|Error loading/i
+    );
+    await window.locator('#modal-ok').click();
+    await expect(window.locator('#modal-overlay')).toBeHidden();
+
+    // Should still be in spreadsheet view (not welcome)
+    await expect(window.locator('#spreadsheet-view')).toBeVisible();
+    await expect(window.locator('#spreadsheet')).toBeVisible();
+  });
+
   test('dialog cancellation handling', async ({ electronApp, window }) => {
     await expect(window.locator('#spreadsheet')).toBeVisible();
 
