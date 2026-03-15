@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update', 'epic-9-added', 'epic-11-added', 'epics-14-19-added', 'epic-21-added', 'epic-22-added']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'epic-5-inserted', 'electron-migration-update', 'epic-9-added', 'epic-11-added', 'epics-14-19-added', 'epic-21-added', 'epic-22-added', 'epic-23-added']
 inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/architecture.md'
@@ -11,16 +11,16 @@ inputDocuments:
   - '_bmad-output/planning-artifacts/research/technical-agent-access-layer-research.md'
   - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-03-13.md'
   - '_bmad-output/planning-artifacts/sprint-change-proposal-2026-03-15.md'
-epicCount: 22
+epicCount: 23
 totalFRs: 51
 totalNFRs: 23
-totalStories: 56
+totalStories: 61
 status: 'updated'
 validationStatus: 'passed'
 readyForDevelopment: true
 completedDate: '2026-02-14'
 lastUpdated: '2026-03-15'
-updateReason: 'Added Epic 21 (UX Polish), Epic 22 (MessagePack file format); Epic 22 complete (22-1, 22-2 done)'
+updateReason: 'Added Epic 23 (Spreadsheet UX Enhancements); Epic 22 complete'
 ---
 
 # spreadsheet - Epic Breakdown
@@ -3713,3 +3713,18 @@ So that I can review past agent activity.
 - **22-4** Update documentation — ✓ Done. `docs/FILE_FORMAT.md`, TECH_SPEC, README, USER_GUIDE, 1-4 updated
 
 **Source:** `sprint-change-proposal-2026-03-15.md`
+
+---
+
+## Epic 23: Spreadsheet UX Enhancements
+
+**Goal:** Improve font handling, cell formatting, copy/paste, recent files, and formula reference UX.
+
+**Stories:**
+- **23-1** Generic font fallback — Use fallback stack in `formatToCssPreview` and style preview when font not installed
+- **23-2** Text wrapping within cell — Add wrap toggle; persist if needed; render with CSS
+- **23-3** Copy/paste full rows/cols — Support open-ended selections; remove/raise guard; efficient batch API
+- **23-4** Recent files error handling — Show error when file can't open; optionally remove from list; fix dialog visibility
+- **23-5** Formula reference UX polish — Fix drag in formula bar; improve inline visibility when ref inserted
+
+**Source:** `sprint-change-proposal-2026-03-15-epic23.md`

@@ -180,7 +180,7 @@ export function formatToCssPreview(f) {
   if (!f) return {};
   const css = {};
   const font = f.font;
-  if (font?.name) css.fontFamily = font.name;
+  if (font?.name) css.fontFamily = `${font.name}, sans-serif`;
   if (font?.size) css.fontSize = `${font.size}pt`;
   if (font?.bold) css.fontWeight = 'bold';
   if (font?.italic) css.fontStyle = 'italic';

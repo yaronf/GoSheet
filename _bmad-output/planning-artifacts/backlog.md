@@ -13,13 +13,12 @@ See `[technical-file-format-cross-language-random-access-research-2026-02-23.md]
 
 ### Generic font fallback
 
-When applying styles, use a fallback stack (e.g. `"CustomFont", sans-serif`) so that if a font in a .sheet file is not installed, the renderer uses a sensible default instead of the browser's generic. Relevant: `frontend/app-modals.js` `formatToCssPreview`, `docs/FILE_FORMAT.md` (unknown fonts section).
+→ **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`
 
 ### Select cells/ranges for inclusion in formula
 
-While editing a formula, click a cell/range to include a reference in the formula.
-**Epic: 18** ✓ Done -- Later: I'm not sure. I think this works for individual cells, not for ranges. Specifically drag doesn't work
-when editing in the formula bar. It does work when editing inline (in a cell) but then it's somehow hidden - the cell may need to be physically expanded or the formula physically shifted to show its last characters.
+→ **Promoted** to Epic 23 (enhancement) — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`  
+**Epic 18** ✓ Done. Gaps: drag doesn't work in formula bar; inline ref may be hidden.
 
 ### User doc
 
@@ -38,15 +37,15 @@ In dev mode, right-clicking the dock icon and selecting "Quit" navigates to the 
 
 ### Text wrapping within cell
 
-At least a toggle. Does it also require control of row/column width?
+→ **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`
 
 ### Copy/paste full rows/cols
 
-Today this is behind a "too many cells" check. Needs to be implemnted efficiently.
+→ **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`
 
 ### Recent Files on Welcome Page
 
-If the file cannot be opened, add an indication (dialog?) and/or remove it from the list. Bug: a dialog is apparently opened and is only shown when the spreadsheet is opened.
+→ **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`
 
 ### Security warning while building for Electron
 

@@ -91,7 +91,7 @@ All color fields use **hex** format: `#RRGGBB` (6-digit) or `#RGB` (3-digit shor
 
 ### Font names and unknown fonts
 
-Font names (e.g. `"Helvetica"`, `"Arial"`) are stored as plain strings. If a font is not available on the system, the renderer uses its default fallback (browser/system behavior). GoSheet does not define a fallback stack in the file. Implementations may add one when rendering (e.g. `"CustomFont", sans-serif`) for robustness.
+Font names (e.g. `"Helvetica"`, `"Arial"`) are stored as plain strings. If a font is not available on the system, GoSheet applies a fallback stack when rendering (e.g. `"CustomFont", sans-serif`) so a sensible default is used. The file format does not store the fallback; it is applied at render time.
 
 ## MessagePack Details
 

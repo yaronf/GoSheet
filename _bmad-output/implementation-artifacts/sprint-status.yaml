@@ -1,5 +1,5 @@
 # generated: 2026-02-23
-# last_updated: 2026-03-15 (Epic 22 complete; 22-1, 22-2 done)
+# last_updated: 2026-03-15 (Epic 23 added; 23-1..23-5 backlog)
 # project: spreadsheet
 # project_key: NOKEY
 # tracking_system: file-system
@@ -294,6 +294,16 @@ development_status:
   22-1-js-frontend-coverage: done
   22-2-replace-gob-with-msgpack-persistence: done
   epic-22-retrospective: optional
+
+  # Epic 23: Spreadsheet UX Enhancements
+  # Source: sprint-change-proposal-2026-03-15-epic23.md
+  epic-23: in-progress
+  23-1-generic-font-fallback: done
+  23-2-text-wrapping-within-cell: backlog
+  23-3-copy-paste-full-rows-cols: backlog
+  23-4-recent-files-error-handling: backlog
+  23-5-formula-reference-ux-polish: backlog
+  epic-23-retrospective: optional
 
   # Backlog: Known issues / tech debt
   # bug-dock-right-click-quit: In dev mode, right-clicking the dock icon and selecting "Quit"
