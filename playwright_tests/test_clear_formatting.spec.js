@@ -264,12 +264,22 @@ test.describe('Clear Formatting (Story 21.1)', () => {
     // Undo
     await window.keyboard.press('Meta+z');
 
-    await window.waitForFunction(async () => {
-      const res = await fetch('/api/cells/all');
-      const json = await res.json();
-      const cell = (json.data ?? []).find((c) => c.row === 0 && c.col === 0);
-      return (cell?.styleId ?? 0) !== 0;
-    });
+    // Wait for undo to restore style, alignment, and value (avoids race with async state update)
+    await window.waitForFunction(
+      async ({ expectedStyleId, expectedAlignment }) => {
+        const res = await fetch('/api/cells/all');
+        const json = await res.json();
+        const cell = (json.data ?? []).find((c) => c.row === 0 && c.col === 0);
+        if (!cell) return false;
+        return (
+          (cell.styleId ?? 0) === expectedStyleId &&
+          (cell.alignment ?? '') === expectedAlignment &&
+          (cell.value ?? '') === 'test'
+        );
+      },
+      { expectedStyleId, expectedAlignment },
+      { timeout: 5000 }
+    );
 
     data = await getCellData(window, 0, 0);
     expect(data.styleId).toBe(expectedStyleId);
