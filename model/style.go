@@ -68,8 +68,8 @@ type StyleInfo struct {
 // StyleRegistry holds format definitions indexed by style ID.
 // Built-in styles: 1=Title, 2=Header, 3=Total.
 type StyleRegistry struct {
-	Formats []CellFormat   // Exported for gob encoding
-	Names   map[string]int // name -> index; exported for gob encoding
+	Formats []CellFormat   // Exported for serialization (MessagePack)
+	Names   map[string]int // name -> index; exported for serialization (MessagePack)
 }
 
 // NewStyleRegistry creates a registry with built-in Title, Header, Total styles.

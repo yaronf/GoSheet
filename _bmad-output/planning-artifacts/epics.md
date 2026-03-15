@@ -20,7 +20,7 @@ validationStatus: 'passed'
 readyForDevelopment: true
 completedDate: '2026-02-14'
 lastUpdated: '2026-03-15'
-updateReason: 'Added Epic 21 (UX Polish), Epic 22 (MessagePack file format); Story 22-2 done'
+updateReason: 'Added Epic 21 (UX Polish), Epic 22 (MessagePack file format); Epic 22 complete (22-1, 22-2 done)'
 ---
 
 # spreadsheet - Epic Breakdown
@@ -3707,7 +3707,7 @@ So that I can review past agent activity.
 - No backward compatibility with gob (clean break)
 
 **Stories:**
-- **22-1** JavaScript frontend coverage — Istanbul-based branch/line/function coverage for frontend JS (see `22-1-js-frontend-coverage.md`)
+- **22-1** JavaScript frontend coverage — ✓ Done. Istanbul-based branch/line/function coverage for frontend JS (see `22-1-js-frontend-coverage.md`)
 - **22-2** Replace gob with MessagePack persistence — ✓ Done. MessagePack v2.0; `docs/FILE_FORMAT.md`; see `22-2-replace-gob-with-msgpack-persistence.md`
 - **22-3** Round-trip tests — Covered in 22-2
 - **22-4** Update documentation — ✓ Done. `docs/FILE_FORMAT.md`, TECH_SPEC, README, USER_GUIDE, 1-4 updated

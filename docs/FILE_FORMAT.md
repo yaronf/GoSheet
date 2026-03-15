@@ -96,7 +96,7 @@ Font names (e.g. `"Helvetica"`, `"Arial"`) are stored as plain strings. If a fon
 ## MessagePack Details
 
 - Use standard MessagePack encoding (RFC-like; see msgpack.org).
-- Map keys for the top-level and nested structures use the field names as shown (snake_case for cell fields: `value`, `computed`, `is_formula`, etc.).
+- Map keys for the top-level and nested structures use the field names as shown (snake_case for cell fields: `value`, `is_formula`, `is_quote_prefix`, etc.). No separate `computed` field is stored; it is derived on load.
 - Integer map keys (row/col in `cells`) are encoded as MessagePack integers.
 - The Go implementation uses `SetSortMapKeys(true)` for deterministic output; other implementations may encode maps in any order.
 

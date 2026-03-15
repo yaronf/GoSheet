@@ -1,5 +1,5 @@
 # generated: 2026-02-23
-# last_updated: 2026-03-15 (Epic 22 added; 22-2 MessagePack done)
+# last_updated: 2026-03-15 (Epic 22 complete; 22-1, 22-2 done)
 # project: spreadsheet
 # project_key: NOKEY
 # tracking_system: file-system
@@ -290,8 +290,8 @@ development_status:
 
   # Epic 22: MessagePack File Format (Cross-Language)
   # Source: sprint-change-proposal-2026-03-15.md
-  epic-22: in-progress
-  22-1-js-frontend-coverage: in-progress
+  epic-22: done
+  22-1-js-frontend-coverage: done
   22-2-replace-gob-with-msgpack-persistence: done
   epic-22-retrospective: optional
 

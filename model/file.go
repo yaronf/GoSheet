@@ -14,12 +14,6 @@ import (
 // File format version for MessagePack encoding.
 const FileFormatVersion = "2.0"
 
-// FileHeader contains metadata about the saved spreadsheet file
-type FileHeader struct {
-	Version   string `msgpack:"version"`
-	CellCount int    `msgpack:"cell_count"`
-}
-
 // fileContentV2 is the MessagePack payload structure (v2.0).
 type fileContentV2 struct {
 	Version   string                       `msgpack:"version"`

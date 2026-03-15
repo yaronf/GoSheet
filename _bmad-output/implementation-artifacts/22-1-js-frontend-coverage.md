@@ -1,6 +1,6 @@
 # Story 22.1: JavaScript Frontend Coverage
 
-Status: in-progress
+Status: done
 
 ## Story
 
