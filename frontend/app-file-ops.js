@@ -319,69 +319,177 @@ function setupFileMenuListeners() {
 // { startRow, startCol, rows, cols, cells: [{rowOffset, colOffset, styleId, alignment}] }
 let styleClipboard = null;
 
+const COPY_CELL_LIMIT = 10_000;
+
+/** Get effective bounds for iteration. Returns { minR, maxR, minC, maxC } or null if single cell. */
+function getCopyBounds(startRow, startCol, endRow, endCol) {
+  const isFullCol = endRow === OPEN_END;
+  const isFullRow = endCol === OPEN_END;
+  if (isFullRow && isFullCol) {
+    return {
+      minR: 0,
+      maxR: appState.ROWS - 1,
+      minC: 0,
+      maxC: appState.COLS - 1,
+    };
+  }
+  if (isFullRow) {
+    return {
+      minR: startRow,
+      maxR: endRow,
+      minC: 0,
+      maxC: appState.COLS - 1,
+    };
+  }
+  if (isFullCol) {
+    return {
+      minR: 0,
+      maxR: appState.ROWS - 1,
+      minC: startCol,
+      maxC: endCol,
+    };
+  }
+  return { minR: startRow, maxR: endRow, minC: startCol, maxC: endCol };
+}
+
+/** Count non-empty cells in allCells that fall within bounds. */
+function countCellsInRange(allCells, minR, maxR, minC, maxC) {
+  let count = 0;
+  for (let r = minR; r <= maxR; r++) {
+    for (let c = minC; c <= maxC; c++) {
+      const ref = `${colToLetter(c)}${r + 1}`;
+      if (allCells[ref] != null) count++;
+    }
+  }
+  return count;
+}
+
+/** Build TSV from allCells for the given bounds (row-major). */
+function buildTsvFromCells(allCells, minR, maxR, minC, maxC) {
+  const rows = [];
+  for (let r = minR; r <= maxR; r++) {
+    const cells = [];
+    for (let c = minC; c <= maxC; c++) {
+      const ref = `${colToLetter(c)}${r + 1}`;
+      const data = allCells[ref];
+      cells.push(data?.raw ?? '');
+    }
+    rows.push(cells.join('\t'));
+  }
+  return rows.join('\n');
+}
+
+/** Collect style clipboard entries for the range. */
+function collectStyleClipboardCells(
+  allCells,
+  minR,
+  maxR,
+  minC,
+  maxC,
+  startRow,
+  startCol
+) {
+  const styleCells = [];
+  for (let r = minR; r <= maxR; r++) {
+    for (let c = minC; c <= maxC; c++) {
+      const ref = `${colToLetter(c)}${r + 1}`;
+      const data = allCells[ref];
+      if (data?.styleId) {
+        styleCells.push({
+          rowOffset: r - startRow,
+          colOffset: c - startCol,
+          styleId: data.styleId,
+        });
+      }
+    }
+  }
+  return styleCells;
+}
+
 export async function copySelectionToClipboard() {
   if (!appState.selectionRange) return;
   const { startRow, startCol, endRow, endCol } = appState.selectionRange;
-  // Guard against unbounded ranges (full-row/full-column) and excessively large ranges.
-  if (
-    !Number.isFinite(endRow) ||
-    !Number.isFinite(endCol) ||
-    endRow - startRow > 10000 ||
-    endCol - startCol > 1000
-  ) {
-    await showAlert(
-      'Selection is too large to copy. Please select a smaller range.'
-    );
-    return;
-  }
-  try {
-    // Snapshot cell values and style/alignment for the copied range
-    const allCells = await GetAllCells();
-    const styleCells = [];
 
-    if (startRow === endRow && startCol === endCol) {
+  const isSingleCell =
+    startRow === endRow &&
+    startCol === endCol &&
+    Number.isFinite(endRow) &&
+    Number.isFinite(endCol);
+
+  if (isSingleCell) {
+    try {
       const value = await GetCellRawValue(startRow, startCol);
       await navigator.clipboard.writeText(value);
-    } else {
-      const rowPromises = [];
-      for (let r = startRow; r <= endRow; r++) {
-        const colPromises = [];
-        for (let c = startCol; c <= endCol; c++) {
-          colPromises.push(GetCellRawValue(r, c));
-        }
-        rowPromises.push(Promise.all(colPromises));
-      }
-      const rows = await Promise.all(rowPromises);
-      const tsv = rows.map((row) => row.join('\t')).join('\n');
-      await navigator.clipboard.writeText(tsv);
+      const allCells = await GetAllCells();
+      const ref = `${colToLetter(startCol)}${startRow + 1}`;
+      const data = allCells[ref];
+      styleClipboard = {
+        startRow,
+        startCol,
+        rows: 1,
+        cols: 1,
+        cells: data?.styleId
+          ? [{ rowOffset: 0, colOffset: 0, styleId: data.styleId }]
+          : [],
+      };
+    } catch (error) {
+      console.error('[App] Error during Copy:', error);
+      await showAlert('Error during Copy operation: ' + error.message);
+      return false;
+    }
+    return true;
+  }
+
+  const bounds = getCopyBounds(startRow, startCol, endRow, endCol);
+  if (!bounds) return;
+
+  try {
+    const allCells = await GetAllCells();
+    const count = countCellsInRange(
+      allCells,
+      bounds.minR,
+      bounds.maxR,
+      bounds.minC,
+      bounds.maxC
+    );
+    if (count > COPY_CELL_LIMIT) {
+      await showAlert(
+        `Selection too large to copy (max ${COPY_CELL_LIMIT.toLocaleString()} cells).`
+      );
+      return false;
     }
 
-    // Snapshot style/alignment for every cell in the range
-    for (let r = startRow; r <= endRow; r++) {
-      for (let c = startCol; c <= endCol; c++) {
-        const ref = `${colToLetter(c)}${r + 1}`;
-        const data = allCells[ref];
-        if (data?.styleId) {
-          styleCells.push({
-            rowOffset: r - startRow,
-            colOffset: c - startCol,
-            styleId: data.styleId,
-          });
-        }
-      }
-    }
+    const tsv = buildTsvFromCells(
+      allCells,
+      bounds.minR,
+      bounds.maxR,
+      bounds.minC,
+      bounds.maxC
+    );
+    await navigator.clipboard.writeText(tsv);
 
+    const styleCells = collectStyleClipboardCells(
+      allCells,
+      bounds.minR,
+      bounds.maxR,
+      bounds.minC,
+      bounds.maxC,
+      bounds.minR,
+      bounds.minC
+    );
     styleClipboard = {
-      startRow,
-      startCol,
-      rows: endRow - startRow + 1,
-      cols: endCol - startCol + 1,
+      startRow: bounds.minR,
+      startCol: bounds.minC,
+      rows: bounds.maxR - bounds.minR + 1,
+      cols: bounds.maxC - bounds.minC + 1,
       cells: styleCells,
     };
   } catch (error) {
     console.error('[App] Error during Copy:', error);
     await showAlert('Error during Copy operation: ' + error.message);
+    return false;
   }
+  return true;
 }
 
 // Build the cellsToSet array for a multi-cell TSV paste, shifting formula refs as needed.
@@ -505,31 +613,13 @@ function setupEditMenuListeners() {
   window.electronAPI.onMenuCut(async () => {
     if (window.__DEBUG__) console.log('[App] Menu Cut triggered');
     if (appState.isReadOnly) return;
-    if (!appState.selectedCell) return;
+    if (!appState.selectedCell || !appState.selectionRange) return;
     try {
       const { startRow, startCol, endRow, endCol } = appState.selectionRange;
-      // Resolve OPEN_END sentinels to current grid bounds before any API call
+      const copied = await copySelectionToClipboard();
+      if (!copied) return;
       const resolvedEndRow = endRow === OPEN_END ? appState.ROWS - 1 : endRow;
       const resolvedEndCol = endCol === OPEN_END ? appState.COLS - 1 : endCol;
-      // Copy to clipboard using resolved (bounded) range — avoids "too large" alert for
-      // open-ended row/column selections which are within normal grid dimensions
-      const isOpenEnded = endRow === OPEN_END || endCol === OPEN_END;
-      if (isOpenEnded) {
-        // Build TSV for the resolved bounded range directly without alerting
-        const rowPromises = [];
-        for (let r = startRow; r <= resolvedEndRow; r++) {
-          const colPromises = [];
-          for (let c = startCol; c <= resolvedEndCol; c++) {
-            colPromises.push(GetCellRawValue(r, c));
-          }
-          rowPromises.push(Promise.all(colPromises));
-        }
-        const rows = await Promise.all(rowPromises);
-        const tsv = rows.map((row) => row.join('\t')).join('\n');
-        await navigator.clipboard.writeText(tsv);
-      } else {
-        await copySelectionToClipboard();
-      }
       const result = await ClearRange(
         startRow,
         startCol,

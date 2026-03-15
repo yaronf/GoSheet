@@ -456,14 +456,16 @@ test.describe('Copy/paste range (Story 17.3)', () => {
     await window.evaluate(() => window.__testSetReadOnly(false));
   });
 
-  test('copy of entire row (open-ended) shows alert', async ({
+  // Story 23.3: Full row/column copy/paste (open-ended selection via row/col headers)
+  test('full row copy/paste (row header selection)', async ({
     electronApp,
     window,
   }) => {
-    // Click a row header to select the entire row (sets endCol = Infinity / OPEN_END)
-    await window.locator('.row-header[data-row="0"]').click();
+    await setCellViaApi(window, 0, 0, 'a');
+    await setCellViaApi(window, 0, 1, 'b');
+    await setCellViaApi(window, 0, 2, 'c');
 
-    // Wait for row to be selected
+    await window.locator('.row-header[data-row="0"]').click();
     await window.waitForFunction(
       () =>
         document
@@ -472,15 +474,140 @@ test.describe('Copy/paste range (Story 17.3)', () => {
       { timeout: 3000 }
     );
 
-    // Trigger copy via menu — copySelectionToClipboard checks !Number.isFinite(endCol)
     await menuCopy(electronApp);
+    await window.waitForFunction(
+      async () => (await navigator.clipboard.readText()) === 'a\tb\tc',
+      { timeout: 3000 }
+    );
 
-    // Alert modal should appear with "too large" message
-    await window
-      .locator('#modal-overlay.active')
-      .waitFor({ state: 'visible', timeout: 5000 });
-    await expect(window.locator('#modal-message')).toContainText('too large');
-    await window.locator('#modal-ok').click();
-    await expect(window.locator('#modal-overlay')).toBeHidden();
+    await window.locator('#cell-2-4').click();
+    await menuPaste(electronApp);
+    await window.waitForFunction(
+      () => document.getElementById('cell-2-4')?.textContent?.trim() !== '',
+      { timeout: 3000 }
+    );
+
+    await expect(window.locator('#cell-2-4')).toHaveText('a');
+    await expect(window.locator('#cell-2-5')).toHaveText('b');
+    await expect(window.locator('#cell-2-6')).toHaveText('c');
+  });
+
+  test('full column copy/paste (column header selection)', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 0, 'x');
+    await setCellViaApi(window, 1, 0, 'y');
+    await setCellViaApi(window, 2, 0, 'z');
+
+    await window.locator('.column-header[data-col="0"]').click();
+    await window.waitForFunction(
+      () =>
+        document
+          .querySelector('.column-header[data-col="0"]')
+          ?.classList.contains('col-header-selected'),
+      { timeout: 3000 }
+    );
+
+    await menuCopy(electronApp);
+    await window.waitForFunction(
+      async () => {
+        const text = await navigator.clipboard.readText();
+        const rows = text.replace(/\n$/, '').split('\n');
+        return (
+          rows.length === 3 &&
+          rows[0] === 'x' &&
+          rows[1] === 'y' &&
+          rows[2] === 'z'
+        );
+      },
+      { timeout: 3000 }
+    );
+
+    await window.locator('#cell-4-2').click();
+    await menuPaste(electronApp);
+    await window.waitForFunction(
+      () => document.getElementById('cell-4-2')?.textContent?.trim() !== '',
+      { timeout: 3000 }
+    );
+
+    await expect(window.locator('#cell-4-2')).toHaveText('x');
+    await expect(window.locator('#cell-5-2')).toHaveText('y');
+    await expect(window.locator('#cell-6-2')).toHaveText('z');
+  });
+
+  test('full row paste into same row at different column', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 0, 'm');
+    await setCellViaApi(window, 0, 1, 'n');
+
+    await window.locator('.row-header[data-row="0"]').click();
+    await window.waitForFunction(
+      () =>
+        document
+          .querySelector('.row-header[data-row="0"]')
+          ?.classList.contains('row-header-selected'),
+      { timeout: 3000 }
+    );
+
+    await menuCopy(electronApp);
+    await window.waitForFunction(
+      async () => (await navigator.clipboard.readText()) === 'm\tn',
+      { timeout: 3000 }
+    );
+
+    // Paste into same row at col 4
+    await window.locator('#cell-0-4').click();
+    await menuPaste(electronApp);
+    await window.waitForFunction(
+      () => document.getElementById('cell-0-4')?.textContent?.trim() !== '',
+      { timeout: 3000 }
+    );
+
+    await expect(window.locator('#cell-0-4')).toHaveText('m');
+    await expect(window.locator('#cell-0-5')).toHaveText('n');
+  });
+
+  test('undo of full row paste restores overwritten cells', async ({
+    electronApp,
+    window,
+  }) => {
+    await setCellViaApi(window, 0, 0, 'u1');
+    await setCellViaApi(window, 0, 1, 'u2');
+
+    await window.locator('.row-header[data-row="0"]').click();
+    await window.waitForFunction(
+      () =>
+        document
+          .querySelector('.row-header[data-row="0"]')
+          ?.classList.contains('row-header-selected'),
+      { timeout: 3000 }
+    );
+
+    await menuCopy(electronApp);
+    await window.waitForFunction(
+      async () => (await navigator.clipboard.readText()) === 'u1\tu2',
+      { timeout: 3000 }
+    );
+
+    await window.locator('#cell-0-3').click();
+    await menuPaste(electronApp);
+    await window.waitForFunction(
+      () => document.getElementById('cell-0-3')?.textContent?.trim() !== '',
+      { timeout: 3000 }
+    );
+    await expect(window.locator('#cell-0-3')).toHaveText('u1');
+    await expect(window.locator('#cell-0-4')).toHaveText('u2');
+
+    await window.evaluate(async () => {
+      const res = await fetch('/api/undo', { method: 'POST' });
+      return res.json();
+    });
+    await window.evaluate(() => window.refreshAllCells?.());
+
+    await expect(window.locator('#cell-0-3')).toHaveText('', { timeout: 3000 });
+    await expect(window.locator('#cell-0-4')).toHaveText('', { timeout: 3000 });
   });
 });
