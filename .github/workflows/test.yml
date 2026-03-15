@@ -57,7 +57,10 @@ jobs:
       run: npm run typecheck
 
     - name: Lint (Go)
-      run: make lint
+      uses: golangci/golangci-lint-action@v7
+      with:
+        version: v2.11.2
+        args: ./api/... ./controller/... ./model/... ./server/...
 
     - name: Complexity (report only, does not fail)
       run: make complexity || true
