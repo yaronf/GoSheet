@@ -409,8 +409,6 @@ function applyFormatCssToCell(cell, format, isNum) {
   const align = format.alignment;
   const hDefault = align?.horizontal === '' || align?.horizontal === 'default';
   if (hDefault) cell.style.setProperty('text-align', isNum ? 'right' : 'left');
-  const vDefault = align?.vertical === '' || align?.vertical === 'default';
-  if (vDefault) cell.style.removeProperty('vertical-align');
 }
 
 /**
@@ -439,9 +437,9 @@ export function applyCellStyleClasses(
   cell.style.removeProperty('border-top');
   cell.style.removeProperty('border-bottom');
   cell.style.textAlign = '';
-  cell.style.verticalAlign = '';
   cell.style.whiteSpace = '';
   cell.style.wordWrap = '';
+  cell.style.minWidth = '';
   if (styleId >= STYLE_ID.TITLE && styleId <= STYLE_ID.TOTAL) {
     cell.classList.add(STYLE_CLASSES[styleId - 1]);
   }

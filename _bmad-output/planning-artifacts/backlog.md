@@ -39,6 +39,10 @@ In dev mode, right-clicking the dock icon and selecting "Quit" navigates to the 
 
 → **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`
 
+### Manually set column width
+
+Allow user to set column width (e.g. via drag on column header edge). Would improve text-wrap UX and general layout control.
+
 ### Copy/paste full rows/cols
 
 → **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`

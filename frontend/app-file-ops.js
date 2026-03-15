@@ -36,6 +36,7 @@ import {
   showFormulaHelpModal,
   showUserGuideModal,
   showManageStylesModal,
+  formatToCssPreview,
 } from './app-modals.js';
 
 // Update file status display
@@ -165,6 +166,16 @@ function buildToolbarStyleButtons(styles) {
     btn.title = `Apply ${s.name} style`;
     btn.setAttribute('aria-label', `Apply ${s.name} style`);
     btn.textContent = s.name;
+    // Apply format preview (fill, font, etc.) so custom styles like Wrapped show correctly
+    const css = formatToCssPreview(s.format);
+    if (css && Object.keys(css).length > 0) {
+      for (const [k, v] of Object.entries(css)) {
+        if (k === 'minWidth')
+          continue; /* skip — for wrap only, would stretch button */
+        const prop = k.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
+        btn.style.setProperty(prop, v);
+      }
+    }
     if (appState.isReadOnly) btn.disabled = true;
     btn.addEventListener('click', () => {
       window.__applyStyleToSelection?.(s.id);

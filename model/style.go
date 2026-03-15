@@ -44,10 +44,9 @@ type Border struct {
 	Bottom BorderSide `json:"bottom"`
 }
 
-// Alignment holds horizontal and vertical alignment, and text wrap.
+// Alignment holds horizontal alignment and text wrap.
 type Alignment struct {
 	Horizontal string `json:"horizontal"`
-	Vertical   string `json:"vertical"`
 	Wrap       bool   `json:"wrap"`
 }
 
@@ -90,7 +89,7 @@ func NewStyleRegistry() *StyleRegistry {
 			Top:    BorderSide{Style: "none"},
 			Bottom: BorderSide{Style: "none"},
 		},
-		Alignment: Alignment{Horizontal: "center", Vertical: "center"},
+		Alignment: Alignment{Horizontal: "center"},
 	})
 	r.Names["Title"] = 1
 
@@ -104,7 +103,7 @@ func NewStyleRegistry() *StyleRegistry {
 			Top:    BorderSide{Style: "none"},
 			Bottom: BorderSide{Style: "thin", Color: "#000000"},
 		},
-		Alignment: Alignment{Horizontal: "center", Vertical: "center"},
+		Alignment: Alignment{Horizontal: "center"},
 	})
 	r.Names["Header"] = 2
 
@@ -118,7 +117,7 @@ func NewStyleRegistry() *StyleRegistry {
 			Top:    BorderSide{Style: "thin", Color: "#000000"},
 			Bottom: BorderSide{Style: "none"},
 		},
-		Alignment: Alignment{Horizontal: "left", Vertical: "center"},
+		Alignment: Alignment{Horizontal: "left"},
 	})
 	r.Names["Total"] = 3
 

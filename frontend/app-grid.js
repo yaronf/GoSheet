@@ -278,7 +278,6 @@ export async function refreshAllCells() {
           cell.title = '';
           cell.classList.remove('formula-cell', 'error-cell', ...STYLE_CLASSES);
           cell.style.textAlign = '';
-          cell.style.verticalAlign = '';
         }
       }
     }

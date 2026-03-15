@@ -179,9 +179,14 @@ export async function showUserGuideModal() {
 function applyAlignmentCss(css, alignment) {
   const h = alignment?.horizontal;
   if (h && h !== 'default') css.textAlign = h;
-  if (alignment?.vertical) css.verticalAlign = alignment.vertical;
-  css.whiteSpace = alignment?.wrap ? 'normal' : 'nowrap';
-  if (alignment?.wrap) css.wordWrap = 'break-word';
+  if (alignment?.wrap) {
+    css.whiteSpace = 'normal';
+    css.wordWrap = 'break-word';
+    css.minWidth =
+      '200px'; /* Keep column wide when wrapping (matches .cell max-width) */
+  } else {
+    css.whiteSpace = 'nowrap';
+  }
 }
 
 // Story 13.3: Manage Styles modal — preview applies style to the name text
@@ -225,8 +230,6 @@ export function formatFromForm() {
     border: formatFromFormBorder(),
     alignment: {
       horizontal: document.getElementById('manage-styles-align-h')?.value || '',
-      vertical:
-        document.getElementById('manage-styles-align-v')?.value || 'center',
       wrap: document.getElementById('manage-styles-wrap')?.checked ?? false,
     },
   };
@@ -348,8 +351,6 @@ function populateFormBorderProps(el, f) {
 function populateFormAlignmentProps(el, f) {
   if (el('manage-styles-align-h'))
     el('manage-styles-align-h').value = f.alignment?.horizontal || '';
-  if (el('manage-styles-align-v'))
-    el('manage-styles-align-v').value = f.alignment?.vertical || 'center';
   const wrapEl = el('manage-styles-wrap');
   if (wrapEl) wrapEl.checked = !!f.alignment?.wrap;
 }

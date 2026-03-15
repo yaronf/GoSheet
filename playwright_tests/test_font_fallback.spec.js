@@ -33,7 +33,7 @@ async function addStyleWithFont(window, name, fontName) {
               top: { style: 'none', color: '#000' },
               bottom: { style: 'none', color: '#000' },
             },
-            alignment: { horizontal: '', vertical: '' },
+            alignment: { horizontal: '' },
           },
         }),
       });

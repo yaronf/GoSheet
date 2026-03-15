@@ -655,8 +655,7 @@ function attachWindowCloseHandler(win) {
             buttons: ['Cancel', 'Close Without Saving'],
             defaultId: 0, // Cancel is default (safer)
             title: 'Unsaved Changes',
-            message: 'You have unsaved changes.',
-            detail: 'Do you want to close without saving?',
+            message: 'Discard changes and close?',
           });
         } else {
           // No unsaved changes — close this window

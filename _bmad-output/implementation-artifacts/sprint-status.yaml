@@ -311,6 +311,7 @@ development_status:
   #   Expected: app quits (or shows unsaved-changes dialog then quits).
   # feature-copy-paste-whole-row-col: Allow copy/paste of open-ended row/column selections
   #   (currently blocked by "selection too large" guard in copySelectionToClipboard).
+  # feature-manually-set-column-width: Allow user to set column width (e.g. drag on header edge).
   # ux-clear-and-clear-formatting: "Clear" in the context menu and "Format Cleanup" (Clear Formatting)
   #   in the Format menu are confusing and need to be rethought.
   #
