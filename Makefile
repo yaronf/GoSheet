@@ -66,10 +66,10 @@ run-electron: install build
 	@echo "Starting Electron app..."
 	npm start
 
-# Lint Go code
+# Lint Go code (explicit paths to exclude node_modules, which may contain Go deps)
 lint:
 	@echo "Running golangci-lint..."
-	golangci-lint run ./...
+	golangci-lint run ./api/... ./controller/... ./model/... ./server/...
 
 # Go test coverage (co-located with packages)
 coverage:
