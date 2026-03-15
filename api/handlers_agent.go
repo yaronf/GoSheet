@@ -374,9 +374,15 @@ type patchOp struct {
 	FillColor string `json:"fillColor"`
 }
 
+type verifyCell struct {
+	Row int `json:"row"`
+	Col int `json:"col"`
+}
+
 type patchRequest struct {
-	Description string    `json:"description"`
-	Ops         []patchOp `json:"ops"`
+	Description string       `json:"description"`
+	Ops         []patchOp    `json:"ops"`
+	Verify      []verifyCell `json:"verify"` // optional: return computed values for these cells in response
 }
 
 // HandleAgentPatch applies a batch of operations atomically through the command pattern.
@@ -462,10 +468,26 @@ func (s *Server) HandleAgentPatch(w http.ResponseWriter, r *http.Request) {
 
 	s.broadcastEvent("cells_changed")
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"success":  true,
 		"opsCount": len(req.Ops),
-	})
+	}
+	if len(req.Verify) > 0 {
+		verified := make(map[string]map[string]any)
+		sheet := s.Ctrl.Sheet
+		for _, vc := range req.Verify {
+			ar, ac := sheet.ResolveToAnchor(vc.Row, vc.Col)
+			cell := sheet.GetCell(ar, ac)
+			val := ""
+			if cell != nil {
+				val = cell.Computed
+			}
+			key := fmt.Sprintf("%d:%d", vc.Row, vc.Col)
+			verified[key] = map[string]any{"computed": val}
+		}
+		resp["verified"] = verified
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

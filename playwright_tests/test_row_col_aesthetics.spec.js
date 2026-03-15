@@ -126,10 +126,12 @@ test.describe('Row/column select aesthetics (Story 17.2)', () => {
     // Insert row via menu
     await clickMenuItemById(electronApp, 'insert-row');
 
-    // row2 should now be pushed down to row 3
+    // Wait for both shifted cells to have expected content (DOM may update asynchronously)
     await window.waitForFunction(
-      () => document.getElementById('cell-3-0')?.textContent?.trim() === 'row2',
-      { timeout: 3000 }
+      () =>
+        document.getElementById('cell-2-0')?.textContent?.trim() === 'row1' &&
+        document.getElementById('cell-3-0')?.textContent?.trim() === 'row2',
+      { timeout: 5000 }
     );
     await expect(window.locator('#cell-2-0')).toHaveText('row1');
     await expect(window.locator('#cell-3-0')).toHaveText('row2');

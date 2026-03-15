@@ -891,6 +891,29 @@ func TestHandleAgentPatch_AtomicRejectionDoesNotModify(t *testing.T) {
 	assert.False(t, srv.Ctrl.Sheet.Modified, "sheet must not be modified on rejected patch")
 }
 
+func TestHandleAgentPatch_InsertRowWithVerify(t *testing.T) {
+	srv := newAgentServer()
+	tok := issueAgentToken(t, srv, "rw")
+	require.NoError(t, srv.Ctrl.SetCellValue(0, 0, "Top"))
+
+	body := `{"ops":[{"op":"InsertRow","row":0}],"verify":[{"row":1,"col":0}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/agent/patch", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(agentHeader(tok))
+	w := httptest.NewRecorder()
+	srv.HandleAgentPatch(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.True(t, resp["success"].(bool))
+	verified, ok := resp["verified"].(map[string]any)
+	require.True(t, ok, "response must include verified")
+	cell, ok := verified["1:0"].(map[string]any)
+	require.True(t, ok, "verified must include 1:0")
+	assert.Equal(t, "Top", cell["computed"], "row 1 col 0 should have shifted content")
+}
+
 func TestHandleAgentPatch_InsertAndDeleteRow(t *testing.T) {
 	srv := newAgentServer()
 	tok := issueAgentToken(t, srv, "rw")

@@ -229,14 +229,15 @@ test.describe('Undo/Redo formatting operations (Story 15.4)', () => {
   test('Mixed ops undo in correct order', async ({ window }) => {
     await setCellViaApi(window, 0, 0, 'hello'); // op 1
     await apiSetAlignment(window, 0, 0, 'center'); // op 2
+    const styleIdAfterAlignment = await getCellStyleId(window, 0, 0); // alignment creates a style variant
     await apiApplyStyle(window, 0, 0, 0, 0, 1); // op 3
 
     expect(await getCellAlignment(window, 0, 0)).toBe('center');
     expect(await getCellStyleId(window, 0, 0)).toBe(1);
 
-    // Undo style (op 3)
+    // Undo style (op 3) — restores to alignment-only variant (styleIdAfterAlignment)
     await window.keyboard.press('Meta+z');
-    expect(await getCellStyleId(window, 0, 0)).toBe(0);
+    expect(await getCellStyleId(window, 0, 0)).toBe(styleIdAfterAlignment);
     expect(await getCellAlignment(window, 0, 0)).toBe('center'); // alignment still set
 
     // Undo alignment (op 2)

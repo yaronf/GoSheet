@@ -58,20 +58,17 @@ test.describe('Agent API (Epic 20)', () => {
 
   test.beforeEach(async ({ window }) => {
     await ensureSpreadsheetView(window);
-
-    // End any active agent session before resetting the sheet
     await apiFetch(window, 'POST', '/api/agent/session/end');
 
-    // Reset to clean spreadsheet via API (avoids race: new-btn click is async)
+    // Reset via API only (no new-btn click — that triggers a second async file/new and races)
     await apiFetch(window, 'POST', '/api/file/new');
 
-    // Sync UI: click new-btn in case it shows modal, then ensure grid visible
-    await window.locator('#new-btn').click();
-    const modal = window.locator('#modal-overlay');
-    if (await modal.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await window.locator('#modal-ok').click();
-      await expect(modal).toBeHidden({ timeout: 5000 });
-    }
+    // Refresh UI from server state without triggering another file/new
+    await window.evaluate(async () => {
+      if (typeof window.buildSpreadsheet === 'function')
+        await window.buildSpreadsheet();
+      if (typeof window.loadCells === 'function') await window.loadCells();
+    });
     await expect(window.locator('#cell-0-0')).toBeVisible({ timeout: 10000 });
   });
 
@@ -548,36 +545,34 @@ test.describe('Agent API (Epic 20)', () => {
   // ── 20.4: Additional patch ops ────────────────────────────────────────────
 
   test('patch InsertRow shifts existing data down', async ({ window }) => {
-    // Put data in row 0
-    await apiFetch(window, 'POST', '/api/cell/set', {
+    const setRes = await apiFetch(window, 'POST', '/api/cell/set', {
       row: 0,
       col: 0,
       value: 'Top',
     });
+    expect(setRes.status).toBe(200);
+    expect(setRes.json?.success).toBe(true);
+
+    const before = await apiFetch(window, 'GET', '/api/cell/value?row=0&col=0');
+    expect(before.json?.data?.computed).toBe('Top');
 
     const { json } = await apiFetch(window, 'POST', '/api/agent/token', {
       scope: 'rw',
     });
     const token = json.agentToken;
 
-    const { status } = await agentFetch(
+    const patchRes = await agentFetch(
       window,
       'POST',
       '/api/agent/patch',
       token,
       {
         ops: [{ op: 'InsertRow', row: 0 }],
+        verify: [{ row: 1, col: 0 }],
       }
     );
-    expect(status).toBe(200);
-
-    // Original row 0 content should now be in row 1
-    const { json: cell } = await apiFetch(
-      window,
-      'GET',
-      '/api/cell/value?row=1&col=0'
-    );
-    expect(cell.data?.computed).toBe('Top');
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.json?.verified?.['1:0']?.computed).toBe('Top');
 
     await apiFetch(window, 'POST', '/api/agent/session/end');
   });

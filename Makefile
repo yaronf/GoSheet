@@ -16,8 +16,8 @@ test-unit:
 	@echo "Running Go unit tests..."
 	go test ./model/... ./controller/... ./api/... -v
 
-# Playwright Electron tests
-test-electron:
+# Playwright Electron tests (require built server binary)
+test-electron: build
 	@echo "Running Playwright Electron tests..."
 	npm test
 

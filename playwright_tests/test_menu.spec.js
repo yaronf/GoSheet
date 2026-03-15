@@ -71,13 +71,6 @@ test.describe('File Menu Tests', () => {
       attempts++;
     }
 
-    console.log(
-      '[Menu Test] Menu structure after',
-      attempts,
-      'attempts:',
-      JSON.stringify(menuStructure, null, 2)
-    );
-
     // Verify File menu exists and is fully populated
     expect(menuStructure).toBeTruthy();
     expect(menuStructure.error).toBeUndefined(); // Check for errors
@@ -92,8 +85,6 @@ test.describe('File Menu Tests', () => {
       (item) => item.type !== 'separator'
     );
     const itemLabels = menuItems.map((item) => item.label);
-
-    console.log('[Menu Test] Menu items:', itemLabels);
 
     // Verify required menu items exist
     expect(itemLabels).toContain('New');
@@ -146,8 +137,6 @@ test.describe('File Menu Tests', () => {
       await window.waitForTimeout(100);
     }
 
-    console.log('[Menu Test] Keyboard shortcuts:', shortcuts);
-
     // Check for errors
     expect(shortcuts.error).toBeUndefined();
 
@@ -197,8 +186,6 @@ test.describe('File Menu Tests', () => {
       await window.waitForTimeout(100);
     }
 
-    console.log('[Menu Test] Save menu enabled:', saveEnabled);
-
     // Check for errors
     expect(saveEnabled.error).toBeUndefined();
 
@@ -246,8 +233,6 @@ test.describe('File Menu Tests', () => {
       }
       await window.waitForTimeout(100);
     }
-
-    console.log('[Menu Test] Recent Files:', recentFilesExists);
 
     // Check for errors
     expect(recentFilesExists.error).toBeUndefined();
@@ -311,11 +296,6 @@ test.describe('File Menu Tests', () => {
       await window.waitForTimeout(100);
     }
 
-    console.log(
-      '[Menu Test] Menu items accessible by ID:',
-      menuItemsAccessible
-    );
-
     // Check for errors
     expect(menuItemsAccessible.error).toBeUndefined();
 
@@ -345,8 +325,6 @@ test.describe('File Menu Tests', () => {
 
       return handlersExist;
     });
-
-    console.log('[Menu Test] Click handlers exist:', menuClickHandlers);
 
     // Verify click handlers are defined for interactive items
     expect(menuClickHandlers['New']).toBe(true);
@@ -378,7 +356,6 @@ test.describe('File Menu Tests', () => {
       return saveItem.enabled;
     });
 
-    console.log('[Menu Test] Initial Save state:', initialSaveState);
     expect(initialSaveState).toBe(false);
 
     // Modify a cell to trigger unsaved changes
@@ -388,11 +365,6 @@ test.describe('File Menu Tests', () => {
 
     // Wait for file status to show unsaved changes
     await expect(fileStatus).toContainText('Unsaved', { timeout: 5000 });
-
-    console.log(
-      '[Menu Test] File status after edit:',
-      await fileStatus.textContent()
-    );
 
     // Poll for Save menu state to be updated (menu state updates are async)
     let updatedSaveState = false;
@@ -413,7 +385,6 @@ test.describe('File Menu Tests', () => {
       await window.waitForTimeout(100);
     }
 
-    console.log('[Menu Test] Updated Save state:', updatedSaveState);
     // Save should now be enabled due to unsaved changes
     expect(updatedSaveState).toBe(true);
   });
@@ -467,10 +438,6 @@ test.describe('Menu Integration Tests', () => {
 
     // Verify cell is now empty (new file created)
     await expect(cell).toHaveText('', { timeout: 3000 });
-
-    console.log(
-      '[Menu Test] New file menu item successfully triggered new file'
-    );
   });
 
   test('Save As always shows dialog even with existing file', async ({
@@ -503,8 +470,6 @@ test.describe('Menu Integration Tests', () => {
 
     // Verify app is still responsive (Save As menu item executed without error)
     await expect(window.locator('#spreadsheet')).toBeVisible();
-
-    console.log('[Menu Test] Save As triggers dialog even with existing file');
   });
 
   test('Recent Files submenu exists and is accessible', async ({
@@ -535,12 +500,6 @@ test.describe('Menu Integration Tests', () => {
     expect(recentFilesInfo.hasSubmenu).toBe(true);
     // Should have at least the "No Recent Files" placeholder
     expect(recentFilesInfo.itemCount).toBeGreaterThanOrEqual(1);
-
-    console.log(
-      '[Menu Test] Recent Files submenu exists with',
-      recentFilesInfo.itemCount,
-      'items'
-    );
   });
 
   test('Menu keyboard shortcuts are properly registered', async ({
@@ -562,7 +521,5 @@ test.describe('Menu Integration Tests', () => {
     // Test Cmd+Shift+S (Save As) shortcut - verify no crash
     await window.keyboard.press('Meta+Shift+S');
     await expect(grid).toBeVisible();
-
-    console.log('[Menu Test] Keyboard shortcuts work correctly');
   });
 });

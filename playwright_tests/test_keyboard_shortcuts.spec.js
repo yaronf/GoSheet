@@ -51,15 +51,6 @@ test.describe('Keyboard Shortcuts Tests', () => {
     // Note: Quit is in the macOS app menu (handled by Electron role: 'quit')
     // We can't easily verify it from the accelerators list, but it's standard Electron behavior
     // Just verify we have all the main shortcuts
-    console.log(
-      '[Keyboard Shortcuts Test] Found accelerators:',
-      Object.keys(accelerators)
-    );
-
-    console.log(
-      '[Keyboard Shortcuts Test] All accelerators verified:',
-      accelerators
-    );
   });
 
   test('File menu shortcuts are properly formatted', async ({
@@ -97,8 +88,6 @@ test.describe('Keyboard Shortcuts Tests', () => {
     expect(fileShortcuts['save'].accelerator).toBe('CmdOrCtrl+S');
     expect(fileShortcuts['save-as'].accelerator).toBe('CmdOrCtrl+Shift+S');
     expect(fileShortcuts['close'].accelerator).toBe('CmdOrCtrl+W');
-
-    console.log('[Keyboard Shortcuts Test] File menu shortcuts verified');
   });
 
   test('Edit menu shortcuts are properly formatted', async ({
@@ -134,8 +123,6 @@ test.describe('Keyboard Shortcuts Tests', () => {
     expect(editShortcuts['copy'].accelerator).toBe('CmdOrCtrl+C');
     expect(editShortcuts['paste'].accelerator).toBe('CmdOrCtrl+V');
     expect(editShortcuts['select-all'].accelerator).toBe('CmdOrCtrl+G');
-
-    console.log('[Keyboard Shortcuts Test] Edit menu shortcuts verified');
   });
 
   test('Cmd+N shortcut is registered', async ({ electronApp, window }) => {
@@ -152,10 +139,6 @@ test.describe('Keyboard Shortcuts Tests', () => {
     });
 
     expect(hasNewShortcut).toBe(true);
-
-    console.log(
-      '[Keyboard Shortcuts Test] Cmd+N shortcut is properly registered'
-    );
   });
 
   test('Cmd+S is disabled when no changes', async ({ electronApp, window }) => {
@@ -172,10 +155,6 @@ test.describe('Keyboard Shortcuts Tests', () => {
     });
 
     expect(saveEnabled).toBe(false);
-
-    console.log(
-      '[Keyboard Shortcuts Test] Cmd+S correctly disabled when no changes'
-    );
   });
 
   test('Cmd+S becomes enabled after changes', async ({
@@ -210,10 +189,6 @@ test.describe('Keyboard Shortcuts Tests', () => {
     }
 
     expect(saveEnabled).toBe(true);
-
-    console.log(
-      '[Keyboard Shortcuts Test] Cmd+S correctly enabled after changes'
-    );
   });
 
   test('ArrowUp at top row does not move selection', async ({ window }) => {
@@ -316,10 +291,6 @@ test.describe('Keyboard Shortcuts Tests', () => {
 
     const newFormulaText = await formulaBar.inputValue();
     expect(newFormulaText).toBe('=A1+A2');
-
-    console.log(
-      '[Keyboard Shortcuts Test] Formula bar editing works correctly'
-    );
   });
 
   test('All shortcuts use CmdOrCtrl for cross-platform compatibility', async ({
@@ -355,9 +326,5 @@ test.describe('Keyboard Shortcuts Tests', () => {
     });
 
     expect(allUseCmdOrCtrl).toBe(true);
-
-    console.log(
-      '[Keyboard Shortcuts Test] All shortcuts use CmdOrCtrl for cross-platform compatibility'
-    );
   });
 });

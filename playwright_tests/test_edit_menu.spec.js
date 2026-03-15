@@ -52,12 +52,6 @@ test.describe('Edit Menu Tests', () => {
       await window.waitForTimeout(100);
     }
 
-    console.log(
-      '[Edit Menu Test] Found',
-      editMenuItems.length,
-      'Edit menu items'
-    );
-
     // Verify menu structure
     expect(editMenuItems.length).toBeGreaterThanOrEqual(4);
 
@@ -88,8 +82,6 @@ test.describe('Edit Menu Tests', () => {
       (item) => item.type === 'separator'
     );
     expect(separatorIndex).toBeGreaterThan(-1);
-
-    console.log('[Edit Menu Test] Edit menu structure verified');
   });
 
   test('Edit menu items have correct IDs', async ({ electronApp, window }) => {
@@ -121,7 +113,6 @@ test.describe('Edit Menu Tests', () => {
     }
 
     expect(hasIds).toBe(true);
-    console.log('[Edit Menu Test] All menu items have correct IDs');
   });
 
   test('Copy menu item copies cell value to clipboard', async ({
@@ -170,8 +161,6 @@ test.describe('Edit Menu Tests', () => {
     });
 
     await expect(cellB1).toHaveText('Test Value', { timeout: 5000 });
-
-    console.log('[Edit Menu Test] Copy operation successful');
   });
 
   test('Cut menu item cuts cell value', async ({ electronApp, window }) => {
@@ -217,8 +206,6 @@ test.describe('Edit Menu Tests', () => {
     });
 
     await expect(cellB1).toHaveText('Cut Me', { timeout: 5000 });
-
-    console.log('[Edit Menu Test] Cut operation successful');
   });
 
   test('Paste menu item pastes clipboard content', async ({
@@ -268,8 +255,6 @@ test.describe('Edit Menu Tests', () => {
 
     // Verify paste worked
     await expect(cellB1).toHaveText('Original', { timeout: 5000 });
-
-    console.log('[Edit Menu Test] Paste operation successful');
   });
 
   test('Keyboard shortcuts are registered for Edit menu', async ({
@@ -306,11 +291,6 @@ test.describe('Edit Menu Tests', () => {
     expect(shortcuts.copy).toContain('C');
     expect(shortcuts.paste).toContain('V');
     expect(shortcuts.goToRange).toContain('G');
-
-    console.log(
-      '[Edit Menu Test] All keyboard shortcuts are registered:',
-      shortcuts
-    );
   });
 
   test('Go to Range menu item works', async ({ electronApp, window }) => {
@@ -337,7 +317,5 @@ test.describe('Edit Menu Tests', () => {
     // Verify a cell is still selected after triggering Go to Range
     const selectedCell = await window.locator('.cell.selected');
     await expect(selectedCell).toBeVisible();
-
-    console.log('[Edit Menu Test] Go to Range operation completed');
   });
 });

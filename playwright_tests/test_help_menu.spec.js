@@ -39,12 +39,6 @@ test.describe('Help Menu Tests', () => {
       await window.waitForTimeout(100);
     }
 
-    console.log(
-      '[Help Menu Test] Found',
-      helpMenuItems.length,
-      'Help menu items'
-    );
-
     // Verify menu structure
     expect(helpMenuItems.length).toBeGreaterThanOrEqual(1);
 
@@ -54,8 +48,6 @@ test.describe('Help Menu Tests', () => {
     );
     expect(aboutItem).toBeTruthy();
     expect(aboutItem.id).toBe('about');
-
-    console.log('[Help Menu Test] Help menu structure verified');
   });
 
   test('Help menu exists', async ({ electronApp, window }) => {
@@ -72,7 +64,6 @@ test.describe('Help Menu Tests', () => {
     });
 
     expect(hasHelpMenu).toBe(true);
-    console.log('[Help Menu Test] Help menu exists');
   });
 
   test('About item has correct ID', async ({ electronApp, window }) => {
@@ -97,7 +88,6 @@ test.describe('Help Menu Tests', () => {
     }
 
     expect(hasAboutId).toBe(true);
-    console.log('[Help Menu Test] About item has correct ID');
   });
 
   test('App version is available', async ({ electronApp, window }) => {
@@ -113,8 +103,6 @@ test.describe('Help Menu Tests', () => {
 
     expect(version).toBeTruthy();
     expect(version).toMatch(/^\d+\.\d+\.\d+/); // Semantic versioning format
-
-    console.log('[Help Menu Test] App version:', version);
   });
 
   test('About panel options are configured', async ({
@@ -143,7 +131,5 @@ test.describe('Help Menu Tests', () => {
 
     expect(aboutItemExists.exists).toBe(true);
     expect(aboutItemExists.hasClick).toBe(true);
-
-    console.log('[Help Menu Test] About panel is configured and clickable');
   });
 });
