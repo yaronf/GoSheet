@@ -6,6 +6,8 @@ A modern spreadsheet application with a Go backend and web frontend, designed fo
 
 ## Architecture
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a detailed architecture document with Mermaid diagrams.
+
 **Native macOS Application (Electron)**:
 - **Backend**: Go HTTP server with REST API  
 - **Frontend**: Pure HTML/CSS/JavaScript (ES6 modules)  

@@ -168,6 +168,7 @@ Quality checks run in CI and via pre-commit hooks. Run them before submitting a 
 | Tool | Command | Config |
 |------|---------|--------|
 | ESLint (JS) | `npm run lint` | [eslint.config.js](eslint.config.js) |
+| Type check (JS) | `npm run typecheck` | [tsconfig.json](tsconfig.json) |
 | golangci-lint (Go) | `make lint` | [.golangci.yml](.golangci.yml) |
 
 **ESLint rules:** Recommended + Prettier compatibility. Complexity warning at 15 (extract helpers if exceeded).
@@ -210,7 +211,7 @@ Coverage targets and baseline: [coverage-baseline.md](_bmad-output/implementatio
 - Extract helper functions when complexity exceeds 15
 - Use early returns and guard clauses to reduce nesting
 - Add unit tests for new model/controller/api logic
-- Run `npm run lint`, `npm run format:check`, `make lint` before committing
+- Run `npm run lint`, `npm run format:check`, `npm run typecheck`, `make lint` before committing
 
 **Don't:**
 - Leave functions with complexity >20

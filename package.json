@@ -26,6 +26,7 @@
     "prebuild": "make build-server-universal",
     "openapi:lint": "npx @redocly/cli lint api/openapi.yaml",
     "openapi:generate": "npx openapi-typescript api/openapi.yaml -o frontend/api-types.d.ts",
+    "typecheck": "tsc --noEmit",
     "openapi:preview": "npx swagger-ui-watcher api/openapi.yaml"
   },
   "keywords": [
@@ -49,6 +50,7 @@
     "lint-staged": "^16.2.7",
     "nyc": "^18.0.0",
     "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9",
     "playwright": "^1.58.2",
     "prettier": "^3.8.1"
   },

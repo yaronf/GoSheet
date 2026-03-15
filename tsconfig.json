@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "skipLibCheck": true
+  },
+  "include": ["frontend/**/*.js", "frontend/**/*.d.ts", "electron/**/*.js"],
+  "exclude": ["node_modules", "dist", "playwright_tests"]
+}
