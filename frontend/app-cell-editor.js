@@ -68,6 +68,10 @@ function spliceRefIntoInput(ref, inputEl) {
   const newEnd = insertStart + ref.length;
   input.setSelectionRange(newEnd, newEnd);
   lastInsertedRefSpan = { start: insertStart, end: newEnd };
+  // Story 23.5: Scroll input so inserted ref is visible (narrow cell-editor)
+  if (input.scrollWidth > input.clientWidth) {
+    input.scrollLeft = input.scrollWidth - input.clientWidth;
+  }
   // Only suppress the blur handler for .cell-editor inputs — the formula bar
   // has no blur-finish handler so setting suppressBlurFinish there would leave
   // it permanently true and silently swallow the next cell-editor commit.
@@ -277,6 +281,7 @@ function finishEditing(row, col, value, cell) {
     .catch((err) => {
       console.error('Error setting cell value:', err);
       cell.textContent = '#ERROR';
+      cell.title = '#ERROR';
       cell.classList.add('error-cell');
       appState.isEditing = false;
       isSaving = false;
@@ -377,11 +382,22 @@ export function applyCellValue(
 ) {
   const safeValue = value ?? '';
   cell.textContent = safeValue;
-  cell.title =
-    safeValue && (isError || safeValue.length > TOOLTIP_LENGTH_THRESHOLD)
-      ? safeValue
-      : '';
-  cell.classList.toggle('error-cell', isError);
+  // All error types (ErrEval, ErrRef, ErrCircular, ErrParse) get same treatment:
+  // error-cell class + tooltip. Use isError from API and #-prefixed display as fallback.
+  const isErrorCell = isError || (safeValue && safeValue.startsWith('#'));
+  const needsTooltip =
+    isErrorCell || (safeValue && safeValue.length > TOOLTIP_LENGTH_THRESHOLD);
+  const tooltipText = needsTooltip ? safeValue || '#ERROR' : '';
+  // Use data-tooltip for custom tooltip (bypasses native title quirks with long error text)
+  if (tooltipText) {
+    cell.dataset.tooltip = tooltipText;
+    cell.title = '';
+    cell.setAttribute('aria-label', tooltipText);
+  } else {
+    delete cell.dataset.tooltip;
+    cell.removeAttribute('aria-label');
+  }
+  cell.classList.toggle('error-cell', isErrorCell);
   if ((rawValue ?? '').startsWith('=')) {
     cell.classList.add('formula-cell');
     cell.dataset.formula = rawValue;

@@ -249,8 +249,8 @@ func TestControllerLoadFromBytes_CycleShowsError(t *testing.T) {
 
 	cellA1 := ctrl.Sheet.GetCell(0, 0)
 	cellB1 := ctrl.Sheet.GetCell(0, 1)
-	assert.True(t, cellA1.IsError, "A1 should be error after load")
-	assert.True(t, cellB1.IsError, "B1 should be error after load")
+	assert.True(t, cellA1.IsError(), "A1 should be error after load")
+	assert.True(t, cellB1.IsError(), "B1 should be error after load")
 	assert.Contains(t, cellA1.Computed, "circular")
 	assert.Contains(t, cellB1.Computed, "circular")
 }

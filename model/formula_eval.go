@@ -378,9 +378,9 @@ func evaluateCellRef(ref *CellRef, sheet *Spreadsheet) (Value, error) {
 	computed := cell.Computed
 
 	// If the referenced cell itself contains an error, propagate it.
-	// #REF! propagates as RefErrorValue; other errors propagate as ErrorValue.
-	if cell.IsError {
-		if computed == "#REF!" {
+	// ErrRef (#REF!) propagates as RefErrorValue; other errors propagate as ErrorValue.
+	if cell.ErrorKind != ErrNone {
+		if cell.ErrorKind == ErrRef {
 			return RefErrorValue{}, nil
 		}
 		return ErrorValue{fmt.Errorf("referenced cell has error")}, nil

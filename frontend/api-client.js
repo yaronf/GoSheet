@@ -122,10 +122,11 @@ const GetAllCells = async () => {
     const ref = colToLetter(c.col) + (c.row + 1);
     const display = c.computed ?? c.value ?? '';
     const raw = c.value ?? '';
+    const isError = c.isError ?? false;
     cells[ref] = {
       display,
       raw,
-      isError: c.isError ?? false,
+      isError,
       styleId: c.styleId,
       alignment: c.alignment,
     };

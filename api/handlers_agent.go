@@ -332,11 +332,13 @@ func (s *Server) HandleAgentRange(w http.ResponseWriter, r *http.Request) {
 				}
 				entry["computed"] = computed
 				entry["isFormula"] = cell.IsFormula
+				entry["isError"] = cell.IsError()
 				entry["styleId"] = cell.StyleId
 			} else {
 				entry["raw"] = ""
 				entry["computed"] = ""
 				entry["isFormula"] = false
+				entry["isError"] = false
 				entry["styleId"] = 0
 			}
 			cells = append(cells, entry)

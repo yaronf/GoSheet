@@ -214,7 +214,7 @@ func (s *Spreadsheet) rebuildFormulaASTs() map[string]bool {
 				ast, err := ParseFormula("=" + cell.Value)
 				if err != nil {
 					cellRef := CoordsToRef(row, col)
-					cell.SetError("parse error: " + err.Error())
+					cell.setParseError(FormatFormulaParseError("="+cell.Value, err))
 					parseErrors[cellRef] = true
 					continue
 				}
@@ -253,7 +253,7 @@ func (s *Spreadsheet) evaluateFormulaCell(cellRef string, parseErrors map[string
 	if cell != nil && cell.IsFormula {
 		val, evalErr := EvaluateFormula("="+cell.Value, cell.ParsedFormula, s)
 		if evalErr != nil {
-			cell.SetError(evalErr.Error())
+			cell.SetError(FormatFormulaParseError("="+cell.Value, evalErr)) // ErrEval
 		} else {
 			cell.SetFromValue(val)
 		}
@@ -276,7 +276,7 @@ func (s *Spreadsheet) evaluateWithCycles(allRefs []string, parseErrors map[strin
 		}
 		for _, ref := range ExtractCellReferences("=" + cell.Value) {
 			if hasCycle, cyclePath := s.Dependencies.DetectCircularReference(cellRef, ref); hasCycle {
-				cell.SetError("circular reference: " + strings.Join(cyclePath, " → "))
+				cell.SetCircularError("circular reference: " + strings.Join(cyclePath, " → "))
 				cycleMembers[cellRef] = true
 				break
 			}
@@ -323,7 +323,7 @@ func (s *Spreadsheet) String() string {
 }
 
 // ApplyStyleToCell applies the given style to the cell at (row, col).
-// No-op if styleId is 0. Returns error if styleId is invalid.
+// No-op if styleId is 0. Returns error if styleId is invalid or cell has an error.
 func (s *Spreadsheet) ApplyStyleToCell(row, col int, styleId int) error {
 	if styleId == 0 {
 		return nil
@@ -341,6 +341,9 @@ func (s *Spreadsheet) ApplyStyleToCell(row, col int, styleId int) error {
 	if cell == nil {
 		cell = NewCell("")
 		s.Cells[row][col] = cell
+	}
+	if cell.ErrorKind != ErrNone {
+		return fmt.Errorf("cannot apply style to cell with error")
 	}
 	cell.StyleId = styleId
 	s.Modified = true
@@ -625,7 +628,7 @@ func (s *Spreadsheet) updateMergesForDeleteColumn(deleteCol int) []MergeRegion {
 }
 
 // ApplyStyleToRange applies the given style to all cells in the range [startRow,endRow] x [startCol,endCol].
-// No-op if styleId is 0. Returns error if styleId is invalid.
+// No-op if styleId is 0. Returns error if styleId is invalid or any cell in range has an error.
 func (s *Spreadsheet) ApplyStyleToRange(startRow, startCol, endRow, endCol int, styleId int) error {
 	if styleId == 0 {
 		return nil
@@ -643,6 +646,15 @@ func (s *Spreadsheet) ApplyStyleToRange(startRow, startCol, endRow, endCol int, 
 	const maxRangeCells = 10000
 	if (endRow-startRow+1)*(endCol-startCol+1) > maxRangeCells {
 		return fmt.Errorf("invalid range: too large (max %d cells)", maxRangeCells)
+	}
+	// Pre-check: reject if any cell in range has an error (avoids partial apply)
+	for row := startRow; row <= endRow; row++ {
+		for col := startCol; col <= endCol; col++ {
+			ar, ac := s.ResolveToAnchor(row, col)
+			if cell := s.GetCell(ar, ac); cell != nil && cell.ErrorKind != ErrNone {
+				return fmt.Errorf("cannot apply style to cell with error")
+			}
+		}
 	}
 	for row := startRow; row <= endRow; row++ {
 		for col := startCol; col <= endCol; col++ {

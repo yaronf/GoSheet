@@ -1,27 +1,43 @@
 package model
 
+// ErrorKind represents the type of error in a cell. Used for type-safe branching instead of string matching.
+type ErrorKind int
+
+const (
+	ErrNone ErrorKind = iota
+	ErrEval
+	ErrRef
+	ErrCircular
+	ErrParse
+)
+
 // Cell represents a single spreadsheet cell
 type Cell struct {
-	Value         string   // Raw value: bare expression for formulas (no "="), plain text otherwise
-	Computed      string   // Calculated result (what's displayed)
-	IsFormula     bool     // True if cell contains a formula
-	IsQuotePrefix bool     // True if Value starts with "'" (Excel-style text force)
-	IsError       bool     // True if the computed value is an error
-	StyleId       int      // 0 = no style; 1=Title, 2=Header, 3=Total
-	InvalidRefs   []string // Persisted list of ref/range strings that are invalid (e.g. "B2", "A1:A1")
-	ParsedFormula *Formula // Runtime only — not persisted; rebuilt from Value on load
+	Value         string    // Raw value: bare expression for formulas (no "="), plain text otherwise
+	Computed      string    // Calculated result (what's displayed)
+	IsFormula     bool      // True if cell contains a formula
+	IsQuotePrefix bool      // True if Value starts with "'" (Excel-style text force)
+	ErrorKind     ErrorKind // ErrNone = no error; ErrEval, ErrRef, ErrCircular, ErrParse
+	StyleId       int       // 0 = no style; 1=Title, 2=Header, 3=Total
+	InvalidRefs   []string  // Persisted list of ref/range strings that are invalid (e.g. "B2", "A1:A1")
+	ParsedFormula *Formula  // Runtime only — not persisted; rebuilt from Value on load
+}
+
+// IsError returns true if the cell has an error (ErrorKind != ErrNone).
+func (c *Cell) IsError() bool {
+	return c.ErrorKind != ErrNone
 }
 
 // cellPersist is the shadow struct used for MessagePack encode/decode.
 // ParsedFormula is intentionally excluded — participle AST has unexported fields.
 // It is rebuilt from Value on load.
 type cellPersist struct {
-	Value         string   `msgpack:"value"`
-	IsFormula     bool     `msgpack:"is_formula"`
-	IsQuotePrefix bool     `msgpack:"is_quote_prefix"`
-	IsError       bool     `msgpack:"is_error"`
-	StyleId       int      `msgpack:"style_id"`
-	InvalidRefs   []string `msgpack:"invalid_refs"`
+	Value         string    `msgpack:"value"`
+	IsFormula     bool      `msgpack:"is_formula"`
+	IsQuotePrefix bool      `msgpack:"is_quote_prefix"`
+	ErrorKind     ErrorKind `msgpack:"error_kind"`
+	StyleId       int       `msgpack:"style_id"`
+	InvalidRefs   []string  `msgpack:"invalid_refs"`
 }
 
 // RawValue returns the user-facing raw string: "=<expr>" for formulas, Value otherwise.
@@ -74,25 +90,24 @@ func (c *Cell) SetValue(value string) {
 			}
 			c.InvalidRefs = nil
 		} else {
-			// Normalization failed - treat as invalid formula (shows error, not raw text)
+			// Normalization failed - treat as invalid formula (shows specific error when possible)
 			c.IsFormula = true
 			c.IsQuotePrefix = false
 			c.Value = value[1:] // strip "=", store bare expression
-			c.Computed = "#ERROR invalid formula"
-			c.IsError = true
+			c.setParseError(FormatFormulaParseError(value, err))
 			c.ParsedFormula = nil
 		}
 	} else if startsWithQuote {
 		// Quote prefix — force text mode (Excel-style)
 		c.IsFormula = false
 		c.IsQuotePrefix = true
-		c.IsError = false
+		c.ErrorKind = ErrNone
 		c.Value = value        // preserve "'001"
 		c.Computed = value[1:] // strip leading quote → "001"
 	} else {
 		c.IsFormula = false
 		c.IsQuotePrefix = false
-		c.IsError = false
+		c.ErrorKind = ErrNone
 		c.Value = value
 		c.Computed = value
 	}
@@ -104,20 +119,32 @@ func (c *Cell) SetValue(value string) {
 // SetComputed updates the computed (displayed) value
 func (c *Cell) SetComputed(computed string) {
 	c.Computed = computed
-	c.IsError = false
+	c.ErrorKind = ErrNone
 }
 
-// SetError marks the cell as having a formula error with the given message.
+// SetError marks the cell as having an evaluation error with the given message.
 // msg must not start with "#" — use SetRefError for #REF! and SetFromValue for typed Values.
 func (c *Cell) SetError(msg string) {
 	c.Computed = "#ERROR " + msg
-	c.IsError = true
+	c.ErrorKind = ErrEval
+}
+
+// setParseError marks the cell as having a parse error. Internal use.
+func (c *Cell) setParseError(msg string) {
+	c.Computed = "#ERROR " + msg
+	c.ErrorKind = ErrParse
+}
+
+// SetCircularError marks the cell as having a circular reference error.
+func (c *Cell) SetCircularError(msg string) {
+	c.Computed = "#ERROR " + msg
+	c.ErrorKind = ErrCircular
 }
 
 // SetRefError marks the cell as a #REF! error.
 func (c *Cell) SetRefError() {
 	c.Computed = "#REF!"
-	c.IsError = true
+	c.ErrorKind = ErrRef
 }
 
 // SetFromValue updates the cell's computed state from a typed Value.

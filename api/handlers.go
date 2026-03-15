@@ -150,7 +150,7 @@ func (s *Server) HandleGetCellValue(w http.ResponseWriter, r *http.Request) {
 	}
 	cell := s.Ctrl.Sheet.GetCell(row, col)
 	value := s.Ctrl.GetCellValue(row, col)
-	isError := cell != nil && cell.IsError
+	isError := cell != nil && cell.IsError()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
@@ -192,7 +192,7 @@ func (s *Server) HandleSetCellValue(w http.ResponseWriter, r *http.Request) {
 	var value, displayValue string
 	var isFormula, isError bool
 	if cell != nil {
-		value, displayValue, isFormula, isError = cell.RawValue(), cell.Computed, cell.IsFormula, cell.IsError
+		value, displayValue, isFormula, isError = cell.RawValue(), cell.Computed, cell.IsFormula, cell.IsError()
 	}
 	urState := s.Ctrl.UndoRedoState()
 	w.Header().Set("Content-Type", "application/json")
@@ -308,7 +308,7 @@ func (s *Server) buildCellEntry(row, col int) (map[string]any, bool) {
 	entry := map[string]any{
 		"row": row, "col": col,
 		"computed": value,
-		"isError":  cell != nil && cell.IsError,
+		"isError":  cell != nil && cell.IsError(),
 		"value":    s.Ctrl.GetCellRawValue(row, col),
 	}
 	if cell != nil && cell.StyleId != 0 {

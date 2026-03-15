@@ -12,7 +12,7 @@ import (
 )
 
 // File format version for MessagePack encoding.
-const FileFormatVersion = "2.0"
+const FileFormatVersion = "2.1"
 
 // fileContentV2 is the MessagePack payload structure (v2.0).
 type fileContentV2 struct {
@@ -83,7 +83,7 @@ func cellsToPersist(cells map[int]map[int]*Cell) map[int]map[int]*cellPersist {
 					Value:         c.Value,
 					IsFormula:     c.IsFormula,
 					IsQuotePrefix: c.IsQuotePrefix,
-					IsError:       c.IsError,
+					ErrorKind:     c.ErrorKind,
 					StyleId:       c.StyleId,
 					InvalidRefs:   c.InvalidRefs,
 				}
@@ -116,7 +116,7 @@ func cellsFromPersist(p map[int]map[int]*cellPersist) map[int]map[int]*Cell {
 					Computed:      computed,
 					IsFormula:     cp.IsFormula,
 					IsQuotePrefix: cp.IsQuotePrefix,
-					IsError:       cp.IsError,
+					ErrorKind:     cp.ErrorKind,
 					StyleId:       cp.StyleId,
 					InvalidRefs:   cp.InvalidRefs,
 					ParsedFormula: nil, // rebuilt on load

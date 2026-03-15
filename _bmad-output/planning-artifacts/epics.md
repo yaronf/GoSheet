@@ -3727,5 +3727,6 @@ So that I can review past agent activity.
 - **23-4** Recent files error handling — Show error when file can't open; optionally remove from list; fix dialog visibility
 - **23-5** Formula reference UX polish — Fix drag in formula bar; improve inline visibility when ref inserted
 - **23-6** Refresh welcome page UI — Update layout, typography, spacing; add hover/focus states; ensure dark mode support
+- **23-7** Typed cell error enum — Replace string-based error encoding with typed `ErrorKind` enum (ErrNone, ErrEval, ErrRef, ErrCircular, ErrParse) on Cell; keep Computed for display; persist enum (MessagePack); bump file format version
 
-**Source:** `sprint-change-proposal-2026-03-15-epic23.md`
+**Source:** `sprint-change-proposal-2026-03-15-epic23.md`, `backlog.md` (Typed cell error enum)

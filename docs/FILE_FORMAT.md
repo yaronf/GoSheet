@@ -1,12 +1,12 @@
 # GoSheet .sheet File Format Specification
 
-**File format version:** 2.0  
+**File format version:** 2.1  
 **Encoding:** MessagePack (msgpack.org)  
 **Extension:** `.sheet`
 
 This document describes the binary format of GoSheet spreadsheet files so that other languages (Python, JavaScript, Rust, etc.) can read and write `.sheet` files.
 
-**Note:** The `version` field is the **file format version** (schema), not the GoSheet app version. Format version 2.0 defines this structure; future schema changes would use 2.1, 3.0, etc.
+**Note:** The `version` field is the **file format version** (schema), not the GoSheet app version. Format version 2.1 defines this structure; future schema changes would use 2.2, 3.0, etc.
 
 ## Overview
 
@@ -14,7 +14,7 @@ A `.sheet` file is a single MessagePack-encoded map (object) containing:
 
 | Field       | Type   | Description                          |
 |-------------|--------|--------------------------------------|
-| `version`   | string | File format version, must be `"2.0"` |
+| `version`   | string | File format version, must be `"2.1"` |
 | `cell_count`| int    | Number of cells (informational)      |
 | `cells`     | map    | Row → Col → Cell data                |
 | `merges`    | array  | Merge regions                        |
@@ -24,7 +24,7 @@ A `.sheet` file is a single MessagePack-encoded map (object) containing:
 
 ```
 {
-  "version": "2.0",
+  "version": "2.1",
   "cell_count": 42,
   "cells": { ... },
   "merges": [ ... ],
@@ -43,7 +43,7 @@ A `.sheet` file is a single MessagePack-encoded map (object) containing:
 | `value`         | string | Raw value: formula expression without leading `=`, or plain text. Always string (numbers stored as `"42"` etc.) |
 | `is_formula`    | bool   | True if cell contains a formula |
 | `is_quote_prefix` | bool | True if value starts with `'` (Excel-style text force) |
-| `is_error`      | bool   | True if computed value is an error |
+| `error_kind`    | int    | Error type: 0=None, 1=Eval, 2=Ref, 3=Circular, 4=Parse. 0 means no error. |
 | `style_id`      | int    | 0 = none; 1=Title, 2=Header, 3=Total |
 | `invalid_refs`  | array of string | Refs that failed to parse (e.g. `["B2"]`) |
 
@@ -97,7 +97,7 @@ Font names (e.g. `"Helvetica"`, `"Arial"`) are stored as plain strings. If a fon
 ## MessagePack Details
 
 - Use standard MessagePack encoding (RFC-like; see msgpack.org).
-- Map keys for the top-level and nested structures use the field names as shown (snake_case for cell fields: `value`, `is_formula`, `is_quote_prefix`, etc.). No separate `computed` field is stored; it is derived on load.
+- Map keys for the top-level and nested structures use the field names as shown (snake_case for cell fields: `value`, `is_formula`, `is_quote_prefix`, `error_kind`, etc.). No separate `computed` field is stored; it is derived on load.
 - Integer map keys (row/col in `cells`) are encoded as MessagePack integers.
 - The Go implementation uses `SetSortMapKeys(true)` for deterministic output; other implementations may encode maps in any order.
 
@@ -107,7 +107,7 @@ A spreadsheet with one cell at A1 containing "Hello":
 
 ```json
 {
-  "version": "2.0",
+  "version": "2.1",
   "cell_count": 1,
   "cells": {
     "0": {
@@ -115,9 +115,8 @@ A spreadsheet with one cell at A1 containing "Hello":
         "value": "Hello",
         "is_formula": false,
         "is_quote_prefix": false,
-        "is_error": false,
+        "error_kind": 0,
         "style_id": 0,
-        "alignment": "",
         "invalid_refs": []
       }
     }
@@ -133,7 +132,8 @@ A spreadsheet with one cell at A1 containing "Hello":
 
 | Version | Encoding | Notes |
 |---------|----------|-------|
-| 2.0     | MessagePack | Current format; cross-language |
+| 2.1     | MessagePack | Typed `error_kind` replaces `is_error`; no backward compat with 2.0 |
+| 2.0     | MessagePack | Cross-language; deprecated (no `error_kind`) |
 | 1.2     | gob      | Deprecated; no longer supported |
 | 1.1     | gob      | Deprecated; no longer supported |
 

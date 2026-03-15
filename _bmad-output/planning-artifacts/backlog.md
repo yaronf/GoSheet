@@ -6,15 +6,6 @@ Future ideas and feature notes. Promote to sprint via `/bmad-bmm-correct-course`
 
 ## Ideas
 
-### Language-independent file format
-
-See `[technical-file-format-cross-language-random-access-research-2026-02-23.md](research/technical-file-format-cross-language-random-access-research-2026-02-23.md)`  
-→ **Promoted** to Epic 22 (MessagePack) — `[sprint-change-proposal-2026-03-15.md](sprint-change-proposal-2026-03-15.md)`
-
-### Generic font fallback
-
-→ **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`
-
 ### Select cells/ranges for inclusion in formula
 
 → **Promoted** to Epic 23 (enhancement) — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`  
@@ -35,21 +26,9 @@ Relevant: `[model/cell.go](../../model/cell.go)`, `[model/formula.go](../../mode
 
 In dev mode, right-clicking the dock icon and selecting "Quit" navigates to the Welcome screen instead of quitting the app. Expected: app quits (or shows unsaved-changes dialog then quits).
 
-### Text wrapping within cell
-
-→ **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`
-
 ### Manually set column width
 
 Allow user to set column width (e.g. via drag on column header edge). Would improve text-wrap UX and general layout control.
-
-### Copy/paste full rows/cols
-
-→ **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`
-
-### Recent Files on Welcome Page
-
-→ **Promoted** to Epic 23 — `[sprint-change-proposal-2026-03-15-epic23.md](sprint-change-proposal-2026-03-15-epic23.md)`
 
 ### Security warning while building for Electron
 

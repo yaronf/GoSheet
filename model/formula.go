@@ -80,6 +80,45 @@ func ParseFormula(formula string) (*Formula, error) {
 	return formulaParser.ParseString("", formula)
 }
 
+// FormatFormulaParseError returns a user-friendly error message for parse failures.
+// For known patterns (e.g. =AVG, = sum, =SUM()), returns a specific message instead of "parse error".
+func FormatFormulaParseError(formula string, parseErr error) string {
+	upper := strings.ToUpper(strings.TrimSpace(formula))
+	if !strings.HasPrefix(upper, "=") {
+		upper = "=" + upper
+	}
+	// Normalize for comparison: remove spaces so "= sum" and "=SUM" both match
+	norm := strings.ReplaceAll(upper, " ", "")
+	knownFns := []string{"AVG", "SUM", "MIN", "MAX", "COUNT", "CONCAT", "STDEV", "SQRT", "ABS", "ROUND", "FLOOR", "CEIL", "UPPER", "LOWER", "LEN", "LEFT", "RIGHT", "MID"}
+	for _, fn := range knownFns {
+		if norm == "="+fn {
+			return fn + " requires parentheses (e.g. " + fn + "(A1:A5))"
+		}
+		if norm == "="+fn+"(" || norm == "="+fn+"()" {
+			return fn + " requires at least one argument"
+		}
+	}
+	// Single identifier (known or unknown): =ident, =foo — suggest parentheses
+	if len(norm) > 1 && norm[0] == '=' {
+		rest := norm[1:]
+		if len(rest) > 0 && rest[0] >= 'A' && rest[0] <= 'Z' {
+			// All letters/numbers/underscore
+			allIdent := true
+			for _, c := range rest {
+				if !((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+					allIdent = false
+					break
+				}
+			}
+			if allIdent {
+				return rest + " requires parentheses (e.g. " + rest + "(A1:A5))"
+			}
+		}
+	}
+	// Fall back to user-friendly message — avoid raw parser output like "unexpected token <EOF>"
+	return "malformed formula"
+}
+
 // NormalizeFormula parses and re-serializes a formula to normalize it
 // (uppercase cell refs, remove extra spaces, consistent formatting, preserve $ anchors)
 func NormalizeFormula(formula string) (string, error) {

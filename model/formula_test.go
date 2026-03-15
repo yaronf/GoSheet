@@ -498,6 +498,16 @@ func TestCellRefToCoords(t *testing.T) {
 	}
 }
 
+func TestFormatFormulaParseError(t *testing.T) {
+	// =avg( or =AVG( — incomplete formula, show specific error not "parse error"
+	_, err := ParseFormula("=AVG(")
+	require.Error(t, err)
+	msg := FormatFormulaParseError("=AVG(", err)
+	assert.Contains(t, msg, "AVG")
+	assert.Contains(t, msg, "argument")
+	assert.NotContains(t, msg, "parse error")
+}
+
 func TestFormulaParseError(t *testing.T) {
 	sheet := NewSpreadsheet()
 	_, err := EvaluateFormula("=1+", nil, sheet)
@@ -844,8 +854,7 @@ func TestRefErrorValue_LeftOperandNotMaskedByRightError(t *testing.T) {
 
 	// A1 is a #REF! error cell
 	sheet.SetCell(0, 0, "=X1")
-	sheet.GetCell(0, 0).IsError = true
-	sheet.GetCell(0, 0).Computed = "#REF!"
+	sheet.GetCell(0, 0).SetRefError()
 
 	// B1 is a plain text cell (toNumber will fail on it when used in arithmetic)
 	sheet.SetCell(0, 1, "hello")
@@ -887,9 +896,7 @@ func TestRefErrorValue_PropagatesThroughCellRef(t *testing.T) {
 
 	// A1 has a #REF! error (simulates a formula whose ref was deleted and evaluated)
 	sheet.SetCell(0, 0, "=B1")
-	a1 := sheet.GetCell(0, 0)
-	a1.IsError = true
-	a1.Computed = "#REF!"
+	sheet.GetCell(0, 0).SetRefError()
 
 	// B2 = =A1 — should propagate #REF!, not "#ERROR referenced cell has error"
 	val, err := EvaluateFormula("=A1", nil, sheet)
@@ -1018,8 +1025,7 @@ func TestRefErrorValue_ChainedCellRef(t *testing.T) {
 
 	// A1 is a #REF! error cell
 	sheet.SetCell(0, 0, "=X1")
-	sheet.GetCell(0, 0).IsError = true
-	sheet.GetCell(0, 0).Computed = "#REF!"
+	sheet.GetCell(0, 0).SetRefError()
 
 	// B1 references A1
 	val, err := EvaluateFormula("=A1", nil, sheet)

@@ -211,7 +211,7 @@ func (cmd *SetRangeValuesCommand) Undo() error {
 				}
 				val, err := model.EvaluateFormula("="+restored.Value, nil, cmd.ctrl.Sheet)
 				if err != nil {
-					restored.SetError(err.Error())
+					restored.SetError(formatFormulaError("="+restored.Value, err))
 				} else {
 					restored.SetFromValue(val)
 				}
@@ -287,7 +287,7 @@ func (cmd *SetCellCommand) Undo() error {
 			// referenced cells changed between Do() and Undo())
 			val, err := model.EvaluateFormula("="+restored.Value, nil, cmd.ctrl.Sheet)
 			if err != nil {
-				restored.SetError(err.Error())
+				restored.SetError(formatFormulaError("="+restored.Value, err))
 			} else {
 				restored.SetFromValue(val)
 			}
@@ -355,7 +355,7 @@ func (cmd *ClearRangeCommand) Undo() error {
 				// Re-evaluate to get fresh Computed (snapshot may be stale)
 				val, err := model.EvaluateFormula("="+cp.Value, nil, cmd.ctrl.Sheet)
 				if err != nil {
-					cp.SetError(err.Error())
+					cp.SetError(formatFormulaError("="+cp.Value, err))
 				} else {
 					cp.SetFromValue(val)
 				}

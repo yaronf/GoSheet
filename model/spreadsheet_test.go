@@ -176,8 +176,8 @@ func TestRecalculateAll_CircularRef(t *testing.T) {
 
 	cellA1 := sheet.GetCell(0, 0)
 	cellB1 := sheet.GetCell(0, 1)
-	assert.True(t, cellA1.IsError, "A1 should be an error cell")
-	assert.True(t, cellB1.IsError, "B1 should be an error cell")
+	assert.True(t, cellA1.IsError(), "A1 should be an error cell")
+	assert.True(t, cellB1.IsError(), "B1 should be an error cell")
 	assert.Contains(t, cellA1.Computed, "circular")
 	assert.Contains(t, cellB1.Computed, "circular")
 }
@@ -192,9 +192,9 @@ func TestRecalculateAll_CircularAndNonCircular(t *testing.T) {
 	err := sheet.RecalculateAll()
 	assert.NoError(t, err)
 
-	assert.True(t, sheet.GetCell(0, 0).IsError, "A1 should be error")
-	assert.True(t, sheet.GetCell(0, 1).IsError, "B1 should be error")
-	assert.False(t, sheet.GetCell(0, 3).IsError, "D1 should not be error")
+	assert.True(t, sheet.GetCell(0, 0).IsError(), "A1 should be error")
+	assert.True(t, sheet.GetCell(0, 1).IsError(), "B1 should be error")
+	assert.False(t, sheet.GetCell(0, 3).IsError(), "D1 should not be error")
 	assert.Equal(t, "4", sheet.GetCell(0, 3).Computed)
 }
 
@@ -210,9 +210,9 @@ func TestRecalculateAll_NonCycleCellReferencingCycleMember(t *testing.T) {
 	err := sheet.RecalculateAll()
 	assert.NoError(t, err)
 
-	assert.True(t, sheet.GetCell(0, 0).IsError, "A1 should be error")
-	assert.True(t, sheet.GetCell(0, 1).IsError, "B1 should be error")
-	assert.True(t, sheet.GetCell(0, 4).IsError, "E1 should be error (referenced cell has error)")
+	assert.True(t, sheet.GetCell(0, 0).IsError(), "A1 should be error")
+	assert.True(t, sheet.GetCell(0, 1).IsError(), "B1 should be error")
+	assert.True(t, sheet.GetCell(0, 4).IsError(), "E1 should be error (referenced cell has error)")
 }
 
 func TestRecalculateAll_StaleComputedOverwritten(t *testing.T) {
@@ -310,6 +310,33 @@ func TestApplyStyleToRange(t *testing.T) {
 
 	err = sheet.ApplyStyleToRange(2, 2, 2, 2, 99)
 	assert.Error(t, err)
+}
+
+func TestApplyStyleToCell_RejectsErrorCell(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "=zzz") // parse error -> IsError=true
+	cell := sheet.GetCell(0, 0)
+	assert.True(t, cell.IsError(), "cell should have error")
+
+	err := sheet.ApplyStyleToCell(0, 0, 1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot apply style to cell with error")
+	assert.Equal(t, 0, cell.StyleId, "style should not be applied")
+}
+
+func TestApplyStyleToRange_RejectsRangeWithErrorCell(t *testing.T) {
+	sheet := NewSpreadsheet()
+	sheet.SetCell(0, 0, "A")
+	sheet.SetCell(0, 1, "=zzz") // error in B1
+	sheet.SetCell(1, 0, "C")
+
+	err := sheet.ApplyStyleToRange(0, 0, 1, 1, 1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot apply style to cell with error")
+	// No style should have been applied (pre-check rejects before any apply)
+	assert.Equal(t, 0, sheet.GetCell(0, 0).StyleId)
+	assert.Equal(t, 0, sheet.GetCell(0, 1).StyleId)
+	assert.Equal(t, 0, sheet.GetCell(1, 0).StyleId)
 }
 
 func TestApplyStyleToRange_InvalidRange(t *testing.T) {

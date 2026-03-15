@@ -807,6 +807,26 @@ input[type='text'].formula-bar {
   font-weight: 500;
 }
 
+/* Custom tooltip for error/long cells — bypasses native title quirks */
+.cell-tooltip {
+  position: fixed;
+  z-index: 10001;
+  max-width: 320px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  background: var(--color-text-primary);
+  color: var(--color-bg-primary);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.cell-tooltip.visible {
+  opacity: 1;
+}
+
 /* Story 12.2: Named styles (Title, Header, Total) - theme-aware via CSS variables */
 .cell.style-title {
   font-size: 18px;

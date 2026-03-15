@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -237,27 +238,52 @@ func TestLoadFromFile_InvalidCellsMessagePack(t *testing.T) {
 }
 
 func TestLoadFromFile_InvalidVersion(t *testing.T) {
-	// Create valid MessagePack with unsupported version "3.0"
-	content := fileContentV2{
-		Version:   "3.0",
-		CellCount: 0,
-		Cells:     map[int]map[int]*cellPersist{},
-		Merges:    []MergeRegion{},
-		Styles:    NewStyleRegistry(),
+	for _, version := range []string{"2.0", "3.0"} {
+		t.Run(version, func(t *testing.T) {
+			// Format 2.1 required; 2.0 and 3.0 must be rejected
+			content := fileContentV2{
+				Version:   version,
+				CellCount: 0,
+				Cells:     map[int]map[int]*cellPersist{},
+				Merges:    []MergeRegion{},
+				Styles:    NewStyleRegistry(),
+			}
+			data, err := msgpack.Marshal(&content)
+			require.NoError(t, err)
+
+			tmpfile := filepath.Join(t.TempDir(), "badversion.gosheet")
+			require.NoError(t, os.WriteFile(tmpfile, data, 0644))
+
+			_, err = LoadFromFile(tmpfile)
+			if err == nil {
+				t.Error("Expected error when loading file with unsupported version")
+			}
+			if err != nil && !strings.Contains(err.Error(), "unsupported") {
+				t.Errorf("Expected 'unsupported' in error, got: %v", err)
+			}
+		})
 	}
-	data, err := msgpack.Marshal(&content)
+}
+
+func TestSaveAndLoad_ErrorKindRoundTrip(t *testing.T) {
+	// Create cells with ErrParse, ErrRef, ErrEval; save, load, verify ErrorKind preserved.
+	s := NewSpreadsheet()
+	s.SetCell(0, 0, "=zzz") // parse error -> ErrParse
+	s.SetCell(0, 1, "=A1")  // will have InvalidRefs to simulate #REF!
+	s.GetCell(0, 1).InvalidRefs = []string{"A1"}
+	s.GetCell(0, 1).SetRefError()
+	s.SetCell(0, 2, "=1/0") // division by zero -> ErrEval
+
+	tmpfile := filepath.Join(t.TempDir(), "errors.gosheet")
+	require.NoError(t, s.SaveToFile(tmpfile))
+
+	loaded, err := LoadFromFile(tmpfile)
 	require.NoError(t, err)
+	require.NoError(t, loaded.RecalculateAll())
 
-	tmpfile := filepath.Join(t.TempDir(), "badversion.gosheet")
-	require.NoError(t, os.WriteFile(tmpfile, data, 0644))
-
-	_, err = LoadFromFile(tmpfile)
-	if err == nil {
-		t.Error("Expected error when loading file with unsupported version")
-	}
-	if err != nil && !strings.Contains(err.Error(), "unsupported") {
-		t.Errorf("Expected 'unsupported' in error, got: %v", err)
-	}
+	assert.Equal(t, ErrParse, loaded.GetCell(0, 0).ErrorKind, "A1 parse error")
+	assert.Equal(t, ErrRef, loaded.GetCell(0, 1).ErrorKind, "B1 #REF! (InvalidRefs)")
+	assert.Equal(t, ErrEval, loaded.GetCell(0, 2).ErrorKind, "C1 eval error")
 }
 
 func TestHasUnsavedChanges(t *testing.T) {

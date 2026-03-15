@@ -8,6 +8,18 @@ import (
 	"gosheet/model"
 )
 
+// formatFormulaError returns a user-friendly message for formula evaluation failures.
+// Parse errors use FormatFormulaParseError; eval errors use the raw message.
+func formatFormulaError(formula string, err error) string {
+	if err == nil {
+		return ""
+	}
+	if strings.Contains(err.Error(), "parse error:") {
+		return model.FormatFormulaParseError(formula, err)
+	}
+	return err.Error()
+}
+
 // AppController manages the application state and coordinates between UI and model.
 // mu protects Sheet and all operations that read or write spreadsheet state,
 // since multiple HTTP handlers may execute concurrently.
@@ -173,8 +185,9 @@ func (c *AppController) setCellValueInternal(row, col int, value string) error {
 		logutil.Debugf("Evaluating formula: %s", cell.Value)
 		val, err := model.EvaluateFormula("="+cell.Value, cell.ParsedFormula, c.Sheet)
 		if err != nil {
-			logutil.Warnf("Formula error: %v", err)
-			cell.SetError(err.Error())
+			msg := formatFormulaError("="+cell.Value, err)
+			logutil.Warnf("Formula error: %s", msg)
+			cell.SetError(msg)
 		} else {
 			cell.SetFromValue(val)
 		}
@@ -226,7 +239,7 @@ func (c *AppController) recalculateDependents(changedCells []string, skip ...str
 		if cell != nil && cell.IsFormula {
 			val, err := model.EvaluateFormula("="+cell.Value, cell.ParsedFormula, c.Sheet)
 			if err != nil {
-				cell.SetError(err.Error())
+				cell.SetError(formatFormulaError("="+cell.Value, err))
 			} else {
 				cell.SetFromValue(val)
 			}
@@ -273,7 +286,7 @@ func (c *AppController) propagateCycleError(cyclePath []string, cycleStr string)
 		if depCell != nil && depCell.IsFormula {
 			val, evalErr := model.EvaluateFormula("="+depCell.Value, depCell.ParsedFormula, c.Sheet)
 			if evalErr != nil {
-				depCell.SetError(evalErr.Error())
+				depCell.SetError(formatFormulaError("="+depCell.Value, evalErr))
 			} else {
 				depCell.SetFromValue(val)
 			}

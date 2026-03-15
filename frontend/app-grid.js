@@ -276,6 +276,8 @@ export async function refreshAllCells() {
           cleared.add(cell);
           cell.textContent = '';
           cell.title = '';
+          delete cell.dataset.tooltip;
+          cell.removeAttribute('aria-label');
           cell.classList.remove('formula-cell', 'error-cell', ...STYLE_CLASSES);
           cell.style.textAlign = '';
         }
@@ -288,16 +290,18 @@ export async function refreshAllCells() {
           parseInt(match[2]) - 1,
           letterToCol(match[1])
         );
-        if (cell)
+        if (cell) {
+          const isError = cellData.isError ?? false;
           window.applyCellValue?.(
             cell,
             cellData.display,
             cellData.raw ?? '',
             cellData.styleId,
             styles,
-            cellData.isError ?? false,
+            isError,
             cellData.alignment
           );
+        }
       }
     }
   } catch (err) {
@@ -615,4 +619,7 @@ export async function updateFormulaBar(row, col) {
   }
   const rawValue = await GetCellRawValue(row, col);
   formulaBar.value = rawValue || '';
+  // Story 23.5: Clear formula-bar-was-editing flag when we overwrite the formula bar
+  if (typeof window._clearFormulaBarHadFocusBeforeBlur === 'function')
+    window._clearFormulaBarHadFocusBeforeBlur();
 }

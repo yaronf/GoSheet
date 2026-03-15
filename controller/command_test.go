@@ -478,7 +478,7 @@ func TestDeleteRowCommand_RefBecomesError(t *testing.T) {
 	// the cell is marked IsError with Computed="#REF!".
 	cell := ctrl.Sheet.GetCell(1, 0)
 	require.NotNil(t, cell)
-	assert.True(t, cell.IsError, "formula referencing deleted row should produce an error cell")
+	assert.True(t, cell.IsError(), "formula referencing deleted row should produce an error cell")
 	assert.Equal(t, "#REF!", cell.Computed, "computed value should be #REF!")
 	_, parseErr := model.ParseFormula(cell.RawValue())
 	assert.NoError(t, parseErr, "formula string must remain parseable after ref invalidation")
@@ -648,7 +648,7 @@ func TestDeleteRow_RefError_UndoRestoresValid(t *testing.T) {
 	require.NoError(t, ctrl.DeleteRow(1))
 	cell := ctrl.Sheet.GetCell(1, 0) // formula shifted to row 1
 	require.NotNil(t, cell)
-	assert.True(t, cell.IsError)
+	assert.True(t, cell.IsError())
 	assert.Equal(t, "#REF!", cell.Computed)
 	// Formula string must stay parseable (no literal "#REF!" text in it)
 	_, parseErr := model.ParseFormula(cell.RawValue())
@@ -660,7 +660,7 @@ func TestDeleteRow_RefError_UndoRestoresValid(t *testing.T) {
 	assert.Equal(t, "10", ctrl.GetCellValue(2, 0))
 	restoredCell := ctrl.Sheet.GetCell(2, 0)
 	require.NotNil(t, restoredCell)
-	assert.False(t, restoredCell.IsError)
+	assert.False(t, restoredCell.IsError())
 }
 
 // TestDeleteRow_RefError_UndoRedo verifies the full undo→redo cycle for a #REF! formula:
@@ -676,21 +676,21 @@ func TestDeleteRow_RefError_UndoRedo(t *testing.T) {
 
 	// Delete → #REF!
 	require.NoError(t, ctrl.DeleteRow(1))
-	assert.True(t, ctrl.Sheet.GetCell(1, 0).IsError)
+	assert.True(t, ctrl.Sheet.GetCell(1, 0).IsError())
 	assert.Equal(t, "#REF!", ctrl.Sheet.GetCell(1, 0).Computed)
 
 	// Undo → valid
 	_, err := ctrl.Undo()
 	require.NoError(t, err)
 	assert.Equal(t, "3", ctrl.GetCellValue(2, 0))
-	assert.False(t, ctrl.Sheet.GetCell(2, 0).IsError)
+	assert.False(t, ctrl.Sheet.GetCell(2, 0).IsError())
 
 	// Redo → #REF! again
 	_, err = ctrl.Redo()
 	require.NoError(t, err)
 	cell := ctrl.Sheet.GetCell(1, 0)
 	require.NotNil(t, cell)
-	assert.True(t, cell.IsError)
+	assert.True(t, cell.IsError())
 	assert.Equal(t, "#REF!", cell.Computed)
 }
 
@@ -706,21 +706,21 @@ func TestDeleteColumn_RefError_UndoRedo(t *testing.T) {
 	require.NoError(t, ctrl.DeleteColumn(1))
 	cell := ctrl.Sheet.GetCell(0, 1) // C1 shifted to col 1
 	require.NotNil(t, cell)
-	assert.True(t, cell.IsError)
+	assert.True(t, cell.IsError())
 	assert.Equal(t, "#REF!", cell.Computed)
 
 	// Undo → valid
 	_, err := ctrl.Undo()
 	require.NoError(t, err)
 	assert.Equal(t, "2", ctrl.GetCellValue(0, 2))
-	assert.False(t, ctrl.Sheet.GetCell(0, 2).IsError)
+	assert.False(t, ctrl.Sheet.GetCell(0, 2).IsError())
 
 	// Redo → #REF! again
 	_, err = ctrl.Redo()
 	require.NoError(t, err)
 	cell = ctrl.Sheet.GetCell(0, 1)
 	require.NotNil(t, cell)
-	assert.True(t, cell.IsError)
+	assert.True(t, cell.IsError())
 	assert.Equal(t, "#REF!", cell.Computed)
 }
 

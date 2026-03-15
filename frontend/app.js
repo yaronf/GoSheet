@@ -165,9 +165,45 @@ spreadsheetContainer.addEventListener('scroll', () => {
   }, 100);
 });
 
+// Custom tooltip for error/long cells (bypasses native title quirks)
+const cellTooltip = document.getElementById('cell-tooltip');
+let tooltipHideTimeout = 0;
+spreadsheetContainer.addEventListener('mouseover', (e) => {
+  const cell = e.target.closest('.cell');
+  if (!cell?.dataset.tooltip) return;
+  clearTimeout(tooltipHideTimeout);
+  tooltipHideTimeout = 0;
+  cellTooltip.textContent = cell.dataset.tooltip;
+  cellTooltip.setAttribute('aria-hidden', 'false');
+  const rect = cell.getBoundingClientRect();
+  cellTooltip.style.left = `${rect.left}px`;
+  cellTooltip.style.top = `${rect.bottom + 4}px`;
+  cellTooltip.classList.add('visible');
+});
+spreadsheetContainer.addEventListener('mouseout', (e) => {
+  const cell = e.target.closest('.cell');
+  if (!cell?.dataset.tooltip) return;
+  const related = e.relatedTarget;
+  if (related && (cell.contains(related) || cellTooltip.contains(related)))
+    return;
+  tooltipHideTimeout = setTimeout(() => {
+    cellTooltip.classList.remove('visible');
+    cellTooltip.setAttribute('aria-hidden', 'true');
+    cellTooltip.textContent = '';
+    tooltipHideTimeout = 0;
+  }, 50);
+});
+
 // Story 18.1: Set to true in mousedown when a formula-bar ref insertion fires,
 // so the subsequent click event does not navigate to the clicked cell.
 let suppressNextCellClick = false;
+
+// Story 23.5: When formula bar blurs (e.g. before mousedown on cell), we may miss
+// document.activeElement === fbar. This flag lets us still treat it as formula-bar ref insertion.
+let formulaBarHadFocusBeforeBlur = false;
+window._clearFormulaBarHadFocusBeforeBlur = () => {
+  formulaBarHadFocusBeforeBlur = false;
+};
 
 /** Handle click on a row header (select/extend full row). */
 function handleRowHeaderClick(row, shiftKey) {
@@ -325,14 +361,28 @@ if (table) {
     const col = parseInt(cell.dataset.col, 10);
     if (!Number.isFinite(row) || !Number.isFinite(col)) return;
 
-    // Story 18.1 (AC5): If the formula bar is focused and contains a formula,
-    // insert the cell reference there. preventDefault keeps focus on the formula bar;
-    // suppressNextCellClick prevents the subsequent click event from navigating.
+    // Story 18.1 (AC5) / 23.5: If the formula bar is focused and contains a formula,
+    // start formula drag (same as inline) so both click and drag-to-range work.
+    // formulaBarHadFocusBeforeBlur: when user clicks a cell, the formula bar may blur
+    // before our mousedown runs, so we also check that flag.
     const fbar = document.getElementById('formula-bar');
-    if (fbar && document.activeElement === fbar && fbar.value.startsWith('=')) {
+    const formulaBarActive =
+      fbar &&
+      fbar.value.startsWith('=') &&
+      (document.activeElement === fbar || formulaBarHadFocusBeforeBlur);
+    if (formulaBarActive) {
+      formulaBarHadFocusBeforeBlur = false;
       e.preventDefault();
       suppressNextCellClick = true;
-      insertCellRefAtCursor(row, col, fbar);
+      formulaDragState = {
+        startRow: row,
+        startCol: col,
+        inputEl: fbar,
+      };
+      clearRefHighlights();
+      cell.classList.add('ref-highlight');
+      lastRefHighlightRange = { sRow: row, sCol: col, eRow: row, eCol: col };
+      insertRangeRefAtCursor(row, col, row, col, fbar);
       return;
     }
 
@@ -474,6 +524,12 @@ document.addEventListener('keydown', (e) => {
 // Formula bar event handlers
 const formulaBar = document.getElementById('formula-bar');
 if (formulaBar) {
+  formulaBar.addEventListener('focus', () => {
+    formulaBarHadFocusBeforeBlur = true;
+  });
+  formulaBar.addEventListener('blur', () => {
+    if (formulaBar.value.startsWith('=')) formulaBarHadFocusBeforeBlur = true;
+  });
   formulaBar.addEventListener('keydown', async (e) => {
     // Story 18.1: any key typed in formula bar resets the replace-span
     resetLastInsertedRefSpan();

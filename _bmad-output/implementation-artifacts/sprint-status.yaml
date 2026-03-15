@@ -297,13 +297,14 @@ development_status:
 
   # Epic 23: Spreadsheet UX Enhancements
   # Source: sprint-change-proposal-2026-03-15-epic23.md
-  epic-23: in-progress
+  epic-23: done
   23-1-generic-font-fallback: done
   23-2-text-wrapping-within-cell: done
   23-3-copy-paste-full-rows-cols: done
   23-4-recent-files-error-handling: done
-  23-5-formula-reference-ux-polish: ready-for-dev
+  23-5-formula-reference-ux-polish: done
   23-6-refresh-welcome-page-ui: done
+  23-7-typed-cell-error-enum: done
   epic-23-retrospective: optional
 
   # Backlog: Known issues / tech debt
