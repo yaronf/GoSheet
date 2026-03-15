@@ -407,7 +407,7 @@ CSV files contain **data only**.
 
 ### Problem: Formulas Show Errors
 
-**Symptoms:** Cell shows `#REF!`, `#VALUE!`, or similar.
+**Symptoms:** Cell shows `#REF!`, `#ERROR`, or similar.
 
 **Solutions:**
 

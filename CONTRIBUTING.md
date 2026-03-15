@@ -129,6 +129,18 @@ Opens Swagger UI in your browser (default: http://127.0.0.1:8000). Auto-reloads 
 
 6. **Test** — Run `npm run test:all` to verify no regressions.
 
+## Documentation
+
+The **`docs/`** folder is the canonical source for project documentation. Maintain these for the long term:
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — System architecture
+- [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — End-user guide
+- [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md) — `.sheet` format spec
+- [docs/debugging.md](docs/debugging.md) — Debugging workflow
+- [docs/coverage.md](docs/coverage.md) — Test coverage
+
+The **`_bmad-output/`** folder holds BMAD methodology artifacts (planning, epics, implementation stories). These are process artifacts; update `docs/` when making lasting documentation changes.
+
 ## Project Structure
 
 See [README.md](README.md) for detailed project structure.
@@ -141,9 +153,9 @@ See [README.md](README.md) for detailed project structure.
 - `electron/` - Electron main process
 - `model/` - Core spreadsheet logic
 - `controller/` - Application logic
-- `playwright_tests/` - UI tests
-- `tests/` - Go unit tests
-- `docs/` - User documentation (USER_GUIDE.md)
+- `playwright_tests/` - Playwright E2E tests
+- `model/`, `controller/`, `api/` - Go unit tests (co-located `_test.go` files)
+- `docs/` - Canonical documentation (ARCHITECTURE, USER_GUIDE, FILE_FORMAT, debugging, coverage)
 
 ## Code Style
 
@@ -195,7 +207,7 @@ Cyclomatic complexity is tracked per [complexity-baseline.md](_bmad-output/imple
 
 ### Test Coverage
 
-Coverage targets and baseline: [coverage-baseline.md](_bmad-output/implementation-artifacts/coverage-baseline.md)
+Coverage targets, baselines, and how to run: [docs/coverage.md](docs/coverage.md)
 
 | Package | Target |
 |---------|--------|

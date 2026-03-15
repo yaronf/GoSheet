@@ -16,7 +16,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a detailed architecture doc
 
 **Deployment**: Native macOS application (.app bundle)
 - Built with electron-builder for packaging
-- Go backend runs as HTTP server (localhost:3000)
+- Go backend runs as HTTP server (ephemeral port, e.g. localhost:3000)
 - Frontend communicates via HTTP API and Electron IPC
 - Single-window architecture
 
@@ -53,9 +53,19 @@ GoSheet exposes a REST API that lets AI agents (LLMs) read and modify spreadshee
 
 See [api/openapi.yaml](api/openapi.yaml) for the full API spec.
 
-## User Documentation
+## Documentation
 
-See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for end-user documentation: getting started, formulas, keyboard shortcuts, CSV import/export, and troubleshooting.
+The **`docs/`** folder contains the canonical documentation maintained for the long term:
+
+| Document | Purpose |
+|----------|---------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, components, data flows |
+| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | End-user guide: formulas, shortcuts, CSV, troubleshooting |
+| [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md) | `.sheet` file format specification |
+| [docs/debugging.md](docs/debugging.md) | Debugging workflow (logging, verbose mode) |
+| [docs/coverage.md](docs/coverage.md) | Test coverage (Go and JavaScript) |
+
+The **`_bmad-output/`** folder holds BMAD methodology artifacts (planning, epics, implementation stories). These are process artifacts; `docs/` is the source of truth for project documentation.
 
 ## Development Methodology
 
@@ -73,14 +83,13 @@ spreadsheet/
 │   └── generated/        # Go types from oapi-codegen (make generate)
 ├── assets/               # App icons and resources
 ├── controller/           # Application logic
-├── docs/                 # User documentation (USER_GUIDE.md)
+├── docs/                 # Canonical documentation (ARCHITECTURE, USER_GUIDE, FILE_FORMAT, debugging, coverage)
 ├── electron/             # Electron main process
 ├── frontend/             # Web UI (HTML/CSS/JS)
 │   └── api-types.d.ts    # TypeScript types from OpenAPI (npm run openapi:generate)
 ├── model/                # Core data model
 ├── playwright_tests/     # Playwright Electron UI tests
 ├── server/               # Go HTTP backend
-├── tests/                # Go unit tests
 ├── _bmad/                # BMAD methodology (_bmad/BMAD.md)
 ├── _bmad-output/         # BMAD planning and implementation artifacts
 ├── CONTRIBUTING.md       # Contributor guide
@@ -108,7 +117,7 @@ make run-electron
 # or: npm start
 ```
 
-The app launches as a native macOS window. Server runs at `http://localhost:3000`.
+The app launches as a native macOS window. The Go server binds to an ephemeral port (e.g. `http://localhost:3000`).
 
 For verbose debug logging, run `npm run start:verbose` or see [CONTRIBUTING.md](CONTRIBUTING.md#debug-logging-verbose-output).
 
@@ -117,7 +126,7 @@ For verbose debug logging, run `npm run start:verbose` or see [CONTRIBUTING.md](
 ```bash
 # Build and run Go server only (for debugging)
 make run
-# Opens http://localhost:3000 - use browser to access
+# Server binds to ephemeral port; URL printed to stderr — use browser to access
 ```
 
 ## Building the Application
@@ -196,15 +205,15 @@ npx playwright show-report
 **Over 50 tests** covering:
 
 ```bash
-# Run all Go tests
-go test ./tests/...
-# or: make test-unit
+# Run all Go tests (co-located in model/, controller/, api/)
+make test-unit
+# or: go test ./model/... ./controller/... ./api/...
 
 # Run with verbose output
-go test -v ./tests/...
+go test -v ./model/... ./controller/... ./api/...
 
 # Run with coverage
-go test -cover ./tests/...
+make coverage
 ```
 
 - Cell model and coordinate conversion
