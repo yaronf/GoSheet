@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Content Security Policy: suppress Electron CSP warning; allow CDN for Pico.css -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; connect-src http://localhost:* ws://localhost:*; img-src 'self' data:">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; connect-src http://localhost:* ws://localhost:*; img-src 'self' data:">
     <title>GoSheet - Untitled</title>
+    <!-- Google Fonts: Plus Jakarta Sans for welcome title -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
     <!-- Pico.css - Foundation layer for base styling -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <!-- Custom styles - Override Pico defaults -->
@@ -16,7 +20,7 @@
     <div id="app" data-view="welcome">
     <!-- Welcome screen -->
     <section class="welcome-screen" id="welcome-screen" aria-label="Welcome to GoSheet">
-        <h1 class="welcome-title">GoSheet</h1>
+        <h1 class="welcome-title"><span class="welcome-title-accent">Go</span>Sheet</h1>
         <p class="welcome-subtitle">Lightweight, fast spreadsheet for macOS</p>
         <div class="welcome-actions">
             <button type="button" class="welcome-btn welcome-btn-primary" id="welcome-btn-new" aria-label="Create new spreadsheet">Create New Spreadsheet</button>

@@ -900,15 +900,74 @@ input[type='text'].formula-bar {
   min-height: calc(100vh - 48px);
   padding: var(--spacing-xl);
   background: var(--color-bg-primary);
+  background-image: url('assets/welcome-bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   color: var(--color-text-primary);
   font-family: var(--font-family-base);
 }
 
+[data-theme='dark'] .welcome-screen {
+  background-image: none;
+}
+
+/* Welcome entrance animation — UX spec: 200ms ease-in-out, respect prefers-reduced-motion */
+@keyframes welcome-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#app[data-view='welcome'] .welcome-title {
+  animation: welcome-fade-in 0.3s ease-out forwards;
+}
+#app[data-view='welcome'] .welcome-subtitle {
+  animation: welcome-fade-in 0.3s ease-out 0.05s forwards;
+  opacity: 0;
+}
+#app[data-view='welcome'] .welcome-actions {
+  animation: welcome-fade-in 0.3s ease-out 0.1s forwards;
+  opacity: 0;
+}
+#app[data-view='welcome'] .welcome-recent-files {
+  animation: welcome-fade-in 0.3s ease-out 0.15s forwards;
+  opacity: 0;
+}
+#app[data-view='welcome'] .welcome-tip {
+  animation: welcome-fade-in 0.3s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app[data-view='welcome'] .welcome-title,
+  #app[data-view='welcome'] .welcome-subtitle,
+  #app[data-view='welcome'] .welcome-actions,
+  #app[data-view='welcome'] .welcome-recent-files,
+  #app[data-view='welcome'] .welcome-tip {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .welcome-title {
   margin: 0 0 var(--spacing-sm);
+  font-family: 'Plus Jakarta Sans', var(--font-family-base);
   font-size: 2.5rem;
   font-weight: 600;
   color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.welcome-title-accent {
+  color: var(--color-primary);
+  font-weight: 700;
 }
 
 .welcome-subtitle {

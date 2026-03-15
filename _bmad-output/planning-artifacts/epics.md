@@ -3726,5 +3726,6 @@ So that I can review past agent activity.
 - **23-3** Copy/paste full rows/cols — Support open-ended selections; remove/raise guard; efficient batch API
 - **23-4** Recent files error handling — Show error when file can't open; optionally remove from list; fix dialog visibility
 - **23-5** Formula reference UX polish — Fix drag in formula bar; improve inline visibility when ref inserted
+- **23-6** Refresh welcome page UI — Update layout, typography, spacing; add hover/focus states; ensure dark mode support
 
 **Source:** `sprint-change-proposal-2026-03-15-epic23.md`
