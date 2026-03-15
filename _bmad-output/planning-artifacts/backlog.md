@@ -39,3 +39,4 @@ installing native dependencies  arch=x64
 (node:53685) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
 (Use `node --trace-deprecation ...` to show where the warning was created)
 
+### Create a skill (textual background file) for agents
