@@ -63,6 +63,13 @@ async function setCellViaApi(window, row, col, value) {
   );
 }
 
+// In coverage mode, disable welcome animations for stable tests (instrumented code is slower).
+async function prepareWindow(window) {
+  if (process.env.COVERAGE === '1') {
+    await window.emulateMedia({ reducedMotion: 'reduce' });
+  }
+}
+
 // Helper: launch Electron without a file arg (normal startup)
 async function launchNormal() {
   const electronPath = require('electron');
@@ -94,6 +101,7 @@ base.test.describe('Open file from CLI', () => {
     // Must fully close before launching the second instance (single-instance lock).
     const setupApp = await launchNormal();
     const setupWindow = await setupApp.firstWindow();
+    await prepareWindow(setupWindow);
     await setupWindow.waitForLoadState('domcontentloaded');
 
     await Promise.race([
@@ -125,6 +133,7 @@ base.test.describe('Open file from CLI', () => {
     const testApp = await launchWithFile(sheetPath);
     try {
       const testWindow = await testApp.firstWindow();
+      await prepareWindow(testWindow);
       await testWindow.waitForLoadState('domcontentloaded');
 
       // Should go straight to spreadsheet view (file bypasses welcome screen)
@@ -162,6 +171,7 @@ base.test.describe('Open file from CLI', () => {
     const testApp = await launchWithFile(csvPath);
     try {
       const testWindow = await testApp.firstWindow();
+      await prepareWindow(testWindow);
       await testWindow.waitForLoadState('domcontentloaded');
 
       // Should show spreadsheet view
@@ -203,6 +213,7 @@ base.test.describe('Open file from CLI', () => {
       const testApp = await launchWithFile(ghostPath);
       try {
         const testWindow = await testApp.firstWindow();
+        await prepareWindow(testWindow);
         await testWindow.waitForLoadState('domcontentloaded');
 
         // Welcome screen should be shown (file was filtered by CLI guard)
@@ -236,6 +247,7 @@ base.test.describe('Open file from CLI', () => {
         fs.unlinkSync(ghostPath);
 
         const testWindow = await testApp.firstWindow();
+        await prepareWindow(testWindow);
         await testWindow.waitForLoadState('domcontentloaded');
 
         // open-file-error may fire: welcome + error modal. If not (race), at least welcome.
@@ -280,6 +292,7 @@ base.test.describe('Open file from CLI', () => {
     const testApp = await launchNormal();
     try {
       const testWindow = await testApp.firstWindow();
+      await prepareWindow(testWindow);
       await testWindow.waitForLoadState('domcontentloaded');
 
       // Wait for app to be ready (welcome or spreadsheet)
