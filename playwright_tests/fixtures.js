@@ -39,19 +39,22 @@ exports.test = base.test.extend({
     await use(electronApp);
 
     // Coverage: extract window.__coverage__ before closing (only when COVERAGE=1)
+    // Use windows() not firstWindow() — firstWindow() blocks up to 30s when app is closed
+    // (e.g. test_window_close, test_quit_warning), causing CI to hang for hours.
     if (process.env.COVERAGE === '1') {
       try {
-        const win = await electronApp.firstWindow();
-        const coverage = await win.evaluate(() => window.__coverage__);
-        if (coverage) {
-          const nycDir = path.join(__dirname, '..', '.nyc_output');
-          if (!fs.existsSync(nycDir)) fs.mkdirSync(nycDir);
-          // Each worker writes a uniquely named file; nyc merges them automatically
-          const outFile = path.join(
-            nycDir,
-            `coverage-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
-          );
-          fs.writeFileSync(outFile, JSON.stringify(coverage));
+        const wins = electronApp.windows();
+        if (wins.length > 0) {
+          const coverage = await wins[0].evaluate(() => window.__coverage__);
+          if (coverage) {
+            const nycDir = path.join(__dirname, '..', '.nyc_output');
+            if (!fs.existsSync(nycDir)) fs.mkdirSync(nycDir);
+            const outFile = path.join(
+              nycDir,
+              `coverage-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
+            );
+            fs.writeFileSync(outFile, JSON.stringify(coverage));
+          }
         }
       } catch (e) {
         console.warn('[coverage] Failed to extract coverage:', e.message);
@@ -66,6 +69,12 @@ exports.test = base.test.extend({
   window: async ({ electronApp }, use) => {
     // Wait for first window to open
     const window = await electronApp.firstWindow();
+
+    // In coverage mode, disable animations for stable tests (instrumented code is slower).
+    // Uses prefers-reduced-motion which spreadsheet.css already respects.
+    if (process.env.COVERAGE === '1') {
+      await window.emulateMedia({ reducedMotion: 'reduce' });
+    }
 
     // Wait for window to be fully loaded
     await window.waitForLoadState('domcontentloaded');

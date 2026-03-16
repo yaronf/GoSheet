@@ -4,6 +4,7 @@
 // Purpose: Verify Electron app launches and basic UI is visible
 
 const { test, expect } = require('./fixtures');
+const { ensureSpreadsheetView } = require('./helpers');
 
 test.describe('Electron App Smoke Tests', () => {
   test('Electron app launches successfully', async ({
@@ -29,8 +30,8 @@ test.describe('Electron App Smoke Tests', () => {
     await expect(createBtn).toBeVisible();
     expect(await createBtn.textContent()).toContain('Create New Spreadsheet');
 
-    // Click Create New to navigate to spreadsheet
-    await createBtn.click();
+    // Navigate to spreadsheet (handles modal if present, same as other specs)
+    await ensureSpreadsheetView(window);
 
     // Verify spreadsheet grid is visible after navigation
     const grid = window.locator('#spreadsheet');
@@ -42,10 +43,8 @@ test.describe('Electron App Smoke Tests', () => {
   });
 
   test('App has expected UI elements', async ({ window }) => {
-    // Story 8.2: Welcome screen shown first - navigate to spreadsheet
-    const welcomeScreen = window.locator('#welcome-screen');
-    await expect(welcomeScreen).toBeVisible({ timeout: 10000 });
-    await window.locator('#welcome-btn-new').click();
+    // Navigate to spreadsheet (handles welcome screen + modal)
+    await ensureSpreadsheetView(window);
 
     // Verify formula bar exists (in spreadsheet view)
     const formulaBar = window.locator('#formula-bar');
