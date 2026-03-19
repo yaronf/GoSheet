@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "start:verbose": "electron . --verbose",
-    "build": "npm run openapi:generate && npx electron-builder",
+    "build": "npm run openapi:generate && npx electron-builder --publish never",
     "build:app": "make build-server-universal && npm run openapi:generate && npx electron-builder --mac dir --universal",
     "test": "NODE_ENV=test playwright test",
     "coverage": "node scripts/instrument-frontend.js && COVERAGE=1 NODE_ENV=test playwright test",

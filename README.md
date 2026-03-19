@@ -144,12 +144,17 @@ npm start
 ### Production Build
 
 ```bash
+# Prerequisites: make install (or npm install) — required for Electron
+make install
+
 # Build for macOS (universal: arm64 + x64)
 npm run build
 
 # Output: dist/GoSheet-1.0.0-universal.dmg, dist/mac-universal/GoSheet.app
 # Verify: lipo -info dist/mac-universal/GoSheet.app/Contents/MacOS/GoSheet → x86_64 arm64
 ```
+
+After `make distclean`, run `make install` again before building.
 
 ## Testing
 
