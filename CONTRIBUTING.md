@@ -97,8 +97,8 @@ make build
 npm run build
 # or: make build-electron
 
-# Output: dist/mac-arm64/GoSheet.app (Apple Silicon), dist/mac/GoSheet.app (Intel), plus .zip and .dmg
-# Verify arch: file dist/mac-arm64/.../gosheet-server → arm64; file dist/mac/.../gosheet-server → x86_64
+# Output: dist/GoSheet-1.0.0-universal.dmg, dist/mac-universal/GoSheet.app
+# Verify arch: lipo -info dist/mac-universal/GoSheet.app/Contents/MacOS/GoSheet → x86_64 arm64
 ```
 
 ## API Contract & OpenAPI

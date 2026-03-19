@@ -1,7 +1,7 @@
 # GoSheet - Makefile for Electron Development
 # See README.md for "When to Run Which Tests" guidance
 
-.PHONY: install install-app test test-unit test-electron test-all build build-server-arm64 build-server-x64 build-server-universal build-electron run run-electron lint complexity coverage coverage-js coverage-all clean
+.PHONY: install install-app test test-unit test-electron test-all build build-server-arm64 build-server-x64 build-server-universal build-electron run run-electron lint complexity coverage coverage-js coverage-all clean distclean
 
 # Install Node.js dependencies
 install:
@@ -113,8 +113,12 @@ install-app: build-electron
 	       ([ -d "dist/mac-arm64/GoSheet.app" ] && echo "dist/mac-arm64/GoSheet.app" || echo "dist/mac/GoSheet.app")); \
 	sudo cp -r "$$APP" /Applications/GoSheet.app && echo "Installed $$APP to /Applications/GoSheet.app"
 
-# Clean build artifacts
+# Clean build artifacts (keeps node_modules — npm run build needs Electron)
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf bin/
-	rm -rf dist/ node_modules/
+	rm -rf dist/
+
+# Full clean including node_modules (run npm install before building again)
+distclean: clean
+	rm -rf node_modules/

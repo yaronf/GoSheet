@@ -147,8 +147,8 @@ npm start
 # Build for macOS (universal: arm64 + x64)
 npm run build
 
-# Output: dist/mac-arm64/GoSheet.app, dist/mac/GoSheet.app, .zip and .dmg for each arch
-# Verify: file dist/mac-arm64/.../gosheet-server → arm64; dist/mac/.../gosheet-server → x86_64
+# Output: dist/GoSheet-1.0.0-universal.dmg, dist/mac-universal/GoSheet.app
+# Verify: lipo -info dist/mac-universal/GoSheet.app/Contents/MacOS/GoSheet → x86_64 arm64
 ```
 
 ## Testing
