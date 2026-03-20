@@ -16,6 +16,40 @@
 
 const { Menu, app, BrowserWindow } = require('electron');
 const path = require('path');
+const fs = require('fs');
+
+function showAboutWindow() {
+  const iconPaths = [
+    path.join(app.getAppPath(), 'assets', 'Icon.png'),
+    path.join(app.getAppPath(), 'assets', 'icon.icns'),
+  ];
+  const iconPath = iconPaths.find((p) => fs.existsSync(p)) || null;
+  const params = new URLSearchParams({
+    version: app.getVersion(),
+    copyright: `© ${new Date().getFullYear()} All rights reserved`,
+  });
+  if (iconPath) params.set('icon', `file://${iconPath}`);
+
+  const win = new BrowserWindow({
+    width: 340,
+    height: 340,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    title: 'About GoSheet',
+    backgroundColor: '#f8fafb',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  win.setMenu(null);
+  win.loadFile(path.join(__dirname, 'about.html'), {
+    query: Object.fromEntries(params),
+  });
+}
 
 /**
  * Story 10.8: Debug logs only when NODE_ENV=development or DEBUG=1
@@ -183,7 +217,7 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           {
             label: app.name,
             submenu: [
-              { role: 'about' },
+              { label: `About ${app.name}`, click: () => showAboutWindow() },
               { type: 'separator' },
               { role: 'services' },
               { type: 'separator' },
@@ -614,8 +648,7 @@ function buildMenu(recentFiles = [], onClearRecent, styles = null) {
           label: 'About GoSheet',
           click: () => {
             if (DEBUG) console.log('[Menu] About GoSheet triggered');
-            // Use Electron's native About panel (macOS)
-            app.showAboutPanel();
+            showAboutWindow();
           },
         },
       ],

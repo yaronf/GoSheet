@@ -149,13 +149,11 @@ export async function setupWelcomeScreen() {
   document
     .getElementById('welcome-btn-open')
     ?.addEventListener('click', async () => {
-      showSpreadsheet();
       document.getElementById('load-btn').click();
     });
   document
     .getElementById('welcome-btn-import')
     ?.addEventListener('click', async () => {
-      showSpreadsheet();
       await handleImportCSV();
     });
 }

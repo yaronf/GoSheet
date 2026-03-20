@@ -646,6 +646,7 @@ export function showCSVPreviewModal(preview) {
       window.selectCell?.(0, 0);
       window.updateFileStatus?.();
       window.syncFormatMenuFromApi?.();
+      window.showSpreadsheet?.();
 
       if (window.__DEBUG__) console.log(`CSV imported: ${result.message}`);
     } catch (error) {

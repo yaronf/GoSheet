@@ -692,7 +692,10 @@ function setupFormatMenuListeners() {
       await window.buildSpreadsheet?.();
       await window.refreshAllCells?.();
     } catch (error) {
-      await showAlert('Error merging cells: ' + error.message);
+      const msg = error.message?.includes('only one cell')
+        ? 'Cannot merge: more than one cell contains data. Clear the extra content first, then merge.'
+        : 'Error merging cells: ' + error.message;
+      await showAlert(msg);
     }
   });
 

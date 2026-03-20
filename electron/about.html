@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' file: data:">
+  <title>About GoSheet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f8fafb;
+      color: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      gap: 12px;
+      user-select: none;
+      -webkit-app-region: drag;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1a2e; color: #f9fafb; }
+      .subtitle, .copyright { color: #9ca3af; }
+    }
+
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 4px;
+    }
+
+    .title {
+      font-size: 2rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .accent {
+      color: #00a896;
+      font-weight: 700;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .accent { color: #14b8a6; }
+    }
+
+    .version {
+      font-size: 0.9rem;
+      color: #6b7280;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+
+    .divider {
+      width: 40px;
+      height: 1px;
+      background: #e5e7eb;
+      margin: 4px 0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .divider { background: #374151; }
+    }
+
+    .copyright {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <img class="icon" id="app-icon" alt="GoSheet icon" />
+  <div class="title"><span class="accent">Go</span>Sheet</div>
+  <div class="version" id="app-version"></div>
+  <div class="divider"></div>
+  <div class="subtitle">Lightweight, fast spreadsheet for macOS</div>
+  <div class="copyright" id="app-copyright"></div>
+  <script>
+    const p = new URLSearchParams(location.search);
+    document.getElementById('app-version').textContent = p.get('version') ? `Version ${p.get('version')}` : '';
+    document.getElementById('app-copyright').textContent = p.get('copyright') || '';
+    const iconEl = document.getElementById('app-icon');
+    const icon = p.get('icon');
+    if (icon) {
+      iconEl.src = icon;
+    } else {
+      iconEl.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

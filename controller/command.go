@@ -812,6 +812,28 @@ func (cmd *SetMergeCommand) Do() error {
 	if nonEmpty > 1 {
 		return fmt.Errorf("only one cell in the selection may have content to merge")
 	}
+	// If the single non-empty cell is not the anchor, move its value to the anchor.
+	anchorCell := cmd.ctrl.Sheet.GetCell(cmd.startRow, cmd.startCol)
+	if anchorCell == nil || anchorCell.Value == "" {
+		for r := cmd.startRow; r < cmd.startRow+cmd.rowSpan; r++ {
+			for c := cmd.startCol; c < cmd.startCol+cmd.colSpan; c++ {
+				if r == cmd.startRow && c == cmd.startCol {
+					continue
+				}
+				cell := cmd.ctrl.Sheet.GetCell(r, c)
+				if cell != nil && cell.Value != "" {
+					rawVal := cell.RawValue()
+					if err := cmd.ctrl.setCellValueInternal(cmd.startRow, cmd.startCol, rawVal); err != nil {
+						return err
+					}
+					if err := cmd.ctrl.setCellValueInternal(r, c, ""); err != nil {
+						return err
+					}
+					break
+				}
+			}
+		}
+	}
 	cmd.ctrl.Sheet.Merges = append(cmd.ctrl.Sheet.Merges, newMerge)
 	cmd.ctrl.Sheet.Modified = true
 	return nil

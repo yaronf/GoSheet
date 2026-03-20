@@ -61,6 +61,35 @@ test.describe('Merge-aware cell behavior (Story 11.4)', () => {
 
     await expect(cell).toHaveText('edited');
   });
+
+  test('merging moves non-anchor cell value to anchor', async ({ window }) => {
+    // Value is in C1 (col 2), not in A1 (the anchor)
+    await setCellViaApi(window, 0, 2, 'hello');
+
+    // Merge A1:C1 via API
+    const result = await window.evaluate(async () => {
+      const res = await fetch('/api/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startRow: 0,
+          startCol: 0,
+          rowSpan: 1,
+          colSpan: 3,
+        }),
+      });
+      return res.json();
+    });
+    expect(result.success).toBe(true);
+
+    await window.evaluate(async () => {
+      await window.buildSpreadsheet?.();
+      await window.refreshAllCells?.();
+    });
+
+    // Anchor cell should display the value
+    await expect(window.locator('#cell-0-0')).toHaveText('hello');
+  });
 });
 
 test.describe('Format menu Merge/Unmerge (Story 11.5)', () => {

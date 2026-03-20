@@ -612,7 +612,7 @@ input[type='text'].formula-bar {
 
 /* Story 13.4: Compact cell-ref in toolbar */
 .toolbar-compact .cell-ref {
-  width: 64px;
+  width: 90px;
   padding: 4px var(--spacing-sm);
   font-size: 12px;
   height: 28px;

@@ -667,7 +667,8 @@ document.getElementById('load-btn').addEventListener('click', async () => {
   try {
     setReadOnly(false);
     const path = await LoadFile('');
-    if (path && window.electronAPI?.addRecentFile) {
+    if (!path) return; // user cancelled dialog
+    if (window.electronAPI?.addRecentFile) {
       await window.electronAPI.addRecentFile(path);
     }
     appState.ROWS = 100;
@@ -677,6 +678,7 @@ document.getElementById('load-btn').addEventListener('click', async () => {
     selectCell(0, 0);
     updateFileStatus();
     window.syncFormatMenuFromApi?.();
+    showSpreadsheet();
     if (window.__DEBUG__) console.log('File loaded successfully');
   } catch (error) {
     await showAlert('Error loading file: ' + error.message);

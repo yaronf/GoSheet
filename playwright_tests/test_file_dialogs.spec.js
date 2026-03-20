@@ -5,6 +5,32 @@ const { test, expect } = require('./fixtures');
 const eph = require('electron-playwright-helpers');
 const { ensureSpreadsheetView } = require('./helpers');
 
+test.describe('Welcome screen — cancel open dialog stays on welcome', () => {
+  test('cancelling open dialog from welcome screen returns to welcome', async ({
+    electronApp,
+    window,
+  }) => {
+    // Force welcome view regardless of initial state
+    await window.evaluate(() => window.showWelcome?.());
+    await expect(window.locator('#app')).toHaveAttribute(
+      'data-view',
+      'welcome'
+    );
+
+    // Stub the open dialog to return cancellation
+    await eph.stubDialog(electronApp, 'showOpenDialog', { canceled: true });
+
+    // Click "Open Existing File" from welcome screen
+    await window.locator('#welcome-btn-open').click();
+
+    // After cancel, welcome screen must still be visible
+    await expect(window.locator('#app')).toHaveAttribute(
+      'data-view',
+      'welcome'
+    );
+  });
+});
+
 test.describe('File Dialog Tests', () => {
   test.beforeEach(async ({ window }) => {
     await ensureSpreadsheetView(window);
